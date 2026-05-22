@@ -1,10 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import { Heart, Share2, MessageCircle, MapPin, Star, Clock, Check, X } from 'lucide-react'
+import { Heart, Share2, MessageCircle, MapPin, Star, Clock, Check, X, Phone, MessageSquare } from 'lucide-react'
 import Sidebar from '@/components/Sidebar'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
+
+export const dynamic = 'force-dynamic'
 
 export default function ProfilePage() {
   const [isFavorite, setIsFavorite] = useState(false)
@@ -17,6 +19,10 @@ export default function ProfilePage() {
     tier: 'elite',
     rating: 4.8,
     reviews: 342,
+    phone: '+234 (0) 801 234 5678',
+    whatsapp: '+234 (0) 801 234 5678',
+    verified: true,
+    followers: 1234,
     image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=600&h=600&fit=crop',
     gallery: [
       'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=300&h=300&fit=crop',
@@ -54,18 +60,18 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="flex min-h-screen bg-dark-bg">
+    <div className="flex min-h-screen bg-dark-bg flex-col lg:flex-row">
       <Sidebar />
 
-      <div className="flex-1 ml-20 lg:ml-64">
+      <div className="flex-1 w-full overflow-x-hidden">
         <Header />
 
-        <main className="container mx-auto px-4 py-8">
-          {/* Profile Header Section */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+        <main className="w-full px-3 sm:px-4 py-4 sm:py-8">
+          {/* Profile Header Section - Responsive Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-8 mb-6 sm:mb-8">
             {/* Main Image */}
-            <div className="md:col-span-1">
-              <div className="relative rounded-2xl overflow-hidden shadow-2xl h-96 md:h-full">
+            <div className="lg:col-span-1">
+              <div className="relative rounded-2xl overflow-hidden shadow-2xl aspect-[3/4] w-full">
                 <img
                   src={profile.image}
                   alt={profile.name}
@@ -73,106 +79,127 @@ export default function ProfilePage() {
                 />
 
                 {/* Tier Badge */}
-                <div className="absolute top-4 right-4 bg-elite-color text-white px-4 py-2 rounded-full font-bold text-sm">
+                <div className="absolute top-2 sm:top-4 right-2 sm:right-4 bg-elite-color text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-full font-bold text-xs sm:text-sm">
                   ★ ELITE
                 </div>
 
                 {/* Available Badge */}
-                <div className="absolute bottom-4 left-4 bg-available-green text-dark-bg px-4 py-2 rounded-full font-bold text-sm flex items-center gap-2">
-                  <Check size={16} />
-                  Available Today
+                <div className="absolute bottom-2 sm:bottom-4 left-2 sm:left-4 bg-available-green text-dark-bg px-2 sm:px-4 py-1 sm:py-2 rounded-full font-bold text-xs sm:text-sm flex items-center gap-1 sm:gap-2">
+                  <Check size={14} className="sm:w-4 sm:h-4" />
+                  <span>Available</span>
                 </div>
 
                 {/* Favorite Button */}
                 <button
                   onClick={() => setIsFavorite(!isFavorite)}
-                  className="absolute bottom-4 right-4 p-3 rounded-full bg-white/90 hover:bg-white transition-colors"
+                  className="absolute bottom-2 sm:bottom-4 right-2 sm:right-4 p-2 sm:p-3 rounded-full bg-white/90 hover:bg-white transition-colors"
                 >
                   <Heart
-                    size={24}
-                    className={isFavorite ? 'fill-primary-color text-primary-color' : 'text-dark-bg'}
+                    size={18}
+                    className={`sm:w-6 sm:h-6 ${isFavorite ? 'fill-primary-color text-primary-color' : 'text-dark-bg'}`}
                   />
                 </button>
               </div>
 
               {/* Photo Gallery */}
-              <div className="grid grid-cols-4 gap-2 mt-4">
+              <div className="grid grid-cols-4 gap-2 mt-2 sm:mt-4">
                 {profile.gallery.map((img, idx) => (
                   <img
                     key={idx}
                     src={img}
                     alt={`Gallery ${idx + 1}`}
-                    className="w-full h-24 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
+                    className="w-full aspect-square object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
                   />
                 ))}
               </div>
             </div>
 
             {/* Profile Info */}
-            <div className="md:col-span-2">
+            <div className="lg:col-span-2">
               {/* Name and Location */}
-              <div className="mb-6">
-                <div className="flex items-center gap-4 mb-2">
-                  <h1 className="text-4xl font-bold text-light">{profile.name}</h1>
-                  <span className="text-2xl text-text-muted">{profile.age}</span>
+              <div className="mb-4 sm:mb-6">
+                <div className="flex items-center gap-2 sm:gap-4 mb-1 sm:mb-2 flex-wrap">
+                  <h1 className="text-2xl sm:text-4xl font-bold text-light">{profile.name}</h1>
+                  <span className="text-lg sm:text-2xl text-text-muted">{profile.age}</span>
+                  {profile.verified && <span className="text-xs sm:text-sm bg-green-500/20 text-green-400 px-2 sm:px-3 py-1 rounded-full">✓ Verified</span>}
                 </div>
-                <div className="flex items-center gap-2 text-secondary-color mb-4">
-                  <MapPin size={18} />
+                <div className="flex items-center gap-2 text-secondary-color mb-2 sm:mb-4 text-sm sm:text-base">
+                  <MapPin size={16} className="sm:w-5 sm:h-5" />
                   <span>{profile.location}</span>
                 </div>
 
                 {/* Rating */}
-                <div className="flex items-center gap-4">
-                  <div className="flex gap-1">
+                <div className="flex items-center gap-2 sm:gap-4 text-sm sm:text-base">
+                  <div className="flex gap-0.5 sm:gap-1">
                     {[...Array(5)].map((_, i) => (
                       <Star
                         key={i}
-                        size={20}
-                        className={i < Math.floor(profile.rating) ? 'fill-secondary-color text-secondary-color' : 'text-text-muted'}
+                        size={14}
+                        className={`sm:w-5 sm:h-5 ${i < Math.floor(profile.rating) ? 'fill-secondary-color text-secondary-color' : 'text-text-muted'}`}
                       />
                     ))}
                   </div>
                   <span className="text-light font-semibold">{profile.rating}</span>
-                  <span className="text-text-muted">({profile.reviews} reviews)</span>
+                  <span className="text-text-muted">({profile.reviews})</span>
                 </div>
               </div>
 
               {/* Quick Stats */}
-              <div className="grid grid-cols-3 gap-4 mb-6 p-6 bg-card-bg rounded-xl border border-color">
+              <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4 sm:mb-6 p-3 sm:p-6 bg-card-bg rounded-xl border border-color text-sm sm:text-base">
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-secondary-color">₦{profile.pricing.hourly}</div>
-                  <div className="text-text-muted text-sm">Per Hour</div>
+                  <div className="text-lg sm:text-2xl font-bold text-secondary-color">₦{profile.pricing.hourly}</div>
+                  <div className="text-text-muted text-xs sm:text-sm">Per Hour</div>
                 </div>
                 <div className="text-center border-x border-color">
-                  <div className="text-2xl font-bold text-secondary-color">₦{profile.pricing.overnight}</div>
-                  <div className="text-text-muted text-sm">Overnight</div>
+                  <div className="text-lg sm:text-2xl font-bold text-secondary-color">₦{profile.pricing.overnight}</div>
+                  <div className="text-text-muted text-xs sm:text-sm">Overnight</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-secondary-color">₦{profile.pricing.video}</div>
-                  <div className="text-text-muted text-sm">Video Call</div>
+                  <div className="text-lg sm:text-2xl font-bold text-secondary-color">₦{profile.pricing.video}</div>
+                  <div className="text-text-muted text-xs sm:text-sm">Video Call</div>
                 </div>
               </div>
 
+              {/* Contact Section - Phone & WhatsApp */}
+              <div className="grid grid-cols-2 gap-2 mb-4 sm:mb-6">
+                <a
+                  href={`tel:${profile.phone.replace(/\s/g, '')}`}
+                  className="bg-blue-600 hover:bg-blue-700 text-white py-2 sm:py-3 px-2 sm:px-4 rounded-lg font-semibold transition-colors flex items-center justify-center gap-1.5 text-xs sm:text-sm"
+                >
+                  <Phone size={16} className="sm:w-5 sm:h-5" />
+                  <span>Call</span>
+                </a>
+                <a
+                  href={`https://wa.me/${profile.whatsapp.replace(/\s/g, '')}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-green-600 hover:bg-green-700 text-white py-2 sm:py-3 px-2 sm:px-4 rounded-lg font-semibold transition-colors flex items-center justify-center gap-1.5 text-xs sm:text-sm"
+                >
+                  <MessageSquare size={16} className="sm:w-5 sm:h-5" />
+                  <span>WhatsApp</span>
+                </a>
+              </div>
+
               {/* Action Buttons */}
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                <button className="bg-primary-color hover:bg-[#A00000] text-white py-3 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2">
-                  <MessageCircle size={18} />
-                  Chat
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3 mb-4 sm:mb-6">
+                <button className="bg-primary-color hover:bg-[#A00000] text-white py-2 sm:py-3 rounded-lg font-semibold transition-colors flex items-center justify-center gap-1.5 text-xs sm:text-sm">
+                  <MessageCircle size={16} className="sm:w-5 sm:h-5" />
+                  <span>Chat</span>
                 </button>
-                <button className="bg-vip-color hover:bg-[#E63E00] text-white py-3 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2">
-                  <Heart size={18} />
-                  Book
+                <button className="bg-vip-color hover:bg-[#E63E00] text-white py-2 sm:py-3 rounded-lg font-semibold transition-colors flex items-center justify-center gap-1.5 text-xs sm:text-sm">
+                  <Heart size={16} className="sm:w-5 sm:h-5" />
+                  <span>Book</span>
                 </button>
-                <button className="bg-card-bg hover:bg-[#252525] text-light py-3 rounded-lg font-semibold transition-colors border border-color flex items-center justify-center gap-2">
-                  <Share2 size={18} />
-                  Share
+                <button className="bg-card-bg hover:bg-[#252525] text-light py-2 sm:py-3 rounded-lg font-semibold transition-colors border border-color flex items-center justify-center gap-1.5 text-xs sm:text-sm">
+                  <Share2 size={16} className="sm:w-5 sm:h-5" />
+                  <span>Share</span>
                 </button>
               </div>
 
               {/* Bio */}
-              <div className="mt-6 p-6 bg-card-bg rounded-xl border border-color">
-                <h3 className="text-lg font-semibold text-light mb-3">About Me</h3>
-                <p className="text-text-light leading-relaxed">{profile.bio}</p>
+              <div className="p-3 sm:p-6 bg-card-bg rounded-xl border border-color">
+                <h3 className="text-base sm:text-lg font-semibold text-light mb-2 sm:mb-3">About Me</h3>
+                <p className="text-text-light text-sm sm:text-base leading-relaxed">{profile.bio}</p>
               </div>
             </div>
           </div>
@@ -180,12 +207,12 @@ export default function ProfilePage() {
           {/* Tabs Section */}
           <div className="bg-card-bg rounded-xl border border-color overflow-hidden">
             {/* Tabs */}
-            <div className="flex gap-0 border-b border-color">
+            <div className="flex gap-0 border-b border-color overflow-x-auto">
               {['about', 'services', 'availability', 'reviews'].map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
-                  className={`flex-1 py-4 px-6 font-semibold transition-colors text-center ${
+                  className={`flex-1 py-3 sm:py-4 px-2 sm:px-6 font-semibold transition-colors text-center text-xs sm:text-base whitespace-nowrap ${
                     activeTab === tab
                       ? 'bg-primary-color text-white'
                       : 'text-text-muted hover:text-light'
@@ -197,30 +224,30 @@ export default function ProfilePage() {
             </div>
 
             {/* Tab Content */}
-            <div className="p-6">
+            <div className="p-3 sm:p-6">
               {activeTab === 'about' && (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
                   <div>
-                    <p className="text-text-muted text-sm mb-2">Body Type</p>
-                    <p className="text-light font-semibold">{profile.bodyType}</p>
+                    <p className="text-text-muted text-xs sm:text-sm mb-1 sm:mb-2">Body Type</p>
+                    <p className="text-light font-semibold text-sm">{profile.bodyType}</p>
                   </div>
                   <div>
-                    <p className="text-text-muted text-sm mb-2">Ethnicity</p>
-                    <p className="text-light font-semibold">{profile.ethnicity}</p>
+                    <p className="text-text-muted text-xs sm:text-sm mb-1 sm:mb-2">Ethnicity</p>
+                    <p className="text-light font-semibold text-sm">{profile.ethnicity}</p>
                   </div>
                   <div>
-                    <p className="text-text-muted text-sm mb-2">Hair Color</p>
-                    <p className="text-light font-semibold">{profile.hairColor}</p>
+                    <p className="text-text-muted text-xs sm:text-sm mb-1 sm:mb-2">Hair Color</p>
+                    <p className="text-light font-semibold text-sm">{profile.hairColor}</p>
                   </div>
                   <div>
-                    <p className="text-text-muted text-sm mb-2">Height</p>
-                    <p className="text-light font-semibold">{profile.height}</p>
+                    <p className="text-text-muted text-xs sm:text-sm mb-1 sm:mb-2">Height</p>
+                    <p className="text-light font-semibold text-sm">{profile.height}</p>
                   </div>
                   <div className="col-span-2">
-                    <p className="text-text-muted text-sm mb-2">Languages</p>
-                    <div className="flex gap-2">
+                    <p className="text-text-muted text-xs sm:text-sm mb-1 sm:mb-2">Languages</p>
+                    <div className="flex gap-2 flex-wrap">
                       {profile.languages.map((lang) => (
-                        <span key={lang} className="bg-primary-color/20 text-secondary-color px-3 py-1 rounded-full text-sm">
+                        <span key={lang} className="bg-primary-color/20 text-secondary-color px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm">
                           {lang}
                         </span>
                       ))}
@@ -230,17 +257,17 @@ export default function ProfilePage() {
               )}
 
               {activeTab === 'services' && (
-                <div className="space-y-3">
+                <div className="space-y-2 sm:space-y-3">
                   {profile.services.map((service) => (
-                    <div key={service.name} className="flex items-center justify-between p-4 bg-dark-bg rounded-lg">
+                    <div key={service.name} className="flex items-center justify-between p-2 sm:p-4 bg-dark-bg rounded-lg text-sm sm:text-base">
                       <span className="text-light font-semibold">{service.name}</span>
                       {service.available ? (
-                        <span className="flex items-center gap-2 text-yes-color font-semibold">
-                          <Check size={18} /> Available
+                        <span className="flex items-center gap-1 sm:gap-2 text-yes-color font-semibold text-xs sm:text-sm">
+                          <Check size={16} className="sm:w-5 sm:h-5" /> Available
                         </span>
                       ) : (
-                        <span className="flex items-center gap-2 text-no-color font-semibold">
-                          <X size={18} /> Not Available
+                        <span className="flex items-center gap-1 sm:gap-2 text-no-color font-semibold text-xs sm:text-sm">
+                          <X size={16} className="sm:w-5 sm:h-5" /> Not Available
                         </span>
                       )}
                     </div>
@@ -251,14 +278,14 @@ export default function ProfilePage() {
               {activeTab === 'availability' && (
                 <div className="space-y-2">
                   {Object.entries(profile.availability).map(([day, info]) => (
-                    <div key={day} className="flex items-center justify-between p-4 bg-dark-bg rounded-lg">
+                    <div key={day} className="flex items-center justify-between p-2 sm:p-4 bg-dark-bg rounded-lg text-sm">
                       <span className="text-light font-semibold capitalize">{day}</span>
                       {info.available ? (
-                        <span className="text-yes-color font-semibold">
+                        <span className="text-yes-color font-semibold text-xs sm:text-sm">
                           {info.from} - {info.to}
                         </span>
                       ) : (
-                        <span className="text-no-color font-semibold">Not Available</span>
+                        <span className="text-no-color font-semibold text-xs sm:text-sm">Not Available</span>
                       )}
                     </div>
                   ))}
@@ -266,19 +293,19 @@ export default function ProfilePage() {
               )}
 
               {activeTab === 'reviews' && (
-                <div className="space-y-4">
+                <div className="space-y-3 sm:space-y-4">
                   {[1, 2, 3].map((review) => (
-                    <div key={review} className="p-4 bg-dark-bg rounded-lg border border-color">
-                      <div className="flex items-center justify-between mb-2">
-                        <p className="text-light font-semibold">Anonymous Client</p>
-                        <div className="flex gap-1">
+                    <div key={review} className="p-2 sm:p-4 bg-dark-bg rounded-lg border border-color">
+                      <div className="flex items-center justify-between mb-1 sm:mb-2 flex-wrap gap-2">
+                        <p className="text-light font-semibold text-sm">Anonymous Client</p>
+                        <div className="flex gap-0.5 sm:gap-1">
                           {[...Array(5)].map((_, i) => (
-                            <Star key={i} size={16} className="fill-secondary-color text-secondary-color" />
+                            <Star key={i} size={12} className="sm:w-4 sm:h-4 fill-secondary-color text-secondary-color" />
                           ))}
                         </div>
                       </div>
-                      <p className="text-text-light text-sm">Great experience! Highly recommended. Professional and friendly.</p>
-                      <p className="text-text-muted text-xs mt-2">2 weeks ago</p>
+                      <p className="text-text-light text-xs sm:text-sm">Great experience! Highly recommended. Professional and friendly.</p>
+                      <p className="text-text-muted text-xs mt-1 sm:mt-2">2 weeks ago</p>
                     </div>
                   ))}
                 </div>

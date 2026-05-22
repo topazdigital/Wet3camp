@@ -1,11 +1,45 @@
 'use client'
 
-import { useState } from 'react'
 import { Menu, X } from 'lucide-react'
 import Link from 'next/link'
+import { useState, useEffect } from 'react'
+import { useSidebar } from '@/lib/sidebar-context'
 
 export default function Sidebar() {
-  const [isOpen, setIsOpen] = useState(true)
+  const [clientReady, setClientReady] = useState(false)
+  const [localIsOpen, setLocalIsOpen] = useState(true)
+  const [localIsMobile, setLocalIsMobile] = useState(false)
+
+  // Try to get context, fall back to local state
+  let isOpen = localIsOpen
+  let setIsOpen = setLocalIsOpen
+  let isMobile = localIsMobile
+
+  try {
+    const context = useSidebar()
+    isOpen = context.isOpen
+    setIsOpen = context.setIsOpen
+    isMobile = context.isMobile
+  } catch (e) {
+    // Not in provider context during static generation
+    // Use local state instead
+  }
+
+  useEffect(() => {
+    setClientReady(true)
+    const handleResize = () => {
+      setLocalIsMobile(window.innerWidth < 1024)
+      if (window.innerWidth < 1024) {
+        setLocalIsOpen(false)
+      } else {
+        setLocalIsOpen(true)
+      }
+    }
+
+    handleResize()
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
   const menuItems = [
     { icon: '🏠', label: 'Home', href: '/' },
@@ -21,20 +55,25 @@ export default function Sidebar() {
     { icon: '🚫', label: 'Blacklisted', href: '/blacklist' },
     { icon: '💬', label: 'Testimonials', href: '/testimonials' },
     { icon: '❓', label: 'FAQs', href: '/faqs' },
+    { icon: '💌', label: 'Messages', href: '/messages' },
     { icon: '📧', label: 'Contact Admin', href: '/contact' },
     { icon: '📱', label: 'Install App', href: '/install', highlight: true },
   ]
 
   return (
     <>
-      {/* Sidebar */}
+      {/* Sidebar - Push layout on desktop, overlay on mobile */}
       <aside
-        className={`fixed left-0 top-0 h-screen bg-card-bg border-r border-color overflow-y-auto transition-all duration-300 z-40 ${
-          isOpen ? 'w-64' : 'w-20'
+        className={`${
+          isMobile ? 'fixed' : 'relative'
+        } left-0 top-0 ${
+          isMobile ? 'h-screen' : 'h-auto'
+        } bg-card-bg border-r border-color overflow-y-auto transition-all duration-300 z-40 ${
+          isOpen ? (isMobile ? 'w-64' : 'w-56 lg:w-64') : (isMobile ? 'w-0' : 'w-20')
         }`}
       >
         {/* Sidebar Header */}
-        <div className="flex items-center justify-between p-4 border-b border-color">
+        <div className="flex items-center justify-between p-4 border-b border-color sticky top-0 bg-card-bg">
           {isOpen && <h2 className="text-lg font-bold text-secondary-color">Menu</h2>}
           <button
             onClick={() => setIsOpen(!isOpen)}
@@ -45,12 +84,13 @@ export default function Sidebar() {
         </div>
 
         {/* Menu Items */}
-        <nav className="p-4 space-y-2">
+        <nav className="p-3 space-y-1">
           {menuItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}
-              className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+              onClick={() => isMobile && setIsOpen(false)}
+              className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors whitespace-nowrap ${
                 item.highlight
                   ? 'bg-primary-color text-white font-semibold'
                   : 'text-light hover:bg-dark-bg'
@@ -58,26 +98,26 @@ export default function Sidebar() {
               title={!isOpen ? item.label : ''}
             >
               <span className="text-xl flex-shrink-0">{item.icon}</span>
-              {isOpen && <span className="text-sm">{item.label}</span>}
+              {isOpen && <span className="text-sm truncate">{item.label}</span>}
             </Link>
           ))}
         </nav>
       </aside>
 
-      {/* Toggle Button for Small Screens - Only visible when closed */}
-      {!isOpen && (
+      {/* Mobile Menu Toggle - Only on small screens */}
+      {isMobile && !isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-6 left-6 p-3 rounded-full bg-primary-color text-white z-50 lg:hidden hover:bg-[#A00000] transition-colors"
+          className="fixed bottom-6 left-6 p-3 rounded-full bg-primary-color text-white z-50 hover:bg-[#A00000] transition-colors shadow-lg"
         >
           <Menu size={24} />
         </button>
       )}
 
-      {/* Overlay for Mobile */}
-      {isOpen && (
+      {/* Mobile Overlay */}
+      {isMobile && isOpen && (
         <div
-          className="fixed inset-0 bg-black/50 lg:hidden z-30"
+          className="fixed inset-0 bg-black/50 z-30"
           onClick={() => setIsOpen(false)}
         />
       )}

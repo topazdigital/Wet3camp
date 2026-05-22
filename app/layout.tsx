@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
+import { SidebarProvider } from '@/lib/sidebar-context'
 
 const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
@@ -43,7 +44,9 @@ export default function RootLayout({
   return (
     <html lang="en" className="bg-dark-bg">
       <body className="font-sans antialiased bg-dark-bg text-text-light">
-        {children}
+        <SidebarProvider>
+          {children}
+        </SidebarProvider>
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>

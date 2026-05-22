@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import InfiniteScroll from 'react-infinite-scroll-component'
 import { Star, Heart, MapPin } from 'lucide-react'
+import Link from 'next/link'
 
 interface Escort {
   id: number
@@ -16,7 +17,7 @@ interface Escort {
   price: number
 }
 
-const ESCORTS_PER_PAGE = 20
+const ESCORTS_PER_PAGE = 24
 const mockEscorts: Escort[] = Array.from({ length: 100 }, (_, i) => ({
   id: i + 1,
   name: `Provider ${i + 1}`,
@@ -79,52 +80,47 @@ export default function InfiniteEscortGrid() {
         </div>
       }
     >
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2.5 px-3 sm:px-4 py-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 px-3 sm:px-4 py-3">
         {escorts.map((escort) => (
-          <div
-            key={escort.id}
-            className="bg-card-bg rounded-lg overflow-hidden hover:shadow-lg transition cursor-pointer group"
-          >
-            {/* Image */}
-            <div className="relative w-full aspect-[3/4] overflow-hidden">
-              <img
-                src={escort.image}
-                alt={escort.name}
-                className="w-full h-full object-cover group-hover:scale-105 transition"
-              />
-              {/* Tier Badge */}
-              <div className={`absolute top-1 left-1 px-1.5 py-0.5 ${getTierColor(escort.tier)} text-white text-xs font-bold rounded`}>
-                {escort.tier.toUpperCase().slice(0, 3)}
-              </div>
-              {/* Wishlist */}
-              <button className="absolute top-1 right-1 p-1 bg-black/50 hover:bg-black/70 rounded-full transition">
-                <Heart size={12} className="text-white" />
-              </button>
-            </div>
-
-            {/* Info */}
-            <div className="p-2">
-              <h3 className="font-semibold text-text-light text-xs mb-1 truncate">{escort.name}</h3>
-              
-              {/* Location */}
-              <div className="flex items-center gap-1 mb-1">
-                <MapPin size={10} className="text-text-muted flex-shrink-0" />
-                <p className="text-xs text-text-muted truncate">{escort.location}</p>
+          <Link href={`/profile/${escort.id}`} key={escort.id}>
+            <div className="bg-card-bg rounded-lg overflow-hidden hover:shadow-lg transition cursor-pointer group h-full">
+              {/* Image */}
+              <div className="relative w-full aspect-[3/4] overflow-hidden">
+                <img
+                  src={escort.image}
+                  alt={escort.name}
+                  className="w-full h-full object-cover group-hover:scale-105 transition"
+                />
+                {/* Tier Badge */}
+                <div className={`absolute top-1 left-1 px-2 py-1 ${getTierColor(escort.tier)} text-white text-xs font-bold rounded`}>
+                  {escort.tier.toUpperCase().slice(0, 3)}
+                </div>
+                {/* Wishlist */}
+                <button className="absolute top-1 right-1 p-1.5 bg-black/50 hover:bg-black/70 rounded-full transition"
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+                  <Heart size={14} className="text-white" />
+                </button>
               </div>
 
-              {/* Rating */}
-              <div className="flex items-center gap-0.5 mb-1.5">
-                <Star size={10} className="fill-secondary-color text-secondary-color flex-shrink-0" />
-                <span className="text-xs font-bold text-text-light">{escort.rating.toFixed(1)}</span>
-                <span className="text-xs text-text-muted">({escort.reviews})</span>
-              </div>
+              {/* Info */}
+              <div className="p-2.5">
+                <h3 className="font-semibold text-text-light text-sm mb-1 truncate">{escort.name}</h3>
+                
+                {/* Location */}
+                <div className="flex items-center gap-1 mb-1">
+                  <MapPin size={11} className="text-text-muted flex-shrink-0" />
+                  <p className="text-xs text-text-muted truncate">{escort.location}</p>
+                </div>
 
-              {/* Price */}
-              <div className="text-secondary-color font-bold text-xs">
-                KES {escort.price.toLocaleString()}
+                {/* Rating */}
+                <div className="flex items-center gap-0.5">
+                  <Star size={11} className="fill-secondary-color text-secondary-color flex-shrink-0" />
+                  <span className="text-xs font-bold text-text-light">{escort.rating.toFixed(1)}</span>
+                  <span className="text-xs text-text-muted">({escort.reviews})</span>
+                </div>
               </div>
             </div>
-          </div>
+          </Link>
         ))}
       </div>
     </InfiniteScroll>
