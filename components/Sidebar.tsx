@@ -46,6 +46,7 @@ export default function Sidebar() {
     { icon: '🔴', label: 'Live', href: '/live' },
     { icon: '📰', label: 'Feeds', href: '/feeds' },
     { icon: '✨', label: 'Exclusive', href: '/exclusive' },
+    { icon: '🛍️', label: 'Shop', href: '/shop' },
     { icon: '📣', label: 'Adverts', href: '/adverts' },
     { icon: '🎉', label: 'Events', href: '/events' },
     { icon: '🎥', label: 'Naughty Videos', href: '/videos' },
@@ -57,34 +58,42 @@ export default function Sidebar() {
     { icon: '❓', label: 'FAQs', href: '/faqs' },
     { icon: '💌', label: 'Messages', href: '/messages' },
     { icon: '📧', label: 'Contact Admin', href: '/contact' },
+    { icon: '⚙️', label: 'Admin Panel', href: '/admin', highlight: false },
     { icon: '📱', label: 'Install App', href: '/install', highlight: true },
   ]
 
   return (
     <>
-      {/* Sidebar - Push layout on desktop, overlay on mobile */}
+      {/* Sidebar - Hidden on mobile, shown on desktop via lg:flex */}
       <aside
         className={`${
-          isMobile ? 'fixed' : 'relative'
+          isMobile ? 'fixed' : 'relative hidden lg:flex lg:flex-col'
         } left-0 top-0 ${
           isMobile ? 'h-screen' : 'h-auto'
         } bg-card-bg border-r border-color overflow-y-auto transition-all duration-300 z-40 ${
-          isOpen ? (isMobile ? 'w-64' : 'w-56 lg:w-64') : (isMobile ? 'w-0' : 'w-20')
+          isOpen ? (isMobile ? 'w-64' : 'w-56 lg:w-64') : (isMobile ? '-translate-x-full' : 'w-20')
         }`}
       >
-        {/* Sidebar Header */}
-        <div className="flex items-center justify-between p-4 border-b border-color sticky top-0 bg-card-bg">
-          {isOpen && <h2 className="text-lg font-bold text-secondary-color">Menu</h2>}
+        {/* Sidebar Header - Logo Section */}
+        <div className="flex items-center justify-between p-4 border-b border-color sticky top-0 bg-card-bg h-16 gap-2">
+          {isOpen && (
+            <Link href="/" className="flex items-center gap-2 flex-1">
+              <div className="w-8 h-8 rounded bg-gradient-to-br from-primary-color to-secondary-color flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                W3
+              </div>
+              <span className="text-lg font-bold text-secondary-color truncate">Wet3Camp</span>
+            </Link>
+          )}
           <button
             onClick={() => setIsOpen(!isOpen)}
-            className="p-2 rounded-lg hover:bg-dark-bg transition-colors text-light"
+            className="p-2 rounded-lg hover:bg-dark-bg transition-colors text-light flex-shrink-0"
           >
             {isOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
         </div>
 
         {/* Menu Items */}
-        <nav className="p-3 space-y-1">
+        <nav className="p-3 space-y-1 flex-1">
           {menuItems.map((item) => (
             <Link
               key={item.href}

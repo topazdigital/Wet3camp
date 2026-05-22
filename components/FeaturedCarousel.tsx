@@ -57,7 +57,6 @@ const getTierLabel = (tier: string) => {
 export default function FeaturedCarousel() {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isAutoPlay, setIsAutoPlay] = useState(true)
-  const cardsPerView = 4
 
   // Infinite carousel with smooth animation
   useEffect(() => {
@@ -86,8 +85,8 @@ export default function FeaturedCarousel() {
   }
 
   return (
-    <div className="bg-market-bg py-4 px-3 sm:px-4">
-      <div className="max-w-full mx-auto">
+    <div className="bg-market-bg py-4 px-3 sm:px-4 w-full">
+      <div className="w-full">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <div>
@@ -112,14 +111,14 @@ export default function FeaturedCarousel() {
           </div>
         </div>
 
-        {/* Featured Carousel - 3-4 cards visible */}
+        {/* Featured Carousel - Responsive cards */}
         <div className="overflow-hidden rounded-lg">
           <div className="flex gap-2 transition-transform duration-500 ease-out"
-            style={{ transform: `translateX(-${currentIndex * (100 / cardsPerView)}%)` }}>
+            style={{ transform: `translateX(-${currentIndex * 100}%)` }}>
             {MOCK_FEATURED.map((card) => (
               <div
                 key={card.id}
-                className="flex-shrink-0 w-1/4 sm:w-1/3 md:w-1/3 lg:w-1/4 relative h-64 overflow-hidden rounded-lg"
+                className="flex-shrink-0 w-full sm:w-1/2 md:w-1/3 lg:w-1/4 relative h-64 overflow-hidden rounded-lg"
               >
                 <Link href={`/profile/${card.id}`}>
                   {/* Background Image */}

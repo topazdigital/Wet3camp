@@ -1,7 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
-import InfiniteScroll from 'react-infinite-scroll-component'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { Star, Heart, MapPin } from 'lucide-react'
 import Link from 'next/link'
 
@@ -48,12 +47,19 @@ const getTierColor = (tier: string) => {
 export default function InfiniteEscortGrid() {
   const [escorts, setEscorts] = useState<Escort[]>([])
   const [hasMore, setHasMore] = useState(true)
+  const [isLoading, setIsLoading] = useState(false)
+  const observerTarget = useRef<HTMLDivElement>(null)
 
+  // Initial load
   useEffect(() => {
     setEscorts(mockEscorts.slice(0, ESCORTS_PER_PAGE))
   }, [])
 
-  const fetchMore = () => {
+  // Fetch more data
+  const fetchMore = useCallback(() => {
+    if (isLoading || !hasMore) return
+    
+    setIsLoading(true)
     setTimeout(() => {
       const newEscorts = mockEscorts.slice(escorts.length, escorts.length + ESCORTS_PER_PAGE)
       if (newEscorts.length === 0) {
@@ -61,26 +67,35 @@ export default function InfiniteEscortGrid() {
       } else {
         setEscorts(prev => [...prev, ...newEscorts])
       }
+      setIsLoading(false)
     }, 500)
-  }
+  }, [escorts.length, hasMore, isLoading])
+
+  // Intersection Observer for infinite scroll
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      entries => {
+        if (entries[0].isIntersecting && hasMore && !isLoading) {
+          fetchMore()
+        }
+      },
+      { threshold: 0.1 }
+    )
+
+    if (observerTarget.current) {
+      observer.observe(observerTarget.current)
+    }
+
+    return () => {
+      if (observerTarget.current) {
+        observer.unobserve(observerTarget.current)
+      }
+    }
+  }, [hasMore, isLoading, fetchMore])
 
   return (
-    <InfiniteScroll
-      dataLength={escorts.length}
-      next={fetchMore}
-      hasMore={hasMore}
-      loader={
-        <div className="col-span-full flex justify-center py-4">
-          <div className="animate-spin w-6 h-6 border-2 border-primary-color border-t-transparent rounded-full" />
-        </div>
-      }
-      endMessage={
-        <div className="col-span-full text-center py-4 text-text-muted text-sm">
-          No more providers available
-        </div>
-      }
-    >
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 px-3 sm:px-4 py-3">
+    <div className="w-full">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 px-3 sm:px-4 py-3">
         {escorts.map((escort) => (
           <Link href={`/profile/${escort.id}`} key={escort.id}>
             <div className="bg-card-bg rounded-lg overflow-hidden hover:shadow-lg transition cursor-pointer group h-full">
@@ -123,6 +138,22 @@ export default function InfiniteEscortGrid() {
           </Link>
         ))}
       </div>
-    </InfiniteScroll>
+
+      {/* Infinite scroll trigger */}
+      {hasMore && (
+        <div ref={observerTarget} className="flex justify-center py-4">
+          {isLoading && (
+            <div className="animate-spin w-6 h-6 border-2 border-primary-color border-t-transparent rounded-full" />
+          )}
+        </div>
+      )}
+
+      {/* End message */}
+      {!hasMore && escorts.length > 0 && (
+        <div className="text-center py-4 text-text-muted text-sm">
+          No more providers available
+        </div>
+      )}
+    </div>
   )
 }

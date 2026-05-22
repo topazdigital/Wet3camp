@@ -1,50 +1,76 @@
 'use client'
 
-import Sidebar from '@/components/Sidebar'
 import Header from '@/components/Header'
+import Sidebar from '@/components/Sidebar'
+import { Star } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
 export default function ReviewsPage() {
+  const reviews = [
+    {
+      id: 1,
+      client: 'John',
+      escort: 'Amara',
+      rating: 5,
+      review: 'Excellent service! Professional and friendly. Highly recommended.',
+      date: '2 weeks ago',
+    },
+    {
+      id: 2,
+      client: 'Mike',
+      escort: 'Zara',
+      rating: 5,
+      review: 'Amazing experience. Will definitely book again!',
+      date: '1 month ago',
+    },
+    {
+      id: 3,
+      client: 'Alex',
+      escort: 'Maya',
+      rating: 4,
+      review: 'Great service. Worth the investment.',
+      date: '1 month ago',
+    },
+  ]
 
   return (
-    <main className="min-h-screen bg-dark-bg flex flex-col lg:flex-row">
-      <div className="hidden lg:block lg:flex-shrink-0">
-        <Sidebar />
-      </div>
+    <div className="flex min-h-screen bg-dark-bg flex-col lg:flex-row">
+      <Sidebar />
 
-      <div className="lg:hidden">
-        <Sidebar />
-      </div>
-
-      <div className="flex-1 w-full overflow-x-hidden">
+      <div className="flex-1 w-full overflow-x-hidden lg:pb-0 pb-24">
         <Header />
-        <div className="px-3 sm:px-4 py-4 sm:py-6 max-w-3xl">
-          <h1 className="text-2xl sm:text-3xl font-bold text-text-light mb-4 sm:mb-6">Reviews & Ratings</h1>
-          <div className="space-y-3 sm:space-y-4">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="bg-card-bg rounded-lg p-3 sm:p-4">
-                <div className="flex items-start justify-between mb-2 sm:mb-3 gap-2">
-                  <div className="min-w-0">
-                    <h3 className="font-semibold text-text-light text-sm truncate">Provider {i + 1}</h3>
-                    <div className="flex items-center gap-1.5 sm:gap-2 mt-1">
-                      <div className="flex gap-0.5">
-                        {[...Array(5)].map((_, j) => (
-                          <span key={j} className="text-sm sm:text-lg">⭐</span>
-                        ))}
-                      </div>
-                      <span className="text-xs text-text-muted">5.0 (127)</span>
+
+        <main className="w-full px-3 sm:px-4 py-4 sm:py-6">
+          <div className="max-w-2xl mx-auto">
+            <h1 className="text-3xl font-bold text-light mb-2">Reviews</h1>
+            <p className="text-text-muted mb-8">Verified client reviews</p>
+
+            <div className="space-y-4">
+              {reviews.map((review) => (
+                <div key={review.id} className="bg-card-bg rounded-lg border border-color p-4">
+                  <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                    <div>
+                      <p className="text-light font-bold text-sm">{review.client} reviewed {review.escort}</p>
+                      <p className="text-text-muted text-xs">{review.date}</p>
+                    </div>
+                    <div className="flex gap-0.5">
+                      {[...Array(5)].map((_, i) => (
+                        <Star
+                          key={i}
+                          size={14}
+                          className={i < review.rating ? 'fill-secondary-color text-secondary-color' : 'text-text-muted'}
+                        />
+                      ))}
                     </div>
                   </div>
-                  <span className="text-xs text-text-muted flex-shrink-0">2d ago</span>
+                  <p className="text-text-light text-sm leading-relaxed">{review.review}</p>
                 </div>
-                <p className="text-text-muted text-xs sm:text-sm mb-1.5 sm:mb-2">"Excellent service! Very professional and friendly. Highly recommended!"</p>
-                <p className="text-xs text-text-muted">- John D.</p>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
+        </main>
       </div>
-    </main>
+    </div>
   )
 }

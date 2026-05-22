@@ -11,18 +11,11 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-dark-bg flex flex-col lg:flex-row">
-      {/* Sidebar - Desktop only */}
-      <div className="hidden lg:block lg:flex-shrink-0">
-        <Sidebar />
-      </div>
+      {/* Desktop Sidebar - Hidden on mobile */}
+      <Sidebar />
 
-      {/* Mobile Sidebar - Mobile only */}
-      <div className="lg:hidden">
-        <Sidebar />
-      </div>
-
-      {/* Main Content - Expands/contracts based on sidebar */}
-      <div className="flex-1 w-full overflow-x-hidden transition-all duration-300">
+      {/* Main Content - Full width on mobile, flex-1 on desktop */}
+      <div className="flex-1 w-full overflow-x-hidden transition-all duration-300 lg:pb-0 pb-24">
         <Header />
         <FeaturedCarousel />
         <div className="w-full">
