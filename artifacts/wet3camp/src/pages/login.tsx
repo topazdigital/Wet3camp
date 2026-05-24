@@ -1,30 +1,40 @@
 import React, { useState } from 'react'
 import { Link, useLocation } from 'wouter'
-import { Eye, EyeOff, Flame, ShieldCheck, Star, ArrowRight, Lock, Mail } from 'lucide-react'
+import { Flame, Mail, Lock, Eye, EyeOff, ShieldCheck, Star, AlertCircle } from 'lucide-react'
+import { useAuth, tryLogin } from '@/lib/auth-context'
 
 export default function LoginPage() {
-  const [, setLocation] = useLocation()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPass, setShowPass] = useState(false)
   const [remember, setRemember] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const { login } = useAuth()
+  const [, navigate] = useLocation()
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!email || !password) { setError('Please fill in all fields.'); return }
     setError('')
+    if (!email || !password) { setError('Please fill in all fields.'); return }
     setLoading(true)
-    setTimeout(() => { setLoading(false); setLocation('/') }, 1200)
+    setTimeout(() => {
+      const user = tryLogin(email, password)
+      if (user) {
+        login(user)
+        navigate(user.role === 'admin' ? '/admin' : user.role === 'escort' ? '/my-profile' : '/')
+      } else {
+        setError('Invalid email or password.')
+      }
+      setLoading(false)
+    }, 800)
   }
 
   return (
     <div className="min-h-screen bg-dark-bg flex">
-      {/* Left Panel — brand */}
+      {/* Left brand panel */}
       <div className="hidden lg:flex w-[45%] relative flex-col justify-between p-12 overflow-hidden"
         style={{ background: 'linear-gradient(145deg, #1a0000 0%, #0a0a0a 40%, #1a0a00 100%)' }}>
-        {/* Glow */}
         <div className="absolute top-0 left-0 w-96 h-96 rounded-full opacity-20 blur-3xl" style={{ background: '#8B0000' }} />
         <div className="absolute bottom-0 right-0 w-64 h-64 rounded-full opacity-10 blur-3xl" style={{ background: '#FFD700' }} />
 
@@ -41,9 +51,7 @@ export default function LoginPage() {
         <div className="relative z-10 space-y-8">
           <div>
             <h1 className="text-4xl font-black text-text-light leading-tight">
-              Kenya's #1<br />
-              <span className="text-[#FFD700]">Premium</span><br />
-              Companion Platform
+              Kenya's #1<br /><span className="text-[#FFD700]">Premium</span><br />Companion Platform
             </h1>
             <p className="mt-4 text-text-muted text-sm leading-relaxed">
               Verified escorts, discreet bookings, and an unmatched experience. Join thousands of satisfied clients across Nairobi, Mombasa, and beyond.
@@ -61,26 +69,22 @@ export default function LoginPage() {
 
           <div className="space-y-3">
             {[
-              { icon: ShieldCheck, text: 'All profiles manually verified by our team' },
-              { icon: Lock,        text: 'End-to-end encrypted messages & payments' },
-              { icon: Star,        text: 'Reviewed & rated by real clients only' },
-            ].map(({ icon: Icon, text }) => (
-              <div key={text} className="flex items-center gap-3">
-                <Icon size={15} className="text-[#FFD700] flex-shrink-0" />
-                <span className="text-text-muted text-xs">{text}</span>
+              [ShieldCheck,'All profiles manually verified by our team'],
+              [Lock,       'End-to-end encrypted messages & payments'],
+              [Star,       'Reviewed & rated by real clients only'],
+            ].map(([Icon, text]) => (
+              <div key={text as string} className="flex items-center gap-3">
+                {React.createElement(Icon as any, { size: 15, className: 'text-[#FFD700] flex-shrink-0' })}
+                <span className="text-text-muted text-xs">{text as string}</span>
               </div>
             ))}
           </div>
         </div>
-
-        <p className="text-text-muted text-[10px] relative z-10">
-          © 2026 Wet3 Camp. For adults 18+ only. By using this platform you confirm you are of legal age.
-        </p>
+        <p className="text-text-muted text-[10px] relative z-10">© 2026 Wet3 Camp. For adults 18+ only.</p>
       </div>
 
-      {/* Right Panel — form */}
+      {/* Right form */}
       <div className="flex-1 flex flex-col">
-        {/* Mobile logo */}
         <div className="lg:hidden flex items-center justify-between px-5 py-4 border-b border-color">
           <Link href="/" className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#8B0000] to-[#FFD700] flex items-center justify-center">
@@ -93,13 +97,24 @@ export default function LoginPage() {
 
         <div className="flex-1 flex items-center justify-center px-5 py-10">
           <div className="w-full max-w-sm">
-            <div className="mb-8">
+            <div className="mb-7">
               <h2 className="text-2xl font-black text-text-light">Welcome back</h2>
               <p className="text-text-muted text-sm mt-1">Sign in to your account to continue</p>
             </div>
 
+            {/* Demo hint */}
+            <div className="mb-5 p-3 bg-[#FFD700]/10 border border-[#FFD700]/20 rounded-xl">
+              <p className="text-[10px] text-[#FFD700] font-bold mb-1">Demo Accounts</p>
+              <p className="text-[10px] text-text-muted">Client: <span className="text-text-light">client@test.com</span> / Test1234!</p>
+              <p className="text-[10px] text-text-muted">Escort: <span className="text-text-light">amara@wet3camp.com</span> / Test1234!</p>
+              <p className="text-[10px] text-text-muted">Admin: <span className="text-text-light">admin@wet3camp.com</span> / Admin@Wet3Camp2024</p>
+            </div>
+
             {error && (
-              <div className="mb-4 px-4 py-3 bg-[#8B0000]/15 border border-[#8B0000]/40 rounded-xl text-xs text-red-300">{error}</div>
+              <div className="mb-4 flex items-start gap-2.5 p-3 bg-[#EF4444]/10 border border-[#EF4444]/20 rounded-xl">
+                <AlertCircle size={14} className="text-[#EF4444] mt-0.5 flex-shrink-0" />
+                <p className="text-xs text-[#EF4444]">{error}</p>
+              </div>
             )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -107,13 +122,8 @@ export default function LoginPage() {
                 <label className="text-xs font-semibold text-text-muted uppercase tracking-widest block mb-2">Email Address</label>
                 <div className="relative">
                   <Mail size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={e => setEmail(e.target.value)}
-                    placeholder="you@example.com"
-                    className="w-full pl-10 pr-4 py-3 bg-card-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted focus:outline-none focus:border-[#FFD700]/60 focus:bg-[#1a1a1a] transition-all"
-                  />
+                  <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com"
+                    className="w-full pl-10 pr-4 py-3 bg-card-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted focus:outline-none focus:border-[#8B0000] transition-all" />
                 </div>
               </div>
 
@@ -124,13 +134,8 @@ export default function LoginPage() {
                 </div>
                 <div className="relative">
                   <Lock size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
-                  <input
-                    type={showPass ? 'text' : 'password'}
-                    value={password}
-                    onChange={e => setPassword(e.target.value)}
-                    placeholder="Enter your password"
-                    className="w-full pl-10 pr-10 py-3 bg-card-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted focus:outline-none focus:border-[#FFD700]/60 focus:bg-[#1a1a1a] transition-all"
-                  />
+                  <input type={showPass ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="Enter your password"
+                    className="w-full pl-10 pr-10 py-3 bg-card-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted focus:outline-none focus:border-[#8B0000] transition-all" />
                   <button type="button" onClick={() => setShowPass(v => !v)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-light">
                     {showPass ? <EyeOff size={14} /> : <Eye size={14} />}
                   </button>
@@ -138,37 +143,21 @@ export default function LoginPage() {
               </div>
 
               <label className="flex items-center gap-2.5 cursor-pointer select-none">
-                <div
-                  onClick={() => setRemember(v => !v)}
-                  className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${remember ? 'bg-[#8B0000] border-[#8B0000]' : 'border-color bg-dark-bg'}`}
-                >
-                  {remember && <svg width="9" height="7" viewBox="0 0 9 7" fill="none"><path d="M1 3.5L3.5 6L8 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                <div onClick={() => setRemember(v => !v)} className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${remember ? 'bg-[#8B0000] border-[#8B0000]' : 'border-color bg-dark-bg'}`}>
+                  {remember && <div className="w-2 h-2 bg-white rounded-sm" />}
                 </div>
                 <span className="text-xs text-text-muted">Remember me for 30 days</span>
               </label>
 
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full flex items-center justify-center gap-2 py-3.5 bg-gradient-to-r from-[#8B0000] to-[#a00000] hover:from-[#a00000] hover:to-[#8B0000] text-white font-bold rounded-xl transition-all shadow-lg shadow-[#8B0000]/30 disabled:opacity-60 disabled:cursor-not-allowed text-sm"
-              >
-                {loading ? (
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <>Sign In <ArrowRight size={15} /></>
-                )}
+              <button type="submit" disabled={loading}
+                className="w-full flex items-center justify-center gap-2 py-3.5 bg-gradient-to-r from-[#8B0000] to-[#a00000] hover:from-[#a00000] hover:to-[#8B0000] text-white font-bold rounded-xl transition-all shadow-lg shadow-[#8B0000]/30 disabled:opacity-60 text-sm">
+                {loading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Sign In →'}
               </button>
             </form>
 
-            <div className="mt-6 pt-6 border-t border-color text-center">
-              <p className="text-xs text-text-muted">
-                Don't have an account?{' '}
-                <Link href="/register" className="text-[#FFD700] font-semibold hover:underline">Create one free →</Link>
-              </p>
-            </div>
-
-            <div className="mt-4 text-center">
-              <Link href="/" className="text-xs text-text-muted hover:text-text-light transition-colors">← Back to browsing</Link>
+            <div className="mt-6 pt-6 border-t border-color text-center space-y-2">
+              <p className="text-xs text-text-muted">Don't have an account? <Link href="/register" className="text-[#FFD700] font-semibold hover:underline">Create one free →</Link></p>
+              <Link href="/" className="block text-xs text-text-muted hover:text-text-light transition-colors">← Back to browsing</Link>
             </div>
           </div>
         </div>

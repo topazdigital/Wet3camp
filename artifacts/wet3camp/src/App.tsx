@@ -1,6 +1,7 @@
-import { Switch, Route, Router as WouterRouter } from "wouter";
+import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { SidebarProvider } from "@/lib/sidebar-context";
+import { AuthProvider, useAuth } from "@/lib/auth-context";
 import BottomNav from "@/components/BottomNav";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
@@ -18,6 +19,7 @@ import Live from "@/pages/live";
 import Login from "@/pages/login";
 import Messages from "@/pages/messages";
 import Profile from "@/pages/profile";
+import MyProfile from "@/pages/my-profile";
 import Register from "@/pages/register";
 import Reviews from "@/pages/reviews";
 import Rooms from "@/pages/rooms";
@@ -28,6 +30,13 @@ import Videos from "@/pages/videos";
 import Booking from "@/pages/booking";
 
 const queryClient = new QueryClient();
+
+function ProtectedRoute({ component: Component, adminOnly = false }: { component: React.ComponentType; adminOnly?: boolean }) {
+  const { isLoggedIn, isAdmin } = useAuth();
+  if (!isLoggedIn) return <Redirect to="/login" />;
+  if (adminOnly && !isAdmin) return <Redirect to="/" />;
+  return <Component />;
+}
 
 function Router() {
   return (
@@ -41,12 +50,13 @@ function Router() {
       <Route path="/events" component={Events} />
       <Route path="/exclusive" component={Exclusive} />
       <Route path="/faqs" component={Faqs} />
-      <Route path="/favorites" component={Favorites} />
+      <Route path="/favorites">{() => <ProtectedRoute component={Favorites} />}</Route>
       <Route path="/feeds" component={Feeds} />
       <Route path="/install" component={Install} />
       <Route path="/live" component={Live} />
       <Route path="/login" component={Login} />
-      <Route path="/messages" component={Messages} />
+      <Route path="/messages">{() => <ProtectedRoute component={Messages} />}</Route>
+      <Route path="/my-profile">{() => <ProtectedRoute component={MyProfile} />}</Route>
       <Route path="/profile" component={Profile} />
       <Route path="/profile/:id" component={Profile} />
       <Route path="/register" component={Register} />
@@ -65,10 +75,12 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-        <SidebarProvider>
-          <Router />
-          <BottomNav />
-        </SidebarProvider>
+        <AuthProvider>
+          <SidebarProvider>
+            <Router />
+            <BottomNav />
+          </SidebarProvider>
+        </AuthProvider>
       </WouterRouter>
     </QueryClientProvider>
   );

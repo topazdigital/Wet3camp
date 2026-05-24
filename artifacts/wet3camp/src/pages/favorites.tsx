@@ -1,84 +1,102 @@
-
-
+import React, { useState } from 'react'
 import Header from '@/components/Header'
 import Sidebar from '@/components/Sidebar'
-import { Heart } from 'lucide-react'
+import { Heart, Star, MapPin, CheckCircle2, Trash2, MessageCircle, Calendar } from 'lucide-react'
 import { Link } from 'wouter'
+import { ESCORTS } from '@/data/escorts'
 
+const FAVES_IDS = [1, 3, 7, 12, 16]
+
+const tierStyle: Record<string,{bg:string,text:string,label:string}> = {
+  Elite:    { bg:'#8B000020', text:'#8B0000', label:'ELITE'    },
+  VIP:      { bg:'#FF450020', text:'#FF4500', label:'VIP'      },
+  Premium:  { bg:'#B8860B20', text:'#B8860B', label:'PREMIUM'  },
+  Standard: { bg:'#55555520', text:'#888',    label:'STANDARD' },
+}
 
 export default function FavoritesPage() {
-  const favorites = [
-    { id: 1, name: 'Elena', age: 24, location: 'South B, Nairobi', rating: 4.8, reviews: 156, image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=300&h=400&fit=crop', tier: 'elite' },
-    { id: 2, name: 'Jasmine', age: 22, location: 'Eastleigh, Nairobi', rating: 4.7, reviews: 134, image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&h=400&fit=crop', tier: 'premium' },
-    { id: 3, name: 'Victoria', age: 25, location: 'Kilimani, Nairobi', rating: 4.9, reviews: 189, image: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=300&h=400&fit=crop', tier: 'vip' },
-  ]
+  const [faves, setFaves] = useState<number[]>(FAVES_IDS)
+  const escorts = ESCORTS.filter(e => faves.includes(Number(e.id)))
 
-  const getTierColor = (tier) => {
-    const colors = {
-      elite: 'bg-elite-color',
-      premium: 'bg-premium-color',
-      vip: 'bg-vip-color',
-    }
-    return colors[tier] || 'bg-free-color'
-  }
+  const remove = (id: string) => setFaves(p => p.filter(f => f !== Number(id)))
 
   return (
     <main className="min-h-screen bg-dark-bg flex flex-col lg:flex-row">
-      <Sidebar />
+      <Sidebar/>
+      <div className="flex-1 w-full overflow-x-hidden lg:pb-0 pb-24 min-w-0">
+        <Header/>
 
-      <div className="flex-1 w-full overflow-x-hidden transition-all duration-300 lg:pb-0 pb-24">
-        <Header />
-        
-        <div className="w-full">
-          <div className="px-3 sm:px-4 py-4 border-b border-color">
-            <h1 className="text-3xl font-bold text-text-light mb-2">My Favorites</h1>
-            <p className="text-text-muted text-sm">Your saved providers</p>
+        <div className="px-4 sm:px-6 py-5 border-b border-color flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-black text-text-light">My Favourites</h1>
+            <p className="text-sm text-text-muted mt-0.5">{escorts.length} saved escort{escorts.length !== 1 ? 's' : ''}</p>
           </div>
+          {faves.length > 0 && (
+            <button onClick={() => setFaves([])} className="flex items-center gap-1.5 px-3 py-2 border border-[#EF4444]/30 text-[#EF4444] text-xs rounded-xl hover:bg-[#EF4444]/10 transition-all">
+              <Trash2 size={12}/> Clear All
+            </button>
+          )}
+        </div>
 
-          {/* Favorites Grid */}
-          <div className="px-3 sm:px-4 py-4">
-            {favorites.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-                {favorites.map((provider) => (
-                  <Link href={`/profile/${provider.id}`} key={provider.id}>
-                    <div className="bg-card-bg rounded-lg overflow-hidden hover:shadow-lg transition cursor-pointer group h-full border border-color hover:border-secondary-color">
-                      <div className="relative w-full aspect-[3/4] overflow-hidden">
-                        <img
-                          src={provider.image}
-                          alt={provider.name}
-                          className="w-full h-full object-cover group-hover:scale-105 transition"
-                        />
-                        <div className={`absolute top-2 left-2 px-2 py-1 ${getTierColor(provider.tier)} text-white text-xs font-bold rounded`}>
-                          {provider.tier.toUpperCase().slice(0, 3)}
-                        </div>
-                        <button className="absolute top-2 right-2 p-1.5 bg-primary-color rounded-full text-white hover:bg-[#A00000] transition"
-                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
-                          <Heart size={16} fill="white" />
-                        </button>
-                      </div>
-
-                      <div className="p-3">
-                        <h3 className="font-semibold text-text-light text-sm mb-1">{provider.name}, {provider.age}</h3>
-                        <p className="text-xs text-text-muted mb-2">{provider.location}</p>
-                        <div className="flex items-center gap-1">
-                          <span className="text-secondary-color text-xs">★ {provider.rating}</span>
-                          <span className="text-text-muted text-xs">({provider.reviews})</span>
+        <div className="px-4 sm:px-6 py-5">
+          {escorts.length > 0 ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+              {escorts.map(e => {
+                const ts = tierStyle[e.tier] ?? tierStyle['Standard']
+                return (
+                  <div key={e.id} className="bg-card-bg border border-color rounded-2xl overflow-hidden group hover:border-[#8B0000]/50 hover:shadow-lg hover:shadow-[#8B0000]/10 transition-all">
+                    <div className="relative aspect-[3/4] overflow-hidden">
+                      <Link href={`/profile/${e.id}`}>
+                        <img src={e.image} alt={e.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"/>
+                      </Link>
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent pointer-events-none"/>
+                      <div className="absolute top-2 left-2 px-1.5 py-0.5 rounded-md text-[9px] font-bold" style={{backgroundColor:ts.bg,color:ts.text}}>{ts.label}</div>
+                      {e.available && <div className="absolute top-2 right-2 w-2 h-2 bg-[#28a745] rounded-full border border-dark-bg"/>}
+                      <button
+                        onClick={() => remove(e.id)}
+                        className="absolute top-2 right-2 mt-5 p-1.5 bg-[#8B0000] rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-[#a00000]"
+                      >
+                        <Heart size={11} fill="white"/>
+                      </button>
+                      <div className="absolute bottom-2 left-2 right-2">
+                        <p className="text-white font-black text-xs">{e.name}, {e.age}</p>
+                        <div className="flex items-center gap-1 mt-0.5">
+                          <MapPin size={9} className="text-white/60"/><span className="text-[9px] text-white/60">{e.area}</span>
                         </div>
                       </div>
                     </div>
-                  </Link>
-                ))}
+                    <div className="p-2.5">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-0.5"><Star size={10} className="fill-[#FFD700] text-[#FFD700]"/><span className="text-[10px] font-bold text-text-light ml-0.5">{e.rating}</span></div>
+                        <span className="text-[10px] font-bold text-[#FFD700]">KES {e.pricing.hourly.toLocaleString()}/hr</span>
+                      </div>
+                      <div className="flex gap-1.5">
+                        <Link href={`/profile/${e.id}`} className="flex-1 py-1.5 text-center text-[10px] font-bold border border-color text-text-light rounded-lg hover:border-[#FFD700] transition-all flex items-center justify-center gap-1">
+                          <CheckCircle2 size={9}/> Book
+                        </Link>
+                        <Link href="/messages" className="py-1.5 px-2 bg-[#8B0000]/20 border border-[#8B0000]/30 text-[#8B0000] rounded-lg hover:bg-[#8B0000]/30 transition-all flex items-center justify-center">
+                          <MessageCircle size={11}/>
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-20 text-center gap-4">
+              <div className="w-20 h-20 rounded-2xl bg-card-bg border border-color flex items-center justify-center">
+                <Heart size={36} className="text-text-muted"/>
               </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-16">
-                <Heart size={48} className="text-text-muted mb-4 opacity-50" />
-                <p className="text-text-muted text-center mb-4">No favorites yet</p>
-                <Link href="/" className="text-secondary-color hover:underline text-sm font-semibold">
-                  Browse providers →
-                </Link>
+              <div>
+                <p className="font-bold text-text-light text-base">No favourites yet</p>
+                <p className="text-sm text-text-muted mt-1">Browse profiles and tap the heart icon to save your favourites</p>
               </div>
-            )}
-          </div>
+              <Link href="/" className="px-6 py-3 bg-gradient-to-r from-[#8B0000] to-[#a00000] text-white font-bold text-sm rounded-xl hover:from-[#a00000] hover:to-[#8B0000] transition-all">
+                Browse Escorts →
+              </Link>
+            </div>
+          )}
         </div>
       </div>
     </main>
