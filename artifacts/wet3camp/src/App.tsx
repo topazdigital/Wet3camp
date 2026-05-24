@@ -2,6 +2,7 @@ import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { SidebarProvider } from "@/lib/sidebar-context";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
+import { FollowProvider } from "@/lib/follow-context";
 import BottomNav from "@/components/BottomNav";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
@@ -14,6 +15,7 @@ import Exclusive from "@/pages/exclusive";
 import Faqs from "@/pages/faqs";
 import Favorites from "@/pages/favorites";
 import Feeds from "@/pages/feeds";
+import FeaturedUpgrade from "@/pages/featured-upgrade";
 import Install from "@/pages/install";
 import Live from "@/pages/live";
 import Login from "@/pages/login";
@@ -27,7 +29,6 @@ import Shop from "@/pages/shop";
 import Testimonials from "@/pages/testimonials";
 import Tours from "@/pages/tours";
 import Videos from "@/pages/videos";
-import Booking from "@/pages/booking";
 
 const queryClient = new QueryClient();
 
@@ -42,15 +43,15 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
-      <Route path="/admin" component={Admin} />
+      <Route path="/admin">{() => <ProtectedRoute component={Admin} adminOnly />}</Route>
       <Route path="/adverts" component={Adverts} />
       <Route path="/blacklist" component={Blacklist} />
-      <Route path="/booking" component={Booking} />
       <Route path="/contact" component={Contact} />
       <Route path="/events" component={Events} />
       <Route path="/exclusive" component={Exclusive} />
       <Route path="/faqs" component={Faqs} />
       <Route path="/favorites">{() => <ProtectedRoute component={Favorites} />}</Route>
+      <Route path="/featured-upgrade">{() => <ProtectedRoute component={FeaturedUpgrade} />}</Route>
       <Route path="/feeds" component={Feeds} />
       <Route path="/install" component={Install} />
       <Route path="/live" component={Live} />
@@ -76,10 +77,12 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
         <AuthProvider>
-          <SidebarProvider>
-            <Router />
-            <BottomNav />
-          </SidebarProvider>
+          <FollowProvider>
+            <SidebarProvider>
+              <Router />
+              <BottomNav />
+            </SidebarProvider>
+          </FollowProvider>
         </AuthProvider>
       </WouterRouter>
     </QueryClientProvider>

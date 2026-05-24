@@ -112,93 +112,47 @@
 }
 
 @layer components {
-  .bg-dark-bg {
-    background-color: var(--dark-bg);
+  /* ── Scrollbar hide ── */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
   }
-  .bg-card-bg {
-    background-color: var(--card-bg);
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
   }
-  .bg-market-bg {
-    background-color: var(--market-bg);
-  }
-  .text-light {
-    color: var(--text-light);
-  }
-  .text-muted {
-    color: var(--text-muted);
-  }
-  .border-color {
-    border-color: var(--border-color);
-  }
-  .bg-primary-color {
-    background-color: var(--primary-color);
-  }
-  .text-primary-color {
-    color: var(--primary-color);
-  }
-  .bg-secondary-color {
-    background-color: var(--secondary-color);
-  }
-  .text-secondary-color {
-    color: var(--secondary-color);
-  }
-  .bg-elite-color {
-    background-color: var(--elite-color);
-  }
-  .text-elite-color {
-    color: var(--elite-color);
-  }
-  .bg-vip-color {
-    background-color: var(--vip-color);
-  }
-  .text-vip-color {
-    color: var(--vip-color);
-  }
-  .bg-premium-color {
-    background-color: var(--premium-color);
-  }
-  .text-premium-color {
-    color: var(--premium-color);
-  }
-  .bg-available-green {
-    background-color: var(--available-green);
-  }
-  .text-available-green {
-    color: var(--available-green);
-  }
-  .bg-available-orange {
-    background-color: var(--available-orange);
-  }
-  .text-available-orange {
-    color: var(--available-orange);
-  }
-  .bg-yes-color {
-    background-color: var(--yes-color);
-  }
-  .text-yes-color {
-    color: var(--yes-color);
-  }
-  .bg-no-color {
-    background-color: var(--no-color);
-  }
-  .text-no-color {
-    color: var(--no-color);
-  }
-  .bg-video-color {
-    background-color: var(--video-color);
-  }
-  .text-video-color {
-    color: var(--video-color);
-  }
-  .border-market-border {
-    border-color: var(--market-border);
-  }
-  .bg-free-color {
-    background-color: var(--free-color);
-  }
-  .text-free-color {
-    color: var(--free-color);
-  }
+
+  /* ── Theme colours ── */
+  .bg-dark-bg        { background-color: var(--dark-bg); }
+  .bg-card-bg        { background-color: var(--card-bg); }
+  .bg-market-bg      { background-color: var(--market-bg); }
+  .text-light        { color: var(--text-light); }
+  .text-muted        { color: var(--text-muted); }
+  .border-color      { border-color: var(--border-color); }
+  .bg-primary-color  { background-color: var(--primary-color); }
+  .text-primary-color{ color: var(--primary-color); }
+  .bg-secondary-color{ background-color: var(--secondary-color); }
+  .text-secondary-color{ color: var(--secondary-color); }
+  .bg-elite-color    { background-color: var(--elite-color); }
+  .text-elite-color  { color: var(--elite-color); }
+  .bg-vip-color      { background-color: var(--vip-color); }
+  .text-vip-color    { color: var(--vip-color); }
+  .bg-premium-color  { background-color: var(--premium-color); }
+  .text-premium-color{ color: var(--premium-color); }
+  .bg-available-green{ background-color: var(--available-green); }
+  .text-available-green{ color: var(--available-green); }
+  .bg-available-orange{ background-color: var(--available-orange); }
+  .text-available-orange{ color: var(--available-orange); }
+  .bg-yes-color      { background-color: var(--yes-color); }
+  .text-yes-color    { color: var(--yes-color); }
+  .bg-no-color       { background-color: var(--no-color); }
+  .text-no-color     { color: var(--no-color); }
+  .bg-video-color    { background-color: var(--video-color); }
+  .text-video-color  { color: var(--video-color); }
+  .border-market-border{ border-color: var(--market-border); }
+  .bg-free-color     { background-color: var(--free-color); }
+  .text-free-color   { color: var(--free-color); }
+  .text-text-light   { color: var(--text-light); }
+  .text-text-muted   { color: var(--text-muted); }
 
   .glass {
     backdrop-filter: blur(10px);
@@ -211,16 +165,9 @@
   }
 
   @keyframes fadeIn {
-    from {
-      opacity: 0;
-      transform: translateX(20px);
-    }
-    to {
-      opacity: 1;
-      transform: translateX(0);
-    }
+    from { opacity: 0; transform: translateX(20px); }
+    to   { opacity: 1; transform: translateX(0); }
   }
-
   .animate-fade-in {
     animation: fadeIn 0.5s ease-in-out;
   }

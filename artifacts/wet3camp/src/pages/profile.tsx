@@ -1,78 +1,102 @@
 import React, { useState } from 'react'
-import { Heart, Share2, MessageCircle, MapPin, Star, Check, X, Phone, Calendar, Clock, CheckCircle2, ChevronLeft, Flame, Shield, Eye, Ruler } from 'lucide-react'
+import { Heart, Share2, MessageCircle, MapPin, Star, Check, X, Calendar, Clock, CheckCircle2, ChevronLeft, Flame, Shield, Eye, Ruler, UserPlus, UserCheck, Users } from 'lucide-react'
 import Sidebar from '@/components/Sidebar'
 import Header from '@/components/Header'
 import { Link, useRoute } from 'wouter'
 import { ESCORTS } from '@/data/escorts'
 import { useAuth } from '@/lib/auth-context'
+import { useFollow } from '@/lib/follow-context'
 
 const TIER_STYLE: Record<string, { bg: string; text: string; label: string }> = {
-  Elite:    { bg: '#8B0000',  text: '#fff', label: '★ ELITE'    },
-  VIP:      { bg: '#FF4500',  text: '#fff', label: '◆ VIP'      },
-  Premium:  { bg: '#B8860B',  text: '#fff', label: '◈ PREMIUM'  },
-  Standard: { bg: '#3a6da8',  text: '#fff', label: 'STANDARD'   },
+  Elite:    { bg: '#8B0000',  text: '#fff', label: '★ ELITE'   },
+  VIP:      { bg: '#FF4500',  text: '#fff', label: '◆ VIP'     },
+  Premium:  { bg: '#B8860B',  text: '#fff', label: '◈ PREMIUM' },
+  Standard: { bg: '#3a6da8',  text: '#fff', label: 'STANDARD'  },
+}
+
+function waLink(id: string, name: string) {
+  const nums: Record<string, string> = {
+    '1':'254712345001','2':'254712345002','3':'254712345003','4':'254712345004','5':'254712345005',
+    '6':'254712345006','7':'254712345007','8':'254712345008','9':'254712345009','10':'254712345010',
+    '11':'254712345011','12':'254712345012','13':'254712345013','14':'254712345014','15':'254712345015',
+    '16':'254712345016','17':'254712345017','18':'254712345018','19':'254712345019','20':'254712345020',
+    '21':'254712345021','22':'254712345022','23':'254712345023','24':'254712345024','25':'254712345025',
+  }
+  const num = nums[id] ?? '254700000000'
+  const msg = encodeURIComponent(`Hi ${name.split(' ')[0]}, I found your profile on Wet3Camp and I'd like to connect.`)
+  return `https://wa.me/${num}?text=${msg}`
+}
+
+function tgLink(name: string) {
+  return `https://t.me/${name.replace(/[\s.]/g,'').toLowerCase()}_wet3camp`
 }
 
 export default function ProfilePage() {
   const [, params] = useRoute('/profile/:id')
   const { isLoggedIn } = useAuth()
+  const { isFollowing, toggleFollow, followerCount } = useFollow()
 
   const escort = ESCORTS.find(e => e.id === params?.id) ?? ESCORTS[0]
   const similar = ESCORTS.filter(e => e.id !== escort.id && e.city === escort.city).slice(0, 6)
 
   const [liked, setLiked] = useState(false)
-  const [activeTab, setActiveTab] = useState<'about'|'services'|'reviews'>('about')
-  const [selectedImg, setSelectedImg] = useState<string|null>(null)
+  const [activeTab, setActiveTab] = useState<'about' | 'services' | 'reviews'>('about')
+  const [selectedImg, setSelectedImg] = useState<string | null>(null)
   const tier = TIER_STYLE[escort.tier] ?? TIER_STYLE.Elite
+  const following = isFollowing(escort.id)
 
   return (
     <div className="flex min-h-screen bg-dark-bg flex-col lg:flex-row">
-      <Sidebar/>
+      <Sidebar />
       <div className="flex-1 w-full overflow-x-hidden lg:pb-0 pb-24 min-w-0">
-        <Header/>
+        <Header />
 
         {/* Lightbox */}
         {selectedImg && (
-          <div className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center" onClick={()=>setSelectedImg(null)}>
-            <img src={selectedImg} alt="Gallery" className="max-h-[90vh] max-w-[95vw] rounded-2xl object-contain shadow-2xl"/>
-            <button className="absolute top-5 right-5 p-2.5 bg-white/10 rounded-full text-white hover:bg-white/20 transition-colors"><X size={20}/></button>
+          <div className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center" onClick={() => setSelectedImg(null)}>
+            <img src={selectedImg} alt="Gallery" className="max-h-[90vh] max-w-[95vw] rounded-2xl object-contain shadow-2xl" />
+            <button className="absolute top-5 right-5 p-2.5 bg-white/10 rounded-full text-white hover:bg-white/20 transition-colors"><X size={20} /></button>
           </div>
         )}
 
         {/* Full-width hero */}
         <div className="relative w-full h-[55vw] max-h-[520px] min-h-[280px] overflow-hidden">
-          <img src={escort.image} alt={escort.name} className="absolute inset-0 w-full h-full object-cover object-top"/>
-          <div className="absolute inset-0 bg-gradient-to-t from-dark-bg via-dark-bg/30 to-transparent"/>
-          <div className="absolute inset-0 bg-gradient-to-r from-dark-bg/50 to-transparent"/>
+          <img src={escort.image} alt={escort.name} className="absolute inset-0 w-full h-full object-cover object-top" />
+          <div className="absolute inset-0 bg-gradient-to-t from-dark-bg via-dark-bg/30 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-dark-bg/50 to-transparent" />
 
-          {/* Back button */}
           <div className="absolute top-4 left-4">
             <Link href="/" className="flex items-center gap-1.5 px-3 py-2 bg-black/50 backdrop-blur-sm rounded-xl text-white text-xs font-medium hover:bg-black/70 transition-colors">
-              <ChevronLeft size={14}/> Browse
+              <ChevronLeft size={14} /> Browse
             </Link>
           </div>
 
-          {/* Action buttons top-right */}
           <div className="absolute top-4 right-4 flex items-center gap-2">
-            <button onClick={()=>setLiked(v=>!v)} className={`p-2.5 rounded-full backdrop-blur-sm transition-all border ${liked?'bg-[#E91E63]/20 border-[#E91E63]/50':'bg-black/50 border-white/10'}`}>
-              <Heart size={18} className={liked?'fill-[#E91E63] text-[#E91E63]':'text-white'}/>
+            <button
+              onClick={() => { if (isLoggedIn) toggleFollow(escort.id) }}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold backdrop-blur-sm transition-all border ${following ? 'bg-[#8B0000]/40 border-[#8B0000]/60 text-white' : 'bg-black/50 border-white/20 text-white hover:bg-black/70'}`}
+            >
+              {following ? <UserCheck size={13} /> : <UserPlus size={13} />}
+              {following ? 'Following' : 'Follow'}
+            </button>
+            <button onClick={() => setLiked(v => !v)} className={`p-2.5 rounded-full backdrop-blur-sm transition-all border ${liked ? 'bg-[#E91E63]/20 border-[#E91E63]/50' : 'bg-black/50 border-white/10'}`}>
+              <Heart size={18} className={liked ? 'fill-[#E91E63] text-[#E91E63]' : 'text-white'} />
             </button>
             <button className="p-2.5 rounded-full bg-black/50 backdrop-blur-sm border border-white/10 text-white hover:bg-black/70 transition-all">
-              <Share2 size={18}/>
+              <Share2 size={18} />
             </button>
           </div>
 
-          {/* Tier + verified badges */}
           <div className="absolute bottom-4 left-4 flex items-center gap-2">
-            <span className="px-3 py-1.5 rounded-full text-[11px] font-black text-white shadow-lg" style={{backgroundColor:tier.bg}}>{tier.label}</span>
+            <span className="px-3 py-1.5 rounded-full text-[11px] font-black text-white shadow-lg" style={{ backgroundColor: tier.bg }}>{tier.label}</span>
             {escort.verified && (
               <span className="flex items-center gap-1 px-2.5 py-1.5 bg-[#28a745]/80 backdrop-blur-sm rounded-full text-[10px] font-bold text-white">
-                <Shield size={9}/> Verified
+                <Shield size={9} /> Verified
               </span>
             )}
-            <span className={`flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[10px] font-bold backdrop-blur-sm ${escort.available?'bg-[#28a745]/80 text-white':'bg-black/60 text-white/60'}`}>
-              <div className={`w-1.5 h-1.5 rounded-full ${escort.available?'bg-white animate-pulse':'bg-gray-400'}`}/>
-              {escort.available?'Available Now':'Busy'}
+            <span className={`flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[10px] font-bold backdrop-blur-sm ${escort.available ? 'bg-[#28a745]/80 text-white' : 'bg-black/60 text-white/60'}`}>
+              <div className={`w-1.5 h-1.5 rounded-full ${escort.available ? 'bg-white animate-pulse' : 'bg-gray-400'}`} />
+              {escort.available ? 'Available Now' : 'Busy'}
             </span>
           </div>
         </div>
@@ -83,53 +107,75 @@ export default function ProfilePage() {
 
             {/* LEFT: main info */}
             <div className="lg:col-span-2 space-y-5">
-              {/* Name + location */}
               <div className="bg-card-bg border border-color rounded-2xl p-5">
                 <div className="flex items-start justify-between mb-3">
                   <div>
                     <h1 className="text-2xl font-black text-text-light">{escort.name}<span className="text-text-muted font-light text-xl">, {escort.age}</span></h1>
                     <div className="flex items-center gap-1.5 mt-1">
-                      <MapPin size={13} className="text-text-muted"/>
+                      <MapPin size={13} className="text-text-muted" />
                       <span className="text-sm text-text-muted">{escort.area}, {escort.city}</span>
                     </div>
                   </div>
                   <div className="text-right">
                     <div className="flex items-center justify-end gap-1 mb-0.5">
-                      {[1,2,3,4,5].map(i=><Star key={i} size={13} className={i<=Math.round(escort.rating)?'fill-[#FFD700] text-[#FFD700]':'text-text-muted'}/>)}
+                      {[1,2,3,4,5].map(i => <Star key={i} size={13} className={i <= Math.round(escort.rating) ? 'fill-[#FFD700] text-[#FFD700]' : 'text-text-muted'} />)}
                       <span className="font-bold text-text-light text-sm ml-1">{escort.rating}</span>
                     </div>
                     <div className="flex items-center justify-end gap-1">
-                      <Eye size={11} className="text-text-muted"/>
+                      <Eye size={11} className="text-text-muted" />
                       <span className="text-[11px] text-text-muted">{escort.reviews} reviews</span>
-                      {escort.verified && <CheckCircle2 size={12} className="text-[#28a745]" fill="#28a745"/>}
+                      {escort.verified && <CheckCircle2 size={12} className="text-[#28a745]" fill="#28a745" />}
                     </div>
                   </div>
                 </div>
 
-                {/* Quick stats row */}
+                {/* Social stats row */}
+                <div className="flex items-center gap-4 mb-3 py-3 border-t border-b border-color/50">
+                  <div className="text-center">
+                    <p className="text-sm font-black text-text-light">{followerCount(escort.id).toLocaleString()}</p>
+                    <p className="text-[9px] text-text-muted">Followers</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm font-black text-text-light">{escort.reviews}</p>
+                    <p className="text-[9px] text-text-muted">Reviews</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm font-black text-text-light">{escort.rating}★</p>
+                    <p className="text-[9px] text-text-muted">Rating</p>
+                  </div>
+                  <div className="ml-auto">
+                    <button
+                      onClick={() => { if (isLoggedIn) toggleFollow(escort.id) }}
+                      className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all border ${following ? 'bg-card-bg border-color text-text-muted hover:border-[#EF4444] hover:text-[#EF4444]' : 'bg-[#8B0000] border-[#8B0000] text-white hover:bg-[#a00000]'}`}
+                    >
+                      {following ? <><UserCheck size={12} /> Following</> : <><UserPlus size={12} /> Follow</>}
+                    </button>
+                  </div>
+                </div>
+
                 <div className="flex flex-wrap gap-2">
                   {[
-                    [Ruler,escort.height],
-                    [Shield,escort.bodyType],
-                    [Flame,escort.ethnicity],
-                    [Star,escort.languages.join(' · ')],
-                  ].map(([Icon,val],i)=>(
+                    [Ruler, escort.height],
+                    [Shield, escort.bodyType],
+                    [Flame, escort.ethnicity],
+                    [Star, escort.languages.join(' · ')],
+                  ].map(([Icon, val], i) => (
                     <div key={i} className="flex items-center gap-1 px-2.5 py-1 bg-dark-bg border border-color rounded-lg text-[10px] text-text-muted">
-                      {React.createElement(Icon as any,{size:10,className:'text-text-muted'})} {val}
+                      {React.createElement(Icon as any, { size: 10, className: 'text-text-muted' })} {val}
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Pricing */}
+              {/* Pricing (informational only) */}
               <div className="grid grid-cols-3 gap-2">
                 {[
-                  { label:'Per Hour',   val:`KES ${escort.pricing.hourly.toLocaleString()}`,    icon:Clock,    color:'#8B0000' },
-                  { label:'Overnight',  val:`KES ${escort.pricing.overnight.toLocaleString()}`,  icon:Calendar, color:'#FFD700' },
-                  { label:'Video Call', val:`KES ${escort.pricing.video.toLocaleString()}`,      icon:Flame,    color:'#E91E63' },
-                ].map(({label,val,icon:Icon,color})=>(
+                  { label: 'Per Hour',   val: `KES ${escort.pricing.hourly.toLocaleString()}`,    icon: Clock,    color: '#8B0000' },
+                  { label: 'Overnight',  val: `KES ${escort.pricing.overnight.toLocaleString()}`,  icon: Calendar, color: '#FFD700' },
+                  { label: 'Video Call', val: `KES ${escort.pricing.video.toLocaleString()}`,      icon: Flame,    color: '#E91E63' },
+                ].map(({ label, val, icon: Icon, color }) => (
                   <div key={label} className="bg-card-bg border border-color rounded-2xl p-4 text-center hover:border-[#8B0000]/40 transition-all">
-                    <Icon size={18} className="mx-auto mb-2" style={{color}}/>
+                    <Icon size={18} className="mx-auto mb-2" style={{ color }} />
                     <p className="font-black text-text-light text-sm">{val}</p>
                     <p className="text-[10px] text-text-muted mt-0.5">{label}</p>
                   </div>
@@ -139,8 +185,8 @@ export default function ProfilePage() {
               {/* Tabs */}
               <div className="bg-card-bg border border-color rounded-2xl overflow-hidden">
                 <div className="flex border-b border-color">
-                  {(['about','services','reviews'] as const).map(tab=>(
-                    <button key={tab} onClick={()=>setActiveTab(tab)} className={`flex-1 py-3 text-xs font-semibold transition-all capitalize border-b-2 ${activeTab===tab?'text-[#FFD700] border-[#FFD700]':'text-text-muted border-transparent hover:text-text-light'}`}>{tab}</button>
+                  {(['about', 'services', 'reviews'] as const).map(tab => (
+                    <button key={tab} onClick={() => setActiveTab(tab)} className={`flex-1 py-3 text-xs font-semibold transition-all capitalize border-b-2 ${activeTab === tab ? 'text-[#FFD700] border-[#FFD700]' : 'text-text-muted border-transparent hover:text-text-light'}`}>{tab}</button>
                   ))}
                 </div>
                 <div className="p-5">
@@ -155,7 +201,7 @@ export default function ProfilePage() {
                           ['Ethnicity', escort.ethnicity],
                           ['Hair',      escort.hairColor],
                           ['City',      escort.city],
-                        ].map(([l,v])=>(
+                        ].map(([l, v]) => (
                           <div key={l}>
                             <p className="text-[9px] text-text-muted uppercase tracking-widest mb-0.5">{l}</p>
                             <p className="text-sm font-semibold text-text-light">{v}</p>
@@ -166,19 +212,19 @@ export default function ProfilePage() {
                   )}
                   {activeTab === 'services' && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {escort.services.map(s=>(
-                        <div key={s.name} className={`flex items-center justify-between p-3 rounded-xl border text-xs ${s.available?'bg-dark-bg border-color':'bg-dark-bg/50 border-color/30 opacity-50'}`}>
-                          <span className={`font-medium ${s.available?'text-text-light':'text-text-muted'}`}>{s.name}</span>
+                      {escort.services.map(s => (
+                        <div key={s.name} className={`flex items-center justify-between p-3 rounded-xl border text-xs ${s.available ? 'bg-dark-bg border-color' : 'bg-dark-bg/50 border-color/30 opacity-50'}`}>
+                          <span className={`font-medium ${s.available ? 'text-text-light' : 'text-text-muted'}`}>{s.name}</span>
                           {s.available
-                            ? <span className="flex items-center gap-1 text-[#28a745] font-semibold"><Check size={11}/> Yes</span>
-                            : <span className="flex items-center gap-1 text-[#EF4444] font-semibold"><X size={11}/> No</span>}
+                            ? <span className="flex items-center gap-1 text-[#28a745] font-semibold"><Check size={11} /> Yes</span>
+                            : <span className="flex items-center gap-1 text-[#EF4444] font-semibold"><X size={11} /> No</span>}
                         </div>
                       ))}
                     </div>
                   )}
                   {activeTab === 'reviews' && (
                     <div className="space-y-3">
-                      {escort.reviews_data.map(r=>(
+                      {escort.reviews_data.map(r => (
                         <div key={r.id} className="p-4 bg-dark-bg rounded-xl border border-color/50">
                           <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-2">
@@ -186,7 +232,7 @@ export default function ProfilePage() {
                               <p className="font-bold text-text-light text-sm">{r.client}</p>
                             </div>
                             <div className="flex flex-col items-end gap-0.5">
-                              <div className="flex gap-0.5">{[1,2,3,4,5].map(i=><Star key={i} size={11} className={i<=r.rating?'fill-[#FFD700] text-[#FFD700]':'text-text-muted'}/>)}</div>
+                              <div className="flex gap-0.5">{[1,2,3,4,5].map(i => <Star key={i} size={11} className={i <= r.rating ? 'fill-[#FFD700] text-[#FFD700]' : 'text-text-muted'} />)}</div>
                               <span className="text-[9px] text-text-muted">{r.date}</span>
                             </div>
                           </div>
@@ -202,9 +248,9 @@ export default function ProfilePage() {
               <div className="bg-card-bg border border-color rounded-2xl p-5">
                 <h3 className="text-sm font-bold text-text-light mb-3">Photo Gallery</h3>
                 <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
-                  {escort.gallery.map((img,i)=>(
-                    <button key={i} onClick={()=>setSelectedImg(img)} className="aspect-square rounded-xl overflow-hidden border border-color hover:border-[#8B0000]/60 transition-all group">
-                      <img src={img} alt={`Gallery ${i+1}`} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" loading="lazy"/>
+                  {escort.gallery.map((img, i) => (
+                    <button key={i} onClick={() => setSelectedImg(img)} className="aspect-square rounded-xl overflow-hidden border border-color hover:border-[#8B0000]/60 transition-all group">
+                      <img src={img} alt={`Gallery ${i + 1}`} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" loading="lazy" />
                     </button>
                   ))}
                 </div>
@@ -215,15 +261,15 @@ export default function ProfilePage() {
                 <div>
                   <h3 className="text-sm font-bold text-text-light mb-3">More in {escort.city}</h3>
                   <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-                    {similar.map(s=>(
+                    {similar.map(s => (
                       <Link key={s.id} href={`/profile/${s.id}`} className="group">
                         <div className="bg-card-bg border border-color rounded-xl overflow-hidden hover:border-[#8B0000]/40 transition-all">
                           <div className="relative aspect-[3/4] overflow-hidden">
-                            <img src={s.image} alt={s.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"/>
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent"/>
+                            <img src={s.image} alt={s.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
                             <div className="absolute bottom-1.5 left-1.5 right-1.5">
                               <p className="text-white text-[9px] font-bold truncate">{s.name}</p>
-                              <div className="flex items-center gap-0.5"><Star size={8} className="fill-[#FFD700] text-[#FFD700]"/><span className="text-[8px] text-white/80">{s.rating}</span></div>
+                              <div className="flex items-center gap-0.5"><Star size={8} className="fill-[#FFD700] text-[#FFD700]" /><span className="text-[8px] text-white/80">{s.rating}</span></div>
                             </div>
                           </div>
                         </div>
@@ -234,56 +280,86 @@ export default function ProfilePage() {
               )}
             </div>
 
-            {/* RIGHT: sticky booking card */}
+            {/* RIGHT: Contact card */}
             <div className="space-y-4">
               <div className="lg:sticky lg:top-20 space-y-4">
                 <div className="bg-card-bg border border-[#8B0000]/30 rounded-2xl p-5 shadow-xl shadow-black/20">
                   <div className="flex items-center gap-2 mb-4">
-                    <div className={`w-2.5 h-2.5 rounded-full ${escort.available?'bg-[#28a745] animate-pulse':'bg-gray-500'}`}/>
-                    <span className={`text-xs font-bold ${escort.available?'text-[#28a745]':'text-text-muted'}`}>{escort.available?'Available Now':'Currently Busy'}</span>
+                    <div className={`w-2.5 h-2.5 rounded-full ${escort.available ? 'bg-[#28a745] animate-pulse' : 'bg-gray-500'}`} />
+                    <span className={`text-xs font-bold ${escort.available ? 'text-[#28a745]' : 'text-text-muted'}`}>{escort.available ? 'Available Now' : 'Currently Busy'}</span>
                   </div>
 
                   <div className="mb-4 pb-4 border-b border-color">
                     <p className="text-[10px] text-text-muted uppercase tracking-widest mb-1">Starting Rate</p>
                     <p className="text-2xl font-black text-[#FFD700]">KES {escort.pricing.hourly.toLocaleString()}<span className="text-sm font-normal text-text-muted">/hr</span></p>
+                    <p className="text-[10px] text-text-muted mt-1">Contact her directly to arrange</p>
                   </div>
 
-                  <div className="space-y-2.5">
-                    {isLoggedIn ? (
-                      <>
-                        <button className="w-full py-3.5 bg-gradient-to-r from-[#8B0000] to-[#a00000] hover:from-[#a00000] hover:to-[#8B0000] text-white font-black rounded-xl transition-all shadow-lg shadow-[#8B0000]/30 flex items-center justify-center gap-2">
-                          <Calendar size={15}/> Book Now
-                        </button>
-                        <Link href="/messages" className="w-full py-3 bg-card-bg border border-color text-text-light font-semibold rounded-xl transition-all hover:border-[#FFD700]/50 flex items-center justify-center gap-2 text-sm">
-                          <MessageCircle size={14}/> Send Message
-                        </Link>
-                        <a href="tel:+254700000000" className="w-full py-2.5 border border-color text-text-muted font-medium rounded-xl transition-all hover:border-text-muted flex items-center justify-center gap-2 text-sm">
-                          <Phone size={13}/> Call Now
-                        </a>
-                        <button onClick={()=>setLiked(v=>!v)} className={`w-full py-2.5 border rounded-xl font-medium text-sm transition-all flex items-center justify-center gap-2 ${liked?'bg-[#E91E63]/10 border-[#E91E63]/40 text-[#E91E63]':'bg-dark-bg border-color text-text-muted hover:border-text-muted'}`}>
-                          <Heart size={13} className={liked?'fill-[#E91E63]':''}/> {liked?'Saved':'Save to Favorites'}
-                        </button>
-                      </>
-                    ) : (
-                      <div className="space-y-2.5">
-                        <Link href="/register" className="w-full py-3.5 bg-gradient-to-r from-[#8B0000] to-[#a00000] text-white font-black rounded-xl transition-all shadow-lg shadow-[#8B0000]/30 flex items-center justify-center gap-2">
-                          Sign Up to Book
-                        </Link>
-                        <Link href="/login" className="w-full py-3 bg-card-bg border border-color text-text-light text-sm font-semibold rounded-xl flex items-center justify-center transition-all hover:border-text-muted">
-                          Already a member? Sign In
-                        </Link>
-                      </div>
-                    )}
-                  </div>
+                  {isLoggedIn ? (
+                    <div className="space-y-2.5">
+                      {/* WhatsApp */}
+                      <a
+                        href={waLink(escort.id, escort.name)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full py-3.5 bg-[#25D366] hover:bg-[#20ba5a] text-white font-black rounded-xl transition-all shadow-lg shadow-[#25D366]/20 flex items-center justify-center gap-2 text-sm"
+                      >
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+                        </svg>
+                        WhatsApp {escort.name.split(' ')[0]}
+                      </a>
+
+                      {/* Telegram */}
+                      <a
+                        href={tgLink(escort.name)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full py-3 bg-[#229ED9] hover:bg-[#1a8fc2] text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2 text-sm"
+                      >
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.820 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
+                        </svg>
+                        Telegram
+                      </a>
+
+                      {/* Platform message */}
+                      <Link href="/messages" className="w-full py-2.5 bg-card-bg border border-color text-text-light font-semibold rounded-xl transition-all hover:border-[#FFD700]/50 flex items-center justify-center gap-2 text-sm">
+                        <MessageCircle size={14} /> Send Platform Message
+                      </Link>
+
+                      {/* Follow */}
+                      <button
+                        onClick={() => toggleFollow(escort.id)}
+                        className={`w-full py-2.5 border rounded-xl font-medium text-sm transition-all flex items-center justify-center gap-2 ${following ? 'bg-[#8B0000]/10 border-[#8B0000]/40 text-[#8B0000]' : 'bg-dark-bg border-color text-text-muted hover:border-text-muted'}`}
+                      >
+                        {following ? <><UserCheck size={13} /> Following</> : <><Users size={13} /> Follow {escort.name.split(' ')[0]}</>}
+                      </button>
+
+                      {/* Favourite */}
+                      <button onClick={() => setLiked(v => !v)} className={`w-full py-2.5 border rounded-xl font-medium text-sm transition-all flex items-center justify-center gap-2 ${liked ? 'bg-[#E91E63]/10 border-[#E91E63]/40 text-[#E91E63]' : 'bg-dark-bg border-color text-text-muted hover:border-text-muted'}`}>
+                        <Heart size={13} className={liked ? 'fill-[#E91E63]' : ''} /> {liked ? 'Saved' : 'Save to Favorites'}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2.5">
+                      <Link href="/register" className="w-full py-3.5 bg-gradient-to-r from-[#8B0000] to-[#a00000] text-white font-black rounded-xl transition-all shadow-lg shadow-[#8B0000]/30 flex items-center justify-center gap-2">
+                        Sign Up to Contact
+                      </Link>
+                      <Link href="/login" className="w-full py-3 bg-card-bg border border-color text-text-light text-sm font-semibold rounded-xl flex items-center justify-center transition-all hover:border-text-muted">
+                        Already a member? Sign In
+                      </Link>
+                    </div>
+                  )}
                 </div>
 
                 {/* Safety notice */}
                 <div className="bg-dark-bg border border-color rounded-2xl p-4">
-                  <div className="flex items-center gap-2 mb-2"><Shield size={13} className="text-[#28a745]"/><span className="text-xs font-bold text-text-light">Safety Tips</span></div>
+                  <div className="flex items-center gap-2 mb-2"><Shield size={13} className="text-[#28a745]" /><span className="text-xs font-bold text-text-light">Safety Tips</span></div>
                   <ul className="space-y-1.5">
-                    {['Always verify identity before meeting','Book through the platform for protection','Read reviews from previous clients','Trust your instincts — safety first'].map(tip=>(
+                    {['Always verify identity before meeting', 'Never send money in advance', 'Meet in public places first', 'Trust your instincts — safety first'].map(tip => (
                       <li key={tip} className="flex items-start gap-1.5 text-[10px] text-text-muted">
-                        <Check size={9} className="text-[#28a745] mt-0.5 flex-shrink-0"/>{tip}
+                        <Check size={9} className="text-[#28a745] mt-0.5 flex-shrink-0" />{tip}
                       </li>
                     ))}
                   </ul>
@@ -292,11 +368,11 @@ export default function ProfilePage() {
                 {/* Stats mini */}
                 <div className="grid grid-cols-2 gap-2">
                   {[
-                    [escort.reviews,'Reviews'],
-                    [escort.rating+'★','Rating'],
-                    [(Math.floor(Math.random()*500+100)),'Profile Views'],
-                    [escort.available?'Now':'Later','Availability'],
-                  ].map(([v,l])=>(
+                    [followerCount(escort.id).toLocaleString(), 'Followers'],
+                    [escort.rating + '★', 'Rating'],
+                    [escort.reviews, 'Reviews'],
+                    [escort.available ? 'Now' : 'Later', 'Availability'],
+                  ].map(([v, l]) => (
                     <div key={l as string} className="bg-card-bg border border-color rounded-xl p-3 text-center">
                       <p className="font-black text-text-light text-sm">{v}</p>
                       <p className="text-[9px] text-text-muted mt-0.5">{l}</p>
@@ -308,7 +384,7 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        <div className="h-8"/>
+        <div className="h-8" />
       </div>
     </div>
   )
