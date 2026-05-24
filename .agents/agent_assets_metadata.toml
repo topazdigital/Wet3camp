@@ -1,0 +1,8 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "Dpl7ZpOBs0ru3REWBSnwh"
+uri = "file://artifacts/wet3camp-mobile/assets/images/icon.png"
+type = "image"
+title = "wet3camp mobile icon"
