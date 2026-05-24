@@ -3,6 +3,7 @@ import Header from '@/components/Header'
 import Sidebar from '@/components/Sidebar'
 import { Calendar, MapPin, Users, Clock, Ticket, Star, Filter } from 'lucide-react'
 import { Link } from 'wouter'
+import { useSEO } from '@/lib/useSEO'
 
 const EVENTS = [
   { id:1, title:'VIP Nairobi Mixer', date:'Sat, Jun 7 2026', time:'8:00 PM', venue:'Sankara Hotel, Westlands', city:'Nairobi', price:5000, capacity:50, attending:38, escorts:8, category:'Mixer', image:'https://images.unsplash.com/photo-1519167758481-83f550bb49b3?w=400&h=250&fit=crop', featured:true },
@@ -17,6 +18,12 @@ const CATS = ['All','Mixer','Party','Dinner','Cultural']
 const CITIES = ['All','Nairobi','Mombasa','Kisumu']
 
 export default function EventsPage() {
+  useSEO({
+    title: 'Companion Events Kenya',
+    description: 'Find exclusive adult events, social mixers and companion gatherings in Nairobi, Mombasa and across Kenya.',
+    keywords: 'escort events Kenya, adult events Nairobi, companion gatherings Kenya',
+    canonicalPath: '/events',
+  })
   const [cat, setCat] = useState('All')
   const [city, setCity] = useState('All')
   const filtered = EVENTS.filter(e => (cat==='All'||e.category===cat) && (city==='All'||e.city===city))

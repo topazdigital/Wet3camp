@@ -3,13 +3,15 @@ import Header from '@/components/Header'
 import Sidebar from '@/components/Sidebar'
 import { useAuth } from '@/lib/auth-context'
 import { ESCORTS } from '@/data/escorts'
-import { Eye, Calendar, Star, TrendingUp, Edit3, Camera, CheckCircle2, MapPin, Clock, DollarSign, Users, Heart, MessageCircle, BarChart2, Shield, Zap, Crown, Smartphone, Instagram, Loader2, AlertCircle, UserCheck } from 'lucide-react'
+import { Eye, Calendar, Star, TrendingUp, Edit3, Camera, CheckCircle2, MapPin, Clock, DollarSign, Users, Heart, MessageCircle, BarChart2, Shield, Zap, Crown, Smartphone, Instagram, Loader2, AlertCircle, UserCheck, Globe } from 'lucide-react'
 import { Link } from 'wouter'
 import { useFollow } from '@/lib/follow-context'
+import { useSEO } from '@/lib/useSEO'
 
 const TABS = ['Overview', 'Edit Profile', 'Gallery', 'Followers', 'Get Featured', 'Instagram Import', 'Subscription', 'Earnings']
 
 export default function MyProfile() {
+  useSEO({ title: 'My Profile — Dashboard', noIndex: true })
   const { user } = useAuth()
   const [activeTab, setActiveTab] = useState('Overview')
   const [available, setAvailable] = useState(true)
@@ -30,6 +32,23 @@ export default function MyProfile() {
 
   const myEscort = ESCORTS.find(e => e.id === user?.profileId) ?? ESCORTS[0]
   const { followerCount } = useFollow()
+
+  // Edit Profile state
+  const [editDob, setEditDob] = useState('')
+  const [editBodyType, setEditBodyType] = useState(myEscort.bodyType || '')
+  const [editEthnicity, setEditEthnicity] = useState(myEscort.ethnicity || '')
+  const [editHair, setEditHair] = useState(myEscort.hairColor || '')
+  const [editLangs, setEditLangs] = useState<string[]>(myEscort.languages || [])
+  const [editWhatsapp, setEditWhatsapp] = useState('+254712345001')
+  const [editTelegram, setEditTelegram] = useState('@amara_wet3camp')
+
+  const BODY_TYPES  = ['Slim', 'Athletic', 'Curvy', 'Petite', 'BBW', 'Average', 'Muscular']
+  const ETHNICITIES = ['Kenyan', 'African', 'Asian', 'Mixed Race', 'European', 'Middle Eastern', 'Latin', 'Other']
+  const HAIR_COLORS = ['Black', 'Dark Brown', 'Brown', 'Auburn', 'Blonde', 'Red', 'Natural', 'Braids', 'Locs', 'Coloured / Dyed']
+  const LANGUAGES   = ['English', 'Swahili', 'French', 'Arabic', 'Hindi', 'Luo', 'Kikuyu', 'Kalenjin', 'Kamba', 'German', 'Spanish', 'Italian', 'Somali', 'Oromo', 'Luganda']
+  const toggleEditLang = (l: string) => setEditLangs(p => p.includes(l) ? p.filter(x => x !== l) : [...p, l])
+  const calcAge = (d: string) => { if (!d) return null; const b = new Date(d), t = new Date(); let a = t.getFullYear() - b.getFullYear(); if (t.getMonth() - b.getMonth() < 0 || (t.getMonth() === b.getMonth() && t.getDate() < b.getDate())) a--; return a }
+  const editAge = calcAge(editDob)
 
   const stats = [
     { icon: Eye,           label: 'Profile Views',    value: '2,847',   change: '+12%',   color: '#2196F3' },
@@ -234,13 +253,67 @@ export default function MyProfile() {
                 <div className="space-y-4">
                   <div><label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Display Name</label><input defaultValue={myEscort.name} className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#8B0000] transition-all"/></div>
                   <div><label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Bio</label><textarea defaultValue={myEscort.bio} rows={4} className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#8B0000] transition-all resize-none"/></div>
+                  {/* DOB & Age */}
+                  <div>
+                    <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5 flex items-center gap-1.5"><Calendar size={10}/> Date of Birth</label>
+                    <input type="date" value={editDob} onChange={e=>setEditDob(e.target.value)} max={new Date(new Date().setFullYear(new Date().getFullYear()-18)).toISOString().split('T')[0]} className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#8B0000] transition-all [color-scheme:dark]"/>
+                    {editAge !== null && <p className="text-[10px] text-[#28a745] mt-1 flex items-center gap-1"><CheckCircle2 size={9}/> Age: {editAge} years old</p>}
+                  </div>
+
                   <div className="grid grid-cols-2 gap-3">
-                    <div><label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Age</label><input type="number" defaultValue={myEscort.age} className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#8B0000] transition-all"/></div>
-                    <div><label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Height</label><input defaultValue={myEscort.height} className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#8B0000] transition-all"/></div>
-                    <div><label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">City</label><input defaultValue={myEscort.city} className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#8B0000] transition-all"/></div>
-                    <div><label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Area</label><input defaultValue={myEscort.area} className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#8B0000] transition-all"/></div>
-                    <div><label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">WhatsApp</label><input defaultValue="+254712345001" className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#25D366] transition-all"/></div>
-                    <div><label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Telegram Handle</label><input defaultValue="@myhandle" className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#229ED9] transition-all"/></div>
+                    <div>
+                      <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Height</label>
+                      <select defaultValue={myEscort.height} className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#8B0000] transition-all appearance-none">
+                        {["4'10\"","4'11\"","5'0\"","5'1\"","5'2\"","5'3\"","5'4\"","5'5\"","5'6\"","5'7\"","5'8\"","5'9\"","5'10\"","5'11\"","6'0\"","6'1\"","6'2\"","6'3\""].map(h=><option key={h} value={h}>{h}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Body Type</label>
+                      <select value={editBodyType} onChange={e=>setEditBodyType(e.target.value)} className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#8B0000] transition-all appearance-none">
+                        <option value="">Select…</option>
+                        {BODY_TYPES.map(b=><option key={b} value={b}>{b}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Ethnicity</label>
+                      <select value={editEthnicity} onChange={e=>setEditEthnicity(e.target.value)} className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#8B0000] transition-all appearance-none">
+                        <option value="">Select…</option>
+                        {ETHNICITIES.map(e=><option key={e} value={e}>{e}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Hair Color</label>
+                      <select value={editHair} onChange={e=>setEditHair(e.target.value)} className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#8B0000] transition-all appearance-none">
+                        <option value="">Select…</option>
+                        {HAIR_COLORS.map(h=><option key={h} value={h}>{h}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">City</label>
+                      <input defaultValue={myEscort.city} className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#8B0000] transition-all"/>
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Area</label>
+                      <input defaultValue={myEscort.area} className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#8B0000] transition-all"/>
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5 flex items-center gap-1" style={{color:'#25D366'}}>📱 WhatsApp</label>
+                      <input value={editWhatsapp} onChange={e=>setEditWhatsapp(e.target.value)} className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#25D366] transition-all"/>
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5 flex items-center gap-1" style={{color:'#229ED9'}}>✈️ Telegram</label>
+                      <input value={editTelegram} onChange={e=>setEditTelegram(e.target.value)} className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#229ED9] transition-all"/>
+                    </div>
+                  </div>
+
+                  {/* Languages */}
+                  <div>
+                    <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-2 flex items-center gap-1"><Globe size={10}/> Languages <span className="text-[9px] normal-case">({editLangs.length} selected)</span></label>
+                    <div className="flex flex-wrap gap-2">
+                      {LANGUAGES.map(l => (
+                        <button key={l} type="button" onClick={() => toggleEditLang(l)} className={`px-3 py-1.5 rounded-full text-[10px] font-semibold border transition-all ${editLangs.includes(l) ? 'bg-[#8B0000] border-[#8B0000] text-white' : 'bg-dark-bg border-color text-text-muted hover:border-text-muted'}`}>{l}</button>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>

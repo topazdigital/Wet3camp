@@ -5,6 +5,7 @@ import { Crown, Lock, Star, Eye, Heart, Zap, CheckCircle2 } from 'lucide-react'
 import { Link } from 'wouter'
 import { ESCORTS } from '@/data/escorts'
 import { useAuth } from '@/lib/auth-context'
+import { useSEO } from '@/lib/useSEO'
 
 const EXCLUSIVE = ESCORTS.filter(e => e.tier === 'Elite').slice(0, 9)
 
@@ -15,6 +16,12 @@ const PACKAGES = [
 ]
 
 export default function ExclusivePage() {
+  useSEO({
+    title: 'Exclusive VIP Companions Kenya',
+    description: 'Browse exclusive VIP and Elite escorts in Kenya. Premium companion packages in Nairobi, Mombasa & beyond. Verified, discreet, and top-tier.',
+    keywords: 'exclusive escorts Kenya, VIP companions Nairobi, elite escort Kenya, premium escort packages',
+    canonicalPath: '/exclusive',
+  })
   const [tab, setTab] = useState<'escorts'|'packages'>('escorts')
   const { isLoggedIn } = useAuth()
 

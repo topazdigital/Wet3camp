@@ -4,6 +4,7 @@ import Sidebar from '@/components/Sidebar'
 import { Star, Quote, MapPin, CheckCircle2 } from 'lucide-react'
 import { Link } from 'wouter'
 import { useAuth } from '@/lib/auth-context'
+import { useSEO } from '@/lib/useSEO'
 
 const TESTIMONIALS = [
   { id:1, name:'John K.',  city:'Nairobi CBD',   role:'Client',  rating:5, date:'2 days ago',  text:'Best platform in Kenya by far. Amara K. was absolutely stunning, professional and made the whole evening extraordinary. Booking was seamless and discreet.', verified:true, avatar:'J' },
@@ -17,6 +18,12 @@ const TESTIMONIALS = [
 ]
 
 export default function TestimonialsPage() {
+  useSEO({
+    title: 'Client Testimonials — Wet3 Camp Reviews',
+    description: 'Read real testimonials from clients and escorts on Wet3 Camp. Discover why Kenya trusts us for premium companion bookings.',
+    keywords: 'Wet3 Camp reviews, escort platform testimonials Kenya, companion booking reviews',
+    canonicalPath: '/testimonials',
+  })
   const [filter, setFilter] = useState('All')
   const { isLoggedIn } = useAuth()
   const [writeOpen, setWriteOpen] = useState(false)

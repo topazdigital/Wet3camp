@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import Header from '@/components/Header'
 import Sidebar from '@/components/Sidebar'
 import { MapPin, Clock, Star, Plane, Users, ChevronRight } from 'lucide-react'
+import { useSEO } from '@/lib/useSEO'
 
 const TOURS = [
   { id:1, title:'Nairobi Weekend Getaway', dest:'Nairobi → Nakuru', duration:'2 days', price:45000, rating:4.8, reviews:67, escorts:3, image:'https://images.unsplash.com/photo-1516026672322-bc52d61a55d5?w=400&h=250&fit=crop', includes:['Hotel 2 nights','Transport','Escort companion','Meals'], category:'Weekend' },
@@ -15,6 +16,12 @@ const TOURS = [
 const CATS = ['All','Weekend','Beach','Safari','International','Adventure']
 
 export default function ToursPage() {
+  useSEO({
+    title: 'Escort Tours Kenya — Travel Companions',
+    description: 'Book travel companions and escort tours across Kenya and East Africa. Nairobi, Mombasa, Zanzibar and beyond.',
+    keywords: 'escort tours Kenya, travel companion Nairobi, companion tours East Africa',
+    canonicalPath: '/tours',
+  })
   const [cat, setCat] = useState('All')
   const filtered = TOURS.filter(t => cat==='All'||t.category===cat)
 

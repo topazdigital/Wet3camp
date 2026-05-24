@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import Header from '@/components/Header'
 import Sidebar from '@/components/Sidebar'
 import { ChevronDown, Search, Shield, CreditCard, Phone, Star, MapPin, Lock } from 'lucide-react'
+import { useSEO } from '@/lib/useSEO'
 
 const FAQS = [
   { cat:'Getting Started', icon: Star, faqs:[
@@ -37,6 +38,12 @@ const FAQS = [
 ]
 
 export default function FAQsPage() {
+  useSEO({
+    title: 'FAQs — Frequently Asked Questions',
+    description: 'Get answers to common questions about booking escorts, safety, payments and how Wet3 Camp works in Kenya.',
+    keywords: 'escort FAQ Kenya, how to book escort Kenya, escort payment Kenya, companion booking help',
+    canonicalPath: '/faqs',
+  })
   const [search, setSearch] = useState('')
   const [openCat, setOpenCat] = useState<string|null>('Getting Started')
   const [openQ, setOpenQ] = useState<string|null>(null)

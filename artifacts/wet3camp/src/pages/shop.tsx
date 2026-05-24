@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import Header from '@/components/Header'
 import Sidebar from '@/components/Sidebar'
 import { ShoppingCart, Star, Shield, Truck, Lock, Filter, Heart } from 'lucide-react'
+import { useSEO } from '@/lib/useSEO'
 
 const PRODUCTS = [
   { id:1, name:'Luxury Silk Set', price:8500, category:'Premium', image:'https://images.unsplash.com/photo-1578500494198-246f612d03b3?w=300&h=400&fit=crop', rating:4.8, reviews:124, tag:'Best Seller' },
@@ -17,6 +18,12 @@ const PRODUCTS = [
 const CATS = ['All','Premium','Starter','Popular','Travel','Wellness','Fashion']
 
 export default function ShopPage() {
+  useSEO({
+    title: 'Adult Shop Kenya — Discreet Delivery',
+    description: 'Shop discreetly for premium adult products with fast delivery across Kenya. Lingerie, toys, accessories and more.',
+    keywords: 'adult shop Kenya, adult products Nairobi, discreet delivery Kenya, lingerie Kenya',
+    canonicalPath: '/shop',
+  })
   const [cat, setCat] = useState('All')
   const [cart, setCart] = useState<number[]>([])
   const [liked, setLiked] = useState<number[]>([])

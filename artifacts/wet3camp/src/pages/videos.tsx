@@ -4,6 +4,7 @@ import Sidebar from '@/components/Sidebar'
 import { Play, Lock, Eye, Clock, Star, Zap, Crown } from 'lucide-react'
 import { Link } from 'wouter'
 import { useAuth } from '@/lib/auth-context'
+import { useSEO } from '@/lib/useSEO'
 
 const VIDEOS = [
   { id:1, title:'Private Session with Amara K.', escort:'Amara K.', duration:'18:24', views:12450, rating:4.9, thumbnail:'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&h=250&fit=crop', tier:'elite', locked:true, price:2500 },
@@ -25,6 +26,12 @@ const tierStyle: Record<string,{bg:string,label:string}> = {
 }
 
 export default function VideosPage() {
+  useSEO({
+    title: 'Escort Videos Kenya',
+    description: 'Watch premium escort and companion videos in Kenya. Exclusive content from verified escorts in Nairobi and Mombasa.',
+    keywords: 'escort videos Kenya, companion video content Nairobi, adult videos Kenya',
+    canonicalPath: '/videos',
+  })
   const [cat, setCat] = useState('All')
   const { isLoggedIn } = useAuth()
   const filtered = VIDEOS.filter(v => cat==='All'||(cat==='Free'&&!v.locked)||(cat.toLowerCase()===v.tier))

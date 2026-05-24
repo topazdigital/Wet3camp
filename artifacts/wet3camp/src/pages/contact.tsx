@@ -2,10 +2,17 @@ import React, { useState } from 'react'
 import Header from '@/components/Header'
 import Sidebar from '@/components/Sidebar'
 import { Mail, Phone, MessageCircle, MapPin, Send, CheckCircle2, Clock, Shield } from 'lucide-react'
+import { useSEO } from '@/lib/useSEO'
 
 const TOPICS = ['General Inquiry','Booking Support','Account Issues','Payment Problem','Report a User','Escort Verification','Press & Media','Other']
 
 export default function ContactPage() {
+  useSEO({
+    title: 'Contact Us — Wet3 Camp Support',
+    description: 'Get in touch with the Wet3 Camp team in Kenya. Support for escorts and clients — available 24/7.',
+    keywords: 'contact Wet3 Camp Kenya, escort platform support, companion booking help Kenya',
+    canonicalPath: '/contact',
+  })
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [topic, setTopic] = useState('')

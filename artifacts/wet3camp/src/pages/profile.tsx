@@ -6,6 +6,7 @@ import { Link, useRoute } from 'wouter'
 import { ESCORTS } from '@/data/escorts'
 import { useAuth } from '@/lib/auth-context'
 import { useFollow } from '@/lib/follow-context'
+import { useSEO } from '@/lib/useSEO'
 
 const TIER_STYLE: Record<string, { bg: string; text: string; label: string }> = {
   Elite:    { bg: '#8B0000',  text: '#fff', label: '★ ELITE'   },
@@ -38,6 +39,12 @@ export default function ProfilePage() {
 
   const escort = ESCORTS.find(e => e.id === params?.id) ?? ESCORTS[0]
   const similar = ESCORTS.filter(e => e.id !== escort.id && e.city === escort.city).slice(0, 6)
+
+  useSEO({
+    title: escort ? `${escort.name} — ${escort.tier} Companion in ${escort.city}` : 'Escort Profile Kenya',
+    description: escort ? `Book ${escort.name}, verified ${escort.tier} companion in ${escort.area}, ${escort.city}. ${escort.bio?.slice(0, 130)}` : "Verified escort profile on Wet3 Camp — Kenya's #1 companion directory.",
+    keywords: escort ? `${escort.name}, escort ${escort.city} Kenya, ${escort.tier} companion ${escort.area}, book ${escort.name}` : undefined,
+  })
 
   const [liked, setLiked] = useState(false)
   const [activeTab, setActiveTab] = useState<'about' | 'services' | 'reviews'>('about')
@@ -224,7 +231,7 @@ export default function ProfilePage() {
                   )}
                   {activeTab === 'reviews' && (
                     <div className="space-y-3">
-                      {escort.reviews_data.map(r => (
+                      {(escort.reviews_data ?? []).map(r => (
                         <div key={r.id} className="p-4 bg-dark-bg rounded-xl border border-color/50">
                           <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-2">

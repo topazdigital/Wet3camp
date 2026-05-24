@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import Header from '@/components/Header'
 import Sidebar from '@/components/Sidebar'
 import { Search, AlertTriangle, Flag, MapPin, Calendar, Shield, Eye } from 'lucide-react'
+import { useSEO } from '@/lib/useSEO'
 
 const BLACKLIST = [
   { id:1, name:'John D.',   type:'client',  reason:'Non-payment',              city:'Nairobi',  date:'2025-12-10', severity:'high',   reports:7  },
@@ -21,6 +22,12 @@ const SEVERITY_STYLE: Record<string,{color:string,bg:string,label:string}> = {
 }
 
 export default function BlacklistPage() {
+  useSEO({
+    title: 'Escort Blacklist Kenya — Safety Database',
+    description: 'Community-maintained safety blacklist for escorts and clients in Kenya. Report bad actors and protect yourself.',
+    keywords: 'escort blacklist Kenya, bad clients Kenya, safety database escorts',
+    canonicalPath: '/blacklist',
+  })
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('All')
   const [reportOpen, setReportOpen] = useState(false)

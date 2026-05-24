@@ -3,6 +3,7 @@ import Header from '@/components/Header'
 import Sidebar from '@/components/Sidebar'
 import { Star, CheckCircle2, MapPin, ThumbsUp, Filter, Search } from 'lucide-react'
 import { ESCORTS } from '@/data/escorts'
+import { useSEO } from '@/lib/useSEO'
 
 const REVIEWS = [
   { id:1, client:'John K.',     escort:'Amara K.',    escortId:'1',  rating:5, text:'Absolutely stunning — exceeded every expectation. Professional, punctual and wonderful company for my business dinner. Highly recommend her to anyone looking for a top-tier companion in Nairobi.', date:'3 days ago',   city:'Nairobi', likes:24, verified:true },
@@ -18,6 +19,12 @@ const REVIEWS = [
 const CITIES = ['All','Nairobi','Mombasa','Kisumu','Nakuru']
 
 export default function ReviewsPage() {
+  useSEO({
+    title: 'Escort Reviews Kenya — Real Client Feedback',
+    description: 'Read verified client reviews for escorts in Kenya. Honest ratings and feedback for companions in Nairobi, Mombasa and more.',
+    keywords: 'escort reviews Kenya, companion ratings Nairobi, client reviews escorts',
+    canonicalPath: '/reviews',
+  })
   const [search, setSearch] = useState('')
   const [city, setCity] = useState('All')
   const [sort, setSort] = useState<'recent'|'top'>('recent')

@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import Header from '@/components/Header'
 import Sidebar from '@/components/Sidebar'
 import { Users, Star, Eye, Radio, Zap, CheckCircle2 } from 'lucide-react'
+import { useSEO } from '@/lib/useSEO'
 
 const LIVE_STREAMS = [
   { id: 1, name: 'Amara K.',  age: 24, location: 'Nairobi CBD', tier: 'elite',   rating: 4.9, viewers: 1247, image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&h=500&fit=crop', title: 'Evening Show ✨', hot: true },
@@ -16,6 +17,12 @@ const TIER_COLORS: Record<string, string> = { elite: '#8B0000', vip: '#FF4500', 
 const totalViewers = LIVE_STREAMS.reduce((s, l) => s + l.viewers, 0)
 
 export default function LivePage() {
+  useSEO({
+    title: 'Live Streams — Watch Companions Live',
+    description: 'Watch live streams from verified escorts and companions in Kenya. Real-time entertainment from elite, VIP, and premium escorts.',
+    keywords: 'live escort streams Kenya, companion live video Nairobi, escort webcam Kenya',
+    canonicalPath: '/live',
+  })
   const [filter, setFilter] = useState('all')
 
   const filtered = filter === 'hot' ? LIVE_STREAMS.filter(s => s.hot) : LIVE_STREAMS

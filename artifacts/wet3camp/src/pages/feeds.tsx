@@ -6,6 +6,7 @@ import { Link } from 'wouter'
 import { ESCORTS } from '@/data/escorts'
 import { useFollow } from '@/lib/follow-context'
 import { useAuth } from '@/lib/auth-context'
+import { useSEO } from '@/lib/useSEO'
 
 interface Post {
   id: string; escortId: string; name: string; handle: string; avatar: string
@@ -48,6 +49,12 @@ function FollowBtn({ escortId, small = false }: { escortId: string; small?: bool
 }
 
 export default function FeedsPage() {
+  useSEO({
+    title: 'Escort Feeds — Social Updates',
+    description: 'Follow your favourite escorts and see their latest updates, photos, and posts. Real-time social feed from verified companions in Kenya.',
+    keywords: 'escort feeds Kenya, escort social media, companion updates Nairobi',
+    canonicalPath: '/feeds',
+  })
   const [liked, setLiked] = useState<Set<string>>(new Set())
   const [saved, setSaved] = useState<Set<string>>(new Set())
   const [tipOpen, setTipOpen] = useState<string | null>(null)

@@ -3,6 +3,7 @@ import { Link, useLocation } from 'wouter'
 import { Bell, Heart, Search, X, Flame, ShieldCheck, ChevronDown, LogOut, User, Settings, BookOpen } from 'lucide-react'
 import { useSidebar } from '@/lib/sidebar-context'
 import { useAuth } from '@/lib/auth-context'
+import { useNotifications } from '@/lib/notifications-context'
 
 export default function Header() {
   const [showSearch, setShowSearch] = useState(false)
@@ -12,6 +13,7 @@ export default function Header() {
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [, navigate] = useLocation()
   const { user, logout, isLoggedIn, isAdmin, isEscort } = useAuth()
+  const { notifications, unreadCount, markRead, markAllRead } = useNotifications()
   const notifRef = useRef<HTMLDivElement>(null)
   const userRef = useRef<HTMLDivElement>(null)
 
@@ -32,12 +34,6 @@ export default function Header() {
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [])
-
-  const notifications = isLoggedIn ? [
-    { id: 1, text: 'Amara K. accepted your booking', time: '2m ago', dot: '#28a745' },
-    { id: 2, text: 'New message from Zara M.',        time: '15m ago', dot: '#FFD700' },
-    { id: 3, text: '3 new escorts near ' + (user?.area || 'you'), time: '1h ago', dot: '#8B0000' },
-  ] : []
 
   const handleLogout = () => {
     setUserMenuOpen(false)
@@ -100,24 +96,45 @@ export default function Header() {
                 onClick={() => setNotifOpen(v => !v)}
               >
                 <Bell size={18} />
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#8B0000] ring-1 ring-card-bg" />
+                {unreadCount > 0 && (
+                  <span className="absolute top-1 right-1 min-w-[16px] h-4 px-0.5 rounded-full bg-[#8B0000] ring-1 ring-card-bg flex items-center justify-center text-[8px] font-black text-white">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
               </button>
               {notifOpen && (
-                <div className="absolute right-0 top-10 w-72 bg-card-bg border border-color rounded-xl shadow-2xl shadow-black/60 overflow-hidden z-50">
+                <div className="absolute right-0 top-10 w-80 bg-card-bg border border-color rounded-xl shadow-2xl shadow-black/60 overflow-hidden z-50">
                   <div className="px-4 py-3 border-b border-color flex items-center justify-between">
-                    <span className="text-xs font-bold text-text-light uppercase tracking-widest">Notifications</span>
-                    <button onClick={() => setNotifOpen(false)}><X size={14} className="text-text-muted" /></button>
-                  </div>
-                  {notifications.map(n => (
-                    <div key={n.id} className="flex items-start gap-3 px-4 py-3 hover:bg-dark-bg transition-colors cursor-pointer border-b border-color/40 last:border-0">
-                      <div className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0" style={{ backgroundColor: n.dot }} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs text-text-light leading-snug">{n.text}</p>
-                        <p className="text-[10px] text-text-muted mt-0.5">{n.time}</p>
-                      </div>
+                    <span className="text-xs font-bold text-text-light uppercase tracking-widest">
+                      Notifications {unreadCount > 0 && <span className="ml-1.5 px-1.5 py-0.5 bg-[#8B0000] text-white text-[9px] rounded-full">{unreadCount} new</span>}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      {unreadCount > 0 && (
+                        <button onClick={markAllRead} className="text-[10px] text-[#2196F3] hover:underline">Mark all read</button>
+                      )}
+                      <button onClick={() => setNotifOpen(false)}><X size={14} className="text-text-muted" /></button>
                     </div>
-                  ))}
-                  <Link href="/messages" onClick={() => setNotifOpen(false)} className="block px-4 py-2.5 text-center text-xs text-secondary-color hover:bg-dark-bg transition-colors">
+                  </div>
+                  <div className="max-h-80 overflow-y-auto">
+                    {notifications.length === 0 ? (
+                      <p className="px-4 py-6 text-xs text-text-muted text-center">No notifications yet</p>
+                    ) : notifications.map(n => (
+                      <Link
+                        key={n.id}
+                        href={n.link}
+                        onClick={() => { markRead(n.id); setNotifOpen(false) }}
+                        className={`flex items-start gap-3 px-4 py-3 hover:bg-dark-bg transition-colors cursor-pointer border-b border-color/30 last:border-0 ${!n.read ? 'bg-dark-bg/50' : ''}`}
+                      >
+                        <div className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0" style={{ backgroundColor: n.dot }} />
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-xs leading-snug ${n.read ? 'text-text-muted' : 'text-text-light font-medium'}`}>{n.text}</p>
+                          <p className="text-[10px] text-text-muted mt-0.5">{n.time}</p>
+                        </div>
+                        {!n.read && <div className="w-1.5 h-1.5 rounded-full bg-[#8B0000] flex-shrink-0 mt-1.5" />}
+                      </Link>
+                    ))}
+                  </div>
+                  <Link href="/messages" onClick={() => setNotifOpen(false)} className="block px-4 py-2.5 text-center text-xs text-secondary-color hover:bg-dark-bg transition-colors border-t border-color">
                     View all messages →
                   </Link>
                 </div>

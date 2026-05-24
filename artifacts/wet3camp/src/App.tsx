@@ -2,7 +2,8 @@ import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { SidebarProvider } from "@/lib/sidebar-context";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
-import { FollowProvider } from "@/lib/follow-context";
+import { FollowProvider } from "@/lib/follow-context"
+import { NotificationsProvider } from "@/lib/notifications-context";
 import BottomNav from "@/components/BottomNav";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
@@ -77,12 +78,14 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
         <AuthProvider>
-          <FollowProvider>
-            <SidebarProvider>
-              <Router />
-              <BottomNav />
-            </SidebarProvider>
-          </FollowProvider>
+          <NotificationsProvider>
+            <FollowProvider>
+              <SidebarProvider>
+                <Router />
+                <BottomNav />
+              </SidebarProvider>
+            </FollowProvider>
+          </NotificationsProvider>
         </AuthProvider>
       </WouterRouter>
     </QueryClientProvider>

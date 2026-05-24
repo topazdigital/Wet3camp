@@ -7,6 +7,7 @@ import {
   AlertTriangle, Lock, Mail, Eye, EyeOff, TrendingUp, DollarSign, Crown, Key, Instagram,
   Smartphone, Globe, MessageCircle, Bell, Star, Save, RefreshCw
 } from 'lucide-react'
+import { useSEO } from '@/lib/useSEO'
 
 const TABS = ['Overview','Escorts','Clients','Bookings','Moderators','Featured','API Keys','Settings']
 
@@ -638,6 +639,7 @@ function AdminDashboard() {
 }
 
 export default function AdminPage() {
+  useSEO({ title: 'Admin Dashboard', noIndex: true })
   const { isAdmin } = useAuth()
   if (!isAdmin) return <AdminLogin />
   return <AdminDashboard />

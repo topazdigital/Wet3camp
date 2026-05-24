@@ -6,6 +6,7 @@ import InfiniteEscortGrid from '@/components/InfiniteEscortGrid'
 import { Users, MapPin, ShieldCheck, Flame, Video, Hotel, Plane, ShoppingBag, Calendar, Newspaper, Navigation } from 'lucide-react'
 import { Link } from 'wouter'
 import { CITIES } from '@/data/escorts'
+import { useSEO } from '@/lib/useSEO'
 
 const STATS = [
   { icon: Users,       value: '1,200+', label: 'Active Escorts' },
@@ -37,6 +38,12 @@ const QUICK_LINKS = [
 ]
 
 export default function Home() {
+  useSEO({
+    title: "Kenya's #1 Escort & Companion Directory",
+    description: "Browse 1,200+ verified escorts in Nairobi, Mombasa, Kisumu & across Kenya. Elite, VIP & Premium companions. Discreet, safe, real profiles.",
+    keywords: "escorts Kenya, Nairobi escorts, Mombasa escorts, companion booking Kenya, VIP escorts Nairobi, elite companions, verified escorts",
+    canonicalPath: '/',
+  })
   const [activeCategory, setActiveCategory] = useState('all')
   const [detectedCity, setDetectedCity] = useState<string | null>(null)
   const [geoState, setGeoState] = useState<'idle' | 'loading' | 'done' | 'denied'>('idle')

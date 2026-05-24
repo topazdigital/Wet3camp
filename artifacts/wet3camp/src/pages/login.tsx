@@ -2,8 +2,15 @@ import React, { useState } from 'react'
 import { Link, useLocation } from 'wouter'
 import { Flame, Mail, Lock, Eye, EyeOff, ShieldCheck, Star, AlertCircle } from 'lucide-react'
 import { useAuth, tryLogin } from '@/lib/auth-context'
+import { useSEO } from '@/lib/useSEO'
 
 export default function LoginPage() {
+  useSEO({
+    title: 'Sign In',
+    description: 'Sign in to your Wet3 Camp account to browse escorts, send messages, and manage your profile in Kenya.',
+    noIndex: false,
+    canonicalPath: '/login',
+  })
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPass, setShowPass] = useState(false)

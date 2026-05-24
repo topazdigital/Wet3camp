@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import Header from '@/components/Header'
 import Sidebar from '@/components/Sidebar'
 import { MapPin, Star, Wifi, Car, Coffee, Shield, Filter, Hotel } from 'lucide-react'
+import { useSEO } from '@/lib/useSEO'
 
 const ROOMS = [
   { id:1, name:'Sankara Suite', hotel:'Sankara Hotel', city:'Nairobi', area:'Westlands', price:15000, rating:4.9, reviews:234, amenities:['WiFi','Parking','Breakfast','24hr Security','Pool'], image:'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=400&h=250&fit=crop', type:'Suite', available:true, perHour:2000 },
@@ -17,6 +18,12 @@ const amenityIcons: Record<string, React.ReactNode> = {
 }
 
 export default function RoomsPage() {
+  useSEO({
+    title: 'Discreet Rooms Kenya — Companion Accommodation',
+    description: 'Book discreet rooms and private accommodation for companion meetings in Nairobi, Mombasa and across Kenya.',
+    keywords: 'discreet rooms Kenya, companion accommodation Nairobi, escort rooms Kenya',
+    canonicalPath: '/rooms',
+  })
   const [city, setCity] = useState('All')
   const [type, setType] = useState('All')
   const cities = ['All','Nairobi','Mombasa','Kisumu']
