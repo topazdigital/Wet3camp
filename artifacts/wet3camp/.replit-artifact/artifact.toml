@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Wet3 Camp"
+version = "1.0.0"
+id = "artifacts/wet3camp"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 19099
+
+[services.development]
+run = "pnpm --filter @workspace/wet3camp run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/wet3camp", "run", "build" ]
+publicDir = "artifacts/wet3camp/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19099"
+BASE_PATH = "/"

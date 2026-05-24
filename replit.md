@@ -1,9 +1,10 @@
-# [Project name]
+# Wet3 Camp
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+A premium booking platform for exclusive adult services in Kenya, with browsing, profiles, live feeds, and admin management.
 
 ## Run & Operate
 
+- `pnpm --filter @workspace/wet3camp run dev` — run the frontend (Vite)
 - `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
@@ -14,23 +15,38 @@ _Replace the heading above with the project's name, and this line with one sente
 ## Stack
 
 - pnpm workspaces, Node.js 24, TypeScript 5.9
-- API: Express 5
+- Frontend: React + Vite (artifacts/wet3camp)
+- Routing: wouter
+- API: Express 5 (artifacts/api-server)
 - DB: PostgreSQL + Drizzle ORM
 - Validation: Zod (`zod/v4`), `drizzle-zod`
-- API codegen: Orval (from OpenAPI spec)
-- Build: esbuild (CJS bundle)
+- Styling: Tailwind CSS v4 with custom dark theme
+- UI Components: shadcn/ui
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/wet3camp/src/` — React frontend source
+- `artifacts/wet3camp/src/pages/` — Route-level page components (home, admin, feeds, live, etc.)
+- `artifacts/wet3camp/src/components/` — Shared components (Header, Sidebar, BottomNav, FeaturedCarousel, etc.)
+- `artifacts/wet3camp/src/lib/sidebar-context.tsx` — Custom sidebar state context
+- `artifacts/wet3camp/src/index.css` — Global CSS with custom dark theme variables
+- `artifacts/api-server/src/` — Express API server
+- `lib/api-spec/openapi.yaml` — API contract source of truth
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- Migrated from Next.js to Vite + React (wouter for routing) — Next.js is not supported as a Replit artifact type.
+- All Next.js `Link` → wouter `Link`, `usePathname` → `useLocation`, `'use client'` directives removed.
+- Custom dark theme colors defined as CSS custom properties (`--dark-bg`, `--card-bg`, `--text-light`, etc.) and exposed as Tailwind utility classes in `@layer components`.
+- Sidebar state managed via custom `SidebarProvider` in `lib/sidebar-context.tsx` (not shadcn sidebar).
+- All data is mock/static — no backend integration yet. API server exists but is not wired to frontend.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+- Home page: Featured carousel of profiles + infinite scroll grid
+- 18 routes: Home, Live, Feeds, Exclusive, Shop, Adverts, Events, Videos, Rooms, Tours, Reviews, Blacklist, Testimonials, FAQs, Messages, Contact, Admin, Install
+- Admin panel: moderator management with role-based access levels
+- Responsive: desktop sidebar + mobile bottom nav
 
 ## User preferences
 
@@ -38,7 +54,9 @@ _Populate as you build — explicit user instructions worth remembering across s
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- Do NOT run `pnpm dev` or `pnpm run dev` at the workspace root — no root dev script.
+- The sidebar uses a custom `useSidebar` from `@/lib/sidebar-context`, NOT the shadcn `useSidebar` from `@/components/ui/sidebar`.
+- Tailwind v4 — no `tailwind.config.js`; all theming done via CSS custom properties in `index.css`.
 
 ## Pointers
 
