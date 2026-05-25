@@ -106,13 +106,14 @@ export function BookingsProvider({ children }: { children: React.ReactNode }) {
 
   const requestBooking = useCallback(async (b: Omit<Booking, 'id' | 'status' | 'createdAt'>): Promise<string> => {
     try {
+      const apiType = b.durationHrs >= 12 ? 'overnight' : 'hourly'
       const res = await api.bookings.create({
         escortId: b.escortId,
         date: b.date,
         time: b.time,
         duration: b.durationHrs,
-        type: b.type,
-        notes: b.notes,
+        type: apiType,
+        notes: b.notes ? `[${b.type}] ${b.notes}` : `[${b.type}]`,
         location: b.location,
       })
       const booking: Booking = {
