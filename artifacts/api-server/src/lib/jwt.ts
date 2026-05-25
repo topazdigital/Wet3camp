@@ -1,9 +1,15 @@
 import { SignJWT, jwtVerify } from 'jose'
 
-const getSecret = () =>
-  new TextEncoder().encode(
-    process.env.JWT_SECRET ?? 'wet3camp-default-dev-secret-change-in-production'
-  )
+function getSecret(): Uint8Array {
+  const secret = process.env.JWT_SECRET
+  if (!secret) {
+    throw new Error(
+      'JWT_SECRET environment variable is not set. ' +
+      'Set it to a long random string before starting the server.'
+    )
+  }
+  return new TextEncoder().encode(secret)
+}
 
 export async function signToken(payload: Record<string, unknown>): Promise<string> {
   return new SignJWT(payload)

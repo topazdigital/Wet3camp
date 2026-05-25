@@ -60,13 +60,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       login(u)
       return { success: true, user: u }
     } catch (err: any) {
-      if (err?.code === 'NO_DB' || err?.status === 503 || err?.message?.includes('fetch')) {
+      if (err?.status === 401) return { success: false, error: 'Invalid email or password.' }
+      if (import.meta.env.DEV) {
+        if (err?.code === 'NO_DB' || err?.status === 503 || err?.message?.includes('fetch')) {
+          const fallback = tryLogin(email, password)
+          if (fallback) { login(fallback); return { success: true, user: fallback } }
+        }
         const fallback = tryLogin(email, password)
         if (fallback) { login(fallback); return { success: true, user: fallback } }
       }
-      if (err?.status === 401) return { success: false, error: 'Invalid email or password.' }
-      const fallback = tryLogin(email, password)
-      if (fallback) { login(fallback); return { success: true, user: fallback } }
       return { success: false, error: err?.message ?? 'Login failed. Please try again.' }
     }
   }, [login])
