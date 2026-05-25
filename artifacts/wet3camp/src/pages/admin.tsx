@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import Header from '@/components/Header'
 import Sidebar from '@/components/Sidebar'
-import { useAuth, tryLogin } from '@/lib/auth-context'
+import { useAuth } from '@/lib/auth-context'
 import {
   Shield, Users, Calendar, BarChart2, Settings, Plus, Trash2, Edit2, CheckCircle2, XCircle,
   AlertTriangle, Lock, Mail, Eye, EyeOff, TrendingUp, DollarSign, Crown, Key, Instagram,
@@ -93,18 +93,20 @@ function AdminLogin() {
   const [showPass, setShowPass] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const { login } = useAuth()
+  const { loginWithApi } = useAuth()
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault(); setError('')
     if (!email || !password) { setError('Please fill all fields.'); return }
     setLoading(true)
-    setTimeout(() => {
-      const user = tryLogin(email, password)
-      if (user?.role === 'admin') { login(user) }
-      else { setError('Invalid admin credentials.') }
-      setLoading(false)
-    }, 800)
+    const result = await loginWithApi(email, password)
+    if (result.success && result.user?.role === 'admin') {
+    } else if (result.success) {
+      setError('You do not have admin privileges.')
+    } else {
+      setError(result.error ?? 'Invalid admin credentials.')
+    }
+    setLoading(false)
   }
 
   return (

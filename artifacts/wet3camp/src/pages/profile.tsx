@@ -4,6 +4,7 @@ import Sidebar from '@/components/Sidebar'
 import Header from '@/components/Header'
 import { Link, useRoute } from 'wouter'
 import { ESCORTS } from '@/data/escorts'
+import { useEscort } from '@/hooks/useEscorts'
 import { useAuth } from '@/lib/auth-context'
 import { useFollow } from '@/lib/follow-context'
 import { useSEO } from '@/lib/useSEO'
@@ -16,15 +17,8 @@ const TIER_STYLE: Record<string, { bg: string; text: string; label: string }> = 
   Standard: { bg: '#3a6da8',  text: '#fff', label: 'STANDARD'  },
 }
 
-function waLink(id: string, name: string) {
-  const nums: Record<string, string> = {
-    '1':'254712345001','2':'254712345002','3':'254712345003','4':'254712345004','5':'254712345005',
-    '6':'254712345006','7':'254712345007','8':'254712345008','9':'254712345009','10':'254712345010',
-    '11':'254712345011','12':'254712345012','13':'254712345013','14':'254712345014','15':'254712345015',
-    '16':'254712345016','17':'254712345017','18':'254712345018','19':'254712345019','20':'254712345020',
-    '21':'254712345021','22':'254712345022','23':'254712345023','24':'254712345024','25':'254712345025',
-  }
-  const num = nums[id] ?? '254700000000'
+function waLink(phone: string | undefined, name: string) {
+  const num = (phone ?? '').replace(/\D/g, '') || '254700000000'
   const msg = encodeURIComponent(`Hi ${name.split(' ')[0]}, I found your profile on Wet3Camp and I'd like to connect.`)
   return `https://wa.me/${num}?text=${msg}`
 }
@@ -38,7 +32,8 @@ export default function ProfilePage() {
   const { isLoggedIn } = useAuth()
   const { isFollowing, toggleFollow, followerCount } = useFollow()
 
-  const escort = ESCORTS.find(e => e.id === params?.id) ?? ESCORTS[0]
+  const { escort: apiEscort, isLoading } = useEscort(params?.id)
+  const escort = (apiEscort as any) ?? ESCORTS.find(e => e.id === params?.id) ?? ESCORTS[0]
   const similar = ESCORTS.filter(e => e.id !== escort.id && e.city === escort.city).slice(0, 6)
 
   useSEO({
@@ -307,7 +302,7 @@ export default function ProfilePage() {
                   <div className="space-y-2.5">
                       {/* WhatsApp — visible to everyone */}
                       <a
-                        href={waLink(escort.id, escort.name)}
+                        href={waLink(escort.phone, escort.name)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="w-full py-3.5 bg-[#25D366] hover:bg-[#20ba5a] text-white font-black rounded-xl transition-all shadow-lg shadow-[#25D366]/20 flex items-center justify-center gap-2 text-sm"

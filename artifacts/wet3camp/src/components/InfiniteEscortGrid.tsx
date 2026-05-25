@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { Star, Heart, MapPin, CheckCircle2, UserPlus, UserCheck } from 'lucide-react'
 import { Link } from 'wouter'
-import { Escort, ESCORTS, generateMoreEscorts } from '@/data/escorts'
+import { Escort, generateMoreEscorts } from '@/data/escorts'
+import { useAllEscorts } from '@/hooks/useEscorts'
 import { useFollow } from '@/lib/follow-context'
 import { useAuth } from '@/lib/auth-context'
 
@@ -39,15 +40,21 @@ export default function InfiniteEscortGrid({
   const { isFollowing, toggleFollow } = useFollow()
   const { isLoggedIn } = useAuth()
 
+  const { escorts: apiEscorts, fromApi } = useAllEscorts()
+
   const allEscorts = React.useMemo(() => {
-    const base = [...ESCORTS]
-    const extra = generateMoreEscorts(76)
-    const combined = [...base, ...extra]
-    const cityPriority = priorityCity
-    const withCity = combined.filter(e => e.city === cityPriority)
-    const others = combined.filter(e => e.city !== cityPriority)
+    let base: Escort[]
+    if (fromApi) {
+      base = apiEscorts as unknown as Escort[]
+    } else {
+      const staticBase = [...apiEscorts] as unknown as Escort[]
+      const extra = generateMoreEscorts(76)
+      base = [...staticBase, ...extra]
+    }
+    const withCity = base.filter(e => e.city === priorityCity)
+    const others   = base.filter(e => e.city !== priorityCity)
     return sortEscorts([...withCity, ...others])
-  }, [priorityCity])
+  }, [apiEscorts, fromApi, priorityCity])
 
   const filtered = React.useMemo(() => {
     if (activeCategory === 'all')       return allEscorts

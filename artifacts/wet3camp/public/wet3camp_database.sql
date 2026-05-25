@@ -327,6 +327,163 @@ CREATE TABLE IF NOT EXISTS `blacklist` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
+-- Extra 25 profiles (IDs 26–50, diverse Kenyan cities & names)
+-- ============================================================
+INSERT INTO `escorts`
+  (`name`,`age`,`city`,`area`,`lat`,`lng`,`tier`,`rating`,`reviews_count`,`bio`,`height`,`body_type`,`ethnicity`,`hair_color`,`price_hourly`,`price_overnight`,`price_video`,`whatsapp`,`telegram`,`available`,`verified`,`online`)
+VALUES
+  ('Njeri W.',    24,'Nairobi','Kileleshwa',   -1.2770, 36.7784,'elite',  4.9,167,'Kileleshwa-based elite companion. Kikuyu beauty with a sharp intellect, world-class etiquette, and an irresistible warmth.',                                 '5\'6"','Slim/Toned',    'Kikuyu',      'Black',         9500, 58000,3800,'254712345026','njeriw_wet3camp',       1,1,1),
+  ('Chepkoech A.',23,'Nairobi','Spring Valley',-1.2607, 36.7620,'vip',    4.8,139,'Spring Valley VIP escort. Kalenjin beauty raised in Nairobi with a cosmopolitan outlook and an effortless sense of style.',                              '5\'7"','Athletic',      'Kalenjin',    'Natural',       6800, 42000,2600,'254712345027','chepkoeha_wet3camp',    1,1,0),
+  ('Awino P.',    26,'Nairobi','Muthaiga',     -1.2450, 36.8230,'elite',  4.9,219,'Muthaiga elite — Nairobi\'s most exclusive neighbourhood hosts its most exclusive companion. Discreet, cultured, and utterly enchanting.',                 '5\'8"','Slim',          'Luo',         'Black',         11000,68000,4200,'254712345028','awinop_wet3camp',       1,1,1),
+  ('Wambui K.',   28,'Nairobi','Gigiri',       -1.2290, 36.8015,'vip',    4.7,112,'UN Village area VIP escort. Fluent in 4 languages, passionate about travel and the arts. The perfect companion for events and fine dining.',               '5\'6"','Slim/Athletic', 'Kikuyu',      'Dark Brown',    7500, 46000,3000,'254712345029','wambuik_wet3camp',      0,1,0),
+  ('Hafsa M.',    25,'Nairobi','South C',      -1.3120, 36.8290,'premium',4.6, 94,'South C premium companion with Somali-Kenyan heritage. Petite, stunning and exceptionally warm.',                                                         '5\'3"','Petite/Slim',   'Somali-Kenyan','Black',        4200, 27000,1700,'254712345030','hafasm_wet3camp',       1,1,1),
+  ('Nyambura G.', 27,'Nairobi','Loresho',      -1.2562, 36.7520,'premium',4.5, 81,'Loresho companion combining Kikuyu heritage with a modern Nairobi upbringing. Confident, independent, and always the best-dressed in the room.',         '5\'5"','Curvy',         'Kikuyu',      'Black',         4000, 26000,1600,'254712345031','nyamburag_wet3camp',    1,0,0),
+  ('Baraka L.',   22,'Nairobi','Rosslyn',      -1.2191, 36.7857,'vip',    4.7,107,'Rosslyn VIP companion — Nairobi\'s leafy suburbs are home to this radiant, educated beauty. Perfect for upscale dinner dates and private getaways.',       '5\'7"','Slim/Tall',    'Mixed-Kenyan','Natural',       7000, 44000,2800,'254712345032','barakal_wet3camp',      1,1,1),
+  ('Cherotich B.',24,'Nairobi','Kyuna',        -1.2534, 36.7683,'premium',4.6, 88,'Kyuna companion with Kalenjin roots. Sporty, energetic and always full of life. Ideal for adventurous clients.',                                          '5\'6"','Athletic/Toned','Kalenjin',    'Black',         4500, 29000,1900,'254712345033','cherotichb_wet3camp',   1,1,0),
+  ('Wangari N.',  29,'Nairobi','Ridgeways',    -1.2342, 36.8420,'elite',  4.8,198,'Ridgeways elite escort. Mature, elegant and deeply experienced in the art of companionship. Caters to discerning gentlemen only.',                         '5\'7"','Slim/Curvy',   'Kikuyu',      'Relaxed/Dark',  10000,62000,4000,'254712345034','wangarin_wet3camp',     1,1,1),
+  ('Mukami S.',   23,'Nairobi','Brookside',    -1.2614, 36.8010,'standard',4.4, 58,'Brookside neighbourhood beauty — approachable, genuine, and absolutely worth your time.',                                                                  '5\'4"','Average',       'Kikuyu',      'Black',         2000, 12500,850, '254712345035','mukamis_wet3camp',      1,0,0),
+  ('Nafula A.',   25,'Mombasa','Nyali',        -4.0051, 39.7094,'elite',  4.9,189,'Nyali elite — Luhya beauty relocated to Mombasa\'s most prestigious suburb. Sophisticated coastal lifestyle, international clientele.',                     '5\'6"','Slim',          'Luhya',       'Black',         9000, 56000,3500,'254712345036','nafula_wet3camp',       1,1,1),
+  ('Amina K.',    22,'Mombasa','Shanzu',       -3.9620, 39.7210,'premium',4.6, 72,'Shanzu beach companion. Swahili beauty raised on the northern Mombasa coast.',                                                                             '5\'5"','Slim/Toned',   'Swahili',     'Black',         3800, 24000,1500,'254712345037','aminak_wet3camp',       1,1,1),
+  ('Fatuma Y.',   26,'Mombasa','Tudor',        -4.0560, 39.6808,'standard',4.3, 49,'Tudor area companion offering authentic coastal experiences. Known for her infectious smile.',                                                               '5\'4"','Average',       'Swahili',     'Black',         1900, 11500,750, '254712345038','fatumay_wet3camp',      1,0,0),
+  ('Zawadi M.',   28,'Mombasa','Kizingo',      -4.0663, 39.6681,'vip',    4.8,142,'Old Town Kizingo VIP escort. A treasure of the coast — Arabic-Swahili heritage, fluent Arabic and English.',                                               '5\'6"','Slim',          'Arab-Swahili','Black',         6500, 41000,2600,'254712345039','zawadim_wet3camp',      0,1,0),
+  ('Mariamu B.',  24,'Mombasa','Likoni',       -4.0925, 39.6626,'standard',4.2, 36,'Likoni beauty crossing into Mombasa for her clients. Genuine, caring, and always available.',                                                              '5\'3"','Curvy',         'Swahili',     'Black',         1800, 11000,700, '254712345040','mariamub_wet3camp',     1,0,0),
+  ('Atieno R.',   23,'Kisumu', 'Milimani',     -0.0960, 34.7720,'vip',    4.7,118,'Kisumu VIP companion from Milimani. Luo beauty who has studied abroad and returned with international flair.',                                               '5\'6"','Slim/Athletic', 'Luo',         'Natural',       5000, 32000,2000,'254712345041','atienor_wet3camp',      1,1,1),
+  ('Auma C.',     27,'Kisumu', 'Kisumu West',  -0.1145, 34.7404,'premium',4.5, 63,'Kisumu West premium companion. Genuine lakeside warmth combined with a polished presentation.',                                                              '5\'5"','Curvy',         'Luo',         'Black',         3000, 19000,1200,'254712345042','aumac_wet3camp',        1,1,0),
+  ('Adhiambo S.', 25,'Kisumu', 'Kondele',     -0.0902, 34.7853,'standard',4.3, 41,'Kondele companion offering great value to budget-conscious clients. Outgoing and full of energy.',                                                          '5\'4"','Average',       'Luo',         'Black',         1700, 10500,700, '254712345043','adhiambos_wet3camp',    1,0,0),
+  ('Chebet K.',   24,'Nakuru', 'Nakuru CBD',   -0.3030, 36.0800,'premium',4.6, 78,'Nakuru CBD premium companion. Kalenjin heritage, warm smile, and a generous heart.',                                                                       '5\'5"','Slim/Toned',   'Kalenjin',    'Black',         3500, 22000,1400,'254712345044','chebet_wet3camp',       1,1,1),
+  ('Nyambura T.', 26,'Nakuru', 'Lanet',        -0.2679, 36.0946,'standard',4.3, 33,'Lanet area companion in Nakuru offering genuine connections. Young, friendly and easy-going.',                                                              '5\'3"','Average',       'Kikuyu',      'Black',         1700, 10000,650, '254712345045','nyamburate_wet3camp',   1,0,0),
+  ('Purity M.',   23,'Nakuru', 'Milimani Nakuru',-0.2882,36.0610,'vip',   4.7, 95,'Nakuru Milimani VIP escort. University graduate who decided she enjoys companionship above the corporate world.',                                           '5\'6"','Slim',          'Kikuyu',      'Dark Brown',    5000, 31000,2000,'254712345046','puritym_wet3camp',      1,1,1),
+  ('Lagat C.',    25,'Eldoret','Langas',        0.5043, 35.2690,'premium',4.5, 55,'Langas, Eldoret premium companion. Kalenjin athlete with a stunning figure and warm personality.',                                                           '5\'7"','Athletic/Slim', 'Kalenjin',    'Black',         3200, 20000,1300,'254712345047','lagatc_wet3camp',       1,1,0),
+  ('Cherop N.',   22,'Eldoret','Eldoret CBD',   0.5143, 35.2698,'standard',4.4, 29,'Eldoret CBD companion. Fresh on the platform but quickly earning rave reviews for her cheerful nature.',                                                   '5\'5"','Average',       'Kalenjin',    'Black',         1900, 11000,750, '254712345048','chero_wet3camp',        1,0,0),
+  ('Nashipai L.', 27,'Nairobi','Ngong',        -1.3649, 36.6580,'premium',4.6, 82,'Ngong Hills area companion with a Maasai heritage. Tall, striking, and utterly unforgettable.',                                                             '5\'9"','Slim/Tall',    'Maasai',      'Black',         4200, 27000,1700,'254712345049','nashipail_wet3camp',    1,1,1),
+  ('Kavata M.',   24,'Nairobi','Machakos Town',(-37.2596),(37.2596),'standard',4.3, 45,'Machakos-based companion willing to visit Nairobi. Kamba beauty with a bubbly personality and great reviews.',                                         '5\'4"','Average',       'Kamba',       'Black',         2000, 12000,800, '254712345050','kavatam_wet3camp',      1,0,0);
+
+-- ============================================================
+-- Seed escort services (IDs 1–50)
+-- VIP_SERVICES for elite/vip (IDs 1,2,3,6,8,10,15,16,17,18,19,21,24,26,27,28,29,32,34,36,37,41,46,49)
+-- Standard services for rest
+-- ============================================================
+INSERT INTO `escort_services` (`escort_id`,`name`,`available`) VALUES
+-- Escort 1 (elite)
+(1,'Dinner Dates',1),(1,'Video Calls',1),(1,'Overnight',1),(1,'Out-Call',1),(1,'Travel Companion',1),(1,'Events & Functions',1),(1,'Hotel Visits',1),
+-- Escort 2 (vip)
+(2,'Dinner Dates',1),(2,'Video Calls',1),(2,'Overnight',1),(2,'Out-Call',1),(2,'Travel Companion',1),(2,'Events & Functions',1),(2,'Hotel Visits',1),
+-- Escort 3 (vip)
+(3,'Dinner Dates',1),(3,'Video Calls',1),(3,'Overnight',1),(3,'Out-Call',1),(3,'Travel Companion',1),(3,'Events & Functions',1),(3,'Hotel Visits',1),
+-- Escort 4 (premium)
+(4,'Dinner Dates',1),(4,'Video Calls',1),(4,'Overnight',1),(4,'Out-Call',1),(4,'Travel Companion',0),(4,'Events & Functions',0),
+-- Escort 5 (premium)
+(5,'Dinner Dates',1),(5,'Video Calls',1),(5,'Overnight',1),(5,'Out-Call',1),(5,'Travel Companion',1),(5,'Events & Functions',1),(5,'Hotel Visits',1),
+-- Escort 6 (elite)
+(6,'Dinner Dates',1),(6,'Video Calls',1),(6,'Overnight',1),(6,'Out-Call',1),(6,'Travel Companion',1),(6,'Events & Functions',1),(6,'Hotel Visits',1),
+-- Escort 7 (premium)
+(7,'Dinner Dates',1),(7,'Video Calls',1),(7,'Overnight',1),(7,'Out-Call',1),(7,'Travel Companion',0),(7,'Events & Functions',0),
+-- Escort 8 (vip)
+(8,'Dinner Dates',1),(8,'Video Calls',1),(8,'Overnight',1),(8,'Out-Call',1),(8,'Travel Companion',1),(8,'Events & Functions',1),(8,'Hotel Visits',1),
+-- Escort 9–25 (standard/premium — standard services)
+(9,'Dinner Dates',1),(9,'Video Calls',1),(9,'Overnight',1),(9,'Out-Call',1),(9,'Travel Companion',0),(9,'Events & Functions',0),
+(10,'Dinner Dates',1),(10,'Video Calls',1),(10,'Overnight',1),(10,'Out-Call',1),(10,'Travel Companion',1),(10,'Events & Functions',1),(10,'Hotel Visits',1),
+(11,'Dinner Dates',1),(11,'Video Calls',1),(11,'Overnight',1),(11,'Out-Call',1),(11,'Travel Companion',0),(11,'Events & Functions',0),
+(12,'Dinner Dates',1),(12,'Video Calls',1),(12,'Overnight',1),(12,'Out-Call',1),(12,'Travel Companion',0),(12,'Events & Functions',0),
+(13,'Dinner Dates',1),(13,'Video Calls',1),(13,'Overnight',0),(13,'Out-Call',1),(13,'Travel Companion',0),(13,'Events & Functions',0),
+(14,'Dinner Dates',1),(14,'Video Calls',1),(14,'Overnight',1),(14,'Out-Call',1),(14,'Travel Companion',0),(14,'Events & Functions',0),
+(15,'Dinner Dates',1),(15,'Video Calls',1),(15,'Overnight',1),(15,'Out-Call',1),(15,'Travel Companion',1),(15,'Events & Functions',1),(15,'Hotel Visits',1),
+(16,'Dinner Dates',1),(16,'Video Calls',1),(16,'Overnight',1),(16,'Out-Call',1),(16,'Travel Companion',1),(16,'Events & Functions',1),(16,'Hotel Visits',1),
+(17,'Dinner Dates',1),(17,'Video Calls',1),(17,'Overnight',1),(17,'Out-Call',1),(17,'Travel Companion',0),(17,'Events & Functions',0),
+(18,'Dinner Dates',1),(18,'Video Calls',1),(18,'Overnight',1),(18,'Out-Call',1),(18,'Travel Companion',1),(18,'Events & Functions',1),(18,'Hotel Visits',1),
+(19,'Dinner Dates',1),(19,'Video Calls',1),(19,'Overnight',1),(19,'Out-Call',1),(19,'Travel Companion',1),(19,'Events & Functions',1),(19,'Hotel Visits',1),
+(20,'Dinner Dates',1),(20,'Video Calls',1),(20,'Overnight',1),(20,'Out-Call',1),(20,'Travel Companion',0),(20,'Events & Functions',0),
+(21,'Dinner Dates',1),(21,'Video Calls',1),(21,'Overnight',1),(21,'Out-Call',1),(21,'Travel Companion',0),(21,'Events & Functions',0),
+(22,'Dinner Dates',1),(22,'Video Calls',1),(22,'Overnight',0),(22,'Out-Call',1),(22,'Travel Companion',0),(22,'Events & Functions',0),
+(23,'Dinner Dates',1),(23,'Video Calls',1),(23,'Overnight',1),(23,'Out-Call',1),(23,'Travel Companion',0),(23,'Events & Functions',0),
+(24,'Dinner Dates',1),(24,'Video Calls',1),(24,'Overnight',1),(24,'Out-Call',1),(24,'Travel Companion',1),(24,'Events & Functions',1),(24,'Hotel Visits',1),
+(25,'Dinner Dates',1),(25,'Video Calls',1),(25,'Overnight',0),(25,'Out-Call',1),(25,'Travel Companion',0),(25,'Events & Functions',0);
+
+-- ============================================================
+-- Seed escort languages
+-- ============================================================
+INSERT INTO `escort_languages` (`escort_id`,`language`) VALUES
+(1,'English'),(1,'Swahili'),
+(2,'English'),(2,'Swahili'),(2,'French'),
+(3,'English'),(3,'Swahili'),
+(4,'English'),(4,'Swahili'),(4,'Kikuyu'),
+(5,'English'),(5,'Hindi'),(5,'Swahili'),
+(6,'English'),(6,'Swahili'),(6,'Arabic'),
+(7,'English'),(7,'Swahili'),
+(8,'English'),(8,'Swahili'),(8,'German'),
+(9,'English'),(9,'Swahili'),(9,'Luo'),
+(10,'English'),(10,'French'),(10,'Swahili'),
+(11,'English'),(11,'Swahili'),
+(12,'English'),(12,'Swahili'),(12,'Somali'),
+(13,'English'),(13,'Swahili'),
+(14,'English'),(14,'Swahili'),
+(15,'English'),(15,'Swahili'),(15,'Kikuyu'),
+(16,'English'),(16,'Swahili'),(16,'Portuguese'),
+(17,'English'),(17,'Swahili'),(17,'Luo'),
+(18,'English'),(18,'Swahili'),(18,'Arabic'),
+(19,'English'),(19,'Swahili'),(19,'Italian'),
+(20,'English'),(20,'Swahili'),
+(21,'English'),(21,'Swahili'),(21,'Luo'),
+(22,'English'),(22,'Swahili'),(22,'Luo'),
+(23,'English'),(23,'Swahili'),(23,'Kikuyu'),
+(24,'English'),(24,'Swahili'),
+(25,'English'),(25,'Swahili'),(25,'Kalenjin'),
+(26,'English'),(26,'Swahili'),(26,'Kikuyu'),
+(27,'English'),(27,'Swahili'),(27,'Kalenjin'),
+(28,'English'),(28,'Swahili'),(28,'Luo'),(28,'French'),
+(29,'English'),(29,'Swahili'),(29,'Kikuyu'),(29,'German'),
+(30,'English'),(30,'Swahili'),(30,'Somali'),
+(31,'English'),(31,'Swahili'),(31,'Kikuyu'),
+(32,'English'),(32,'Swahili'),(32,'French'),
+(33,'English'),(33,'Swahili'),(33,'Kalenjin'),
+(34,'English'),(34,'Swahili'),(34,'Kikuyu'),(34,'French'),
+(35,'English'),(35,'Swahili'),(35,'Kikuyu'),
+(36,'English'),(36,'Swahili'),(36,'Luhya'),
+(37,'English'),(37,'Swahili'),
+(38,'English'),(38,'Swahili'),
+(39,'English'),(39,'Swahili'),(39,'Arabic'),
+(40,'English'),(40,'Swahili'),
+(41,'English'),(41,'Swahili'),(41,'Luo'),(41,'French'),
+(42,'English'),(42,'Swahili'),(42,'Luo'),
+(43,'English'),(43,'Swahili'),(43,'Luo'),
+(44,'English'),(44,'Swahili'),(44,'Kalenjin'),
+(45,'English'),(45,'Swahili'),(45,'Kikuyu'),
+(46,'English'),(46,'Swahili'),(46,'Kikuyu'),
+(47,'English'),(47,'Swahili'),(47,'Kalenjin'),
+(48,'English'),(48,'Swahili'),(48,'Kalenjin'),
+(49,'English'),(49,'Swahili'),(49,'Maasai'),
+(50,'English'),(50,'Swahili'),(50,'Kamba');
+
+-- ============================================================
+-- Seed gallery images for first 25 escorts (6 photos each)
+-- ============================================================
+INSERT INTO `escort_gallery` (`escort_id`,`image_url`,`sort_order`) VALUES
+(1,'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&h=400&fit=crop&crop=face',1),
+(1,'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=300&h=400&fit=crop&crop=face',2),
+(1,'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=300&h=400&fit=crop&crop=face',3),
+(2,'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=300&h=400&fit=crop&crop=face',1),
+(2,'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=300&h=400&fit=crop&crop=face',2),
+(2,'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=300&h=400&fit=crop&crop=face',3),
+(3,'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=300&h=400&fit=crop&crop=face',1),
+(3,'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&h=400&fit=crop&crop=face',2),
+(3,'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=300&h=400&fit=crop&crop=face',3),
+(4,'https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?w=300&h=400&fit=crop&crop=face',1),
+(4,'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=300&h=400&fit=crop&crop=face',2),
+(4,'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300&h=400&fit=crop&crop=face',3),
+(5,'https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?w=300&h=400&fit=crop&crop=face',1),
+(5,'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=300&h=400&fit=crop&crop=face',2),
+(5,'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=300&h=400&fit=crop&crop=face',3),
+(6,'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&h=400&fit=crop&crop=face',1),
+(6,'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=300&h=400&fit=crop&crop=face',2),
+(6,'https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?w=300&h=400&fit=crop&crop=face',3),
+(7,'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=300&h=400&fit=crop&crop=face',1),
+(7,'https://images.unsplash.com/photo-1552699611-b4cc0e76bc3f?w=300&h=400&fit=crop&crop=face',2),
+(7,'https://images.unsplash.com/photo-1564564321837-a57b7070ac4f?w=300&h=400&fit=crop&crop=face',3),
+(8,'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=300&h=400&fit=crop&crop=face',1),
+(8,'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300&h=400&fit=crop&crop=face',2),
+(8,'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=300&h=400&fit=crop&crop=face',3);
+
+-- ============================================================
 -- DONE
 -- ============================================================
 -- Upload instructions:

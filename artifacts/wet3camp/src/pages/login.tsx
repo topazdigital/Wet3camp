@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { Link, useLocation } from 'wouter'
 import { Flame, Mail, Lock, Eye, EyeOff, ShieldCheck, Star, AlertCircle } from 'lucide-react'
-import { useAuth, tryLogin } from '@/lib/auth-context'
+import { useAuth } from '@/lib/auth-context'
 import { useSEO } from '@/lib/useSEO'
 
 export default function LoginPage() {
@@ -17,24 +17,22 @@ export default function LoginPage() {
   const [remember, setRemember] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const { login } = useAuth()
+  const { loginWithApi } = useAuth()
   const [, navigate] = useLocation()
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
     if (!email || !password) { setError('Please fill in all fields.'); return }
     setLoading(true)
-    setTimeout(() => {
-      const user = tryLogin(email, password)
-      if (user) {
-        login(user)
-        navigate(user.role === 'admin' ? '/admin' : user.role === 'escort' ? '/my-profile' : '/')
-      } else {
-        setError('Invalid email or password.')
-      }
-      setLoading(false)
-    }, 800)
+    const result = await loginWithApi(email, password)
+    if (result.success && result.user) {
+      const u = result.user
+      navigate(u.role === 'admin' ? '/admin' : u.role === 'escort' ? '/my-profile' : '/')
+    } else {
+      setError(result.error ?? 'Invalid email or password.')
+    }
+    setLoading(false)
   }
 
   const handleOAuth = (provider: string) => {

@@ -1,0 +1,90 @@
+import { Router } from 'express'
+import { getPool } from '../lib/db.js'
+import { STATIC_ESCORTS } from '../lib/staticData.js'
+
+const router = Router()
+
+router.get('/escorts', async (req, res) => {
+  try {
+    const { city, tier, available, limit = '100', offset = '0', sort = 'featured' } = req.query as Record<string, string>
+    const lim = Math.min(parseInt(limit, 10) || 100, 200)
+    const off = parseInt(offset, 10) || 0
+
+    const pool = getPool()
+    if (!pool) {
+      let data = [...STATIC_ESCORTS]
+      if (city)      data = data.filter(e => e.city === city)
+      if (tier)      data = data.filter(e => e.tier === tier)
+      if (available) data = data.filter(e => e.available)
+      const RANK: Record<string, number> = { elite:1, vip:2, premium:3, standard:9, free:9 }
+      data.sort((a, b) => {
+        const ra = RANK[a.tier] ?? 9, rb = RANK[b.tier] ?? 9
+        if (ra !== rb) return ra - rb
+        return b.rating - a.rating
+      })
+      return res.json({ data: data.slice(off, off + lim), total: data.length })
+    }
+
+    const conditions: string[] = ['e.is_active = 1']
+    const params: unknown[] = []
+    if (city)      { conditions.push('e.city = ?'); params.push(city) }
+    if (tier)      { conditions.push('e.tier = ?'); params.push(tier) }
+    if (available) { conditions.push('e.available = 1') }
+
+    const where = conditions.join(' AND ')
+    const orderBy = sort === 'featured'
+      ? `FIELD(e.tier,'elite','vip','premium','standard','free'), e.rating DESC`
+      : sort === 'rating' ? 'e.rating DESC' : 'e.created_at DESC'
+
+    const [rows]  = await pool.query<any[]>(`SELECT e.*, GROUP_CONCAT(DISTINCT el.language ORDER BY el.language SEPARATOR ',') AS languages_csv FROM escorts e LEFT JOIN escort_languages el ON el.escort_id = e.id WHERE ${where} GROUP BY e.id ORDER BY ${orderBy} LIMIT ? OFFSET ?`, [...params, lim, off])
+    const [[{ total }]] = await pool.query<any[]>(`SELECT COUNT(*) AS total FROM escorts e WHERE ${where}`, params)
+
+    const data = rows.map(row => ({
+      ...row,
+      id: String(row.id),
+      available: !!row.available,
+      verified:  !!row.verified,
+      online:    !!row.online,
+      languages: row.languages_csv ? row.languages_csv.split(',') : [],
+    }))
+
+    res.json({ data, total: total ?? 0 })
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to fetch escorts' })
+  }
+})
+
+router.get('/escorts/:id', async (req, res) => {
+  try {
+    const { id } = req.params
+    const pool = getPool()
+
+    if (!pool) {
+      const escort = STATIC_ESCORTS.find(e => e.id === id)
+      if (!escort) return res.status(404).json({ message: 'Escort not found' })
+      return res.json(escort)
+    }
+
+    const [[row]] = await pool.query<any[]>('SELECT * FROM escorts WHERE id = ? AND is_active = 1', [id])
+    if (!row) return res.status(404).json({ message: 'Escort not found' })
+
+    const [gallery]   = await pool.query<any[]>('SELECT image_url FROM escort_gallery WHERE escort_id = ? ORDER BY sort_order', [id])
+    const [services]  = await pool.query<any[]>('SELECT name, available FROM escort_services WHERE escort_id = ?', [id])
+    const [languages] = await pool.query<any[]>('SELECT language FROM escort_languages WHERE escort_id = ?', [id])
+
+    res.json({
+      ...row,
+      id: String(row.id),
+      available: !!row.available,
+      verified:  !!row.verified,
+      online:    !!row.online,
+      gallery:   gallery.map((g: any) => g.image_url),
+      services:  services.map((s: any) => ({ name: s.name, available: !!s.available })),
+      languages: languages.map((l: any) => l.language),
+    })
+  } catch {
+    res.status(500).json({ message: 'Failed to fetch escort' })
+  }
+})
+
+export default router

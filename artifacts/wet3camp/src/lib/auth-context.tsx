@@ -1,37 +1,40 @@
 import React, { createContext, useContext, useState, useCallback } from 'react'
+import { api, setToken, clearToken, type ApiUser } from './api'
 
 export type UserRole = 'client' | 'escort' | 'admin'
 
 export interface AuthUser {
-  id: string
-  name: string
-  email: string
-  role: UserRole
-  city?: string
-  area?: string
-  lat?: number
-  lng?: number
-  avatar?: string
-  profileId?: string
-  phone?: string
+  id: string; name: string; email: string; role: UserRole
+  city?: string; area?: string; lat?: number; lng?: number
+  avatar?: string; profileId?: string; phone?: string
 }
 
 interface AuthCtx {
   user: AuthUser | null
-  login: (user: AuthUser) => void
+  login:  (user: AuthUser) => void
   logout: () => void
-  isLoggedIn: boolean
-  isAdmin: boolean
-  isEscort: boolean
-  isClient: boolean
+  loginWithApi: (email: string, password: string) => Promise<{ success: boolean; user?: AuthUser; error?: string }>
+  isLoggedIn: boolean; isAdmin: boolean; isEscort: boolean; isClient: boolean
 }
 
 const AuthContext = createContext<AuthCtx>({
   user: null, login: () => {}, logout: () => {},
+  loginWithApi: async () => ({ success: false, user: undefined }),
   isLoggedIn: false, isAdmin: false, isEscort: false, isClient: false,
 })
 
 const KEY = 'w3c_user'
+
+function apiUserToAuthUser(u: ApiUser): AuthUser {
+  return {
+    id:    u.id,
+    name:  u.name,
+    email: u.email,
+    role:  u.role === 'user' ? 'client' : u.role as UserRole,
+    avatar: u.avatar ?? undefined,
+    phone:  u.phone  ?? undefined,
+  }
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(() => {
@@ -45,14 +48,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(() => {
     setUser(null)
+    clearToken()
     try { localStorage.removeItem(KEY) } catch {}
   }, [])
 
+  const loginWithApi = useCallback(async (email: string, password: string): Promise<{ success: boolean; user?: AuthUser; error?: string }> => {
+    try {
+      const res = await api.auth.login(email, password)
+      setToken(res.token)
+      const u = apiUserToAuthUser(res.user)
+      login(u)
+      return { success: true, user: u }
+    } catch (err: any) {
+      if (err?.code === 'NO_DB' || err?.status === 503 || err?.message?.includes('fetch')) {
+        const fallback = tryLogin(email, password)
+        if (fallback) { login(fallback); return { success: true, user: fallback } }
+      }
+      if (err?.status === 401) return { success: false, error: 'Invalid email or password.' }
+      const fallback = tryLogin(email, password)
+      if (fallback) { login(fallback); return { success: true, user: fallback } }
+      return { success: false, error: err?.message ?? 'Login failed. Please try again.' }
+    }
+  }, [login])
+
   return (
     <AuthContext.Provider value={{
-      user, login, logout,
+      user, login, logout, loginWithApi,
       isLoggedIn: !!user,
-      isAdmin: user?.role === 'admin',
+      isAdmin:  user?.role === 'admin',
       isEscort: user?.role === 'escort',
       isClient: user?.role === 'client',
     }}>
