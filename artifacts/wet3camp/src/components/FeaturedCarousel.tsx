@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback } from 'react'
+import React, { useRef, useState, useEffect, useCallback } from 'react'
 import { Star, Heart, MapPin, Flame, CheckCircle2, UserPlus, UserCheck } from 'lucide-react'
 import { Link } from 'wouter'
 import { useFollow } from '@/lib/follow-context'
@@ -29,71 +29,107 @@ const TIER_STYLES = {
 
 const CARD_W = 220
 const GAP = 14
+const SPEED = 0.6 // px per frame at 60fps
 
 export default function FeaturedCarousel() {
   const [liked, setLiked] = useState<Set<number>>(new Set())
   const { isFollowing, toggleFollow } = useFollow()
   const { isLoggedIn } = useAuth()
-  const trackRef = useRef<HTMLDivElement>(null)
 
+  const trackRef = useRef<HTMLDivElement>(null)
+  const offsetRef = useRef(0)
+  const rafRef = useRef<number | null>(null)
+
+  const paused = useRef(false)
   const isDragging = useRef(false)
-  const startX = useRef(0)
-  const scrollLeft = useRef(0)
+  const dragStartX = useRef(0)
+  const dragStartOffset = useRef(0)
   const dragMoved = useRef(false)
-  const animFrameId = useRef<number | null>(null)
   const velocity = useRef(0)
-  const lastX = useRef(0)
-  const lastTime = useRef(0)
+  const lastDragX = useRef(0)
+  const lastDragTime = useRef(0)
+  const inertiaRaf = useRef<number | null>(null)
+
+  const singleWidth = FEATURED.length * (CARD_W + GAP)
+
+  const applyTransform = useCallback(() => {
+    if (!trackRef.current) return
+    // wrap offset within [0, singleWidth) for seamless loop
+    offsetRef.current = ((offsetRef.current % singleWidth) + singleWidth) % singleWidth
+    trackRef.current.style.transform = `translateX(-${offsetRef.current}px)`
+  }, [singleWidth])
 
   const stopInertia = () => {
-    if (animFrameId.current !== null) {
-      cancelAnimationFrame(animFrameId.current)
-      animFrameId.current = null
+    if (inertiaRaf.current !== null) {
+      cancelAnimationFrame(inertiaRaf.current)
+      inertiaRaf.current = null
     }
   }
 
-  const applyInertia = useCallback(() => {
-    if (!trackRef.current) return
-    velocity.current *= 0.92
-    trackRef.current.scrollLeft -= velocity.current
-    if (Math.abs(velocity.current) > 0.5) {
-      animFrameId.current = requestAnimationFrame(applyInertia)
-    } else {
-      animFrameId.current = null
-    }
-  }, [])
+  const runInertia = useCallback(() => {
+    if (Math.abs(velocity.current) < 0.3) { velocity.current = 0; return }
+    velocity.current *= 0.93
+    offsetRef.current += velocity.current
+    applyTransform()
+    inertiaRaf.current = requestAnimationFrame(runInertia)
+  }, [applyTransform])
 
+  // Auto-scroll RAF loop
+  useEffect(() => {
+    const tick = () => {
+      if (!paused.current && !isDragging.current) {
+        offsetRef.current += SPEED
+        applyTransform()
+      }
+      rafRef.current = requestAnimationFrame(tick)
+    }
+    rafRef.current = requestAnimationFrame(tick)
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current)
+    }
+  }, [applyTransform])
+
+  // Pointer drag handlers
   const onPointerDown = (e: React.PointerEvent) => {
-    if (!trackRef.current) return
     stopInertia()
     isDragging.current = true
     dragMoved.current = false
-    startX.current = e.clientX
-    lastX.current = e.clientX
-    lastTime.current = Date.now()
-    scrollLeft.current = trackRef.current.scrollLeft
-    trackRef.current.setPointerCapture(e.pointerId)
+    dragStartX.current = e.clientX
+    dragStartOffset.current = offsetRef.current
+    lastDragX.current = e.clientX
+    lastDragTime.current = performance.now()
+    velocity.current = 0
+    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+    e.preventDefault()
   }
 
   const onPointerMove = (e: React.PointerEvent) => {
-    if (!isDragging.current || !trackRef.current) return
-    const dx = e.clientX - startX.current
+    if (!isDragging.current) return
+    const dx = e.clientX - dragStartX.current
     if (Math.abs(dx) > 4) dragMoved.current = true
-    const now = Date.now()
-    const dt = now - lastTime.current
+    const now = performance.now()
+    const dt = now - lastDragTime.current
     if (dt > 0) {
-      velocity.current = (lastX.current - e.clientX) / dt * 12
+      velocity.current = ((lastDragX.current - e.clientX) / dt) * 14
     }
-    lastX.current = e.clientX
-    lastTime.current = now
-    trackRef.current.scrollLeft = scrollLeft.current - (e.clientX - startX.current)
+    lastDragX.current = e.clientX
+    lastDragTime.current = now
+    offsetRef.current = dragStartOffset.current - dx
+    applyTransform()
   }
 
   const onPointerUp = () => {
     if (!isDragging.current) return
     isDragging.current = false
-    if (Math.abs(velocity.current) > 1) {
-      animFrameId.current = requestAnimationFrame(applyInertia)
+    if (Math.abs(velocity.current) > 0.5) {
+      inertiaRaf.current = requestAnimationFrame(runInertia)
+    }
+  }
+
+  const handleCardClick = (e: React.MouseEvent) => {
+    if (dragMoved.current) {
+      e.preventDefault()
+      e.stopPropagation()
     }
   }
 
@@ -107,12 +143,8 @@ export default function FeaturedCarousel() {
     if (isLoggedIn) toggleFollow(id)
   }
 
-  const handleCardClick = (e: React.MouseEvent) => {
-    if (dragMoved.current) {
-      e.preventDefault()
-      e.stopPropagation()
-    }
-  }
+  // Triple the cards so we always have content to scroll into
+  const allCards = [...FEATURED, ...FEATURED, ...FEATURED]
 
   return (
     <section className="w-full py-5 px-0 border-b border-color">
@@ -128,28 +160,22 @@ export default function FeaturedCarousel() {
       </div>
 
       <div
-        ref={trackRef}
-        className="overflow-x-auto overflow-y-hidden select-none"
-        style={{
-          cursor: isDragging.current ? 'grabbing' : 'grab',
-          scrollbarWidth: 'none',
-          msOverflowStyle: 'none',
-          WebkitOverflowScrolling: 'touch',
-        }}
+        className="overflow-hidden select-none"
+        style={{ cursor: isDragging.current ? 'grabbing' : 'grab' }}
+        onMouseEnter={() => { paused.current = true }}
+        onMouseLeave={() => { paused.current = false }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
-        onPointerLeave={onPointerUp}
         onPointerCancel={onPointerUp}
+        onPointerLeave={onPointerUp}
       >
-        <style>{`
-          div::-webkit-scrollbar { display: none; }
-        `}</style>
         <div
-          className="flex"
-          style={{ gap: `${GAP}px`, paddingLeft: '12px', paddingRight: '12px', width: 'max-content' }}
+          ref={trackRef}
+          className="flex will-change-transform"
+          style={{ gap: `${GAP}px`, paddingLeft: '12px', width: 'max-content', touchAction: 'none' }}
         >
-          {FEATURED.map((card, idx) => {
+          {allCards.map((card, idx) => {
             const tier = TIER_STYLES[card.tier]
             const following = isFollowing(String(card.id))
             return (
