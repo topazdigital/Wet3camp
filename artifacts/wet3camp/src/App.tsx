@@ -4,6 +4,8 @@ import { SidebarProvider } from "@/lib/sidebar-context";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { FollowProvider } from "@/lib/follow-context"
 import { NotificationsProvider } from "@/lib/notifications-context";
+import { BookingsProvider } from "@/lib/bookings-context";
+import Bookings from "@/pages/bookings";
 import BottomNav from "@/components/BottomNav";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
@@ -58,6 +60,7 @@ function Router() {
       <Route path="/live" component={Live} />
       <Route path="/login" component={Login} />
       <Route path="/messages">{() => <ProtectedRoute component={Messages} />}</Route>
+      <Route path="/bookings">{() => <ProtectedRoute component={Bookings} />}</Route>
       <Route path="/my-profile">{() => <ProtectedRoute component={MyProfile} />}</Route>
       <Route path="/profile" component={Profile} />
       <Route path="/profile/:id" component={Profile} />
@@ -79,12 +82,14 @@ function App() {
       <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
         <AuthProvider>
           <NotificationsProvider>
+            <BookingsProvider>
             <FollowProvider>
               <SidebarProvider>
                 <Router />
                 <BottomNav />
               </SidebarProvider>
             </FollowProvider>
+          </BookingsProvider>
           </NotificationsProvider>
         </AuthProvider>
       </WouterRouter>

@@ -7,6 +7,7 @@ import { ESCORTS } from '@/data/escorts'
 import { useAuth } from '@/lib/auth-context'
 import { useFollow } from '@/lib/follow-context'
 import { useSEO } from '@/lib/useSEO'
+import BookingModal from '@/components/BookingModal'
 
 const TIER_STYLE: Record<string, { bg: string; text: string; label: string }> = {
   Elite:    { bg: '#8B0000',  text: '#fff', label: '★ ELITE'   },
@@ -47,6 +48,7 @@ export default function ProfilePage() {
   })
 
   const [liked, setLiked] = useState(false)
+  const [bookingOpen, setBookingOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<'about' | 'services' | 'reviews'>('about')
   const [selectedImg, setSelectedImg] = useState<string | null>(null)
   const tier = TIER_STYLE[escort.tier] ?? TIER_STYLE.Elite
@@ -304,6 +306,14 @@ export default function ProfilePage() {
 
                   {isLoggedIn ? (
                     <div className="space-y-2.5">
+                      {/* Book Now */}
+                      <button
+                        onClick={() => setBookingOpen(true)}
+                        className="w-full py-3.5 bg-gradient-to-r from-[#8B0000] to-[#a00000] text-white font-black rounded-xl transition-all shadow-lg shadow-[#8B0000]/30 flex items-center justify-center gap-2 text-sm hover:shadow-[#8B0000]/50 active:scale-[0.98]"
+                      >
+                        <Calendar size={15} /> Book {escort.name.split(' ')[0]} Now
+                      </button>
+
                       {/* WhatsApp */}
                       <a
                         href={waLink(escort.id, escort.name)}
@@ -393,6 +403,19 @@ export default function ProfilePage() {
 
         <div className="h-8" />
       </div>
+
+      <BookingModal
+        open={bookingOpen}
+        onClose={() => setBookingOpen(false)}
+        escort={{
+          id: escort.id,
+          name: escort.name,
+          avatar: escort.image,
+          tier: escort.tier,
+          city: escort.city,
+          pricing: { hourly: escort.pricing.hourly, overnight: escort.pricing.overnight },
+        }}
+      />
     </div>
   )
 }

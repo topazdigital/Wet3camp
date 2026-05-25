@@ -1,4 +1,4 @@
-import { Flame, Home, Radio, Newspaper, Star, ShoppingBag, Megaphone, Calendar, Video, Hotel, Plane, MessageSquare, Heart, Ban, MessageCircle, HelpCircle, Mail, Shield, Smartphone, ChevronRight, X, Menu } from 'lucide-react'
+import { Flame, Home, Radio, Newspaper, Star, ShoppingBag, Megaphone, Calendar, Video, Hotel, Plane, MessageSquare, Heart, Ban, MessageCircle, HelpCircle, Mail, Shield, Smartphone, CalendarCheck, X, Menu } from 'lucide-react'
 import { Link, useLocation } from 'wouter'
 import { useState, useEffect } from 'react'
 import { useSidebar } from '@/lib/sidebar-context'
@@ -10,7 +10,8 @@ const NAV_SECTIONS = [
       { icon: Home,          label: 'Home',            href: '/' },
       { icon: Radio,         label: 'Live',            href: '/live',    badge: 'LIVE', badgeColor: '#E91E63' },
       { icon: Newspaper,     label: 'Feeds',           href: '/feeds' },
-      { icon: MessageSquare, label: 'Messages',        href: '/messages' },
+      { icon: MessageSquare,  label: 'Messages',        href: '/messages' },
+      { icon: CalendarCheck, label: 'Bookings',        href: '/bookings' },
       { icon: Heart,         label: 'My Favorites',    href: '/favorites' },
     ],
   },
