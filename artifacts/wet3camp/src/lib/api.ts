@@ -99,4 +99,17 @@ export const api = {
     list:   ()            => req<string[]>('/favorites'),
     toggle: (id: string)  => req<{ saved: boolean }>(`/favorites/${id}`, { method: 'POST' }),
   },
+
+  profile: {
+    update: (d: { name?: string; phone?: string; avatar?: string }) =>
+      req<ApiUser>('/profile', { method: 'PATCH', body: JSON.stringify(d) }),
+    updateEscort: (d: {
+      bio?: string; city?: string; area?: string
+      whatsapp?: string; telegram?: string
+      bodyType?: string; ethnicity?: string; height?: string; hairColor?: string
+      rateHourly?: number; rateOvernight?: number; rateVideo?: number
+      available?: boolean; languages?: string[]; services?: string[]
+    }) =>
+      req<any>('/profile/escort', { method: 'PATCH', body: JSON.stringify(d) }),
+  },
 }

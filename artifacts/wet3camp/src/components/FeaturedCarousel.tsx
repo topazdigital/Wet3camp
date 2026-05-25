@@ -124,6 +124,8 @@ export default function FeaturedCarousel() {
     if (Math.abs(velocity.current) > 0.5) {
       inertiaRaf.current = requestAnimationFrame(runInertia)
     }
+    // Reset dragMoved AFTER the click event fires (click fires after pointerup)
+    setTimeout(() => { dragMoved.current = false }, 50)
   }
 
   const handleCardClick = (e: React.MouseEvent) => {

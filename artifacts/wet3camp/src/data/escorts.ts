@@ -1,4 +1,5 @@
 export interface Service { name: string; available: boolean }
+export interface ReviewData { id: number; client: string; rating: number; text: string; date: string }
 export interface Escort {
   id: string; name: string; age: number; city: string; area: string
   lat: number; lng: number; tier: 'elite'|'vip'|'premium'|'standard'|'free'
@@ -8,6 +9,8 @@ export interface Escort {
   languages: string[]; height: string; bodyType: string
   ethnicity: string; hairColor: string
   available: boolean; verified: boolean; online: boolean; phone?: string
+  reviews_data?: ReviewData[]
+  whatsapp?: string; telegram?: string
 }
 
 const U = (id: string, w = 600, h = 800) =>
@@ -52,6 +55,18 @@ const VIP_SERVICES: Service[] = [
   { name: 'Hotel Visits',       available: true },
 ]
 
+const SAMPLE_REVIEWS_1: ReviewData[] = [
+  { id: 1, client: 'John K.',   rating: 5, text: 'Absolutely stunning and incredibly professional. Made me feel completely at ease from the start. Worth every shilling — will definitely book again.', date: '2 days ago' },
+  { id: 2, client: 'David M.',  rating: 5, text: 'Best experience I\'ve had on this platform. Punctual, elegant and a fantastic conversationalist. The dinner date exceeded all expectations.', date: '1 week ago' },
+  { id: 3, client: 'Paul O.',   rating: 5, text: 'Highly recommend. Very discreet and professional. Exactly as advertised — beautiful, intelligent and warm-hearted.', date: '2 weeks ago' },
+  { id: 4, client: 'James T.',  rating: 4, text: 'Great experience overall. Very attentive and well-presented. A true professional. Slight delay but well worth it.', date: '1 month ago' },
+]
+const SAMPLE_REVIEWS_2: ReviewData[] = [
+  { id: 5, client: 'Mike A.',   rating: 5, text: 'Exceptional companion for my business trip to Nairobi. Spoke perfect French and knew the city well. 10/10.', date: '3 days ago' },
+  { id: 6, client: 'Brian K.',  rating: 5, text: 'Zara is everything her profile promises and more. Sophisticated, fun and incredibly beautiful. A premium experience.', date: '3 weeks ago' },
+  { id: 7, client: 'Eric N.',   rating: 4, text: 'Very professional and easy to talk to. Made the evening very enjoyable. Would recommend to anyone visiting Westlands.', date: '1 month ago' },
+]
+
 export const ESCORTS: Escort[] = [
   {
     id: '1', name: 'Amara K.', age: 24, city: 'Nairobi', area: 'Nairobi CBD',
@@ -61,6 +76,7 @@ export const ESCORTS: Escort[] = [
     services: VIP_SERVICES, pricing: { hourly: 8000, overnight: 50000, video: 3000 },
     languages: ['English', 'Swahili'], height: "5'6\"", bodyType: 'Slim/Athletic',
     ethnicity: 'Kenyan', hairColor: 'Black', available: true, verified: true, online: true,
+    reviews_data: SAMPLE_REVIEWS_1,
   },
   {
     id: '2', name: 'Zara M.', age: 26, city: 'Nairobi', area: 'Westlands',
@@ -70,6 +86,7 @@ export const ESCORTS: Escort[] = [
     services: VIP_SERVICES, pricing: { hourly: 6500, overnight: 40000, video: 2500 },
     languages: ['English', 'Swahili', 'French'], height: "5'7\"", bodyType: 'Athletic',
     ethnicity: 'Kenyan', hairColor: 'Natural', available: true, verified: true, online: true,
+    reviews_data: SAMPLE_REVIEWS_2,
   },
   {
     id: '3', name: 'Luna K.', age: 23, city: 'Nairobi', area: 'Karen',
