@@ -58,7 +58,7 @@ npm install --omit=dev
 # Set env vars (replace values as needed)
 export DB_HOST=localhost
 export DB_USER=admin_betcheza
-export DB_PASS='dj@Topaz2016'
+export DB_PASS='<your_db_password>'
 export DB_NAME=admin_wet3camp
 export JWT_SECRET='<generate a 64-char random string>'
 export PORT=8080
@@ -66,9 +66,9 @@ export PORT=8080
 pm2 start dist/index.js --name wet3camp-api \
   --env DB_HOST=localhost \
   --env DB_USER=admin_betcheza \
-  "--env DB_PASS=dj@Topaz2016" \
+  "--env DB_PASS=<your_db_password>" \
   --env DB_NAME=admin_wet3camp \
-  "--env JWT_SECRET=<your_secret>" \
+  "--env JWT_SECRET=<your_jwt_secret>" \
   --env PORT=8080
 
 pm2 save
@@ -111,7 +111,7 @@ Go to **Settings → Secrets → Actions** and add:
 | `SSH_HOST` | `157.250.205.180` |
 | `SSH_USER` | your DirectAdmin username |
 | `SSH_PRIVATE_KEY` | contents of your `~/.ssh/id_rsa` |
-| `DB_PASS` | `dj@Topaz2016` |
+| `DB_PASS` | your DirectAdmin DB password |
 | `JWT_SECRET` | 64-char random string |
 
 Generate a deploy key and copy it to the server:

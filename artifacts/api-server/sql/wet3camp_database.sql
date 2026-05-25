@@ -30,9 +30,10 @@ CREATE TABLE IF NOT EXISTS `users` (
   INDEX `idx_role`     (`role`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Default admin account (password: Admin@Wet3Camp2026 — change immediately)
+-- Default admin account (password: Admin@Wet3Camp2026 — change immediately after first deploy)
+-- Hash format: scrypt salt:hexhash — generated with: node -e "const{scrypt,randomBytes}=require('crypto');const{promisify}=require('util');promisify(scrypt)('Admin@Wet3Camp2026',randomBytes(16).toString('hex'),64).then(h=>console.log(...))"
 INSERT INTO `users` (`username`, `email`, `password_hash`, `role`, `display_name`) VALUES
-('admin', 'admin@wet3.camp', '$2b$12$examplehashchangeme', 'admin', 'Site Administrator');
+('admin', 'admin@wet3.camp', 'f41a49a00ddb8a18ec7e141915237793:4cbc319c9621b7635d5590f374ec2a67eca5d4535ded4fcc7444c26dc7a08cc1f87d7215c37471891643b2c8c6defede4e45af4f34004ee6fdb6a99785d91037', 'admin', 'Site Administrator');
 
 -- ============================================================
 -- TABLE: sessions  (auth tokens)

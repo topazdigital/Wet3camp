@@ -32,9 +32,8 @@ router.get('/reviews', async (req, res) => {
       escortName: r.escort_name,
       escortId: String(r.escort_id),
       rating: r.rating,
-      text: r.review_text,
+      text: r.content,
       date: r.created_at,
-      verified: !!r.verified_booking,
     })))
   } catch {
     res.status(500).json({ message: 'Failed to fetch reviews' })
@@ -63,7 +62,7 @@ router.post('/reviews', requireAuth, async (req: AuthRequest, res) => {
     }
 
     const [result] = await pool.query<any>(
-      'INSERT INTO reviews (user_id, escort_id, rating, review_text, is_visible) VALUES (?,?,?,?,1)',
+      'INSERT INTO reviews (user_id, escort_id, rating, content, is_visible) VALUES (?,?,?,?,1)',
       [req.userId, escortId, rating, text.trim()]
     )
 
