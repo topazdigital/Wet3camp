@@ -5,6 +5,7 @@ import { Escort, generateMoreEscorts } from '@/data/escorts'
 import { useAllEscorts } from '@/hooks/useEscorts'
 import { useFollow } from '@/lib/follow-context'
 import { useAuth } from '@/lib/auth-context'
+import { useFavorites } from '@/lib/favorites-context'
 
 const TIER_STYLE: Record<string, { bg: string; label: string }> = {
   Elite:   { bg: '#8B0000', label: 'Elite'   },
@@ -39,6 +40,7 @@ export default function InfiniteEscortGrid({
 }) {
   const { isFollowing, toggleFollow } = useFollow()
   const { isLoggedIn } = useAuth()
+  const { isFavorite, toggleFavorite } = useFavorites()
 
   const { escorts: apiEscorts, fromApi } = useAllEscorts()
 
@@ -68,7 +70,6 @@ export default function InfiniteEscortGrid({
   const [shown, setShown] = useState<typeof filtered>([])
   const [hasMore, setHasMore] = useState(true)
   const [isLoading, setIsLoading] = useState(false)
-  const [liked, setLiked] = useState<Set<string>>(new Set())
   const observerTarget = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -102,7 +103,7 @@ export default function InfiniteEscortGrid({
 
   const toggleLike = (e: React.MouseEvent, id: string) => {
     e.preventDefault(); e.stopPropagation()
-    setLiked(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+    toggleFavorite(id)
   }
 
   const handleFollow = (e: React.MouseEvent, id: string) => {
@@ -142,7 +143,7 @@ export default function InfiniteEscortGrid({
                     onClick={e => toggleLike(e, escort.id)}
                     className="absolute top-1.5 right-1.5 w-6 h-6 flex items-center justify-center bg-black/50 hover:bg-black/70 rounded-full transition-all"
                   >
-                    <Heart size={11} className={liked.has(escort.id) ? 'text-[#E91E63] fill-[#E91E63]' : 'text-white'} />
+                    <Heart size={11} className={isFavorite(escort.id) ? 'text-[#E91E63] fill-[#E91E63]' : 'text-white'} />
                   </button>
 
                   {/* Hover actions */}

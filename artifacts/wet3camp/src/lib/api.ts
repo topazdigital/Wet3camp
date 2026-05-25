@@ -62,11 +62,27 @@ export const api = {
   auth: {
     login:    (email: string, password: string) =>
       req<{ token: string; user: ApiUser }>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
-    register: (d: { name: string; email: string; password: string; phone?: string }) =>
-      req<{ token: string; user: ApiUser }>('/auth/register', { method: 'POST', body: JSON.stringify(d) }),
+    register: (d: {
+      name: string; email: string; password: string; phone?: string
+      role?: string; city?: string; area?: string
+      bio?: string; whatsapp?: string; telegram?: string
+      bodyType?: string; ethnicity?: string; height?: string; hairColor?: string
+      rateHourly?: number; rateOvernight?: number; rateVideo?: number
+      languages?: string[]; services?: string[]
+    }) =>
+      req<{ token: string; user: ApiUser; escortId?: string }>('/auth/register', { method: 'POST', body: JSON.stringify(d) }),
     forgotPassword: (email: string) =>
       req<{ message: string }>('/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email }) }),
     me: () => req<ApiUser>('/auth/me'),
+  },
+
+  reviews: {
+    list: (escortId?: string) => {
+      const qs = escortId ? `?escortId=${escortId}` : ''
+      return req<any[]>(`/reviews${qs}`)
+    },
+    submit: (escortId: string, rating: number, text: string) =>
+      req<{ id: number }>('/reviews', { method: 'POST', body: JSON.stringify({ escortId, rating, text }) }),
   },
 
   messages: {

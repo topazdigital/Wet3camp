@@ -1,11 +1,11 @@
-import React, { useState } from 'react'
+import React from 'react'
 import Header from '@/components/Header'
 import Sidebar from '@/components/Sidebar'
-import { Heart, Star, MapPin, CheckCircle2, Trash2, MessageCircle, Calendar } from 'lucide-react'
+import { Heart, Star, MapPin, CheckCircle2, Trash2, MessageCircle } from 'lucide-react'
 import { Link } from 'wouter'
 import { ESCORTS } from '@/data/escorts'
-
-const FAVES_IDS = [1, 3, 7, 12, 16]
+import { useFavorites } from '@/lib/favorites-context'
+import { useAllEscorts } from '@/hooks/useEscorts'
 
 const tierStyle: Record<string,{bg:string,text:string,label:string}> = {
   Elite:    { bg:'#8B000020', text:'#8B0000', label:'ELITE'    },
@@ -15,10 +15,14 @@ const tierStyle: Record<string,{bg:string,text:string,label:string}> = {
 }
 
 export default function FavoritesPage() {
-  const [faves, setFaves] = useState<number[]>(FAVES_IDS)
-  const escorts = ESCORTS.filter(e => faves.includes(Number(e.id)))
+  const { favorites, toggleFavorite } = useFavorites()
+  const { escorts: apiEscorts, fromApi } = useAllEscorts()
 
-  const remove = (id: string) => setFaves(p => p.filter(f => f !== Number(id)))
+  const allEscorts = fromApi
+    ? (apiEscorts as unknown as typeof ESCORTS)
+    : ESCORTS
+
+  const escorts = allEscorts.filter(e => favorites.has(String(e.id)))
 
   return (
     <main className="min-h-screen bg-dark-bg flex flex-col lg:flex-row">
@@ -31,8 +35,11 @@ export default function FavoritesPage() {
             <h1 className="text-2xl font-black text-text-light">My Favourites</h1>
             <p className="text-sm text-text-muted mt-0.5">{escorts.length} saved escort{escorts.length !== 1 ? 's' : ''}</p>
           </div>
-          {faves.length > 0 && (
-            <button onClick={() => setFaves([])} className="flex items-center gap-1.5 px-3 py-2 border border-[#EF4444]/30 text-[#EF4444] text-xs rounded-xl hover:bg-[#EF4444]/10 transition-all">
+          {favorites.size > 0 && (
+            <button
+              onClick={() => escorts.forEach(e => toggleFavorite(String(e.id)))}
+              className="flex items-center gap-1.5 px-3 py-2 border border-[#EF4444]/30 text-[#EF4444] text-xs rounded-xl hover:bg-[#EF4444]/10 transition-all"
+            >
               <Trash2 size={12}/> Clear All
             </button>
           )}
@@ -42,7 +49,7 @@ export default function FavoritesPage() {
           {escorts.length > 0 ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
               {escorts.map(e => {
-                const ts = tierStyle[e.tier] ?? tierStyle['Standard']
+                const ts = tierStyle[e.tier as string] ?? tierStyle['Standard']
                 return (
                   <div key={e.id} className="bg-card-bg border border-color rounded-2xl overflow-hidden group hover:border-[#8B0000]/50 hover:shadow-lg hover:shadow-[#8B0000]/10 transition-all">
                     <div className="relative aspect-[3/4] overflow-hidden">
@@ -53,7 +60,7 @@ export default function FavoritesPage() {
                       <div className="absolute top-2 left-2 px-1.5 py-0.5 rounded-md text-[9px] font-bold" style={{backgroundColor:ts.bg,color:ts.text}}>{ts.label}</div>
                       {e.available && <div className="absolute top-2 right-2 w-2 h-2 bg-[#28a745] rounded-full border border-dark-bg"/>}
                       <button
-                        onClick={() => remove(e.id)}
+                        onClick={() => toggleFavorite(String(e.id))}
                         className="absolute top-2 right-2 mt-5 p-1.5 bg-[#8B0000] rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-[#a00000]"
                       >
                         <Heart size={11} fill="white"/>
@@ -68,7 +75,7 @@ export default function FavoritesPage() {
                     <div className="p-2.5">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-0.5"><Star size={10} className="fill-[#FFD700] text-[#FFD700]"/><span className="text-[10px] font-bold text-text-light ml-0.5">{e.rating}</span></div>
-                        <span className="text-[10px] font-bold text-[#FFD700]">KES {e.pricing.hourly.toLocaleString()}/hr</span>
+                        <span className="text-[10px] font-bold text-[#FFD700]">KES {(e.pricing.hourly).toLocaleString()}/hr</span>
                       </div>
                       <div className="flex gap-1.5">
                         <Link href={`/profile/${e.id}`} className="flex-1 py-1.5 text-center text-[10px] font-bold border border-color text-text-light rounded-lg hover:border-[#FFD700] transition-all flex items-center justify-center gap-1">

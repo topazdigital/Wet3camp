@@ -7,6 +7,7 @@ import {
   Instagram, Facebook
 } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
+import { api, setToken } from '@/lib/api'
 import { CITIES } from '@/data/escorts'
 import { useSEO } from '@/lib/useSEO'
 
@@ -230,13 +231,49 @@ export default function RegisterPage() {
     setOauthProvider(provider); setAuthMethod('oauth')
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!agreeTerms) { setError('Please agree to the Terms of Service.'); return }
     setLoading(true)
-    setTimeout(() => {
-      login({ id: `user-${Date.now()}`, name: name || 'New User', email, role: role!, city, area, phone })
+    setError('')
+    try {
+      const payload: Record<string, any> = {
+        name, email, password,
+        phone: phone || undefined,
+        role: role === 'escort' ? 'escort' : 'user',
+        city, area,
+      }
+      if (role === 'escort') {
+        Object.assign(payload, {
+          bio, whatsapp, telegram,
+          bodyType, ethnicity, height, hairColor,
+          languages: selLangs,
+          services: selServices,
+          rateHourly:   parseInt(rateHourly)   || 3000,
+          rateOvernight: parseInt(rateOvernight) || 25000,
+          rateVideo:    parseInt(rateVideo)    || 1500,
+        })
+      }
+      const res = await api.auth.register(payload as any)
+      setToken(res.token)
+      login({
+        id: res.user.id,
+        name: res.user.name,
+        email: res.user.email,
+        role: res.user.role === 'user' ? 'client' : (res.user.role as any),
+        phone: res.user.phone ?? undefined,
+        profileId: res.escortId ?? undefined,
+      })
       navigate(role === 'escort' ? '/my-profile' : '/')
-    }, 1400)
+    } catch (err: any) {
+      if ((err?.code === 'NO_DB' || err?.status === 503) && import.meta.env.DEV) {
+        login({ id: `user-${Date.now()}`, name: name || 'New User', email, role: role!, city, area, phone })
+        navigate(role === 'escort' ? '/my-profile' : '/')
+        return
+      }
+      setError(err?.message ?? 'Registration failed. Please try again.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const inputCls = "w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted focus:outline-none focus:border-[#8B0000] transition-all"

@@ -4,7 +4,8 @@ import { SidebarProvider } from "@/lib/sidebar-context";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { FollowProvider } from "@/lib/follow-context"
 import { NotificationsProvider } from "@/lib/notifications-context";
-import { BookingsProvider } from "@/lib/bookings-context";
+import { BookingsProvider } from "@/lib/bookings-context"
+import { FavoritesProvider } from "@/lib/favorites-context";
 import Booking  from "@/pages/booking";
 import Bookings from "@/pages/bookings";
 import BottomNav from "@/components/BottomNav";
@@ -87,12 +88,14 @@ function App() {
         <AuthProvider>
           <NotificationsProvider>
             <BookingsProvider>
+            <FavoritesProvider>
             <FollowProvider>
               <SidebarProvider>
                 <Router />
                 <BottomNav />
               </SidebarProvider>
             </FollowProvider>
+            </FavoritesProvider>
           </BookingsProvider>
           </NotificationsProvider>
         </AuthProvider>

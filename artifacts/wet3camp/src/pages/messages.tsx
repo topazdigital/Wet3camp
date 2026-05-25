@@ -4,27 +4,31 @@ import Sidebar from '@/components/Sidebar'
 import { useSEO } from '@/lib/useSEO'
 import { Send, Search, CheckCheck, Check, MoreVertical, Phone, Video, Paperclip, Smile, ArrowLeft, Calendar, X } from 'lucide-react'
 import { Link } from 'wouter'
+import { api } from '@/lib/api'
+import { useAuth } from '@/lib/auth-context'
 
-const CONVERSATIONS = [
-  { id: 1, name: 'Amara K.',  avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=80&h=80&fit=crop', last: 'Available tonight?',            time: '2m',     unread: 2, online: true,  tier: 'Elite'   },
-  { id: 2, name: 'Zara M.',   avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80&h=80&fit=crop', last: 'Thanks for booking!',           time: '1h',     unread: 0, online: true,  tier: 'VIP'     },
-  { id: 3, name: 'Luna K.',   avatar: 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=80&h=80&fit=crop', last: 'What time works for you?',      time: '3h',     unread: 1, online: false, tier: 'VIP'     },
-  { id: 4, name: 'Priya S.',  avatar: 'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=80&h=80&fit=crop', last: "Sure, I'll confirm ASAP.",       time: 'Yesterday', unread: 0, online: false, tier: 'Elite' },
-  { id: 5, name: 'Fatuma H.', avatar: 'https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?w=80&h=80&fit=crop', last: 'Perfect, see you then!',         time: '2 days', unread: 0, online: false, tier: 'Premium' },
+const STATIC_CONVERSATIONS = [
+  { id: 1, name: 'Amara K.',  avatar: 'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=80&h=80&fit=crop', last: 'Available tonight?',         time: '2m',        unread: 2, online: true,  tier: 'Elite'   },
+  { id: 2, name: 'Zara M.',   avatar: 'https://images.unsplash.com/photo-1522529599102-193c0d76b5b6?w=80&h=80&fit=crop', last: 'Thanks for booking!',        time: '1h',        unread: 0, online: true,  tier: 'VIP'     },
+  { id: 3, name: 'Luna K.',   avatar: 'https://images.unsplash.com/photo-1509868918748-a554bf5f7e09?w=80&h=80&fit=crop', last: 'What time works for you?',   time: '3h',        unread: 1, online: false, tier: 'VIP'     },
+  { id: 4, name: 'Priya S.',  avatar: 'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=80&h=80&fit=crop', last: "Sure, I'll confirm ASAP.",    time: 'Yesterday', unread: 0, online: false, tier: 'Elite'   },
+  { id: 5, name: 'Fatuma H.', avatar: 'https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?w=80&h=80&fit=crop', last: 'Perfect, see you then!',      time: '2 days',    unread: 0, online: false, tier: 'Premium' },
 ]
+
+type Conv = typeof STATIC_CONVERSATIONS[number]
 
 type MsgStatus = 'sent' | 'read'
 interface Msg { id: number; text: string; mine: boolean; time: string; status?: MsgStatus; isBookingReq?: boolean }
 
 const INITIAL_CHAT: Record<number, Msg[]> = {
   1: [
-    { id: 1, text: 'Hey! Are you available this evening?',      mine: false, time: '7:02 PM' },
-    { id: 2, text: 'Yes I am 😊 What time were you thinking?',  mine: true,  time: '7:05 PM', status: 'read' },
-    { id: 3, text: 'Around 8 PM works?',                        mine: false, time: '7:06 PM' },
-    { id: 4, text: 'Perfect. How long?',                        mine: true,  time: '7:07 PM', status: 'read' },
-    { id: 5, text: 'Maybe 2 hours. KES 16,000 right?',          mine: false, time: '7:08 PM' },
-    { id: 6, text: "Yes that's correct. See you at 8 PM 🔥",    mine: true,  time: '7:09 PM', status: 'sent' },
-    { id: 7, text: 'Available tonight?',                        mine: false, time: '7:15 PM' },
+    { id: 1, text: 'Hey! Are you available this evening?',     mine: false, time: '7:02 PM' },
+    { id: 2, text: 'Yes I am 😊 What time were you thinking?', mine: true,  time: '7:05 PM', status: 'read' },
+    { id: 3, text: 'Around 8 PM works?',                       mine: false, time: '7:06 PM' },
+    { id: 4, text: 'Perfect. How long?',                       mine: true,  time: '7:07 PM', status: 'read' },
+    { id: 5, text: 'Maybe 2 hours. KES 16,000 right?',         mine: false, time: '7:08 PM' },
+    { id: 6, text: "Yes that's correct. See you at 8 PM 🔥",   mine: true,  time: '7:09 PM', status: 'sent' },
+    { id: 7, text: 'Available tonight?',                       mine: false, time: '7:15 PM' },
   ],
   2: [
     { id: 1, text: 'Hi! Your booking is confirmed for tomorrow.', mine: false, time: '2:00 PM' },
@@ -32,7 +36,7 @@ const INITIAL_CHAT: Record<number, Msg[]> = {
     { id: 3, text: 'Thanks for booking!',                          mine: false, time: '2:10 PM' },
   ],
   3: [
-    { id: 1, text: 'Hi! Are you available on Friday?', mine: true, time: '10:00 AM', status: 'read' },
+    { id: 1, text: 'Hi! Are you available on Friday?', mine: true,  time: '10:00 AM', status: 'read' },
     { id: 2, text: 'What time works for you?',          mine: false, time: '10:15 AM' },
   ],
 }
@@ -50,6 +54,8 @@ const TIER_COLOR: Record<string, string> = { Elite: '#8B0000', VIP: '#FF4500', P
 export default function MessagesPage() {
   useSEO({ title: 'Messages', noIndex: true })
 
+  const { isLoggedIn } = useAuth()
+  const [conversations, setConversations] = useState<Conv[]>(STATIC_CONVERSATIONS)
   const [selected, setSelected] = useState<number | null>(1)
   const [input, setInput] = useState('')
   const [search, setSearch] = useState('')
@@ -64,6 +70,39 @@ export default function MessagesPage() {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [selected, messages, typing])
 
+  useEffect(() => {
+    if (!isLoggedIn) return
+    api.messages.list().then((threads: any[]) => {
+      if (!threads || threads.length === 0) return
+      const mapped: Conv[] = threads.map((t: any) => ({
+        id: Number(t.escortId),
+        name: t.escortName ?? 'Unknown',
+        avatar: t.escortImage ?? '',
+        last: t.messages?.slice(-1)[0]?.content ?? '',
+        time: 'recent',
+        unread: 0,
+        online: false,
+        tier: 'Standard',
+      }))
+      setConversations(mapped)
+
+      const msgMap: Record<number, Msg[]> = {}
+      threads.forEach((t: any) => {
+        if (!Array.isArray(t.messages)) return
+        msgMap[Number(t.escortId)] = t.messages.map((m: any) => ({
+          id: m.id,
+          text: m.content,
+          mine: !m.fromEscort,
+          time: new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          status: m.readAt ? 'read' : 'sent',
+        }))
+      })
+      if (Object.keys(msgMap).length > 0) {
+        setMessages(prev => ({ ...msgMap, ...prev }))
+      }
+    }).catch(() => {})
+  }, [isLoggedIn])
+
   const selectConv = (id: number) => {
     setSelected(id)
     setShowList(false)
@@ -74,9 +113,12 @@ export default function MessagesPage() {
   const sendMsg = () => {
     if (!input.trim() || !selected) return
     const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    const newMsg: Msg = { id: Date.now(), text: input.trim(), mine: true, time: now, status: 'sent' }
+    const text = input.trim()
+    const newMsg: Msg = { id: Date.now(), text, mine: true, time: now, status: 'sent' }
     setMessages(prev => ({ ...prev, [selected]: [...(prev[selected] ?? []), newMsg] }))
     setInput('')
+
+    api.messages.send(selected, text).catch(() => {})
 
     const convId = selected
     setTimeout(() => {
@@ -102,13 +144,11 @@ export default function MessagesPage() {
     const reqMsg: Msg = {
       id: Date.now(),
       text: '📅 Booking request sent — please check your bookings to confirm.',
-      mine: true,
-      time: now,
-      status: 'sent',
-      isBookingReq: true,
+      mine: true, time: now, status: 'sent', isBookingReq: true,
     }
     setMessages(prev => ({ ...prev, [selected]: [...(prev[selected] ?? []), reqMsg] }))
     setBookingPrompt(false)
+    api.messages.send(selected, reqMsg.text).catch(() => {})
 
     const convId = selected
     setTimeout(() => {
@@ -116,19 +156,14 @@ export default function MessagesPage() {
       setTimeout(() => {
         setTyping(prev => ({ ...prev, [convId]: false }))
         const replyTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        const reply: Msg = {
-          id: Date.now() + 1,
-          text: "I received your booking request! I'll confirm shortly 💕",
-          mine: false,
-          time: replyTime,
-        }
+        const reply: Msg = { id: Date.now() + 1, text: "I received your booking request! I'll confirm shortly 💕", mine: false, time: replyTime }
         setMessages(prev => ({ ...prev, [convId]: [...(prev[convId] ?? []), reply] }))
       }, 2500)
     }, 1200)
   }
 
-  const activeCon = CONVERSATIONS.find(c => c.id === selected)
-  const filtered  = CONVERSATIONS.filter(c => !search || c.name.toLowerCase().includes(search.toLowerCase()))
+  const activeCon = conversations.find(c => c.id === selected)
+  const filtered  = conversations.filter(c => !search || c.name.toLowerCase().includes(search.toLowerCase()))
   const totalUnread = Object.values(unread).reduce((s, n) => s + n, 0)
 
   return (
@@ -196,7 +231,6 @@ export default function MessagesPage() {
           {selected ? (
             <div className={`${!showList ? 'flex' : 'hidden md:flex'} flex-1 flex-col min-w-0`}>
 
-              {/* Chat header */}
               <div className="flex items-center gap-3 px-4 py-3 border-b border-color bg-card-bg">
                 <button className="md:hidden p-1.5 text-text-muted hover:text-text-light mr-1" onClick={() => setShowList(true)}>
                   <ArrowLeft size={18} />
@@ -224,7 +258,6 @@ export default function MessagesPage() {
                 </div>
               </div>
 
-              {/* Booking prompt banner */}
               {bookingPrompt && (
                 <div className="mx-4 mt-3 p-3 bg-[#FFD700]/10 border border-[#FFD700]/30 rounded-xl flex items-center justify-between">
                   <div>
@@ -245,9 +278,7 @@ export default function MessagesPage() {
                 </div>
               )}
 
-              {/* Messages */}
               <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
-                {/* Date separator */}
                 <div className="flex items-center gap-3">
                   <div className="flex-1 h-px bg-color" />
                   <span className="text-[10px] text-text-muted px-2">Today</span>
@@ -279,7 +310,6 @@ export default function MessagesPage() {
                   </div>
                 ))}
 
-                {/* Typing indicator */}
                 {typing[selected] && (
                   <div className="flex justify-start items-end gap-2">
                     <img src={activeCon?.avatar} alt="" className="w-6 h-6 rounded-full object-cover flex-shrink-0" />
@@ -294,7 +324,6 @@ export default function MessagesPage() {
                 <div ref={chatEndRef} />
               </div>
 
-              {/* Input */}
               <div className="px-3 py-3 border-t border-color bg-card-bg">
                 <div className="flex items-center gap-2">
                   <button className="p-2 text-text-muted hover:text-text-light rounded-xl hover:bg-dark-bg transition-colors flex-shrink-0">

@@ -55,8 +55,8 @@ export default function BookingModal({ open, onClose, escort }: Props) {
 
   const tierColor = TIER_COLOR[escort.tier] ?? '#8B0000'
 
-  const handleConfirmBooking = () => {
-    const id = requestBooking({
+  const handleConfirmBooking = async () => {
+    const id = await requestBooking({
       escortId: escort.id,
       escortName: escort.name,
       escortAvatar: escort.avatar,
