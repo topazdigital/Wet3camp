@@ -63,18 +63,67 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* Full-width hero */}
-        <div className="relative w-full h-[55vw] max-h-[520px] min-h-[280px] overflow-hidden">
-          <img src={escort.image} alt={escort.name} className="absolute inset-0 w-full h-full object-cover object-top" />
-          <div className="absolute inset-0 bg-gradient-to-t from-dark-bg via-dark-bg/30 to-transparent" />
-          <div className="absolute inset-0 bg-gradient-to-r from-dark-bg/50 to-transparent" />
+        {/* Full-width hero — creative: blurred bg + full portrait + gallery strip */}
+        <div className="relative w-full overflow-hidden" style={{ minHeight: '420px', maxHeight: '600px', height: '65vw' }}>
+          {/* Blurred background fill */}
+          <img
+            src={escort.image}
+            alt=""
+            aria-hidden="true"
+            className="absolute inset-0 w-full h-full object-cover scale-110"
+            style={{ filter: 'blur(28px) brightness(0.45) saturate(1.2)', transform: 'scale(1.15)' }}
+            draggable={false}
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-dark-bg via-dark-bg/20 to-black/40" />
+          <div className="absolute inset-0 bg-gradient-to-r from-dark-bg/60 via-transparent to-dark-bg/30" />
 
+          {/* Full portrait — centered, fully visible */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <img
+              src={escort.image}
+              alt={escort.name}
+              className="h-full w-auto max-w-[65%] sm:max-w-[45%] lg:max-w-[35%] object-contain drop-shadow-2xl"
+              style={{ filter: 'drop-shadow(0 8px 40px rgba(0,0,0,0.7))' }}
+              draggable={false}
+            />
+          </div>
+
+          {/* Gallery filmstrip — bottom of hero */}
+          {escort.gallery && escort.gallery.length > 0 && (
+            <div className="absolute bottom-14 left-0 right-0 px-4 flex gap-2 overflow-x-auto"
+              style={{ scrollbarWidth: 'none' }}>
+              {escort.gallery.slice(0, 6).map((img, i) => (
+                <button
+                  key={i}
+                  onClick={() => setSelectedImg(img)}
+                  className="flex-shrink-0 w-14 h-20 sm:w-16 sm:h-24 rounded-xl overflow-hidden border-2 border-white/20 hover:border-[#FFD700]/70 transition-all shadow-lg backdrop-blur-sm"
+                  style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.5)' }}
+                >
+                  <img src={img} alt={`Gallery ${i + 1}`} className="w-full h-full object-cover" draggable={false} />
+                </button>
+              ))}
+              {escort.gallery.length > 6 && (
+                <button
+                  onClick={() => setSelectedImg(escort.gallery[6])}
+                  className="flex-shrink-0 w-14 h-20 sm:w-16 sm:h-24 rounded-xl overflow-hidden border-2 border-white/20 hover:border-[#FFD700]/70 transition-all shadow-lg relative"
+                >
+                  <img src={escort.gallery[6]} alt="more" className="w-full h-full object-cover opacity-40" draggable={false} />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="text-white text-xs font-black">+{escort.gallery.length - 6}</span>
+                  </div>
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Top-left: browse back */}
           <div className="absolute top-4 left-4">
             <Link href="/" className="flex items-center gap-1.5 px-3 py-2 bg-black/50 backdrop-blur-sm rounded-xl text-white text-xs font-medium hover:bg-black/70 transition-colors">
               <ChevronLeft size={14} /> Browse
             </Link>
           </div>
 
+          {/* Top-right: actions */}
           <div className="absolute top-4 right-4 flex items-center gap-2">
             <button
               onClick={() => { if (isLoggedIn) toggleFollow(escort.id) }}
@@ -91,6 +140,7 @@ export default function ProfilePage() {
             </button>
           </div>
 
+          {/* Bottom-left: badges */}
           <div className="absolute bottom-4 left-4 flex items-center gap-2">
             <span className="px-3 py-1.5 rounded-full text-[11px] font-black text-white shadow-lg" style={{ backgroundColor: tier.bg }}>{tier.label}</span>
             {escort.verified && (
@@ -353,12 +403,14 @@ export default function ProfilePage() {
                         </>
                       ) : (
                         <div className="pt-1 border-t border-color space-y-2">
-                          <p className="text-[10px] text-center text-text-muted">Sign in to book, message or save</p>
-                          <Link href="/register" className="w-full py-2.5 bg-gradient-to-r from-[#8B0000] to-[#a00000] text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2 text-sm">
-                            Join Free
+                          <Link
+                            href={`/login?redirect=/profile/${escort.id}`}
+                            className="w-full py-3.5 bg-gradient-to-r from-[#8B0000] to-[#a00000] text-white font-black rounded-xl transition-all shadow-lg shadow-[#8B0000]/30 flex items-center justify-center gap-2 text-sm hover:shadow-[#8B0000]/50 active:scale-[0.98]"
+                          >
+                            <MessageCircle size={14} /> Message {escort.name.split(' ')[0]}
                           </Link>
-                          <Link href="/login" className="w-full py-2 bg-card-bg border border-color text-text-muted text-xs font-semibold rounded-xl flex items-center justify-center transition-all hover:border-text-muted">
-                            Already a member? Sign In
+                          <Link href={`/login?redirect=/profile/${escort.id}`} className="w-full py-2 bg-card-bg border border-color text-text-muted text-xs font-semibold rounded-xl flex items-center justify-center transition-all hover:border-text-muted">
+                            Sign in to book or save
                           </Link>
                         </div>
                       )}

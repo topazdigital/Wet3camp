@@ -20,6 +20,8 @@ export default function LoginPage() {
   const { loginWithApi } = useAuth()
   const [, navigate] = useLocation()
 
+  const redirectTo = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('redirect') ?? null
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
@@ -28,7 +30,11 @@ export default function LoginPage() {
     const result = await loginWithApi(email, password)
     if (result.success && result.user) {
       const u = result.user
-      navigate(u.role === 'admin' ? '/admin' : u.role === 'escort' ? '/my-profile' : '/')
+      if (redirectTo) {
+        navigate(redirectTo)
+      } else {
+        navigate(u.role === 'admin' ? '/admin' : u.role === 'escort' ? '/my-profile' : '/')
+      }
     } else {
       setError(result.error ?? 'Invalid email or password.')
     }

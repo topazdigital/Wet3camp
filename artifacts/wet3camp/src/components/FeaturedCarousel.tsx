@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react'
+import React, { useRef, useState, useCallback } from 'react'
 import { Star, Heart, MapPin, Flame, CheckCircle2, UserPlus, UserCheck } from 'lucide-react'
 import { Link } from 'wouter'
 import { useFollow } from '@/lib/follow-context'
@@ -31,14 +31,71 @@ const CARD_W = 220
 const GAP = 14
 
 export default function FeaturedCarousel() {
-  const [paused, setPaused] = useState(false)
   const [liked, setLiked] = useState<Set<number>>(new Set())
   const { isFollowing, toggleFollow } = useFollow()
   const { isLoggedIn } = useAuth()
-  const containerRef = useRef<HTMLDivElement>(null)
+  const trackRef = useRef<HTMLDivElement>(null)
 
-  const allCards = [...FEATURED, ...FEATURED, ...FEATURED]
-  const trackWidth = FEATURED.length * (CARD_W + GAP)
+  const isDragging = useRef(false)
+  const startX = useRef(0)
+  const scrollLeft = useRef(0)
+  const dragMoved = useRef(false)
+  const animFrameId = useRef<number | null>(null)
+  const velocity = useRef(0)
+  const lastX = useRef(0)
+  const lastTime = useRef(0)
+
+  const stopInertia = () => {
+    if (animFrameId.current !== null) {
+      cancelAnimationFrame(animFrameId.current)
+      animFrameId.current = null
+    }
+  }
+
+  const applyInertia = useCallback(() => {
+    if (!trackRef.current) return
+    velocity.current *= 0.92
+    trackRef.current.scrollLeft -= velocity.current
+    if (Math.abs(velocity.current) > 0.5) {
+      animFrameId.current = requestAnimationFrame(applyInertia)
+    } else {
+      animFrameId.current = null
+    }
+  }, [])
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    if (!trackRef.current) return
+    stopInertia()
+    isDragging.current = true
+    dragMoved.current = false
+    startX.current = e.clientX
+    lastX.current = e.clientX
+    lastTime.current = Date.now()
+    scrollLeft.current = trackRef.current.scrollLeft
+    trackRef.current.setPointerCapture(e.pointerId)
+  }
+
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (!isDragging.current || !trackRef.current) return
+    const dx = e.clientX - startX.current
+    if (Math.abs(dx) > 4) dragMoved.current = true
+    const now = Date.now()
+    const dt = now - lastTime.current
+    if (dt > 0) {
+      velocity.current = (lastX.current - e.clientX) / dt * 12
+    }
+    lastX.current = e.clientX
+    lastTime.current = now
+    trackRef.current.scrollLeft = scrollLeft.current - (e.clientX - startX.current)
+  }
+
+  const onPointerUp = () => {
+    if (!isDragging.current) return
+    isDragging.current = false
+    if (Math.abs(velocity.current) > 1) {
+      animFrameId.current = requestAnimationFrame(applyInertia)
+    }
+  }
 
   const toggleLike = (e: React.MouseEvent, id: number) => {
     e.preventDefault(); e.stopPropagation()
@@ -50,53 +107,56 @@ export default function FeaturedCarousel() {
     if (isLoggedIn) toggleFollow(id)
   }
 
-  return (
-    <section className="w-full py-5 px-0 border-b border-color overflow-hidden">
-      <style>{`
-        @keyframes marquee-scroll {
-          0%   { transform: translateX(0px) }
-          100% { transform: translateX(-${trackWidth}px) }
-        }
-        .marquee-track {
-          animation: marquee-scroll ${FEATURED.length * 5}s linear infinite;
-          will-change: transform;
-        }
-        .marquee-track.is-paused {
-          animation-play-state: paused;
-        }
-      `}</style>
+  const handleCardClick = (e: React.MouseEvent) => {
+    if (dragMoved.current) {
+      e.preventDefault()
+      e.stopPropagation()
+    }
+  }
 
+  return (
+    <section className="w-full py-5 px-0 border-b border-color">
       <div className="px-3 sm:px-5 flex items-center justify-between mb-4">
         <div>
           <h2 className="text-base font-bold text-text-light flex items-center gap-2">
             <Flame size={16} className="text-[#8B0000]" />
             Featured Tonight
           </h2>
-          <p className="text-xs text-text-muted mt-0.5">Hand-picked elite &amp; VIP providers — hover to pause</p>
+          <p className="text-xs text-text-muted mt-0.5">Hand-picked elite &amp; VIP providers — drag or swipe to explore</p>
         </div>
         <Link href="/exclusive" className="text-[10px] text-[#FFD700] hover:underline font-semibold">View all →</Link>
       </div>
 
       <div
-        ref={containerRef}
-        className="overflow-hidden cursor-pointer select-none"
-        onMouseEnter={() => setPaused(true)}
-        onMouseLeave={() => setPaused(false)}
-        onTouchStart={() => setPaused(true)}
-        onTouchEnd={() => setPaused(false)}
-        onTouchCancel={() => setPaused(false)}
+        ref={trackRef}
+        className="overflow-x-auto overflow-y-hidden select-none"
+        style={{
+          cursor: isDragging.current ? 'grabbing' : 'grab',
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none',
+          WebkitOverflowScrolling: 'touch',
+        }}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerLeave={onPointerUp}
+        onPointerCancel={onPointerUp}
       >
+        <style>{`
+          div::-webkit-scrollbar { display: none; }
+        `}</style>
         <div
-          className={`marquee-track flex ${paused ? 'is-paused' : ''}`}
-          style={{ gap: `${GAP}px`, paddingLeft: '12px' }}
+          className="flex"
+          style={{ gap: `${GAP}px`, paddingLeft: '12px', paddingRight: '12px', width: 'max-content' }}
         >
-          {allCards.map((card, idx) => {
+          {FEATURED.map((card, idx) => {
             const tier = TIER_STYLES[card.tier]
             const following = isFollowing(String(card.id))
             return (
               <Link
                 key={`${card.id}-${idx}`}
                 href={`/profile/${card.id}`}
+                onClick={handleCardClick}
                 className="flex-shrink-0 relative rounded-2xl overflow-hidden group"
                 style={{ width: `${CARD_W}px`, boxShadow: tier.glow }}
               >
