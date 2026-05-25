@@ -1,0 +1,26 @@
+name: Deploy to Server
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to DirectAdmin server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 157.250.205.180
+          username: admin
+          password: ${{ secrets.SERVER_PASSWORD }}
+          port: 22
+          script: |
+            cd /home/admin/domains/wet3.camp/public_html
+            git pull origin main
+            cd artifacts/api-server && pnpm run build && pm2 restart wet3camp-api
+            cd ../wet3camp && NODE_ENV=production pnpm run build
+            cp -r dist/public/* /home/admin/domains/wet3.camp/public_html/
+            echo "Deployed at $(date)"
