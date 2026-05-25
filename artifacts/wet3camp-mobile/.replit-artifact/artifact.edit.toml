@@ -1,0 +1,27 @@
+kind = "mobile"
+previewPath = "/wet3camp-mobile/"
+title = "Wet3 Camp Mobile"
+version = "1.0.0"
+id = "artifacts/wet3camp-mobile"
+router = "expo-domain"
+
+[[integratedSkills]]
+name = "expo"
+version = "1.0.0"
+
+[[services]]
+ensurePreviewReachable = "/status"
+name = "expo"
+paths = [ "/wet3camp-mobile/" ]
+localPort = 21652
+
+[services.development]
+run = "pnpm --filter @workspace/wet3camp-mobile run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/wet3camp-mobile", "run", "build" ]
+run = [ "pnpm", "--filter", "@workspace/wet3camp-mobile", "run", "serve" ]
+
+[services.env]
+PORT = "21652"
+BASE_PATH = "/wet3camp-mobile/"
