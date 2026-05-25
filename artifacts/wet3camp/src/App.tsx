@@ -22,6 +22,7 @@ import FeaturedUpgrade from "@/pages/featured-upgrade";
 import Install from "@/pages/install";
 import Live from "@/pages/live";
 import Login from "@/pages/login";
+import ForgotPassword from "@/pages/forgot-password";
 import Messages from "@/pages/messages";
 import Profile from "@/pages/profile";
 import MyProfile from "@/pages/my-profile";
@@ -59,6 +60,7 @@ function Router() {
       <Route path="/install" component={Install} />
       <Route path="/live" component={Live} />
       <Route path="/login" component={Login} />
+      <Route path="/forgot-password" component={ForgotPassword} />
       <Route path="/messages">{() => <ProtectedRoute component={Messages} />}</Route>
       <Route path="/bookings">{() => <ProtectedRoute component={Bookings} />}</Route>
       <Route path="/my-profile">{() => <ProtectedRoute component={MyProfile} />}</Route>

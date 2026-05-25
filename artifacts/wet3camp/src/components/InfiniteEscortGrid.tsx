@@ -1,15 +1,30 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { Star, Heart, MapPin, CheckCircle2, UserPlus, UserCheck } from 'lucide-react'
 import { Link } from 'wouter'
-import { ESCORTS, generateMoreEscorts, sortByLocation } from '@/data/escorts'
+import { Escort, ESCORTS, generateMoreEscorts } from '@/data/escorts'
 import { useFollow } from '@/lib/follow-context'
 import { useAuth } from '@/lib/auth-context'
 
 const TIER_STYLE: Record<string, { bg: string; label: string }> = {
-  Elite:    { bg: '#8B0000', label: 'Elite'    },
-  VIP:      { bg: '#FF4500', label: 'VIP'      },
-  Premium:  { bg: '#B8860B', label: 'Premium'  },
-  Standard: { bg: '#3a6da8', label: 'Standard' },
+  Elite:   { bg: '#8B0000', label: 'Elite'   },
+  VIP:     { bg: '#FF4500', label: 'VIP'     },
+  Premium: { bg: '#B8860B', label: 'Premium' },
+}
+
+const TIER_RANK: Record<string, number> = {
+  elite: 1, vip: 2, premium: 3, standard: 99, free: 99,
+}
+
+function sortEscorts(escorts: Escort[]): Escort[] {
+  return [...escorts].sort((a, b) => {
+    const ra = TIER_RANK[a.tier] ?? 99
+    const rb = TIER_RANK[b.tier] ?? 99
+    if (ra !== rb) return ra - rb
+    if (ra <= 3) return b.rating - a.rating
+    const aNum = parseInt(a.id.replace(/\D/g, '')) || 0
+    const bNum = parseInt(b.id.replace(/\D/g, '')) || 0
+    return bNum - aNum
+  })
 }
 
 const PER_PAGE = 24
@@ -25,15 +40,20 @@ export default function InfiniteEscortGrid({
   const { isLoggedIn } = useAuth()
 
   const allEscorts = React.useMemo(() => {
-    const base = sortByLocation(ESCORTS, priorityCity)
+    const base = [...ESCORTS]
     const extra = generateMoreEscorts(76)
-    return [...base, ...extra]
+    const combined = [...base, ...extra]
+    const cityPriority = priorityCity
+    const withCity = combined.filter(e => e.city === cityPriority)
+    const others = combined.filter(e => e.city !== cityPriority)
+    return sortEscorts([...withCity, ...others])
   }, [priorityCity])
 
   const filtered = React.useMemo(() => {
     if (activeCategory === 'all')       return allEscorts
     if (activeCategory === 'available') return allEscorts.filter(e => e.available)
-    if (['Elite','VIP','Premium','Standard'].includes(activeCategory)) return allEscorts.filter(e => e.tier === activeCategory)
+    const cat = activeCategory.toLowerCase()
+    if (['elite','vip','premium'].includes(cat)) return allEscorts.filter(e => e.tier === cat)
     return allEscorts.filter(e => e.city === activeCategory)
   }, [activeCategory, allEscorts])
 
@@ -87,7 +107,8 @@ export default function InfiniteEscortGrid({
     <div className="w-full">
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2.5 px-3 sm:px-5 py-3">
         {shown.map((escort, idx) => {
-          const tier = TIER_STYLE[escort.tier] ?? TIER_STYLE['Standard']
+          const tierKey = escort.tier.charAt(0).toUpperCase() + escort.tier.slice(1)
+          const tier = TIER_STYLE[tierKey] ?? null
           const uniqueKey = `${escort.id}-${idx}`
           const following = isFollowing(escort.id)
           return (
@@ -102,9 +123,11 @@ export default function InfiniteEscortGrid({
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
 
-                  <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md text-[9px] font-bold text-white" style={{ backgroundColor: tier.bg }}>
-                    {tier.label}
-                  </div>
+                  {tier && (
+                    <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md text-[9px] font-bold text-white" style={{ backgroundColor: tier.bg }}>
+                      {tier.label}
+                    </div>
+                  )}
 
                   <div className={`absolute top-2 right-7 w-2 h-2 rounded-full border border-card-bg ${escort.available ? 'bg-[#28a745]' : 'bg-gray-500'}`} />
 
