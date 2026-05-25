@@ -1,7 +1,8 @@
-import React, { useState } from 'react'
+import React, { useState, useRef } from 'react'
 import Header from '@/components/Header'
 import Sidebar from '@/components/Sidebar'
 import { useAuth } from '@/lib/auth-context'
+import { api } from '@/lib/api'
 import { ESCORTS } from '@/data/escorts'
 import { Eye, Calendar, Star, TrendingUp, Edit3, Camera, CheckCircle2, MapPin, Clock, DollarSign, Users, Heart, MessageCircle, BarChart2, Shield, Zap, Crown, Smartphone, Instagram, Loader2, AlertCircle, UserCheck, Globe } from 'lucide-react'
 import { Link } from 'wouter'
@@ -15,6 +16,11 @@ export default function MyProfile() {
   const { user } = useAuth()
   const [activeTab, setActiveTab] = useState('Overview')
   const [available, setAvailable] = useState(true)
+  const toggleAvailable = async () => {
+    const next = !available
+    setAvailable(next)
+    try { await api.profile.updateEscort({ available: next }) } catch {}
+  }
   const [editSaved, setEditSaved] = useState(false)
 
   // Instagram import state
@@ -39,8 +45,16 @@ export default function MyProfile() {
   const [editEthnicity, setEditEthnicity] = useState(myEscort.ethnicity || '')
   const [editHair, setEditHair] = useState(myEscort.hairColor || '')
   const [editLangs, setEditLangs] = useState<string[]>(myEscort.languages || [])
-  const [editWhatsapp, setEditWhatsapp] = useState('+254712345001')
-  const [editTelegram, setEditTelegram] = useState('@amara_wet3camp')
+  const [editWhatsapp, setEditWhatsapp] = useState(myEscort.whatsapp || '')
+  const [editTelegram, setEditTelegram] = useState(myEscort.telegram || '')
+  const [editSaveError, setEditSaveError] = useState('')
+  const [editSaving, setEditSaving] = useState(false)
+  const bioRef  = useRef<HTMLTextAreaElement>(null)
+  const cityRef = useRef<HTMLInputElement>(null)
+  const areaRef = useRef<HTMLInputElement>(null)
+  const hrlyRef = useRef<HTMLInputElement>(null)
+  const ovnRef  = useRef<HTMLInputElement>(null)
+  const vidRef  = useRef<HTMLInputElement>(null)
 
   const BODY_TYPES  = ['Slim', 'Athletic', 'Curvy', 'Petite', 'BBW', 'Average', 'Muscular']
   const ETHNICITIES = ['Kenyan', 'African', 'Asian', 'Mixed Race', 'European', 'Middle Eastern', 'Latin', 'Other']
@@ -69,7 +83,30 @@ export default function MyProfile() {
 
   const statusColor = { confirmed: '#28a745', pending: '#FFD700', completed: '#6B7280' }
 
-  const handleSave = () => { setEditSaved(true); setTimeout(() => setEditSaved(false), 2000) }
+  const handleSave = async () => {
+    setEditSaveError(''); setEditSaving(true)
+    try {
+      await api.profile.updateEscort({
+        bio:          bioRef.current?.value,
+        city:         cityRef.current?.value,
+        area:         areaRef.current?.value,
+        whatsapp:     editWhatsapp,
+        telegram:     editTelegram,
+        bodyType:     editBodyType,
+        ethnicity:    editEthnicity,
+        hairColor:    editHair,
+        languages:    editLangs,
+        rateHourly:   hrlyRef.current ? parseInt(hrlyRef.current.value) : undefined,
+        rateOvernight:ovnRef.current  ? parseInt(ovnRef.current.value)  : undefined,
+        rateVideo:    vidRef.current  ? parseInt(vidRef.current.value)   : undefined,
+      })
+      setEditSaved(true); setTimeout(() => setEditSaved(false), 3000)
+    } catch (err: any) {
+      setEditSaveError(err.message ?? 'Failed to save. Please try again.')
+    } finally {
+      setEditSaving(false)
+    }
+  }
 
   const fetchInstagram = () => {
     setIgError('')
@@ -133,7 +170,7 @@ export default function MyProfile() {
                 </div>
               </div>
               <div className="ml-auto flex items-center gap-2">
-                <button onClick={() => setAvailable(v => !v)} className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all ${available ? 'bg-[#28a745]/20 border border-[#28a745]/40 text-[#28a745]' : 'bg-black/40 border border-white/10 text-white/50'}`}>
+                <button onClick={toggleAvailable} className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all ${available ? 'bg-[#28a745]/20 border border-[#28a745]/40 text-[#28a745]' : 'bg-black/40 border border-white/10 text-white/50'}`}>
                   <div className={`w-2 h-2 rounded-full ${available ? 'bg-[#28a745] animate-pulse' : 'bg-gray-500'}`} />
                   {available ? 'Available' : 'Unavailable'}
                 </button>
@@ -252,7 +289,7 @@ export default function MyProfile() {
                 <h3 className="text-sm font-bold text-text-light mb-4">Profile Information</h3>
                 <div className="space-y-4">
                   <div><label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Display Name</label><input defaultValue={myEscort.name} className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#8B0000] transition-all"/></div>
-                  <div><label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Bio</label><textarea defaultValue={myEscort.bio} rows={4} className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#8B0000] transition-all resize-none"/></div>
+                  <div><label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Bio</label><textarea ref={bioRef} defaultValue={myEscort.bio} rows={4} className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#8B0000] transition-all resize-none"/></div>
                   {/* DOB & Age */}
                   <div>
                     <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5 flex items-center gap-1.5"><Calendar size={10}/> Date of Birth</label>
@@ -290,11 +327,11 @@ export default function MyProfile() {
                     </div>
                     <div>
                       <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">City</label>
-                      <input defaultValue={myEscort.city} className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#8B0000] transition-all"/>
+                      <input ref={cityRef} defaultValue={myEscort.city} className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#8B0000] transition-all"/>
                     </div>
                     <div>
                       <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Area</label>
-                      <input defaultValue={myEscort.area} className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#8B0000] transition-all"/>
+                      <input ref={areaRef} defaultValue={myEscort.area} className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#8B0000] transition-all"/>
                     </div>
                     <div>
                       <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5 flex items-center gap-1" style={{color:'#25D366'}}>📱 WhatsApp</label>
@@ -320,13 +357,15 @@ export default function MyProfile() {
               <div className="bg-card-bg border border-color rounded-2xl p-5">
                 <h3 className="text-sm font-bold text-text-light mb-4">Pricing (KES)</h3>
                 <div className="grid grid-cols-3 gap-3">
-                  {[['Per Hour', myEscort.pricing.hourly],['Overnight', myEscort.pricing.overnight],['Video Call', myEscort.pricing.video]].map(([l,v])=>(
-                    <div key={l as string}><label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">{l}</label><input type="number" defaultValue={v as number} className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#FFD700] transition-all"/></div>
-                  ))}
+                  <div><label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Per Hour</label><input ref={hrlyRef} type="number" defaultValue={myEscort.pricing.hourly}   className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#FFD700] transition-all"/></div>
+                  <div><label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Overnight</label><input ref={ovnRef}  type="number" defaultValue={myEscort.pricing.overnight} className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#FFD700] transition-all"/></div>
+                  <div><label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Video Call</label><input ref={vidRef}  type="number" defaultValue={myEscort.pricing.video}    className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#FFD700] transition-all"/></div>
                 </div>
               </div>
-              <button onClick={handleSave} className={`w-full py-3 rounded-xl font-bold text-sm transition-all ${editSaved?'bg-[#28a745] text-white':'bg-gradient-to-r from-[#8B0000] to-[#a00000] text-white hover:from-[#a00000] hover:to-[#8B0000]'}`}>
-                {editSaved ? '✓ Saved!' : 'Save Changes'}
+              {editSaveError && <p className="text-xs text-[#EF4444] text-center">{editSaveError}</p>}
+              <button onClick={handleSave} disabled={editSaving} className={`w-full py-3 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${editSaved?'bg-[#28a745] text-white':editSaving?'bg-gray-600 text-white cursor-wait':'bg-gradient-to-r from-[#8B0000] to-[#a00000] text-white hover:from-[#a00000] hover:to-[#8B0000]'}`}>
+                {editSaving && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>}
+                {editSaved ? '✓ Saved!' : editSaving ? 'Saving…' : 'Save Changes'}
               </button>
             </div>
           )}

@@ -6,6 +6,9 @@ import messagesRouter  from "./messages.js";
 import bookingsRouter  from "./bookings.js";
 import favoritesRouter from "./favorites.js";
 import reviewsRouter   from "./reviews.js";
+import adminRouter     from "./admin.js";
+import profileRouter   from "./profile.js";
+import sseRouter       from "./sse.js";
 
 const router: IRouter = Router();
 
@@ -16,5 +19,8 @@ router.use(messagesRouter);
 router.use(bookingsRouter);
 router.use(favoritesRouter);
 router.use(reviewsRouter);
+router.use(adminRouter);
+router.use(profileRouter);
+router.use(sseRouter);
 
 export default router;

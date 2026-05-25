@@ -6,6 +6,7 @@ import { useAllEscorts } from '@/hooks/useEscorts'
 import { useFollow } from '@/lib/follow-context'
 import { useAuth } from '@/lib/auth-context'
 import { useFavorites } from '@/lib/favorites-context'
+import { useOnlineStatus } from '@/lib/use-online-status'
 
 const TIER_STYLE: Record<string, { bg: string; label: string }> = {
   Elite:   { bg: '#8B0000', label: 'Elite'   },
@@ -41,6 +42,7 @@ export default function InfiniteEscortGrid({
   const { isFollowing, toggleFollow } = useFollow()
   const { isLoggedIn } = useAuth()
   const { isFavorite, toggleFavorite } = useFavorites()
+  const { isOnline } = useOnlineStatus()
 
   const { escorts: apiEscorts, fromApi } = useAllEscorts()
 
@@ -137,7 +139,7 @@ export default function InfiniteEscortGrid({
                     </div>
                   )}
 
-                  <div className={`absolute top-2 right-7 w-2 h-2 rounded-full border border-card-bg ${escort.available ? 'bg-[#28a745]' : 'bg-gray-500'}`} />
+                  <div className={`absolute top-2 right-7 w-2 h-2 rounded-full border border-card-bg ${isOnline(escort.id) || escort.available ? 'bg-[#28a745] animate-pulse' : 'bg-gray-500'}`} />
 
                   <button
                     onClick={e => toggleLike(e, escort.id)}
