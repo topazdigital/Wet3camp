@@ -304,17 +304,8 @@ export default function ProfilePage() {
                     <p className="text-[10px] text-text-muted mt-1">Contact her directly to arrange</p>
                   </div>
 
-                  {isLoggedIn ? (
-                    <div className="space-y-2.5">
-                      {/* Book Now */}
-                      <button
-                        onClick={() => setBookingOpen(true)}
-                        className="w-full py-3.5 bg-gradient-to-r from-[#8B0000] to-[#a00000] text-white font-black rounded-xl transition-all shadow-lg shadow-[#8B0000]/30 flex items-center justify-center gap-2 text-sm hover:shadow-[#8B0000]/50 active:scale-[0.98]"
-                      >
-                        <Calendar size={15} /> Book {escort.name.split(' ')[0]} Now
-                      </button>
-
-                      {/* WhatsApp */}
+                  <div className="space-y-2.5">
+                      {/* WhatsApp — visible to everyone */}
                       <a
                         href={waLink(escort.id, escort.name)}
                         target="_blank"
@@ -327,7 +318,7 @@ export default function ProfilePage() {
                         WhatsApp {escort.name.split(' ')[0]}
                       </a>
 
-                      {/* Telegram */}
+                      {/* Telegram — visible to everyone */}
                       <a
                         href={tgLink(escort.name)}
                         target="_blank"
@@ -340,34 +331,43 @@ export default function ProfilePage() {
                         Telegram
                       </a>
 
-                      {/* Platform message */}
-                      <Link href="/messages" className="w-full py-2.5 bg-card-bg border border-color text-text-light font-semibold rounded-xl transition-all hover:border-[#FFD700]/50 flex items-center justify-center gap-2 text-sm">
-                        <MessageCircle size={14} /> Send Platform Message
-                      </Link>
+                      {/* Members-only actions */}
+                      {isLoggedIn ? (
+                        <>
+                          <button
+                            onClick={() => setBookingOpen(true)}
+                            className="w-full py-3 bg-gradient-to-r from-[#8B0000] to-[#a00000] text-white font-black rounded-xl transition-all shadow-lg shadow-[#8B0000]/30 flex items-center justify-center gap-2 text-sm hover:shadow-[#8B0000]/50 active:scale-[0.98]"
+                          >
+                            <Calendar size={14} /> Book {escort.name.split(' ')[0]} Now
+                          </button>
 
-                      {/* Follow */}
-                      <button
-                        onClick={() => toggleFollow(escort.id)}
-                        className={`w-full py-2.5 border rounded-xl font-medium text-sm transition-all flex items-center justify-center gap-2 ${following ? 'bg-[#8B0000]/10 border-[#8B0000]/40 text-[#8B0000]' : 'bg-dark-bg border-color text-text-muted hover:border-text-muted'}`}
-                      >
-                        {following ? <><UserCheck size={13} /> Following</> : <><Users size={13} /> Follow {escort.name.split(' ')[0]}</>}
-                      </button>
+                          <Link href="/messages" className="w-full py-2.5 bg-card-bg border border-color text-text-light font-semibold rounded-xl transition-all hover:border-[#FFD700]/50 flex items-center justify-center gap-2 text-sm">
+                            <MessageCircle size={14} /> Send Platform Message
+                          </Link>
 
-                      {/* Favourite */}
-                      <button onClick={() => setLiked(v => !v)} className={`w-full py-2.5 border rounded-xl font-medium text-sm transition-all flex items-center justify-center gap-2 ${liked ? 'bg-[#E91E63]/10 border-[#E91E63]/40 text-[#E91E63]' : 'bg-dark-bg border-color text-text-muted hover:border-text-muted'}`}>
-                        <Heart size={13} className={liked ? 'fill-[#E91E63]' : ''} /> {liked ? 'Saved' : 'Save to Favorites'}
-                      </button>
+                          <button
+                            onClick={() => toggleFollow(escort.id)}
+                            className={`w-full py-2.5 border rounded-xl font-medium text-sm transition-all flex items-center justify-center gap-2 ${following ? 'bg-[#8B0000]/10 border-[#8B0000]/40 text-[#8B0000]' : 'bg-dark-bg border-color text-text-muted hover:border-text-muted'}`}
+                          >
+                            {following ? <><UserCheck size={13} /> Following</> : <><Users size={13} /> Follow {escort.name.split(' ')[0]}</>}
+                          </button>
+
+                          <button onClick={() => setLiked(v => !v)} className={`w-full py-2.5 border rounded-xl font-medium text-sm transition-all flex items-center justify-center gap-2 ${liked ? 'bg-[#E91E63]/10 border-[#E91E63]/40 text-[#E91E63]' : 'bg-dark-bg border-color text-text-muted hover:border-text-muted'}`}>
+                            <Heart size={13} className={liked ? 'fill-[#E91E63]' : ''} /> {liked ? 'Saved' : 'Save to Favorites'}
+                          </button>
+                        </>
+                      ) : (
+                        <div className="pt-1 border-t border-color space-y-2">
+                          <p className="text-[10px] text-center text-text-muted">Sign in to book, message or save</p>
+                          <Link href="/register" className="w-full py-2.5 bg-gradient-to-r from-[#8B0000] to-[#a00000] text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2 text-sm">
+                            Join Free
+                          </Link>
+                          <Link href="/login" className="w-full py-2 bg-card-bg border border-color text-text-muted text-xs font-semibold rounded-xl flex items-center justify-center transition-all hover:border-text-muted">
+                            Already a member? Sign In
+                          </Link>
+                        </div>
+                      )}
                     </div>
-                  ) : (
-                    <div className="space-y-2.5">
-                      <Link href="/register" className="w-full py-3.5 bg-gradient-to-r from-[#8B0000] to-[#a00000] text-white font-black rounded-xl transition-all shadow-lg shadow-[#8B0000]/30 flex items-center justify-center gap-2">
-                        Sign Up to Contact
-                      </Link>
-                      <Link href="/login" className="w-full py-3 bg-card-bg border border-color text-text-light text-sm font-semibold rounded-xl flex items-center justify-center transition-all hover:border-text-muted">
-                        Already a member? Sign In
-                      </Link>
-                    </div>
-                  )}
                 </div>
 
                 {/* Safety notice */}
