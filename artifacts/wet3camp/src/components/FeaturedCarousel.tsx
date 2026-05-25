@@ -1,23 +1,24 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react'
-import { Star, Heart, MapPin, Flame, CheckCircle2, UserPlus, UserCheck } from 'lucide-react'
+import { Star, Heart, MapPin, Flame, CheckCircle2, UserPlus, UserCheck, Radio } from 'lucide-react'
 import { Link } from 'wouter'
 import { useFollow } from '@/lib/follow-context'
 import { useAuth } from '@/lib/auth-context'
+import { useOnlineStatus } from '@/lib/use-online-status'
 
 interface FeaturedCard {
   id: number; name: string; location: string; rating: number; reviews: number
-  image: string; tier: 'standard' | 'premium' | 'vip' | 'elite'; price: number; available: boolean
+  image: string; tier: 'standard' | 'premium' | 'vip' | 'elite'; price: number; available: boolean; online: boolean
 }
 
 const FEATURED: FeaturedCard[] = [
-  { id: 1, name: 'Amara K.',  location: 'Nairobi CBD', rating: 4.9, reviews: 156, image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=600&h=700&fit=crop&crop=face', tier: 'elite',   price: 8000, available: true  },
-  { id: 2, name: 'Zara M.',   location: 'Westlands',   rating: 4.8, reviews: 142, image: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=600&h=700&fit=crop&crop=face', tier: 'vip',     price: 6500, available: true  },
-  { id: 3, name: 'Luna K.',   location: 'Karen',       rating: 4.7, reviews: 128, image: 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=600&h=700&fit=crop&crop=face', tier: 'vip',     price: 5000, available: false },
-  { id: 4, name: 'Sophia N.', location: 'Kilimani',    rating: 4.6, reviews: 115, image: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=600&h=700&fit=crop&crop=face', tier: 'premium', price: 4000, available: true  },
-  { id: 5, name: 'Priya S.',  location: 'Lavington',   rating: 4.8, reviews: 98,  image: 'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=600&h=700&fit=crop&crop=face', tier: 'elite',   price: 9000, available: true  },
-  { id: 6, name: 'Fatuma H.', location: 'Parklands',   rating: 4.5, reviews: 134, image: 'https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?w=600&h=700&fit=crop&crop=face', tier: 'premium', price: 3500, available: true  },
-  { id: 7, name: 'Chloe W.',  location: 'Mombasa CBD', rating: 4.7, reviews: 107, image: 'https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?w=600&h=700&fit=crop&crop=face', tier: 'elite',   price: 7500, available: true  },
-  { id: 8, name: 'Aisha M.',  location: 'Kisumu',      rating: 4.6, reviews: 89,  image: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=600&h=700&fit=crop&crop=face', tier: 'vip',     price: 4500, available: true  },
+  { id: 1, name: 'Amara K.',  location: 'Nairobi CBD', rating: 4.9, reviews: 156, image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=600&h=700&fit=crop&crop=face', tier: 'elite',   price: 8000, available: true,  online: true  },
+  { id: 2, name: 'Zara M.',   location: 'Westlands',   rating: 4.8, reviews: 142, image: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=600&h=700&fit=crop&crop=face', tier: 'vip',     price: 6500, available: true,  online: true  },
+  { id: 3, name: 'Luna K.',   location: 'Karen',       rating: 4.7, reviews: 128, image: 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=600&h=700&fit=crop&crop=face', tier: 'vip',     price: 5000, available: false, online: false },
+  { id: 4, name: 'Sophia N.', location: 'Kilimani',    rating: 4.6, reviews: 115, image: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=600&h=700&fit=crop&crop=face', tier: 'premium', price: 4000, available: true,  online: true  },
+  { id: 5, name: 'Priya S.',  location: 'Lavington',   rating: 4.8, reviews: 98,  image: 'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=600&h=700&fit=crop&crop=face', tier: 'elite',   price: 9000, available: true,  online: false },
+  { id: 6, name: 'Fatuma H.', location: 'Parklands',   rating: 4.5, reviews: 134, image: 'https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?w=600&h=700&fit=crop&crop=face', tier: 'premium', price: 3500, available: true,  online: true  },
+  { id: 7, name: 'Chloe W.',  location: 'Mombasa CBD', rating: 4.7, reviews: 107, image: 'https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?w=600&h=700&fit=crop&crop=face', tier: 'elite',   price: 7500, available: true,  online: true  },
+  { id: 8, name: 'Aisha M.',  location: 'Kisumu',      rating: 4.6, reviews: 89,  image: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=600&h=700&fit=crop&crop=face', tier: 'vip',     price: 4500, available: true,  online: false },
 ]
 
 const TIER_STYLES = {
@@ -35,6 +36,13 @@ export default function FeaturedCarousel() {
   const [liked, setLiked] = useState<Set<number>>(new Set())
   const { isFollowing, toggleFollow } = useFollow()
   const { isLoggedIn } = useAuth()
+  const { isOnline, onlineIds } = useOnlineStatus()
+
+  // Count how many featured cards are online — prefer live API data,
+  // fall back to static online flags when SSE hasn't connected yet
+  const liveOnlineCount = FEATURED.filter(c => isOnline(String(c.id))).length
+  const staticOnlineCount = FEATURED.filter(c => c.online).length
+  const onlineCount = onlineIds.size > 0 ? liveOnlineCount : staticOnlineCount
 
   const trackRef = useRef<HTMLDivElement>(null)
   const offsetRef = useRef(0)
@@ -156,7 +164,13 @@ export default function FeaturedCarousel() {
             <Flame size={16} className="text-[#8B0000]" />
             Featured Tonight
           </h2>
-          <p className="text-xs text-text-muted mt-0.5">Hand-picked elite &amp; VIP providers — drag or swipe to explore</p>
+          <div className="flex items-center gap-2 mt-0.5">
+            <p className="text-xs text-text-muted">Hand-picked elite &amp; VIP providers</p>
+            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold" style={{ background: 'rgba(40,167,69,0.12)', border: '1px solid rgba(40,167,69,0.25)', color: '#28a745' }}>
+              <Radio size={9} className="animate-pulse" />
+              {onlineCount} online now
+            </span>
+          </div>
         </div>
         <Link href="/exclusive" className="text-[10px] text-[#FFD700] hover:underline font-semibold">View all →</Link>
       </div>
@@ -202,9 +216,17 @@ export default function FeaturedCarousel() {
                     {tier.label}
                   </div>
 
-                  <div className="absolute top-2.5 right-9">
+                  <div className="absolute top-2.5 right-9 flex items-center gap-1">
                     <CheckCircle2 size={14} className="text-[#28a745]" fill="#28a745" />
                   </div>
+
+                  {/* Online dot */}
+                  {(isOnline(String(card.id)) || card.online) && (
+                    <div className="absolute top-2 right-[68px] flex items-center gap-1 px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(40,167,69,0.2)', border: '1px solid rgba(40,167,69,0.4)' }}>
+                      <div className="w-1.5 h-1.5 rounded-full bg-[#28a745] animate-pulse" />
+                      <span className="text-[8px] font-bold text-[#28a745]">LIVE</span>
+                    </div>
+                  )}
 
                   <button
                     onClick={e => toggleLike(e, card.id)}
