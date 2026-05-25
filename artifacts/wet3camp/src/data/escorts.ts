@@ -13,19 +13,20 @@ export interface Escort {
 const U = (id: string, w = 600, h = 800) =>
   `https://images.unsplash.com/${id}?w=${w}&h=${h}&fit=crop&crop=face`
 
+// African/Kenyan women photos — replace with real uploads once DB is live
 const PHOTOS = [
-  'photo-1494790108377-be9c29b29330',
-  'photo-1534528741775-53994a69daeb',
-  'photo-1531746020798-e6953c6e8e04',
-  'photo-1524504388940-b1c1722653e1',
-  'photo-1529626455594-4ff0802cfb7e',
-  'photo-1488426862026-3ee34a7d66df',
-  'photo-1508214751196-bcfd4ca60f91',
-  'photo-1544005313-94ddf0286df2',
-  'photo-1517841905240-472988babdf9',
-  'photo-1573496359142-b8d87734a5a2',
-  'photo-1552699611-b4cc0e76bc3f',
-  'photo-1564564321837-a57b7070ac4f',
+  'photo-1531123897727-8f129e1688ce', // African woman, warm smile
+  'photo-1522529599102-193c0d76b5b6', // Black woman, striking look
+  'photo-1509868918748-a554bf5f7e09', // African woman, elegant
+  'photo-1531123414780-f74242c2b052', // Black woman, natural hair
+  'photo-1583195764036-798f1052af7e', // African woman, fashionable
+  'photo-1488716820095-cbe80883c496', // Black woman, confident
+  'photo-1562571157-a3d69eba929d',    // African woman, glamorous
+  'photo-1580489944761-15a19d654956', // Kenyan-look woman
+  'photo-1517960413843-0aee8e2b3285', // Beautiful African woman
+  'photo-1557053910-d9eadeed1c58',    // Black woman, close-up
+  'photo-1552374196-c4e7ffc6e126',    // African woman, classic
+  'photo-1534751516642-a1af1ef26a56', // Black woman, stylish
 ]
 
 const gallery = (main: string) => [

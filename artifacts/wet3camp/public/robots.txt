@@ -1,2 +1,14 @@
 User-agent: *
 Allow: /
+Crawl-delay: 10
+
+# Private areas
+Disallow: /admin
+Disallow: /my-profile
+Disallow: /messages
+Disallow: /bookings
+Disallow: /booking
+Disallow: /favorites
+Disallow: /api/
+
+Sitemap: https://wet3.camp/sitemap.xml

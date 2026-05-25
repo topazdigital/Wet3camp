@@ -2,6 +2,7 @@ import { Flame, Home, Radio, Newspaper, Star, ShoppingBag, Megaphone, Calendar, 
 import { Link, useLocation } from 'wouter'
 import { useState, useEffect } from 'react'
 import { useSidebar } from '@/lib/sidebar-context'
+import { useAuth } from '@/lib/auth-context'
 
 const NAV_SECTIONS = [
   {
@@ -40,7 +41,6 @@ const NAV_SECTIONS = [
     items: [
       { icon: HelpCircle,    label: 'FAQs',            href: '/faqs' },
       { icon: Mail,          label: 'Contact Admin',   href: '/contact' },
-      { icon: Shield,        label: 'Admin Panel',     href: '/admin' },
       { icon: Smartphone,    label: 'Install App',     href: '/install', highlight: true },
     ],
   },
@@ -51,6 +51,7 @@ export default function Sidebar() {
   const [localIsOpen, setLocalIsOpen] = useState(true)
   const [localIsMobile, setLocalIsMobile] = useState(false)
   const [location] = useLocation()
+  const { isAdmin } = useAuth()
 
   let isOpen = localIsOpen, setIsOpen = setLocalIsOpen, isMobile = localIsMobile
   try {
@@ -118,6 +119,18 @@ export default function Sidebar() {
               )}
               {!isOpen && si > 0 && <div className="h-px mx-3 bg-color my-2" />}
               <div className="space-y-0.5 px-2">
+                {/* Admin panel link injected here for admins only */}
+                {isAdmin && section.title === 'Support' && (
+                  <Link
+                    href="/admin"
+                    onClick={() => isMobile && setIsOpen(false)}
+                    title={!isOpen ? 'Admin Panel' : ''}
+                    className={`flex items-center rounded-lg transition-all duration-150 group relative ${isOpen ? 'px-3 py-2 gap-3' : 'px-0 py-2 justify-center'} ${location.startsWith('/admin') ? 'bg-[#8B0000]/20 text-[#8B0000] border border-[#8B0000]/30' : 'text-text-muted hover:bg-dark-bg hover:text-text-light'}`}
+                  >
+                    <Shield size={16} className={`flex-shrink-0 ${location.startsWith('/admin') ? 'text-[#8B0000]' : ''}`} />
+                    {isOpen && <span className="text-sm truncate flex-1 font-medium">Admin Panel</span>}
+                  </Link>
+                )}
                 {section.items.map(item => {
                   const Icon = item.icon
                   const active = isActive(item.href)

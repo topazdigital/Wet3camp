@@ -762,11 +762,11 @@ export default function RegisterPage() {
         {/* Navigation buttons */}
         {!isLastStep && (
           <div className="flex items-center justify-between mt-8">
-            <button
-              onClick={back}
-              disabled={stepIdx === 0}
-              className="px-4 py-2.5 border border-color text-text-muted text-sm rounded-xl hover:border-text-muted transition-all disabled:opacity-30 disabled:pointer-events-none"
-            >← Back</button>
+            {stepIdx === 0 ? (
+              <Link href="/" className="px-4 py-2.5 border border-color text-text-muted text-sm rounded-xl hover:border-text-muted hover:text-text-light transition-all">← Back</Link>
+            ) : (
+              <button onClick={back} className="px-4 py-2.5 border border-color text-text-muted text-sm rounded-xl hover:border-text-muted hover:text-text-light transition-all">← Back</button>
+            )}
             <button
               onClick={next}
               className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-[#8B0000] to-[#a00000] text-white font-bold text-sm rounded-xl hover:from-[#a00000] hover:to-[#8B0000] transition-all shadow-lg shadow-[#8B0000]/20"

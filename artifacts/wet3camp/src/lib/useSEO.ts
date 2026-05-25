@@ -1,10 +1,11 @@
 import { useEffect } from 'react'
 
 const SITE_NAME = 'Wet3 Camp'
+const SITE_URL = 'https://wet3.camp'
 const DEFAULT_TITLE = "Wet3 Camp — Kenya's #1 Premium Escort & Companion Directory"
 const DEFAULT_DESC = "Browse 1,200+ verified escorts and companions in Nairobi, Mombasa, Kisumu & across Kenya. Discreet, safe, and premium adult services. Join free today."
-const DEFAULT_KEYWORDS = "escorts Kenya, Nairobi escorts, Mombasa escorts, premium companions Kenya, adult services Kenya, verified escorts Nairobi, companion booking Kenya"
-const DEFAULT_OG_IMAGE = "/og-image.jpg"
+const DEFAULT_KEYWORDS = "escorts Kenya, Nairobi escorts, Mombasa escorts, premium companions Kenya, adult services Kenya, verified escorts Nairobi, companion booking Kenya, escort directory Kenya"
+const DEFAULT_OG_IMAGE = `${SITE_URL}/opengraph.jpg`
 
 interface SEOProps {
   title?: string
@@ -62,11 +63,9 @@ export function useSEO({ title, description, keywords, ogImage, noIndex, canonic
     setMeta('twitter:image', img)
     setMeta('twitter:site', '@wet3camp')
 
-    if (canonicalPath) {
-      setLink('canonical', `https://www.wet3camp.co.ke${canonicalPath}`)
-    }
+    setLink('canonical', `${SITE_URL}${canonicalPath ?? window.location.pathname}`)
 
-    // Schema.org JSON-LD
+    // Schema.org JSON-LD — WebSite + Organization
     let schemaEl = document.getElementById('schema-org') as HTMLScriptElement | null
     if (!schemaEl) {
       schemaEl = document.createElement('script')
@@ -74,15 +73,29 @@ export function useSEO({ title, description, keywords, ogImage, noIndex, canonic
       schemaEl.type = 'application/ld+json'
       document.head.appendChild(schemaEl)
     }
-    schemaEl.textContent = JSON.stringify({
-      "@context": "https://schema.org",
-      "@type": "Organization",
-      "name": "Wet3 Camp",
-      "url": "https://www.wet3camp.co.ke",
-      "logo": "https://www.wet3camp.co.ke/favicon.svg",
-      "description": desc,
-      "areaServed": { "@type": "Country", "name": "Kenya" },
-      "contactPoint": { "@type": "ContactPoint", "contactType": "customer support", "areaServed": "KE" }
-    })
+    schemaEl.textContent = JSON.stringify([
+      {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "Wet3 Camp",
+        "url": SITE_URL,
+        "description": DEFAULT_DESC,
+        "potentialAction": {
+          "@type": "SearchAction",
+          "target": `${SITE_URL}/?q={search_term_string}`,
+          "query-input": "required name=search_term_string"
+        }
+      },
+      {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "Wet3 Camp",
+        "url": SITE_URL,
+        "logo": `${SITE_URL}/favicon.svg`,
+        "description": desc,
+        "areaServed": { "@type": "Country", "name": "Kenya" },
+        "contactPoint": { "@type": "ContactPoint", "contactType": "customer support", "areaServed": "KE", "availableLanguage": ["English","Swahili"] }
+      }
+    ])
   }, [title, description, keywords, ogImage, noIndex, canonicalPath])
 }
