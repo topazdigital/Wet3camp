@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { getPool } from '../lib/db.js'
 import { requireAuth, type AuthRequest } from '../middlewares/requireAuth.js'
 import { broadcastToUser } from '../lib/message-store.js'
+import { sendNewMessageEmail } from '../lib/mailer.js'
 
 const router = Router()
 
@@ -89,9 +90,19 @@ router.post('/messages', requireAuth, async (req: AuthRequest, res) => {
     })
 
     const [[escort]] = await pool.query<any[]>(
-      'SELECT name, image FROM escorts WHERE id = ? LIMIT 1',
+      'SELECT e.name, e.image, u.email AS escort_email FROM escorts e JOIN users u ON u.id = e.user_id WHERE e.id = ? LIMIT 1',
       [escortId]
     ).catch(() => [[null]])
+
+    if (escort?.escort_email) {
+      const [[sender]] = await pool.query<any[]>('SELECT display_name FROM users WHERE id = ? LIMIT 1', [req.userId]).catch(() => [[null]])
+      sendNewMessageEmail({
+        toEmail: escort.escort_email,
+        toName: escort.name,
+        fromName: sender?.display_name ?? 'A client',
+        preview: content.trim().slice(0, 120),
+      }).catch(() => {})
+    }
 
     if (escort && req.userId) {
       const userId = req.userId

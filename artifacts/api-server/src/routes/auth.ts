@@ -3,6 +3,7 @@ import { getPool } from '../lib/db.js'
 import { hashPassword, verifyPassword } from '../lib/crypto.js'
 import { signToken } from '../lib/jwt.js'
 import { requireAuth, type AuthRequest } from '../middlewares/requireAuth.js'
+import { sendWelcomeEmail, sendEscortWelcomeEmail, sendPasswordResetEmail } from '../lib/mailer.js'
 
 const router = Router()
 
@@ -132,6 +133,12 @@ router.post('/auth/register', async (req, res) => {
 
     const token = await signToken({ id: userId, role: dbRole, email })
 
+    if (dbRole === 'escort') {
+      sendEscortWelcomeEmail(name, email.toLowerCase().trim()).catch(() => {})
+    } else {
+      sendWelcomeEmail(name, email.toLowerCase().trim()).catch(() => {})
+    }
+
     res.status(201).json({
       token,
       user: {
@@ -158,7 +165,9 @@ router.post('/auth/forgot-password', async (req, res) => {
       const { randomBytes } = await import('crypto')
       const token = randomBytes(32).toString('hex')
       const expires = new Date(Date.now() + 3600_000)
-      await pool.query('INSERT INTO password_resets (email, token, expires_at) VALUES (?,?,?)', [email.toLowerCase().trim(), token, expires])
+      const normalEmail = email.toLowerCase().trim()
+      await pool.query('INSERT INTO password_resets (email, token, expires_at) VALUES (?,?,?)', [normalEmail, token, expires])
+      sendPasswordResetEmail(normalEmail, token).catch(() => {})
     }
 
     res.json({ message: 'If that email exists, a reset link has been sent.' })

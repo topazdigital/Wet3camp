@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { getPool } from '../lib/db.js'
 import { requireAuth, type AuthRequest } from '../middlewares/requireAuth.js'
 import { setEscortOnline } from '../lib/online-store.js'
+import { sendEscortApprovedEmail, sendEscortRejectedEmail } from '../lib/mailer.js'
 
 const router = Router()
 
@@ -52,7 +53,12 @@ router.patch('/admin/escorts/:id/verify', requireAuth, requireAdmin, async (req:
   try {
     const pool = getPool()
     if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
+    const [[escort]] = await pool.query<any[]>(
+      'SELECT e.name, u.email FROM escorts e JOIN users u ON u.id = e.user_id WHERE e.id = ? LIMIT 1',
+      [req.params!.id]
+    ).catch(() => [[null]])
     await pool.query('UPDATE escorts SET verified = 1, is_active = 1 WHERE id = ?', [req.params!.id])
+    if (escort?.email) sendEscortApprovedEmail(escort.name, escort.email).catch(() => {})
     res.json({ success: true })
   } catch {
     res.status(500).json({ message: 'Failed to verify escort' })
@@ -106,7 +112,12 @@ router.patch('/admin/escorts/:id/reject', requireAuth, requireAdmin, async (req:
   try {
     const pool = getPool()
     if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
+    const [[escort]] = await pool.query<any[]>(
+      'SELECT e.name, u.email FROM escorts e JOIN users u ON u.id = e.user_id WHERE e.id = ? LIMIT 1',
+      [req.params!.id]
+    ).catch(() => [[null]])
     await pool.query('UPDATE escorts SET is_active = 0, verified = 0 WHERE id = ?', [req.params!.id])
+    if (escort?.email) sendEscortRejectedEmail(escort.name, escort.email).catch(() => {})
     res.json({ success: true })
   } catch {
     res.status(500).json({ message: 'Failed to reject escort' })

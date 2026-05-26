@@ -97,6 +97,12 @@ echo "==> [7/7] Starting/restarting API server via PM2..."
 cd "$API_DIR"
 npm install --omit=dev --no-package-lock --silent 2>/dev/null || true
 
+# Source the (now-complete) env file so PM2 inherits all vars
+if [ -f "$API_ENV" ]; then
+  set -a; source "$API_ENV"; set +a
+  echo "    Env vars loaded from $API_ENV"
+fi
+
 if pm2 describe wet3camp-api > /dev/null 2>&1; then
   pm2 restart wet3camp-api --update-env
   echo "    PM2 restarted."
