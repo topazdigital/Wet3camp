@@ -39,7 +39,7 @@ function ReviewModal({ booking, onClose, onSubmitted }: ReviewModalProps) {
     setSubmitting(true)
     setError('')
     try {
-      const token = localStorage.getItem('auth_token') || localStorage.getItem('token')
+      const token = localStorage.getItem('w3c_token')
       const res = await fetch('/api/reviews', {
         method: 'POST',
         headers: {

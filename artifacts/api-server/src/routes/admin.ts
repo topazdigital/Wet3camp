@@ -274,6 +274,21 @@ router.post('/admin/settings/bulk', requireAuth, requireAdmin, async (req: AuthR
   }
 })
 
+router.delete('/admin/cleanup-seed-escorts', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const pool = getPool()
+    if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
+    const [[{ cnt }]] = await pool.query<any[]>('SELECT COUNT(*) as cnt FROM escorts WHERE user_id IS NULL')
+    await pool.query('DELETE FROM escort_gallery WHERE escort_id IN (SELECT id FROM escorts WHERE user_id IS NULL)').catch(() => {})
+    await pool.query('DELETE FROM escort_languages WHERE escort_id IN (SELECT id FROM escorts WHERE user_id IS NULL)').catch(() => {})
+    await pool.query('DELETE FROM escort_services WHERE escort_id IN (SELECT id FROM escorts WHERE user_id IS NULL)').catch(() => {})
+    await pool.query('DELETE FROM escorts WHERE user_id IS NULL')
+    res.json({ success: true, deleted: cnt })
+  } catch {
+    res.status(500).json({ message: 'Failed to delete seed escorts' })
+  }
+})
+
 router.delete('/admin/users/:id', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
   try {
     const pool = getPool()

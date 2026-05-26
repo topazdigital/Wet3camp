@@ -10,7 +10,7 @@ import {
 import { useSEO } from '@/lib/useSEO'
 
 async function adminFetch(path: string, opts?: RequestInit) {
-  const token = localStorage.getItem('wet3camp_token')
+  const token = localStorage.getItem('w3c_token')
   const res = await fetch(`/api${path}`, {
     ...opts,
     headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}), ...opts?.headers },
@@ -611,6 +611,21 @@ function EscortsTab() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all'|'pending'|'active'>('all')
   const [actionLoading, setActionLoading] = useState<string|null>(null)
+  const [cleanupLoading, setCleanupLoading] = useState(false)
+  const [cleanupMsg, setCleanupMsg] = useState('')
+
+  const handleCleanupFake = async () => {
+    if (!window.confirm('This will permanently delete all seed/fake escorts (those without a real user account). Continue?')) return
+    setCleanupLoading(true); setCleanupMsg('')
+    try {
+      const data = await adminFetch('/admin/cleanup-seed-escorts', { method: 'DELETE' })
+      setCleanupMsg(`✓ Deleted ${data.deleted} fake escort profile${data.deleted !== 1 ? 's' : ''}.`)
+      load()
+    } catch {
+      setCleanupMsg('Failed to delete fake escorts.')
+    }
+    setCleanupLoading(false)
+  }
 
   const load = useCallback(async () => {
     setLoading(true); setError('')
@@ -666,6 +681,17 @@ function EscortsTab() {
   return (
     <div className="space-y-4">
       <BulkOnlinePanel escorts={escorts} onBulkToggle={handleBulkToggle} />
+      <div className="flex items-center gap-3 p-3.5 bg-[#EF4444]/10 border border-[#EF4444]/30 rounded-2xl">
+        <Trash2 size={14} className="text-[#EF4444] flex-shrink-0" />
+        <div className="flex-1">
+          <p className="text-xs text-[#EF4444] font-semibold">Remove Fake / Seed Escorts</p>
+          <p className="text-[10px] text-text-muted">Deletes all escort profiles that have no real user account (demo/seeded data). Run this before going live.</p>
+          {cleanupMsg && <p className="text-[10px] text-[#28a745] mt-0.5 font-bold">{cleanupMsg}</p>}
+        </div>
+        <button onClick={handleCleanupFake} disabled={cleanupLoading} className="px-3 py-1.5 bg-[#EF4444] hover:bg-red-700 text-white text-[10px] font-bold rounded-lg disabled:opacity-60 flex items-center gap-1.5 transition-all whitespace-nowrap">
+          {cleanupLoading ? <><div className="w-3 h-3 border border-white/30 border-t-white rounded-full animate-spin"/>Deleting…</> : <><Trash2 size={10}/>Delete Fakes</>}
+        </button>
+      </div>
       {pendingCount > 0 && (
         <div className="flex items-center gap-3 p-3.5 bg-[#FFD700]/10 border border-[#FFD700]/30 rounded-2xl">
           <AlertTriangle size={14} className="text-[#FFD700] flex-shrink-0" />

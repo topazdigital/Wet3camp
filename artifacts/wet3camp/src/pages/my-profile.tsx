@@ -1,27 +1,63 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useEffect } from 'react'
 import Header from '@/components/Header'
 import Sidebar from '@/components/Sidebar'
 import { useAuth } from '@/lib/auth-context'
 import { api } from '@/lib/api'
-import { ESCORTS } from '@/data/escorts'
-import { Eye, Calendar, Star, TrendingUp, Edit3, Camera, CheckCircle2, MapPin, Clock, DollarSign, Users, Heart, MessageCircle, BarChart2, Shield, Zap, Crown, Smartphone, Instagram, Loader2, AlertCircle, UserCheck, Globe } from 'lucide-react'
+import { Eye, Calendar, Star, Edit3, Camera, CheckCircle2, MapPin, DollarSign, Users, Heart, MessageCircle, BarChart2, Zap, Crown, Smartphone, Instagram, Loader2, AlertCircle, UserCheck, Globe } from 'lucide-react'
 import { Link } from 'wouter'
 import { useFollow } from '@/lib/follow-context'
 import { useSEO } from '@/lib/useSEO'
 
 const TABS = ['Overview', 'Edit Profile', 'Gallery', 'Followers', 'Get Featured', 'Instagram Import', 'Subscription', 'Earnings']
 
+const PLACEHOLDER_IMG = 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=600&h=800&fit=crop&crop=face'
+
 export default function MyProfile() {
   useSEO({ title: 'My Profile — Dashboard', noIndex: true })
   const { user } = useAuth()
   const [activeTab, setActiveTab] = useState('Overview')
-  const [available, setAvailable] = useState(true)
+  const [editSaved, setEditSaved] = useState(false)
+
+  // Real escort profile loaded from API
+  const [escortProfile, setEscortProfile] = useState<any>(null)
+  const [profileLoading, setProfileLoading] = useState(true)
+
+  // Real bookings loaded from API
+  const [recentBookings, setRecentBookings] = useState<any[]>([])
+
+  useEffect(() => {
+    if (user?.role !== 'escort') { setProfileLoading(false); return }
+    api.profile.getEscort()
+      .then(data => {
+        setEscortProfile(data)
+        setAvailable(!!data.available)
+        setEditBodyType(data.body_type || '')
+        setEditEthnicity(data.ethnicity || '')
+        setEditHair(data.hair_color || '')
+        setEditLangs(Array.isArray(data.languages) ? data.languages : [])
+        setEditWhatsapp(data.whatsapp || '')
+        setEditTelegram(data.telegram || '')
+        setEditBio(data.bio || '')
+        setEditCity(data.city || '')
+        setEditArea(data.area || '')
+        setEditHeight(data.height || '')
+        setEditHourly(data.price_hourly ? String(data.price_hourly) : '')
+        setEditOvernight(data.price_overnight ? String(data.price_overnight) : '')
+        setEditVideo(data.price_video ? String(data.price_video) : '')
+      })
+      .catch(() => {})
+      .finally(() => setProfileLoading(false))
+    api.bookings.list()
+      .then(data => setRecentBookings(data.slice(0, 5)))
+      .catch(() => {})
+  }, [user?.role])
+
+  const [available, setAvailable] = useState(false)
   const toggleAvailable = async () => {
     const next = !available
     setAvailable(next)
     try { await api.profile.updateEscort({ available: next }) } catch {}
   }
-  const [editSaved, setEditSaved] = useState(false)
 
   // Instagram import state
   const [igHandle, setIgHandle] = useState('')
@@ -36,25 +72,25 @@ export default function MyProfile() {
   const [subLoading, setSubLoading] = useState(false)
   const [subTxRef, setSubTxRef] = useState('')
 
-  const myEscort = ESCORTS.find(e => e.id === user?.profileId) ?? ESCORTS[0]
   const { followerCount } = useFollow()
 
-  // Edit Profile state
+  // Edit Profile controlled state (all populated from API on load)
   const [editDob, setEditDob] = useState('')
-  const [editBodyType, setEditBodyType] = useState(myEscort.bodyType || '')
-  const [editEthnicity, setEditEthnicity] = useState(myEscort.ethnicity || '')
-  const [editHair, setEditHair] = useState(myEscort.hairColor || '')
-  const [editLangs, setEditLangs] = useState<string[]>(myEscort.languages || [])
-  const [editWhatsapp, setEditWhatsapp] = useState(myEscort.whatsapp || '')
-  const [editTelegram, setEditTelegram] = useState(myEscort.telegram || '')
+  const [editBodyType, setEditBodyType] = useState('')
+  const [editEthnicity, setEditEthnicity] = useState('')
+  const [editHair, setEditHair] = useState('')
+  const [editLangs, setEditLangs] = useState<string[]>([])
+  const [editWhatsapp, setEditWhatsapp] = useState('')
+  const [editTelegram, setEditTelegram] = useState('')
+  const [editBio, setEditBio] = useState('')
+  const [editCity, setEditCity] = useState('')
+  const [editArea, setEditArea] = useState('')
+  const [editHeight, setEditHeight] = useState('')
+  const [editHourly, setEditHourly] = useState('')
+  const [editOvernight, setEditOvernight] = useState('')
+  const [editVideo, setEditVideo] = useState('')
   const [editSaveError, setEditSaveError] = useState('')
   const [editSaving, setEditSaving] = useState(false)
-  const bioRef  = useRef<HTMLTextAreaElement>(null)
-  const cityRef = useRef<HTMLInputElement>(null)
-  const areaRef = useRef<HTMLInputElement>(null)
-  const hrlyRef = useRef<HTMLInputElement>(null)
-  const ovnRef  = useRef<HTMLInputElement>(null)
-  const vidRef  = useRef<HTMLInputElement>(null)
 
   const BODY_TYPES  = ['Slim', 'Athletic', 'Curvy', 'Petite', 'BBW', 'Average', 'Muscular']
   const ETHNICITIES = ['Kenyan', 'African', 'Asian', 'Mixed Race', 'European', 'Middle Eastern', 'Latin', 'Other']
@@ -65,40 +101,33 @@ export default function MyProfile() {
   const editAge = calcAge(editDob)
 
   const stats = [
-    { icon: Eye,           label: 'Profile Views',    value: '2,847',   change: '+12%',   color: '#2196F3' },
-    { icon: Calendar,      label: 'Contacts This Mo', value: '23',      change: '+8%',    color: '#8B0000' },
-    { icon: DollarSign,    label: 'Earnings (KES)',   value: '184,000', change: '+21%',   color: '#28a745' },
-    { icon: Star,          label: 'Avg Rating',       value: '4.9',     change: '+0.1',   color: '#FFD700' },
-    { icon: Heart,         label: 'Favourites',       value: '341',     change: '+45',    color: '#E91E63' },
-    { icon: MessageCircle, label: 'Messages',         value: '17',      change: 'unread', color: '#9C27B0' },
+    { icon: Eye,           label: 'Profile Views',    value: escortProfile?.views_count ? escortProfile.views_count.toLocaleString() : '—',  change: '',      color: '#2196F3' },
+    { icon: Calendar,      label: 'Contacts This Mo', value: '—',      change: '',      color: '#8B0000' },
+    { icon: DollarSign,    label: 'Rating',           value: escortProfile?.rating ? String(escortProfile.rating) : '—', change: '', color: '#28a745' },
+    { icon: Star,          label: 'Reviews',          value: escortProfile?.reviews_count ? String(escortProfile.reviews_count) : '0', change: '', color: '#FFD700' },
+    { icon: Heart,         label: 'Favourites',       value: '—',      change: '',      color: '#E91E63' },
+    { icon: MessageCircle, label: 'Messages',         value: '—',      change: '',      color: '#9C27B0' },
   ]
 
-  const recentBookings = [
-    { client: 'John K.',  date: 'Today, 8:00 PM',    duration: '2hrs',      amount: 16000, status: 'confirmed' },
-    { client: 'Mike O.',  date: 'Tomorrow, 6:00 PM', duration: '1hr',       amount: 8000,  status: 'pending'   },
-    { client: 'David L.', date: 'Sat, 7:00 PM',      duration: 'Overnight', amount: 50000, status: 'confirmed' },
-    { client: 'Paul M.',  date: 'Last week',          duration: '3hrs',      amount: 24000, status: 'completed' },
-    { client: 'James K.', date: 'Last week',          duration: '1hr',       amount: 8000,  status: 'completed' },
-  ]
-
-  const statusColor = { confirmed: '#28a745', pending: '#FFD700', completed: '#6B7280' }
+  const statusColor = { confirmed: '#28a745', pending: '#FFD700', completed: '#6B7280', cancelled: '#EF4444' }
 
   const handleSave = async () => {
     setEditSaveError(''); setEditSaving(true)
     try {
       await api.profile.updateEscort({
-        bio:          bioRef.current?.value,
-        city:         cityRef.current?.value,
-        area:         areaRef.current?.value,
+        bio:          editBio,
+        city:         editCity,
+        area:         editArea,
         whatsapp:     editWhatsapp,
         telegram:     editTelegram,
         bodyType:     editBodyType,
         ethnicity:    editEthnicity,
         hairColor:    editHair,
+        height:       editHeight,
         languages:    editLangs,
-        rateHourly:   hrlyRef.current ? parseInt(hrlyRef.current.value) : undefined,
-        rateOvernight:ovnRef.current  ? parseInt(ovnRef.current.value)  : undefined,
-        rateVideo:    vidRef.current  ? parseInt(vidRef.current.value)   : undefined,
+        rateHourly:   editHourly   ? parseInt(editHourly)   : undefined,
+        rateOvernight:editOvernight ? parseInt(editOvernight) : undefined,
+        rateVideo:    editVideo    ? parseInt(editVideo)    : undefined,
       })
       setEditSaved(true); setTimeout(() => setEditSaved(false), 3000)
     } catch (err: any) {
@@ -151,22 +180,22 @@ export default function MyProfile() {
 
         {/* Banner */}
         <div className="relative h-40 bg-gradient-to-r from-[#8B0000] to-[#1a1a1a] overflow-hidden">
-          <div className="absolute inset-0 opacity-20" style={{ backgroundImage: `url(${myEscort.image})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
+          <div className="absolute inset-0 opacity-20" style={{ backgroundImage: `url(${escortProfile?.image || PLACEHOLDER_IMG})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
           <div className="absolute inset-0 bg-gradient-to-r from-[#8B0000]/80 to-black/60" />
           <div className="relative h-full flex items-end px-5 sm:px-8 pb-4">
             <div className="flex items-end gap-4 w-full">
               <div className="relative">
-                <img src={myEscort.image} alt={myEscort.name} className="w-20 h-20 rounded-2xl object-cover border-2 border-[#FFD700]/50 shadow-xl" />
+                <img src={escortProfile?.image || PLACEHOLDER_IMG} alt={escortProfile?.name || user?.name || 'Profile'} className="w-20 h-20 rounded-2xl object-cover border-2 border-[#FFD700]/50 shadow-xl" />
                 <button className="absolute -bottom-1 -right-1 w-6 h-6 bg-[#8B0000] rounded-full flex items-center justify-center border border-dark-bg">
                   <Camera size={10} className="text-white" />
                 </button>
               </div>
               <div className="pb-1">
-                <h1 className="text-xl font-black text-white">{myEscort.name}</h1>
+                <h1 className="text-xl font-black text-white">{escortProfile?.name || user?.name || 'My Profile'}</h1>
                 <div className="flex items-center gap-2 mt-0.5">
                   <MapPin size={11} className="text-white/60" />
-                  <span className="text-xs text-white/60">{myEscort.area}, {myEscort.city}</span>
-                  <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-[#FFD700]/20 text-[#FFD700] border border-[#FFD700]/30 uppercase">{myEscort.tier}</span>
+                  <span className="text-xs text-white/60">{escortProfile?.area || '—'}, {escortProfile?.city || '—'}</span>
+                  {escortProfile?.tier && <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-[#FFD700]/20 text-[#FFD700] border border-[#FFD700]/30 uppercase">{escortProfile.tier}</span>}
                 </div>
               </div>
               <div className="ml-auto flex items-center gap-2">
@@ -174,9 +203,11 @@ export default function MyProfile() {
                   <div className={`w-2 h-2 rounded-full ${available ? 'bg-[#28a745] animate-pulse' : 'bg-gray-500'}`} />
                   {available ? 'Available' : 'Unavailable'}
                 </button>
-                <Link href={`/profile/${myEscort.id}`} className="flex items-center gap-1.5 px-3 py-2 bg-white/10 hover:bg-white/20 text-white text-xs font-medium rounded-xl transition-all">
-                  <Eye size={12} /> View Public
-                </Link>
+                {escortProfile?.id && (
+                  <Link href={`/profile/${escortProfile.id}`} className="flex items-center gap-1.5 px-3 py-2 bg-white/10 hover:bg-white/20 text-white text-xs font-medium rounded-xl transition-all">
+                    <Eye size={12} /> View Public
+                  </Link>
+                )}
               </div>
             </div>
           </div>
@@ -219,16 +250,24 @@ export default function MyProfile() {
                     <span className="text-[10px] text-text-muted">Last 30 days</span>
                   </div>
                   <div className="divide-y divide-color/40">
-                    {recentBookings.map((b, i) => (
-                      <div key={i} className="flex items-center gap-3 px-4 py-3">
-                        <div className="w-8 h-8 rounded-full bg-dark-bg flex items-center justify-center text-xs font-bold text-text-muted flex-shrink-0">{b.client.charAt(0)}</div>
-                        <div className="flex-1 min-w-0"><p className="text-xs font-semibold text-text-light">{b.client}</p><p className="text-[10px] text-text-muted">{b.date} · {b.duration}</p></div>
-                        <div className="text-right flex-shrink-0">
-                          <p className="text-xs font-bold text-[#FFD700]">KES {b.amount.toLocaleString()}</p>
-                          <span className="text-[9px] font-semibold capitalize" style={{ color: (statusColor as any)[b.status] }}>{b.status}</span>
+                    {recentBookings.length === 0 ? (
+                      <div className="px-4 py-6 text-center text-xs text-text-muted">No bookings yet</div>
+                    ) : recentBookings.map((b: any, i: number) => {
+                      const clientName = b.client_name || b.client || b.user_name || 'Client'
+                      const bookingDate = b.date || b.booking_date || b.scheduled_at || '—'
+                      const status = b.status || 'pending'
+                      const amount = b.price || b.amount || b.total || 0
+                      return (
+                        <div key={b.id || i} className="flex items-center gap-3 px-4 py-3">
+                          <div className="w-8 h-8 rounded-full bg-dark-bg flex items-center justify-center text-xs font-bold text-text-muted flex-shrink-0">{clientName.charAt(0).toUpperCase()}</div>
+                          <div className="flex-1 min-w-0"><p className="text-xs font-semibold text-text-light">{clientName}</p><p className="text-[10px] text-text-muted">{typeof bookingDate === 'string' ? bookingDate.slice(0,16).replace('T',' ') : bookingDate}</p></div>
+                          <div className="text-right flex-shrink-0">
+                            {amount > 0 && <p className="text-xs font-bold text-[#FFD700]">KES {Number(amount).toLocaleString()}</p>}
+                            <span className="text-[9px] font-semibold capitalize" style={{ color: (statusColor as any)[status] || '#9CA3AF' }}>{status}</span>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 </div>
                 <div className="bg-card-bg border border-color rounded-2xl p-4">
@@ -276,7 +315,7 @@ export default function MyProfile() {
                 </div>
                 <div className="bg-card-bg border border-color rounded-2xl p-4">
                   <div className="flex items-center gap-2 mb-2"><Users size={14} className="text-[#2196F3]"/><span className="text-xs font-bold text-text-light">Followers</span></div>
-                  <p className="text-2xl font-black text-text-light">{followerCount(myEscort.id).toLocaleString()}</p>
+                  <p className="text-2xl font-black text-text-light">{followerCount(escortProfile?.id || '').toLocaleString()}</p>
                   <p className="text-[10px] text-text-muted mt-0.5">+42 this week</p>
                 </div>
               </div>
@@ -288,8 +327,8 @@ export default function MyProfile() {
               <div className="bg-card-bg border border-color rounded-2xl p-5">
                 <h3 className="text-sm font-bold text-text-light mb-4">Profile Information</h3>
                 <div className="space-y-4">
-                  <div><label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Display Name</label><input defaultValue={myEscort.name} className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#8B0000] transition-all"/></div>
-                  <div><label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Bio</label><textarea ref={bioRef} defaultValue={myEscort.bio} rows={4} className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#8B0000] transition-all resize-none"/></div>
+                  <div><label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Display Name</label><input value={escortProfile?.name || user?.name || ''} readOnly className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light/60 focus:outline-none transition-all"/></div>
+                  <div><label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Bio</label><textarea value={editBio} onChange={e => setEditBio(e.target.value)} rows={4} className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#8B0000] transition-all resize-none"/></div>
                   {/* DOB & Age */}
                   <div>
                     <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5 flex items-center gap-1.5"><Calendar size={10}/> Date of Birth</label>
@@ -300,7 +339,7 @@ export default function MyProfile() {
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Height</label>
-                      <select defaultValue={myEscort.height} className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#8B0000] transition-all appearance-none">
+                      <select value={editHeight} onChange={e => setEditHeight(e.target.value)} className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#8B0000] transition-all appearance-none">
                         {["4'10\"","4'11\"","5'0\"","5'1\"","5'2\"","5'3\"","5'4\"","5'5\"","5'6\"","5'7\"","5'8\"","5'9\"","5'10\"","5'11\"","6'0\"","6'1\"","6'2\"","6'3\""].map(h=><option key={h} value={h}>{h}</option>)}
                       </select>
                     </div>
@@ -327,11 +366,11 @@ export default function MyProfile() {
                     </div>
                     <div>
                       <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">City</label>
-                      <input ref={cityRef} defaultValue={myEscort.city} className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#8B0000] transition-all"/>
+                      <input value={editCity} onChange={e => setEditCity(e.target.value)} className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#8B0000] transition-all"/>
                     </div>
                     <div>
                       <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Area</label>
-                      <input ref={areaRef} defaultValue={myEscort.area} className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#8B0000] transition-all"/>
+                      <input value={editArea} onChange={e => setEditArea(e.target.value)} className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#8B0000] transition-all"/>
                     </div>
                     <div>
                       <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5 flex items-center gap-1" style={{color:'#25D366'}}>📱 WhatsApp</label>
@@ -357,9 +396,9 @@ export default function MyProfile() {
               <div className="bg-card-bg border border-color rounded-2xl p-5">
                 <h3 className="text-sm font-bold text-text-light mb-4">Pricing (KES)</h3>
                 <div className="grid grid-cols-3 gap-3">
-                  <div><label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Per Hour</label><input ref={hrlyRef} type="number" defaultValue={myEscort.pricing.hourly}   className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#FFD700] transition-all"/></div>
-                  <div><label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Overnight</label><input ref={ovnRef}  type="number" defaultValue={myEscort.pricing.overnight} className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#FFD700] transition-all"/></div>
-                  <div><label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Video Call</label><input ref={vidRef}  type="number" defaultValue={myEscort.pricing.video}    className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#FFD700] transition-all"/></div>
+                  <div><label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Per Hour</label><input type="number" value={editHourly}    onChange={e => setEditHourly(e.target.value)}    className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#FFD700] transition-all"/></div>
+                  <div><label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Overnight</label><input type="number" value={editOvernight} onChange={e => setEditOvernight(e.target.value)} className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#FFD700] transition-all"/></div>
+                  <div><label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Video Call</label><input type="number" value={editVideo}    onChange={e => setEditVideo(e.target.value)}    className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#FFD700] transition-all"/></div>
                 </div>
               </div>
               {editSaveError && <p className="text-xs text-[#EF4444] text-center">{editSaveError}</p>}
@@ -373,7 +412,7 @@ export default function MyProfile() {
           {activeTab === 'Gallery' && (
             <div>
               <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2 mb-4">
-                {myEscort.gallery.map((img, i) => (
+                {(escortProfile?.gallery || []).map((img: string, i: number) => (
                   <div key={i} className="relative aspect-square rounded-xl overflow-hidden border border-color group">
                     <img src={img} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform"/>
                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -394,7 +433,7 @@ export default function MyProfile() {
           {activeTab === 'Followers' && (
             <div className="max-w-lg space-y-4">
               <div className="grid grid-cols-3 gap-3 mb-4">
-                <div className="bg-card-bg border border-color rounded-2xl p-4 text-center"><p className="text-2xl font-black text-text-light">{followerCount(myEscort.id).toLocaleString()}</p><p className="text-[10px] text-text-muted mt-0.5">Followers</p></div>
+                <div className="bg-card-bg border border-color rounded-2xl p-4 text-center"><p className="text-2xl font-black text-text-light">{followerCount(escortProfile?.id || '').toLocaleString()}</p><p className="text-[10px] text-text-muted mt-0.5">Followers</p></div>
                 <div className="bg-card-bg border border-color rounded-2xl p-4 text-center"><p className="text-2xl font-black text-text-light">143</p><p className="text-[10px] text-text-muted mt-0.5">Following</p></div>
                 <div className="bg-card-bg border border-color rounded-2xl p-4 text-center"><p className="text-2xl font-black text-text-light">+42</p><p className="text-[10px] text-text-muted mt-0.5">This week</p></div>
               </div>

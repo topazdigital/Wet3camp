@@ -5,6 +5,44 @@ import { setEscortOnline } from '../lib/online-store.js'
 
 const router = Router()
 
+router.get('/profile/escort', requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const pool = getPool()
+    if (!pool) { res.status(503).json({ message: 'Database not configured' }); return }
+    const [[escort]] = await pool.query<any[]>(
+      'SELECT e.*, GROUP_CONCAT(DISTINCT el.language ORDER BY el.language) AS languages_csv, GROUP_CONCAT(DISTINCT es.name ORDER BY es.name) AS services_csv FROM escorts e LEFT JOIN escort_languages el ON el.escort_id = e.id LEFT JOIN escort_services es ON es.escort_id = e.id WHERE e.user_id = ? GROUP BY e.id',
+      [req.userId]
+    )
+    if (!escort) { res.status(404).json({ message: 'Escort profile not found' }); return }
+    res.json({
+      ...escort,
+      id: String(escort.id),
+      available: !!escort.available,
+      verified: !!escort.verified,
+      is_active: !!escort.is_active,
+      languages: escort.languages_csv ? escort.languages_csv.split(',') : [],
+      services: escort.services_csv ? escort.services_csv.split(',').map((n: string) => ({ name: n, available: true })) : [],
+    })
+  } catch {
+    res.status(500).json({ message: 'Failed to fetch escort profile' })
+  }
+})
+
+router.get('/profile', requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const pool = getPool()
+    if (!pool) { res.status(503).json({ message: 'Database not configured' }); return }
+    const [[user]] = await pool.query<any[]>(
+      'SELECT id, username, email, role, display_name, avatar, phone FROM users WHERE id = ?',
+      [req.userId]
+    )
+    if (!user) { res.status(404).json({ message: 'User not found' }); return }
+    res.json({ id: String(user.id), name: user.display_name ?? user.username, email: user.email, role: user.role, avatar: user.avatar, phone: user.phone })
+  } catch {
+    res.status(500).json({ message: 'Failed to fetch profile' })
+  }
+})
+
 router.patch('/profile', requireAuth, async (req: AuthRequest, res) => {
   try {
     const pool = getPool()

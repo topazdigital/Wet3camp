@@ -102,6 +102,8 @@ export const api = {
   },
 
   profile: {
+    get: () => req<ApiUser>('/profile'),
+    getEscort: () => req<any>('/profile/escort'),
     update: (d: { name?: string; phone?: string; avatar?: string }) =>
       req<ApiUser>('/profile', { method: 'PATCH', body: JSON.stringify(d) }),
     updateEscort: (d: {
