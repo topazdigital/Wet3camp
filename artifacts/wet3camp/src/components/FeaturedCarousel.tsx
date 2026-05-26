@@ -1,9 +1,10 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react'
 import { Star, Heart, MapPin, Flame, CheckCircle2, UserPlus, UserCheck, Radio } from 'lucide-react'
-import { Link } from 'wouter'
+import { Link, useLocation } from 'wouter'
 import { useFollow } from '@/lib/follow-context'
 import { useAuth } from '@/lib/auth-context'
 import { useOnlineStatus } from '@/lib/use-online-status'
+import { getSlug } from '@/data/escorts'
 
 interface FeaturedCard {
   id: number; name: string; location: string; rating: number; reviews: number
@@ -37,6 +38,7 @@ export default function FeaturedCarousel() {
   const { isFollowing, toggleFollow } = useFollow()
   const { isLoggedIn } = useAuth()
   const { isOnline, onlineIds } = useOnlineStatus()
+  const [, navigate] = useLocation()
 
   const liveOnlineCount = FEATURED.filter(c => isOnline(String(c.id))).length
   const staticOnlineCount = FEATURED.filter(c => c.online).length
@@ -106,8 +108,6 @@ export default function FeaturedCarousel() {
     lastDragX.current = e.clientX
     lastDragTime.current = performance.now()
     velocity.current = 0
-    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
-    // NOTE: intentionally NOT calling e.preventDefault() — it blocks link clicks
   }
 
   const onPointerMove = (e: React.PointerEvent) => {
@@ -131,7 +131,7 @@ export default function FeaturedCarousel() {
 
     // Horizontal drag — prevent page scroll and move carousel
     e.preventDefault()
-    if (Math.abs(dx) > 4) dragMoved.current = true
+    if (Math.abs(dx) > 8) dragMoved.current = true
 
     const now = performance.now()
     const dt = now - lastDragTime.current
@@ -153,10 +153,11 @@ export default function FeaturedCarousel() {
     setTimeout(() => { dragMoved.current = false }, 50)
   }
 
-  const handleCardClick = (e: React.MouseEvent) => {
-    if (dragMoved.current) {
-      e.preventDefault()
-      e.stopPropagation()
+  const handleCardClick = (e: React.MouseEvent, slug: string) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!dragMoved.current) {
+      navigate(`/profile/${slug}`)
     }
   }
 
@@ -209,12 +210,12 @@ export default function FeaturedCarousel() {
           {allCards.map((card, idx) => {
             const tier = TIER_STYLES[card.tier]
             const following = isFollowing(String(card.id))
+            const slug = getSlug(card.name)
             return (
-              <Link
+              <div
                 key={`${card.id}-${idx}`}
-                href={`/profile/${card.id}`}
-                onClick={handleCardClick}
-                className="flex-shrink-0 relative rounded-2xl overflow-hidden group"
+                onClick={e => handleCardClick(e, slug)}
+                className="flex-shrink-0 relative rounded-2xl overflow-hidden group cursor-pointer"
                 style={{ width: `${CARD_W}px`, boxShadow: tier.glow }}
               >
                 <div className="aspect-[3/4] relative overflow-hidden bg-card-bg">
@@ -278,7 +279,7 @@ export default function FeaturedCarousel() {
                     </div>
                   </div>
                 </div>
-              </Link>
+              </div>
             )
           })}
         </div>

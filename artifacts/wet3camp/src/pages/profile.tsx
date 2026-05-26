@@ -3,7 +3,7 @@ import { Heart, Share2, MessageCircle, MapPin, Star, Check, X, Calendar, Clock, 
 import Sidebar from '@/components/Sidebar'
 import Header from '@/components/Header'
 import { Link, useRoute } from 'wouter'
-import { ESCORTS } from '@/data/escorts'
+import { ESCORTS, getSlug } from '@/data/escorts'
 import { useEscort } from '@/hooks/useEscorts'
 import { useAuth } from '@/lib/auth-context'
 import { useFollow } from '@/lib/follow-context'
@@ -32,12 +32,16 @@ function tgLink(name: string) {
 }
 
 export default function ProfilePage() {
-  const [, params] = useRoute('/profile/:id')
+  const [, params] = useRoute('/profile/:slug')
   const { isLoggedIn } = useAuth()
   const { isFollowing, toggleFollow, followerCount } = useFollow()
 
-  const { escort: apiEscort, isLoading } = useEscort(params?.id)
-  const escort = (apiEscort as any) ?? ESCORTS.find(e => e.id === params?.id) ?? ESCORTS[0]
+  const slug = params?.slug
+  const { escort: apiEscort, isLoading } = useEscort(slug)
+  const escort = (apiEscort as any) ??
+    ESCORTS.find(e => getSlug(e.name) === slug) ??
+    ESCORTS.find(e => e.id === slug) ??
+    ESCORTS[0]
   const similar = ESCORTS.filter(e => e.id !== escort.id && e.city === escort.city).slice(0, 6)
 
   useSEO({

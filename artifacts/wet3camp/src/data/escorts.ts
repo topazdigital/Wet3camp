@@ -16,6 +16,10 @@ export interface Escort {
 const U = (id: string, w = 600, h = 800) =>
   `https://images.unsplash.com/${id}?w=${w}&h=${h}&fit=crop&crop=face`
 
+export function getSlug(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+}
+
 // African/Kenyan women photos — replace with real uploads once DB is live
 const PHOTOS = [
   'photo-1531123897727-8f129e1688ce', // African woman, warm smile

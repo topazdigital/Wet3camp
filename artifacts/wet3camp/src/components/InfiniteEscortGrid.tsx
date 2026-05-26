@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { Star, Heart, MapPin, CheckCircle2, UserPlus, UserCheck } from 'lucide-react'
 import { Link } from 'wouter'
-import { Escort, generateMoreEscorts } from '@/data/escorts'
+import { Escort, generateMoreEscorts, getSlug } from '@/data/escorts'
 import { useAllEscorts } from '@/hooks/useEscorts'
 import { useFollow } from '@/lib/follow-context'
 import { useAuth } from '@/lib/auth-context'
@@ -122,14 +122,23 @@ export default function InfiniteEscortGrid({
           const uniqueKey = `${escort.id}-${idx}`
           const following = isFollowing(escort.id)
           return (
-            <Link href={`/profile/${escort.id}`} key={uniqueKey} className="group">
+            <Link href={`/profile/${getSlug(escort.name)}`} key={uniqueKey} className="group">
               <div className="bg-card-bg rounded-xl overflow-hidden border border-color hover:border-[#8B0000]/50 hover:shadow-lg hover:shadow-[#8B0000]/10 transition-all duration-200">
                 <div className="relative w-full aspect-[3/4] overflow-hidden">
                   <img
                     src={escort.image}
                     alt={escort.name}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-400"
-                    loading="lazy"
+                    loading={idx < 12 ? 'eager' : 'lazy'}
+                    onError={e => {
+                      const t = e.currentTarget
+                      if (!t.dataset.fallback) {
+                        t.dataset.fallback = '1'
+                        const n = parseInt(escort.id.replace(/\D/g,'') || '0') % 6
+                        const photos = ['photo-1531123897727-8f129e1688ce','photo-1522529599102-193c0d76b5b6','photo-1509868918748-a554bf5f7e09','photo-1531123414780-f74242c2b052','photo-1583195764036-798f1052af7e','photo-1488716820095-cbe80883c496']
+                        t.src = `https://images.unsplash.com/${photos[n]}?w=600&h=800&fit=crop&crop=face`
+                      }
+                    }}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
 

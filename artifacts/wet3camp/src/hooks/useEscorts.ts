@@ -1,7 +1,20 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api, type ApiEscort } from '@/lib/api'
-import { ESCORTS } from '@/data/escorts'
+import { ESCORTS, getSlug } from '@/data/escorts'
+
+const FALLBACK_PHOTOS = [
+  'photo-1531123897727-8f129e1688ce',
+  'photo-1522529599102-193c0d76b5b6',
+  'photo-1509868918748-a554bf5f7e09',
+  'photo-1531123414780-f74242c2b052',
+  'photo-1583195764036-798f1052af7e',
+  'photo-1488716820095-cbe80883c496',
+]
+function fallbackImage(id: string) {
+  const idx = parseInt(id.replace(/\D/g, '') || '0') % FALLBACK_PHOTOS.length
+  return `https://images.unsplash.com/${FALLBACK_PHOTOS[idx]}?w=600&h=800&fit=crop&crop=face`
+}
 
 function toAppEscort(e: ApiEscort) {
   return {
@@ -15,7 +28,7 @@ function toAppEscort(e: ApiEscort) {
     tier:      e.tier as 'elite'|'vip'|'premium'|'standard'|'free',
     rating:    Number(e.rating),
     reviews:   e.reviews_count,
-    image:     e.image,
+    image:     e.image || fallbackImage(e.id),
     gallery:   e.gallery  ?? [],
     bio:       e.bio,
     services:  e.services ?? [],
@@ -51,19 +64,26 @@ export function useAllEscorts() {
   return { escorts, total, fromApi, isLoading: isLoading && !isError }
 }
 
-export function useEscort(id: string | undefined) {
+export function useEscort(slugOrId: string | undefined) {
+  const numericId = slugOrId && /^\d+$/.test(slugOrId) ? slugOrId : undefined
+
   const { data, isLoading, isError } = useQuery({
-    queryKey:  ['escort', id],
-    queryFn:   () => api.escorts.get(id!),
-    enabled:   !!id,
+    queryKey:  ['escort', numericId],
+    queryFn:   () => api.escorts.get(numericId!),
+    enabled:   !!numericId,
     staleTime: 5 * 60 * 1000,
     retry:     1,
   })
 
   const escort = useMemo(() => {
     if (data) return toAppEscort(data)
-    return id ? ESCORTS.find(e => e.id === id) ?? null : null
-  }, [data, id])
+    if (!slugOrId) return null
+    return (
+      ESCORTS.find(e => getSlug(e.name) === slugOrId) ??
+      ESCORTS.find(e => e.id === slugOrId) ??
+      null
+    )
+  }, [data, slugOrId])
 
   return { escort, isLoading: isLoading && !isError, fromApi: !!data }
 }

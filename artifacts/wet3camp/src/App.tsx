@@ -70,7 +70,7 @@ function Router() {
       <Route path="/bookings">{() => <ProtectedRoute component={Bookings} />}</Route>
       <Route path="/my-profile">{() => <ProtectedRoute component={MyProfile} />}</Route>
       <Route path="/profile" component={Profile} />
-      <Route path="/profile/:id" component={Profile} />
+      <Route path="/profile/:slug" component={Profile} />
       <Route path="/register" component={Register} />
       <Route path="/reviews" component={Reviews} />
       <Route path="/rooms" component={Rooms} />
