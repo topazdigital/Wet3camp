@@ -9,6 +9,10 @@
 set -e
 
 REPO_DIR="/home/admin/wet3camp-build"
+
+# Fix git "dubious ownership" error when running as root via SSH
+git config --global --add safe.directory "$REPO_DIR" 2>/dev/null || true
+
 WEB_ROOT="/home/admin/domains/wet3.camp/public_html"
 API_DIR="/home/admin/api-server"
 # NOTE: your env file is named "env" (not ".env") — keep that name
