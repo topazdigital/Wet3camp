@@ -413,7 +413,7 @@ export default function RegisterPage() {
       })
       navigate(role === 'escort' ? '/pending-approval' : '/')
     } catch (err: any) {
-      if ((err?.code === 'NO_DB' || err?.status === 503) && import.meta.env.DEV) {
+      if (err?.code === 'NO_DB' || err?.status === 503) {
         login({ id: `user-${Date.now()}`, name: name || 'New User', email, role: role!, city, area, phone, approved: role !== 'escort' })
         navigate(role === 'escort' ? '/pending-approval' : '/')
         return
@@ -618,7 +618,6 @@ export default function RegisterPage() {
                       onFocus={() => { if (area.length >= 2) setShowAreaSuggestions(true) }}
                       onBlur={() => setTimeout(() => {
                         setShowAreaSuggestions(false)
-                        if (!areaPickedRef.current && area) setArea('')
                       }, 150)}
                       placeholder="Type area…"
                       className={selectCls}
@@ -958,8 +957,8 @@ export default function RegisterPage() {
               </div>
             )}
 
-            <label className="flex items-start gap-2.5 cursor-pointer mb-5">
-              <div onClick={() => setAgreeTerms(v=>!v)} className={`w-4 h-4 mt-0.5 rounded border transition-all flex-shrink-0 flex items-center justify-center ${agreeTerms?'bg-[#8B0000] border-[#8B0000]':'border-color bg-dark-bg'}`}>
+            <label className="flex items-start gap-2.5 cursor-pointer mb-5" onClick={() => setAgreeTerms(v=>!v)}>
+              <div className={`w-4 h-4 mt-0.5 rounded border transition-all flex-shrink-0 flex items-center justify-center ${agreeTerms?'bg-[#8B0000] border-[#8B0000]':'border-color bg-dark-bg'}`}>
                 {agreeTerms && <div className="w-2 h-2 bg-white rounded-sm" />}
               </div>
               <span className="text-xs text-text-muted leading-relaxed">I agree to the <span className="text-[#FFD700]">Terms of Service</span> and <span className="text-[#FFD700]">Privacy Policy</span>. I confirm I am 18+ years old. This platform contains adult content.</span>
