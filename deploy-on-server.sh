@@ -76,7 +76,7 @@ if pm2 describe wet3camp-api > /dev/null 2>&1; then
   pm2 restart wet3camp-api --update-env
   echo "    PM2 restarted."
 else
-  pm2 start dist/index.js --name wet3camp-api \
+  pm2 start dist/index.mjs --name wet3camp-api \
     --node-args='--enable-source-maps' \
     --time
   pm2 save
