@@ -59,6 +59,34 @@ router.patch('/admin/escorts/:id/verify', requireAuth, requireAdmin, async (req:
   }
 })
 
+router.patch('/admin/escorts/bulk-online', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const online = req.body.online === true || req.body.online === 1
+    const city: string | undefined = req.body.city
+    const pool = getPool()
+    let affectedIds: number[] = []
+    if (pool) {
+      if (city) {
+        const [rows] = await pool.query<any[]>('SELECT id FROM escorts WHERE city = ?', [city])
+        affectedIds = rows.map((r: any) => Number(r.id))
+        if (affectedIds.length > 0) {
+          await pool.query('UPDATE escorts SET online = ? WHERE city = ?', [online ? 1 : 0, city])
+        }
+      } else {
+        const [rows] = await pool.query<any[]>('SELECT id FROM escorts')
+        affectedIds = rows.map((r: any) => Number(r.id))
+        await pool.query('UPDATE escorts SET online = ?', [online ? 1 : 0])
+      }
+    }
+    for (const id of affectedIds) {
+      setEscortOnline(id, online)
+    }
+    res.json({ success: true, affected: affectedIds.length, city: city ?? 'all', online })
+  } catch {
+    res.status(500).json({ message: 'Failed to bulk update online status' })
+  }
+})
+
 router.patch('/admin/escorts/:id/online', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
   try {
     const online = req.body.online === true || req.body.online === 1

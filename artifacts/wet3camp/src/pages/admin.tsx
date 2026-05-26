@@ -185,6 +185,89 @@ function OnlineToggle({ id, online, onToggle }: { id: string; online: boolean; o
   )
 }
 
+function BulkOnlinePanel({ escorts, onBulkToggle }: { escorts: AdminEscort[]; onBulkToggle: (city: string | null, online: boolean, affected: number) => void }) {
+  const cities = Array.from(new Set(escorts.map(e => e.city).filter(Boolean))).sort()
+  const [selectedCity, setSelectedCity] = useState<string>('all')
+  const [bulkLoading, setBulkLoading] = useState<'online' | 'offline' | null>(null)
+  const [feedback, setFeedback] = useState<string | null>(null)
+
+  const doBulk = async (online: boolean) => {
+    setBulkLoading(online ? 'online' : 'offline')
+    setFeedback(null)
+    try {
+      const body: Record<string, unknown> = { online }
+      if (selectedCity !== 'all') body.city = selectedCity
+      const result = await adminFetch('/admin/escorts/bulk-online', {
+        method: 'PATCH',
+        body: JSON.stringify(body),
+      })
+      const label = selectedCity === 'all' ? 'All escorts' : `All ${selectedCity} escorts`
+      setFeedback(`✓ ${label} set ${online ? 'online' : 'offline'} (${result.affected} updated)`)
+      onBulkToggle(selectedCity === 'all' ? null : selectedCity, online, result.affected)
+    } catch {
+      setFeedback('Failed to update. Check your connection.')
+    }
+    setBulkLoading(null)
+    setTimeout(() => setFeedback(null), 4000)
+  }
+
+  const cityCount = selectedCity === 'all'
+    ? escorts.length
+    : escorts.filter(e => e.city === selectedCity).length
+  const cityOnline = selectedCity === 'all'
+    ? escorts.filter(e => Boolean(e.online)).length
+    : escorts.filter(e => e.city === selectedCity && Boolean(e.online)).length
+
+  return (
+    <div className="bg-card-bg border border-[#28a745]/20 rounded-2xl p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <Radio size={13} className="text-[#28a745]" />
+        <h3 className="text-sm font-bold text-text-light">Bulk Online Toggle</h3>
+        <span className="text-[10px] text-text-muted ml-1">Set all escorts in a city online or offline at once</span>
+      </div>
+      <div className="flex flex-wrap gap-2 items-center">
+        <select
+          value={selectedCity}
+          onChange={e => setSelectedCity(e.target.value)}
+          className="px-3 py-2 bg-dark-bg border border-color rounded-xl text-xs text-text-light focus:outline-none focus:border-[#28a745] transition-all min-w-[160px]"
+        >
+          <option value="all">All Cities ({escorts.length})</option>
+          {cities.map(city => {
+            const count = escorts.filter(e => e.city === city).length
+            const online = escorts.filter(e => e.city === city && Boolean(e.online)).length
+            return <option key={city} value={city}>{city} — {online}/{count} online</option>
+          })}
+        </select>
+        <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-dark-bg border border-color rounded-xl">
+          <Radio size={10} className="text-[#28a745]" />
+          <span className="text-[10px] text-text-muted">{cityOnline}/{cityCount} online</span>
+        </div>
+        <button
+          onClick={() => doBulk(true)}
+          disabled={!!bulkLoading}
+          className="flex items-center gap-1.5 px-4 py-2 bg-[#28a745] hover:bg-[#22a03a] text-white text-xs font-bold rounded-xl transition-all disabled:opacity-50"
+        >
+          {bulkLoading === 'online' ? <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Radio size={12} />}
+          All Online
+        </button>
+        <button
+          onClick={() => doBulk(false)}
+          disabled={!!bulkLoading}
+          className="flex items-center gap-1.5 px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white text-xs font-bold rounded-xl transition-all disabled:opacity-50"
+        >
+          {bulkLoading === 'offline' ? <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <WifiOff size={12} />}
+          All Offline
+        </button>
+        {feedback && (
+          <span className={`text-xs font-semibold px-3 py-1.5 rounded-xl border ${feedback.startsWith('✓') ? 'text-[#28a745] bg-[#28a745]/10 border-[#28a745]/30' : 'text-[#EF4444] bg-[#EF4444]/10 border-[#EF4444]/30'}`}>
+            {feedback}
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function EscortsTab() {
   const [escorts, setEscorts] = useState<AdminEscort[]>([])
   const [loading, setLoading] = useState(true)
@@ -208,6 +291,12 @@ function EscortsTab() {
     setEscorts(prev => prev.map(e => e.id === id ? { ...e, online } : e))
   }
 
+  const handleBulkToggle = (city: string | null, online: boolean) => {
+    setEscorts(prev => prev.map(e =>
+      city === null || e.city === city ? { ...e, online } : e
+    ))
+  }
+
   const filtered = escorts.filter(e =>
     !search || e.name?.toLowerCase().includes(search.toLowerCase()) || e.city?.toLowerCase().includes(search.toLowerCase())
   )
@@ -216,6 +305,7 @@ function EscortsTab() {
 
   return (
     <div className="space-y-4">
+      <BulkOnlinePanel escorts={escorts} onBulkToggle={handleBulkToggle} />
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 px-3 py-1.5 bg-[#28a745]/10 border border-[#28a745]/30 rounded-xl">
