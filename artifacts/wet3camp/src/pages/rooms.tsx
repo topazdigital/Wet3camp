@@ -1,20 +1,30 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import Header from '@/components/Header'
 import Sidebar from '@/components/Sidebar'
-import { MapPin, Star, Wifi, Car, Coffee, Shield, Filter, Hotel } from 'lucide-react'
+import { MapPin, Star, Wifi, Car, Coffee, Shield, Filter, Hotel, Loader2, AlertCircle } from 'lucide-react'
 import { useSEO } from '@/lib/useSEO'
 
-const ROOMS = [
-  { id:1, name:'Sankara Suite', hotel:'Sankara Hotel', city:'Nairobi', area:'Westlands', price:15000, rating:4.9, reviews:234, amenities:['WiFi','Parking','Breakfast','24hr Security','Pool'], image:'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=400&h=250&fit=crop', type:'Suite', available:true, perHour:2000 },
-  { id:2, name:'Radisson Deluxe', hotel:'Radisson Blu', city:'Nairobi', area:'Upperhill', price:12000, rating:4.8, reviews:189, amenities:['WiFi','Parking','Gym','Restaurant'], image:'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400&h=250&fit=crop', type:'Deluxe', available:true, perHour:1500 },
-  { id:3, name:'Serena Executive', hotel:'Serena Hotel', city:'Nairobi', area:'Nairobi CBD', price:18000, rating:5.0, reviews:312, amenities:['WiFi','Valet','Pool','Spa','Restaurant'], image:'https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=400&h=250&fit=crop', type:'Executive', available:false, perHour:2500 },
-  { id:4, name:'Nyali Beach Villa', hotel:'Nyali Beach Hotel', city:'Mombasa', area:'Nyali', price:10000, rating:4.7, reviews:145, amenities:['WiFi','Parking','Beach Access','Pool'], image:'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=400&h=250&fit=crop', type:'Villa', available:true, perHour:1800 },
-  { id:5, name:'PrideInn Waterfront', hotel:'PrideInn Mombasa', city:'Mombasa', area:'Mombasa CBD', price:8000, rating:4.5, reviews:98, amenities:['WiFi','Parking','Restaurant'], image:'https://images.unsplash.com/photo-1445019980597-93fa8acb246c?w=400&h=250&fit=crop', type:'Standard', available:true, perHour:1200 },
-  { id:6, name:'Milimani VIP Room', hotel:'Milimani Hotel', city:'Kisumu', area:'Milimani', price:6000, rating:4.4, reviews:67, amenities:['WiFi','Parking','Breakfast'], image:'https://images.unsplash.com/photo-1618773928121-c32242e63f39?w=400&h=250&fit=crop', type:'VIP', available:true, perHour:1000 },
-]
+interface Room {
+  id: number
+  name: string
+  hotel: string
+  city: string
+  area: string
+  type: string
+  price_night: number
+  price_hourly: number
+  rating: number
+  reviews_count: number
+  amenities: string[]
+  image: string | null
+  available: boolean
+}
 
 const amenityIcons: Record<string, React.ReactNode> = {
-  'WiFi': <Wifi size={10}/>, 'Parking': <Car size={10}/>, 'Breakfast': <Coffee size={10}/>, '24hr Security': <Shield size={10}/>
+  'WiFi': <Wifi size={10}/>,
+  'Parking': <Car size={10}/>,
+  'Breakfast': <Coffee size={10}/>,
+  '24hr Security': <Shield size={10}/>,
 }
 
 export default function RoomsPage() {
@@ -24,11 +34,31 @@ export default function RoomsPage() {
     keywords: 'discreet rooms Kenya, companion accommodation Nairobi, escort rooms Kenya',
     canonicalPath: '/rooms',
   })
+
+  const [rooms, setRooms] = useState<Room[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [city, setCity] = useState('All')
   const [type, setType] = useState('All')
-  const cities = ['All','Nairobi','Mombasa','Kisumu']
-  const types = ['All','Suite','Deluxe','Executive','Villa','VIP','Standard']
-  const filtered = ROOMS.filter(r => (city==='All'||r.city===city) && (type==='All'||r.type===type))
+
+  useEffect(() => {
+    setLoading(true)
+    setError('')
+    const params = new URLSearchParams()
+    if (city !== 'All') params.set('city', city)
+    if (type !== 'All') params.set('type', type)
+    fetch(`/api/rooms?${params.toString()}`)
+      .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        return r.json()
+      })
+      .then((data: Room[]) => setRooms(data))
+      .catch(err => setError(err.message || 'Failed to load rooms'))
+      .finally(() => setLoading(false))
+  }, [city, type])
+
+  const cities = ['All', 'Nairobi', 'Mombasa', 'Kisumu', 'Nakuru', 'Eldoret']
+  const types  = ['All', 'Suite', 'Deluxe', 'Executive', 'Villa', 'VIP', 'Standard']
 
   return (
     <main className="min-h-screen bg-dark-bg flex flex-col lg:flex-row">
@@ -56,42 +86,73 @@ export default function RoomsPage() {
         </div>
 
         <div className="px-4 sm:px-6 py-5">
-          <p className="text-xs text-text-muted mb-4">{filtered.length} rooms available</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filtered.map(r=>(
-              <div key={r.id} className={`bg-card-bg border rounded-2xl overflow-hidden transition-all group ${r.available?'border-color hover:border-[#FF9800]/50 hover:shadow-lg hover:shadow-[#FF9800]/10':'border-color opacity-60'}`}>
-                <div className="relative h-44 overflow-hidden">
-                  <img src={r.image} alt={r.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"/>
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent"/>
-                  <div className="absolute top-3 left-3 px-2.5 py-1 bg-black/60 text-white text-[10px] font-bold rounded-full">{r.type}</div>
-                  <div className={`absolute top-3 right-3 px-2 py-0.5 rounded-full text-[10px] font-bold ${r.available?'bg-[#28a745]/80 text-white':'bg-gray-600/80 text-white'}`}>{r.available?'Available':'Taken'}</div>
-                  <div className="absolute bottom-3 left-3">
-                    <p className="text-white font-black text-sm">KES {r.price.toLocaleString()}<span className="text-white/60 text-[10px] font-normal">/night</span></p>
-                    <p className="text-white/70 text-[10px]">KES {r.perHour.toLocaleString()}/hr</p>
-                  </div>
+          {loading && (
+            <div className="flex items-center justify-center py-20">
+              <Loader2 size={28} className="animate-spin text-[#FF9800]"/>
+            </div>
+          )}
+
+          {!loading && error && (
+            <div className="flex items-center gap-2.5 p-4 bg-[#EF4444]/10 border border-[#EF4444]/20 rounded-xl mb-4">
+              <AlertCircle size={16} className="text-[#EF4444] flex-shrink-0"/>
+              <p className="text-sm text-[#EF4444]">{error === 'HTTP 503' ? 'Room listings are temporarily unavailable.' : error}</p>
+            </div>
+          )}
+
+          {!loading && !error && (
+            <>
+              <p className="text-xs text-text-muted mb-4">{rooms.length} room{rooms.length !== 1 ? 's' : ''} available</p>
+              {rooms.length === 0 && (
+                <div className="text-center py-16">
+                  <Hotel size={40} className="text-text-muted mx-auto mb-3 opacity-40"/>
+                  <p className="text-text-muted text-sm">No rooms found for this filter.</p>
                 </div>
-                <div className="p-4">
-                  <h3 className="font-bold text-text-light text-sm">{r.name}</h3>
-                  <p className="text-xs text-text-muted mb-2">{r.hotel}</p>
-                  <div className="flex items-center gap-1.5 mb-3">
-                    <MapPin size={11} className="text-text-muted"/>
-                    <span className="text-[11px] text-text-muted">{r.area}, {r.city}</span>
-                    <span className="ml-auto flex items-center gap-0.5"><Star size={11} className="fill-[#FFD700] text-[#FFD700]"/><span className="text-[11px] font-bold text-text-light">{r.rating}</span><span className="text-[10px] text-text-muted">({r.reviews})</span></span>
+              )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {rooms.map(r=>(
+                  <div key={r.id} className={`bg-card-bg border rounded-2xl overflow-hidden transition-all group ${r.available?'border-color hover:border-[#FF9800]/50 hover:shadow-lg hover:shadow-[#FF9800]/10':'border-color opacity-60'}`}>
+                    <div className="relative h-44 overflow-hidden">
+                      <img
+                        src={r.image || 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=400&h=250&fit=crop'}
+                        alt={r.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent"/>
+                      <div className="absolute top-3 left-3 px-2.5 py-1 bg-black/60 text-white text-[10px] font-bold rounded-full">{r.type}</div>
+                      <div className={`absolute top-3 right-3 px-2 py-0.5 rounded-full text-[10px] font-bold ${r.available?'bg-[#28a745]/80 text-white':'bg-gray-600/80 text-white'}`}>{r.available?'Available':'Taken'}</div>
+                      <div className="absolute bottom-3 left-3">
+                        <p className="text-white font-black text-sm">KES {r.price_night.toLocaleString()}<span className="text-white/60 text-[10px] font-normal">/night</span></p>
+                        <p className="text-white/70 text-[10px]">KES {r.price_hourly.toLocaleString()}/hr</p>
+                      </div>
+                    </div>
+                    <div className="p-4">
+                      <h3 className="font-bold text-text-light text-sm">{r.name}</h3>
+                      <p className="text-xs text-text-muted mb-2">{r.hotel}</p>
+                      <div className="flex items-center gap-1.5 mb-3">
+                        <MapPin size={11} className="text-text-muted"/>
+                        <span className="text-[11px] text-text-muted">{r.area}, {r.city}</span>
+                        <span className="ml-auto flex items-center gap-0.5">
+                          <Star size={11} className="fill-[#FFD700] text-[#FFD700]"/>
+                          <span className="text-[11px] font-bold text-text-light">{Number(r.rating).toFixed(1)}</span>
+                          <span className="text-[10px] text-text-muted">({r.reviews_count})</span>
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 mb-3">
+                        {r.amenities.slice(0,4).map(a=>(
+                          <span key={a} className="flex items-center gap-0.5 px-2 py-0.5 bg-dark-bg border border-color rounded-full text-[9px] text-text-muted">
+                            {amenityIcons[a]||null} {a}
+                          </span>
+                        ))}
+                      </div>
+                      <button disabled={!r.available} className={`w-full py-2.5 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-2 ${r.available?'bg-gradient-to-r from-[#FF9800] to-[#f57c00] text-white hover:opacity-90':'bg-dark-bg text-text-muted cursor-not-allowed'}`}>
+                        {r.available?'Book This Room':'Not Available'}
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex flex-wrap gap-1.5 mb-3">
-                    {r.amenities.slice(0,4).map(a=>(
-                      <span key={a} className="flex items-center gap-0.5 px-2 py-0.5 bg-dark-bg border border-color rounded-full text-[9px] text-text-muted">
-                        {amenityIcons[a]||null} {a}
-                      </span>
-                    ))}
-                  </div>
-                  <button disabled={!r.available} className={`w-full py-2.5 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-2 ${r.available?'bg-gradient-to-r from-[#FF9800] to-[#f57c00] text-white hover:opacity-90':'bg-dark-bg text-text-muted cursor-not-allowed'}`}>
-                    {r.available?'Book This Room':'Not Available'}
-                  </button>
-                </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </>
+          )}
         </div>
       </div>
     </main>

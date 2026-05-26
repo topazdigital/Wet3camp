@@ -1,6 +1,5 @@
 import { Router } from 'express'
 import { getPool } from '../lib/db.js'
-import { STATIC_ESCORTS } from '../lib/staticData.js'
 
 const router = Router()
 
@@ -11,19 +10,7 @@ router.get('/escorts', async (req, res) => {
     const off = parseInt(offset, 10) || 0
 
     const pool = getPool()
-    if (!pool) {
-      let data = [...STATIC_ESCORTS]
-      if (city)      data = data.filter(e => e.city === city)
-      if (tier)      data = data.filter(e => e.tier === tier)
-      if (available) data = data.filter(e => e.available)
-      const RANK: Record<string, number> = { elite:1, vip:2, premium:3, standard:9, free:9 }
-      data.sort((a, b) => {
-        const ra = RANK[a.tier] ?? 9, rb = RANK[b.tier] ?? 9
-        if (ra !== rb) return ra - rb
-        return b.rating - a.rating
-      })
-      return res.json({ data: data.slice(off, off + lim), total: data.length })
-    }
+    if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
 
     const conditions: string[] = ['e.is_active = 1']
     const params: unknown[] = []
@@ -54,16 +41,27 @@ router.get('/escorts', async (req, res) => {
   }
 })
 
+router.get('/escorts/search', async (req, res) => {
+  const q = (req.query.q as string ?? '').trim()
+  if (q.length < 2) { res.json([]); return }
+  const pool = getPool()
+  if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
+  try {
+    const [rows] = await pool.query<any[]>(
+      'SELECT id, name, city, area FROM escorts WHERE name LIKE ? AND is_active = 1 LIMIT 6',
+      [`%${q}%`]
+    )
+    res.json(rows.map((e: any) => ({ id: String(e.id), name: e.name, city: e.city, area: e.area })))
+  } catch {
+    res.status(500).json({ message: 'Search failed' })
+  }
+})
+
 router.get('/escorts/:id', async (req, res) => {
   try {
     const { id } = req.params
     const pool = getPool()
-
-    if (!pool) {
-      const escort = STATIC_ESCORTS.find(e => e.id === id)
-      if (!escort) return res.status(404).json({ message: 'Escort not found' })
-      return res.json(escort)
-    }
+    if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
 
     const [[row]] = await pool.query<any[]>('SELECT * FROM escorts WHERE id = ? AND is_active = 1', [id])
     if (!row) return res.status(404).json({ message: 'Escort not found' })
@@ -84,25 +82,6 @@ router.get('/escorts/:id', async (req, res) => {
     })
   } catch {
     res.status(500).json({ message: 'Failed to fetch escort' })
-  }
-})
-
-router.get('/escorts/search', async (req, res) => {
-  const q = (req.query.q as string ?? '').trim()
-  if (q.length < 2) { res.json([]); return }
-  const pool = getPool()
-  if (!pool) {
-    const results = STATIC_ESCORTS.filter(e => e.name.toLowerCase().includes(q.toLowerCase())).slice(0, 6)
-    return res.json(results.map(e => ({ id: e.id, name: e.name, city: e.city })))
-  }
-  try {
-    const [rows] = await pool.query<any[]>(
-      'SELECT id, name, city, area FROM escorts WHERE name LIKE ? AND is_active = 1 LIMIT 6',
-      [`%${q}%`]
-    )
-    res.json(rows.map((e: any) => ({ id: String(e.id), name: e.name, city: e.city, area: e.area })))
-  } catch {
-    res.json([])
   }
 })
 

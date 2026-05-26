@@ -7,7 +7,7 @@ const router = Router()
 router.get('/favorites', requireAuth, async (req: AuthRequest, res) => {
   try {
     const pool = getPool()
-    if (!pool) { res.json([]); return }
+    if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
 
     const [rows] = await pool.query<any[]>(
       'SELECT escort_id FROM favorites WHERE user_id = ?',
@@ -23,7 +23,7 @@ router.post('/favorites/:escortId', requireAuth, async (req: AuthRequest, res) =
   try {
     const { escortId } = req.params
     const pool = getPool()
-    if (!pool) { res.status(503).json({ message: 'Database not configured' }); return }
+    if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
 
     const [[existing]] = await pool.query<any[]>('SELECT id FROM favorites WHERE user_id = ? AND escort_id = ?', [req.userId, escortId])
     if (existing) {

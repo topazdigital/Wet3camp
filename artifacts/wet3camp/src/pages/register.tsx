@@ -4,7 +4,7 @@ import {
   Flame, User, Mail, Phone, Lock, Eye, EyeOff, MapPin, Camera,
   CheckCircle2, ChevronRight, AlertCircle, Navigation, Calendar,
   MessageCircle, Globe, DollarSign, ShieldCheck, Loader2, RefreshCw,
-  Instagram, Facebook
+  Instagram, Facebook, Sparkles
 } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { api, setToken } from '@/lib/api'
@@ -154,6 +154,9 @@ export default function RegisterPage() {
   const [poseSelfie, setPoseSelfie] = useState<string|null>(null)
   const photosRef = useRef<HTMLInputElement>(null)
   const poseRef   = useRef<HTMLInputElement>(null)
+
+  // AI bio
+  const [bioLoading, setBioLoading] = useState(false)
 
   // UI
   const [agreeTerms, setAgreeTerms] = useState(false)
@@ -324,6 +327,24 @@ export default function RegisterPage() {
   const toggleLang    = (l: string) => setSelLangs(p => p.includes(l) ? p.filter(x => x !== l) : [...p, l])
   const toggleService = (s: string) => setSelServices(p => p.includes(s) ? p.filter(x => x !== s) : [...p, s])
 
+  const generateAiBio = async () => {
+    setBioLoading(true)
+    try {
+      const res = await fetch('/api/ai/generate-bio', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, city, area, bodyType, ethnicity, height, hairColor, services: selServices }),
+      })
+      const data = await res.json()
+      if (data.bio) setBio(data.bio)
+      else setError('Could not generate bio. Please write it manually.')
+    } catch {
+      setError('AI bio generation failed. Please write your bio manually.')
+    } finally {
+      setBioLoading(false)
+    }
+  }
+
   const validate = (): boolean => {
     setError('')
     if (currentStep === 'role'     && !role)       { setError('Choose your role.'); return false }
@@ -413,11 +434,6 @@ export default function RegisterPage() {
       })
       navigate(role === 'escort' ? '/pending-approval' : '/')
     } catch (err: any) {
-      if (err?.code === 'NO_DB' || err?.status === 503) {
-        login({ id: `user-${Date.now()}`, name: name || 'New User', email, role: role!, city, area, phone, approved: role !== 'escort' })
-        navigate(role === 'escort' ? '/pending-approval' : '/')
-        return
-      }
       setError(err?.message ?? 'Registration failed. Please try again.')
     } finally {
       setLoading(false)
@@ -768,7 +784,18 @@ export default function RegisterPage() {
             <p className="text-sm text-text-muted mb-5">How clients reach you, and what makes you special</p>
             <div className="space-y-4">
               <div>
-                <label className={labelCls}>About / Bio * (min 50 chars)</label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className={labelCls} style={{margin:0}}>About / Bio * (min 50 chars)</label>
+                  <button
+                    type="button"
+                    onClick={generateAiBio}
+                    disabled={bioLoading}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-[#8B0000]/20 to-[#FFD700]/20 border border-[#FFD700]/30 text-[10px] font-bold text-[#FFD700] hover:opacity-80 disabled:opacity-50 transition-all"
+                  >
+                    {bioLoading ? <Loader2 size={10} className="animate-spin"/> : <Sparkles size={10}/>}
+                    {bioLoading ? 'Generating…' : 'AI Generate'}
+                  </button>
+                </div>
                 <textarea value={bio} onChange={e=>setBio(e.target.value)} rows={4} placeholder="Describe yourself, your personality, and what makes your service special…" className={inputCls + " resize-none"} />
                 <p className={`text-[10px] mt-1 ${bio.length>=50?'text-[#28a745]':'text-text-muted'}`}>{bio.length}/50 minimum</p>
               </div>

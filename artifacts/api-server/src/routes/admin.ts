@@ -15,7 +15,7 @@ function requireAdmin(req: AuthRequest, res: any, next: any) {
 router.get('/admin/stats', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
   try {
     const pool = getPool()
-    if (!pool) { res.json({ users: 0, escorts: 0, bookings: 0, reviews: 0 }); return }
+    if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
     const [[{ users }]] = await pool.query<any[]>('SELECT COUNT(*) as users FROM users')
     const [[{ escorts }]] = await pool.query<any[]>('SELECT COUNT(*) as escorts FROM escorts')
     const [[{ bookings }]] = await pool.query<any[]>('SELECT COUNT(*) as bookings FROM bookings').catch(() => [[{ bookings: 0 }]])
@@ -29,7 +29,7 @@ router.get('/admin/stats', requireAuth, requireAdmin, async (req: AuthRequest, r
 router.get('/admin/users', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
   try {
     const pool = getPool()
-    if (!pool) { res.json([]); return }
+    if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
     const [rows] = await pool.query<any[]>('SELECT id, username, email, role, display_name, created_at, is_active FROM users ORDER BY created_at DESC LIMIT 100')
     res.json(rows.map(u => ({ ...u, id: String(u.id) })))
   } catch {
@@ -40,7 +40,7 @@ router.get('/admin/users', requireAuth, requireAdmin, async (req: AuthRequest, r
 router.get('/admin/escorts', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
   try {
     const pool = getPool()
-    if (!pool) { res.json([]); return }
+    if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
     const [rows] = await pool.query<any[]>('SELECT * FROM escorts ORDER BY created_at DESC LIMIT 100')
     res.json(rows.map(e => ({ ...e, id: String(e.id) })))
   } catch {
@@ -51,7 +51,7 @@ router.get('/admin/escorts', requireAuth, requireAdmin, async (req: AuthRequest,
 router.patch('/admin/escorts/:id/verify', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
   try {
     const pool = getPool()
-    if (!pool) { res.status(503).json({ message: 'No database' }); return }
+    if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
     await pool.query('UPDATE escorts SET verified = 1, is_active = 1 WHERE id = ?', [req.params!.id])
     res.json({ success: true })
   } catch {
@@ -64,20 +64,21 @@ router.patch('/admin/escorts/bulk-online', requireAuth, requireAdmin, async (req
     const online = req.body.online === true || req.body.online === 1
     const city: string | undefined = req.body.city
     const pool = getPool()
+    if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
+
     let affectedIds: number[] = []
-    if (pool) {
-      if (city) {
-        const [rows] = await pool.query<any[]>('SELECT id FROM escorts WHERE city = ?', [city])
-        affectedIds = rows.map((r: any) => Number(r.id))
-        if (affectedIds.length > 0) {
-          await pool.query('UPDATE escorts SET online = ? WHERE city = ?', [online ? 1 : 0, city])
-        }
-      } else {
-        const [rows] = await pool.query<any[]>('SELECT id FROM escorts')
-        affectedIds = rows.map((r: any) => Number(r.id))
-        await pool.query('UPDATE escorts SET online = ?', [online ? 1 : 0])
+    if (city) {
+      const [rows] = await pool.query<any[]>('SELECT id FROM escorts WHERE city = ?', [city])
+      affectedIds = rows.map((r: any) => Number(r.id))
+      if (affectedIds.length > 0) {
+        await pool.query('UPDATE escorts SET online = ? WHERE city = ?', [online ? 1 : 0, city])
       }
+    } else {
+      const [rows] = await pool.query<any[]>('SELECT id FROM escorts')
+      affectedIds = rows.map((r: any) => Number(r.id))
+      await pool.query('UPDATE escorts SET online = ?', [online ? 1 : 0])
     }
+
     for (const id of affectedIds) {
       setEscortOnline(id, online)
     }
@@ -92,9 +93,8 @@ router.patch('/admin/escorts/:id/online', requireAuth, requireAdmin, async (req:
     const online = req.body.online === true || req.body.online === 1
     const id = Number(req.params!.id)
     const pool = getPool()
-    if (pool) {
-      await pool.query('UPDATE escorts SET online = ? WHERE id = ?', [online ? 1 : 0, id])
-    }
+    if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
+    await pool.query('UPDATE escorts SET online = ? WHERE id = ?', [online ? 1 : 0, id])
     setEscortOnline(id, online)
     res.json({ success: true, id, online })
   } catch {
@@ -105,7 +105,7 @@ router.patch('/admin/escorts/:id/online', requireAuth, requireAdmin, async (req:
 router.patch('/admin/escorts/:id/reject', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
   try {
     const pool = getPool()
-    if (!pool) { res.status(503).json({ message: 'No database' }); return }
+    if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
     await pool.query('UPDATE escorts SET is_active = 0, verified = 0 WHERE id = ?', [req.params!.id])
     res.json({ success: true })
   } catch {
@@ -143,7 +143,7 @@ router.post('/admin/test-email', requireAuth, requireAdmin, async (_req: AuthReq
 router.delete('/admin/users/:id', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
   try {
     const pool = getPool()
-    if (!pool) { res.status(503).json({ message: 'No database' }); return }
+    if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
     await pool.query('UPDATE users SET is_active = 0 WHERE id = ?', [req.params!.id])
     res.json({ success: true })
   } catch {

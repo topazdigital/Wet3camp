@@ -7,7 +7,7 @@ const router = Router()
 router.get('/bookings', requireAuth, async (req: AuthRequest, res) => {
   try {
     const pool = getPool()
-    if (!pool) { res.json([]); return }
+    if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
 
     const [rows] = await pool.query<any[]>(
       `SELECT b.*, e.name AS escort_name, e.image AS escort_image, e.area AS escort_area, e.city AS escort_city
@@ -45,7 +45,7 @@ router.post('/bookings', requireAuth, async (req: AuthRequest, res) => {
     if (!escortId || !date || !time) { res.status(400).json({ message: 'escortId, date and time are required' }); return }
 
     const pool = getPool()
-    if (!pool) { res.status(503).json({ message: 'Database not configured' }); return }
+    if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
 
     const [[escort]] = await pool.query<any[]>('SELECT id, price_hourly, price_overnight, price_video FROM escorts WHERE id = ?', [escortId])
     if (!escort) { res.status(404).json({ message: 'Escort not found' }); return }

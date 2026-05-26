@@ -22,12 +22,12 @@ function broadcast() {
   sseClients.forEach(r => { try { r.write(payload) } catch { sseClients.delete(r) } })
 }
 
-export async function seedOnlineFromDb(pool: import('mysql2/promise').Pool) {
+export async function seedOnlineFromDb(pool: { query: Function }) {
   try {
-    const [rows] = await pool.query<any[]>(
+    const [rows] = await pool.query(
       "SELECT id FROM escorts WHERE is_active = 1 AND online = 1 LIMIT 500"
     )
-    for (const row of rows) onlineEscorts.add(Number(row.id))
-    if (rows.length > 0) broadcast()
+    for (const row of (rows as any[])) onlineEscorts.add(Number(row.id))
+    if ((rows as any[]).length > 0) broadcast()
   } catch {}
 }

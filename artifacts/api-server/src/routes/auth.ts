@@ -6,7 +6,6 @@ import { requireAuth, type AuthRequest } from '../middlewares/requireAuth.js'
 
 const router = Router()
 
-// In-memory OTP store — fine for single-instance dev; replace with Redis in production
 const otpStore = new Map<string, { code: string; expires: number }>()
 
 router.post('/auth/login', async (req, res) => {
@@ -18,7 +17,7 @@ router.post('/auth/login', async (req, res) => {
 
     const pool = getPool()
     if (!pool) {
-      res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return
+      res.status(503).json({ message: 'Database not configured. Please contact support.', code: 'NO_DB' }); return
     }
 
     const [[user]] = await pool.query<any[]>('SELECT * FROM users WHERE email = ? AND is_active = 1 LIMIT 1', [email.toLowerCase().trim()])
@@ -78,7 +77,7 @@ router.post('/auth/register', async (req, res) => {
 
     const pool = getPool()
     if (!pool) {
-      res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return
+      res.status(503).json({ message: 'Database not configured. Please contact support.', code: 'NO_DB' }); return
     }
 
     const [[existing]] = await pool.query<any[]>('SELECT id FROM users WHERE email = ? LIMIT 1', [email.toLowerCase().trim()])
@@ -171,7 +170,7 @@ router.post('/auth/forgot-password', async (req, res) => {
 router.get('/auth/me', requireAuth, async (req: AuthRequest, res) => {
   try {
     const pool = getPool()
-    if (!pool) { res.status(503).json({ message: 'Database not configured' }); return }
+    if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
 
     const [[user]] = await pool.query<any[]>(
       'SELECT id, username, email, role, display_name, avatar, phone FROM users WHERE id = ?',
@@ -185,24 +184,22 @@ router.get('/auth/me', requireAuth, async (req: AuthRequest, res) => {
   }
 })
 
-// Check username or email availability
 router.get('/auth/check', async (req, res) => {
   const { type, value } = req.query as Record<string, string>
   if (!type || !value || !['email', 'username'].includes(type)) {
     res.status(400).json({ message: 'type (email|username) and value are required' }); return
   }
   const pool = getPool()
-  if (!pool) { res.json({ available: true }); return }
+  if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
   try {
     const field = type === 'email' ? 'email' : 'username'
     const [[row]] = await pool.query<any[]>(`SELECT id FROM users WHERE ${field} = ? LIMIT 1`, [value.toLowerCase().trim()])
     res.json({ available: !row, type, value })
   } catch {
-    res.json({ available: true })
+    res.status(500).json({ message: 'Check failed' })
   }
 })
 
-// Send email OTP for verification
 router.post('/auth/send-otp', async (req, res) => {
   const { email } = req.body as { email?: string }
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -210,9 +207,8 @@ router.post('/auth/send-otp', async (req, res) => {
   }
   const emailKey = email.toLowerCase().trim()
   const code = Math.floor(100000 + Math.random() * 900000).toString()
-  const expires = Date.now() + 10 * 60 * 1000 // 10 minutes
+  const expires = Date.now() + 10 * 60 * 1000
   otpStore.set(emailKey, { code, expires })
-  // TODO: send via SMTP when SMTP_HOST / SMTP_USER / SMTP_PASS are configured
   const smtpConfigured = !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS)
   if (smtpConfigured) {
     try {
@@ -238,12 +234,10 @@ router.post('/auth/send-otp', async (req, res) => {
   res.json({
     message: smtpConfigured ? 'Verification code sent to your email.' : 'Verification code sent.',
     demo: !smtpConfigured,
-    // Only expose code in demo (no SMTP) — never in production
     ...(smtpConfigured ? {} : { code }),
   })
 })
 
-// Verify OTP
 router.post('/auth/verify-otp', (req, res) => {
   const { email, code } = req.body as { email?: string; code?: string }
   if (!email || !code) {

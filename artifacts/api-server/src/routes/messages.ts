@@ -8,7 +8,7 @@ const router = Router()
 router.get('/messages', requireAuth, async (req: AuthRequest, res) => {
   try {
     const pool = getPool()
-    if (!pool) { res.json([]); return }
+    if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
 
     const [rows] = await pool.query<any[]>(
       `SELECT m.*, e.name AS escort_name, e.image AS escort_image
@@ -51,7 +51,7 @@ router.post('/messages/read', requireAuth, async (req: AuthRequest, res) => {
     const { escortId } = req.body as { escortId?: number }
     if (!escortId) { res.status(400).json({ message: 'escortId required' }); return }
     const pool = getPool()
-    if (!pool) { res.json({ ok: true }); return }
+    if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
     await pool.query(
       'UPDATE messages SET read_at = NOW() WHERE sender_id = ? AND escort_id = ? AND is_from_escort = 1 AND read_at IS NULL',
       [req.userId, escortId]
@@ -70,9 +70,7 @@ router.post('/messages', requireAuth, async (req: AuthRequest, res) => {
     }
 
     const pool = getPool()
-    if (!pool) {
-      res.status(503).json({ message: 'Database not configured' }); return
-    }
+    if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
 
     const [result] = await pool.query<any>(
       'INSERT INTO messages (sender_id, escort_id, content, is_from_escort) VALUES (?,?,?,0)',
@@ -90,7 +88,6 @@ router.post('/messages', requireAuth, async (req: AuthRequest, res) => {
       createdAt: now,
     })
 
-    // Simulate escort reply after short delay (when no real escort backend exists)
     const [[escort]] = await pool.query<any[]>(
       'SELECT name, image FROM escorts WHERE id = ? LIMIT 1',
       [escortId]

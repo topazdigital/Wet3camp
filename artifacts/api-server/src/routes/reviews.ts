@@ -8,7 +8,7 @@ router.get('/reviews', async (req, res) => {
   try {
     const { escortId, limit = '20', offset = '0' } = req.query as Record<string, string>
     const pool = getPool()
-    if (!pool) { res.json([]); return }
+    if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
 
     const conditions = ['r.is_visible = 1']
     const params: unknown[] = []
@@ -51,7 +51,7 @@ router.post('/reviews', requireAuth, async (req: AuthRequest, res) => {
     }
 
     const pool = getPool()
-    if (!pool) { res.status(503).json({ message: 'Database not configured' }); return }
+    if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
 
     const [[existing]] = await pool.query<any[]>(
       'SELECT id FROM reviews WHERE user_id = ? AND escort_id = ? LIMIT 1',
