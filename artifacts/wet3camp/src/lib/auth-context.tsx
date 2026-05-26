@@ -64,9 +64,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { success: true, user: u }
     } catch (err: any) {
       if (err?.status === 401) return { success: false, error: 'Invalid email or password.' }
-      const fallback = tryLogin(email, password)
-      if (fallback) { login(fallback); return { success: true, user: fallback } }
-      return { success: false, error: err?.message ?? 'Login failed. Please try again.' }
+      return { success: false, error: 'Cannot reach the server. Please try again.' }
     }
   }, [login])
 

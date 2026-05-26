@@ -407,6 +407,53 @@ router.delete('/admin/users/:id', requireAuth, requireAdmin, async (req: AuthReq
   }
 })
 
+router.post('/admin/seed-escorts', requireAuth, requireAdmin, async (_req: AuthRequest, res) => {
+  const pool = getPool()
+  if (!pool) { res.status(503).json({ message: 'Database not configured' }); return }
+  try {
+    const [[{ cnt }]] = await pool.query<any[]>('SELECT COUNT(*) as cnt FROM escorts WHERE user_id IS NULL')
+    if (Number(cnt) >= 5) {
+      res.json({ success: true, seeded: 0, message: `Already have ${cnt} seed escorts — skipping.` })
+      return
+    }
+    const escorts = [
+      [1,'Amara K.',24,'Nairobi','Nairobi CBD',-1.2921,36.8219,'elite',4.9,156,'Elite companion based in Nairobi CBD. Sophisticated, discreet, and well-travelled.','5\'6"','Slim/Athletic','Kenyan','Black',8000,50000,3000,'254712345001','amarak_wet3camp',1,1,1],
+      [2,'Zara M.',26,'Nairobi','Westlands',-1.2679,36.8082,'vip',4.8,142,'VIP escort in Westlands. Fluent in 3 languages, world-traveller.','5\'7"','Athletic','Kenyan','Natural',6500,40000,2500,'254712345002','zaram_wet3camp',1,1,1],
+      [3,'Luna K.',23,'Nairobi','Karen',-1.3176,36.7063,'vip',4.7,128,'Karen-based VIP companion. Known for my intelligence, elegance and impeccable style.','5\'5"','Slim','Kenyan','Dark Brown',5000,35000,2000,'254712345003','lunak_wet3camp',0,1,1],
+      [4,'Sophia N.',27,'Nairobi','Kilimani',-1.2903,36.7855,'premium',4.6,115,'Premium Kilimani escort with a warm personality and stunning looks.','5\'4"','Curvy','Kenyan','Black',4000,25000,1500,'254712345004','sophian_wet3camp',1,1,1],
+      [5,'Priya S.',25,'Nairobi','Lavington',-1.282,36.7726,'premium',4.8,189,'Half-Kenyan, half-Indian beauty residing in Lavington. Exotic, educated.','5\'5"','Slim/Toned','Mixed','Black',5500,38000,2200,'254712345005','priyas_wet3camp',1,1,1],
+      [6,'Fatuma H.',22,'Nairobi','Parklands',-1.2575,36.8205,'elite',4.9,203,'Top-rated elite escort in Parklands. Coastal beauty.','5\'6"','Slim','Swahili','Black',9000,55000,3500,'254712345006','fatumah_wet3camp',1,1,1],
+      [7,'Grace W.',28,'Nairobi','Upperhill',-1.3,36.8192,'premium',4.5,97,'Professional companion based in Upperhill, Nairobi\'s business district.','5\'7"','Athletic','Kenyan','Black',4500,28000,1800,'254712345007','gracew_wet3camp',1,1,1],
+      [8,'Naomi J.',24,'Nairobi','Gigiri',-1.228,36.8032,'vip',4.7,134,'Upscale companion in Gigiri. Multilingual, sophisticated.','5\'8"','Slim/Tall','Kenyan','Natural',7000,45000,3000,'254712345008','naomij_wet3camp',0,1,1],
+      [9,'Aisha O.',21,'Nairobi','South B',-1.3171,36.8396,'standard',4.4,62,'Young, vibrant and fun-loving companion in South B.','5\'4"','Petite/Curvy','Kenyan','Black',2500,15000,1000,'254712345009','aishao_wet3camp',1,1,1],
+      [10,'Cynthia M.',29,'Nairobi','Runda',-1.2102,36.8104,'elite',4.9,178,'Nairobi\'s finest escort — Runda based, world-class service.','5\'9"','Slim/Tall','Kenyan','Relaxed/Dark',12000,75000,4500,'254712345010','cyntham_wet3camp',1,1,1],
+      [11,'Brenda A.',23,'Nairobi','Langata',-1.338,36.7518,'premium',4.6,88,'Langata beauty with a playful spirit. Always punctual and perfectly presented.','5\'5"','Curvy','Kenyan','Black',3500,22000,1500,'254712345011','brendaa_wet3camp',1,0,1],
+      [12,'Diana V.',26,'Nairobi','Eastleigh',-1.2726,36.8478,'standard',4.3,54,'Vibrant Eastleigh companion. Somali heritage with a warm personality.','5\'6"','Slim','Somali-Kenyan','Black',2000,12000,800,'254712345012','dianav_wet3camp',1,1,1],
+      [13,'Sharon K.',25,'Nairobi','Embakasi',-1.3211,36.9009,'standard',4.2,47,'Embakasi based companion offering great value and genuine connections.','5\'3"','Average','Kenyan','Black',1800,10000,700,'254712345013','sharonk_wet3camp',0,0,1],
+      [14,'Kezia N.',22,'Nairobi','Ngong Road',-1.3028,36.7677,'premium',4.7,103,'Slim and elegant companion along Ngong Road. University-educated.','5\'6"','Slim/Toned','Kenyan','Black',3800,24000,1600,'254712345014','kezian_wet3camp',1,1,1],
+      [15,'Mercy T.',27,'Nairobi','Thika Road',-1.2253,36.8944,'vip',4.6,121,'Thika Road VIP companion with a bubbly personality and killer looks.','5\'5"','Curvy','Kenyan','Black',5000,30000,2000,'254712345015','mercyt_wet3camp',1,1,1],
+      [16,'Wanjiku G.',30,'Mombasa','Nyali',-4.0165,39.7057,'elite',4.9,231,'The queen of the Kenyan coast — Nyali\'s finest. Bilingual, stunning.','5\'8"','Slim/Curvy','Kenyan','Black',10000,60000,4000,'254712345016','wanjikug_wet3camp',1,1,1],
+      [17,'Akinyi B.',23,'Mombasa','Bamburi',-3.9835,39.7287,'premium',4.5,76,'Beach babe from Bamburi, Mombasa. Sun-kissed, carefree.','5\'5"','Athletic','Luo-Kenyan','Natural',4000,25000,1500,'254712345017','akinyib_wet3camp',1,1,1],
+      [18,'Amina S.',25,'Mombasa','Mombasa CBD',-4.0435,39.6682,'vip',4.7,145,'Mombasa CBD beauty with coastal charm.','5\'6"','Slim','Swahili','Black',5500,35000,2200,'254712345018','aminas_wet3camp',0,1,1],
+      [19,'Stella R.',24,'Mombasa','Diani',-4.2792,39.5915,'vip',4.8,163,'Diani beach escort — your ultimate coastal fantasy.','5\'7"','Toned','Kenyan','Dark Brown',6000,40000,2500,'254712345019','stellar_wet3camp',1,1,1],
+      [20,'Janet L.',29,'Mombasa','Mtwapa',-3.9405,39.7345,'premium',4.4,83,'Mtwapa escort offering premium coastal experiences.','5\'4"','Curvy','Kenyan','Black',3500,22000,1400,'254712345020','janetl_wet3camp',1,0,1],
+    ]
+
+    let inserted = 0
+    for (const e of escorts) {
+      await pool.query(
+        `INSERT INTO escorts (id,name,age,city,area,lat,lng,tier,rating,reviews_count,bio,height,body_type,ethnicity,hair_color,price_hourly,price_overnight,price_video,whatsapp,telegram,available,verified,is_active,created_at,updated_at)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'2026-05-25 14:14:35','2026-05-25 14:14:35')`,
+        e
+      ).catch(() => {})
+      inserted++
+    }
+    res.json({ success: true, seeded: inserted })
+  } catch (err: any) {
+    res.status(500).json({ message: 'Failed to seed escorts', detail: err?.message ?? '' })
+  }
+})
+
 router.get('/admin/health', requireAuth, requireAdmin, async (_req: AuthRequest, res) => {
   const pool = getPool()
   const status: Record<string, { ok: boolean; detail: string }> = {}

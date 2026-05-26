@@ -64,6 +64,7 @@ add_if_missing "SMTP_HOST"    "mail.wet3.camp"
 add_if_missing "SMTP_PORT"    "587"
 add_if_missing "SMTP_USER"    "support@wet3.camp"
 add_if_missing "SMTP_PASS"    "CHANGE_ME"
+add_if_missing "STATIC_DIR"  "/home/admin/api-server/public"
 
 # Re-source so all variables (including newly added ones) are available
 set -a; source "$API_ENV"; set +a
@@ -115,10 +116,15 @@ rm -rf "${WEB_ROOT:?}"/*
 # Vite outputs to dist/public — copy that subfolder to web root
 cp -r "$REPO_DIR/artifacts/wet3camp/dist/public/." "$WEB_ROOT/"
 chmod -R 755 "$WEB_ROOT"
+# ALSO copy frontend to api-server/public so Express can serve it as a fallback
+# if the Apache mod_rewrite [P] proxy doesn't work on this server
+mkdir -p "$API_DIR/public"
+rm -rf "${API_DIR:?}/public/"*
+cp -r "$REPO_DIR/artifacts/wet3camp/dist/public/." "$API_DIR/public/"
 mkdir -p "$API_DIR/dist"
 cp -r "$REPO_DIR/artifacts/api-server/dist/." "$API_DIR/dist/"
 cp    "$REPO_DIR/artifacts/api-server/package.json" "$API_DIR/"
-echo "    Files copied."
+echo "    Files copied (web root + api-server/public fallback)."
 
 echo ""
 echo "==> [7/7] Starting/restarting API server via PM2..."

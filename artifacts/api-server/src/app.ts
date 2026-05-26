@@ -41,4 +41,14 @@ app.use("/api/uploads", express.static(UPLOADS_DIR, { maxAge: '7d' }));
 
 app.use("/api", router);
 
+// Production static file serving — set STATIC_DIR env var to the built React app folder.
+// This is a fallback in case the Apache/nginx reverse proxy is not configured.
+const STATIC_DIR = process.env["STATIC_DIR"];
+if (STATIC_DIR && existsSync(STATIC_DIR)) {
+  app.use(express.static(STATIC_DIR, { maxAge: "1h", index: false }));
+  app.get("*", (_req, res) => {
+    res.sendFile(path.join(STATIC_DIR, "index.html"));
+  });
+}
+
 export default app;

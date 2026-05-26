@@ -1,32 +1,21 @@
 Options -Indexes
 DirectoryIndex index.html
 
-# ── API proxy ────────────────────────────────────────────────────────────────
-# Forward all /api/* and /sitemap.xml requests to the Node.js API server (port 8080)
-<IfModule mod_proxy.c>
-  ProxyRequests Off
-  ProxyPreserveHost On
-  ProxyPass        /api/ http://localhost:8080/api/
-  ProxyPassReverse /api/ http://localhost:8080/api/
-  ProxyPass        /sitemap.xml http://localhost:8080/sitemap.xml
-  ProxyPassReverse /sitemap.xml http://localhost:8080/sitemap.xml
-</IfModule>
-
-# ── SPA fallback ─────────────────────────────────────────────────────────────
+# ── API proxy via RewriteRule [P] ────────────────────────────────────────────
+# ProxyPass is NOT allowed in .htaccess context — use RewriteRule with [P] flag
+# instead (which goes through mod_rewrite but proxies via mod_proxy internally).
+# This works with standard DirectAdmin AllowOverride All settings.
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
 
-  # Never rewrite /api/* — handled by mod_proxy above
-  RewriteRule ^api/ - [L]
-  RewriteRule ^sitemap\.xml$ - [L]
+  # Proxy /api/* and /api to the Node.js server on port 8080
+  RewriteRule ^api(/.*)?$ http://localhost:8080/api$1 [P,L,NE]
 
-  # Never rewrite actual files or directories
+  # SPA fallback — serve index.html for all non-file, non-api routes
   RewriteRule ^index\.html$ - [L]
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
-
-  # Everything else → index.html (React Router / Wouter)
   RewriteRule . /index.html [L]
 </IfModule>
 

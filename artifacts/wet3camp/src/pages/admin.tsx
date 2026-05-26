@@ -582,7 +582,7 @@ function AdminLogin() {
               {loading?'Authenticating…':'Enter Admin Panel →'}
             </button>
           </form>
-          <p className="text-center text-[10px] text-text-muted mt-4">Demo: admin@wet3camp.com / Admin@Wet3Camp2024</p>
+          <p className="text-center text-[10px] text-text-muted mt-4">Use the admin credentials you set up via /api/auth/setup-admin</p>
         </div>
       </div>
     </div>
