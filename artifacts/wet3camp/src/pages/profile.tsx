@@ -17,9 +17,13 @@ const TIER_STYLE: Record<string, { bg: string; text: string; label: string }> = 
   Standard: { bg: '#3a6da8',  text: '#fff', label: 'STANDARD'  },
 }
 
-function waLink(phone: string | undefined, name: string) {
+function waLink(phone: string | undefined, name: string, hourlyRate?: number) {
   const num = (phone ?? '').replace(/\D/g, '') || '254700000000'
-  const msg = encodeURIComponent(`Hi ${name.split(' ')[0]}, I found your profile on Wet3Camp and I'd like to connect.`)
+  const firstName = name.split(' ')[0]
+  const rateText = hourlyRate ? ` at KES ${hourlyRate.toLocaleString()}/hr` : ''
+  const msg = encodeURIComponent(
+    `Hi ${firstName}! I found your profile on Wet3Camp and I'd like to book you${rateText}. Are you available? Please let me know your schedule.`
+  )
   return `https://wa.me/${num}?text=${msg}`
 }
 
@@ -352,7 +356,7 @@ export default function ProfilePage() {
                   <div className="space-y-2.5">
                       {/* WhatsApp — visible to everyone */}
                       <a
-                        href={waLink(escort.phone, escort.name)}
+                        href={waLink(escort.phone, escort.name, escort.pricing?.hourly)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="w-full py-3.5 bg-[#25D366] hover:bg-[#20ba5a] text-white font-black rounded-xl transition-all shadow-lg shadow-[#25D366]/20 flex items-center justify-center gap-2 text-sm"
