@@ -9,7 +9,7 @@ import {
 } from 'lucide-react'
 import { useSEO } from '@/lib/useSEO'
 
-const TABS = ['Overview','Escorts','Clients','Bookings','Moderators','Featured','API Keys','Settings']
+const TABS = ['Overview','Escorts','Clients','Bookings','Moderators','Featured','Blog','API Keys','Settings']
 
 interface Moderator { id: number; name: string; email: string; role: string; level: 1|2|3; status: 'active'|'inactive'; createdAt: string }
 
@@ -459,6 +459,9 @@ function AdminDashboard() {
             </div>
           )}
 
+          {/* ── BLOG ── */}
+          {activeTab === 'Blog' && <AdminBlog />}
+
           {/* ── API KEYS ── */}
           {activeTab === 'API Keys' && (
             <div className="max-w-2xl space-y-6">
@@ -635,6 +638,133 @@ function AdminDashboard() {
             </div>
           )}
         </div>
+      </div>
+    </div>
+  )
+}
+
+function AdminBlog() {
+  const [posts, setPosts] = useState<Array<{id:string;title:string;category:string;published:boolean;publishedAt:string;slug:string}>>([])
+  const [editing, setEditing] = useState<{id:string;title:string;excerpt:string;content:string;category:string;tags:string;imageUrl:string;published:boolean} | null>(null)
+  const [creating, setCreating] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    import('@/data/blog').then(({ getBlogPosts }) => {
+      setPosts(getBlogPosts().map((p: any) => ({ id: p.id, title: p.title, category: p.category, published: p.published, publishedAt: p.publishedAt, slug: p.slug })))
+    })
+  }, [])
+
+  const blank = { id: '', title: '', excerpt: '', content: '', category: 'Kenya Escorts Guide', tags: '', imageUrl: '', published: false }
+
+  const save = async () => {
+    const { getBlogPosts, saveBlogPosts, slugify } = await import('@/data/blog')
+    const all = getBlogPosts()
+    if (editing?.id) {
+      const updated = all.map((p: any) => p.id === editing.id ? { ...p, ...editing, tags: editing.tags.split(',').map((t: string) => t.trim()), slug: slugify(editing.title), updatedAt: new Date().toISOString().split('T')[0] } : p)
+      saveBlogPosts(updated)
+    } else if (creating) {
+      const newPost = { ...editing, id: Date.now().toString(), slug: slugify(editing!.title), tags: editing!.tags.split(',').map((t: string) => t.trim()), author: 'Wet3Camp Editorial', readTime: Math.ceil(editing!.content.split(' ').length / 200), publishedAt: new Date().toISOString().split('T')[0], updatedAt: new Date().toISOString().split('T')[0] }
+      saveBlogPosts([...all, newPost])
+    }
+    const updated2 = await import('@/data/blog').then(m => m.getBlogPosts())
+    setPosts(updated2.map((p: any) => ({ id: p.id, title: p.title, category: p.category, published: p.published, publishedAt: p.publishedAt, slug: p.slug })))
+    setSaved(true); setTimeout(() => setSaved(false), 2000)
+    setEditing(null); setCreating(false)
+  }
+
+  const deletePost = async (id: string) => {
+    const { getBlogPosts, saveBlogPosts } = await import('@/data/blog')
+    saveBlogPosts(getBlogPosts().filter((p: any) => p.id !== id))
+    setPosts(p => p.filter(x => x.id !== id))
+  }
+
+  const togglePublish = async (id: string) => {
+    const { getBlogPosts, saveBlogPosts } = await import('@/data/blog')
+    const all = getBlogPosts()
+    saveBlogPosts(all.map((p: any) => p.id === id ? { ...p, published: !p.published } : p))
+    setPosts(posts.map(p => p.id === id ? { ...p, published: !p.published } : p))
+  }
+
+  const startEdit = async (id: string) => {
+    const { getBlogPosts } = await import('@/data/blog')
+    const post = getBlogPosts().find((p: any) => p.id === id)
+    if (post) { setEditing({ ...post, tags: post.tags.join(', ') }); setCreating(false) }
+  }
+
+  if (editing || creating) {
+    const form = editing ?? blank
+    const set = (k: string, v: string | boolean) => setEditing((e: any) => e ? { ...e, [k]: v } : { ...blank, [k]: v })
+    return (
+      <div className="max-w-2xl space-y-4">
+        <div className="flex items-center gap-3 mb-2">
+          <button onClick={() => { setEditing(null); setCreating(false) }} className="text-xs text-text-muted hover:text-text-light">← Back</button>
+          <h3 className="text-sm font-black text-text-light">{creating ? 'New Article' : 'Edit Article'}</h3>
+        </div>
+        {(['title','excerpt','imageUrl'] as const).map(field => (
+          <div key={field}>
+            <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">{field}</label>
+            <input value={(form as any)[field] ?? ''} onChange={e => set(field, e.target.value)} className="w-full px-3 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#8B0000] transition-all" />
+          </div>
+        ))}
+        <div>
+          <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Content (Markdown)</label>
+          <textarea value={form.content} onChange={e => set('content', e.target.value)} rows={12} className="w-full px-3 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#8B0000] transition-all font-mono text-xs resize-none" />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Category</label>
+            <select value={form.category} onChange={e => set('category', e.target.value)} className="w-full px-3 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#8B0000] transition-all">
+              {['Safety Tips','Kenya Escorts Guide','Nairobi Nightlife','Mombasa Escorts','Booking Tips','Platform News','Escort Reviews','Travel Companions'].map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Tags (comma-separated)</label>
+            <input value={form.tags} onChange={e => set('tags', e.target.value)} className="w-full px-3 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#8B0000] transition-all" />
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <button onClick={() => set('published', !form.published)} className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold border transition-all ${form.published ? 'bg-[#28a745]/20 border-[#28a745]/40 text-[#28a745]' : 'bg-dark-bg border-color text-text-muted'}`}>
+            {form.published ? '● Published' : '○ Draft'}
+          </button>
+          <button onClick={save} className={`px-5 py-2 rounded-xl text-xs font-bold transition-all ${saved ? 'bg-[#28a745] text-white' : 'bg-[#8B0000] text-white hover:bg-[#a00000]'}`}>
+            {saved ? '✓ Saved' : 'Save Article'}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-black text-text-light">Blog Management</h3>
+          <p className="text-[10px] text-text-muted mt-0.5">{posts.length} articles total · {posts.filter(p=>p.published).length} published</p>
+        </div>
+        <button onClick={() => { setCreating(true); setEditing({ ...blank }) }} className="px-3 py-2 bg-[#8B0000] text-white text-xs font-bold rounded-xl hover:bg-[#a00000] transition-all flex items-center gap-1.5">
+          + New Article
+        </button>
+      </div>
+      <div className="space-y-2">
+        {posts.map(post => (
+          <div key={post.id} className="flex items-center gap-3 p-3 bg-card-bg border border-color rounded-xl">
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-text-light truncate">{post.title}</p>
+              <p className="text-[10px] text-text-muted mt-0.5">{post.category} · {post.publishedAt}</p>
+            </div>
+            <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${post.published ? 'bg-[#28a745]/20 text-[#28a745]' : 'bg-[#6B7280]/20 text-[#6B7280]'}`}>
+              {post.published ? 'Published' : 'Draft'}
+            </span>
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              <button onClick={() => togglePublish(post.id)} className="px-2 py-1 bg-dark-bg border border-color text-[9px] text-text-muted rounded-lg hover:border-[#8B0000]/50 transition-all">
+                {post.published ? 'Unpublish' : 'Publish'}
+              </button>
+              <button onClick={() => startEdit(post.id)} className="px-2 py-1 bg-[#8B0000]/20 border border-[#8B0000]/30 text-[#8B0000] text-[9px] rounded-lg hover:bg-[#8B0000]/30 transition-all">Edit</button>
+              <button onClick={() => deletePost(post.id)} className="px-2 py-1 bg-[#EF4444]/20 border border-[#EF4444]/30 text-[#EF4444] text-[9px] rounded-lg hover:bg-[#EF4444]/30 transition-all">Delete</button>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   )

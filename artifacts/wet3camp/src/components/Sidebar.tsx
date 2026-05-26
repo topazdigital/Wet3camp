@@ -1,4 +1,4 @@
-import { Flame, Home, Radio, Newspaper, Star, ShoppingBag, Megaphone, Calendar, Video, Hotel, Plane, MessageSquare, Heart, Ban, MessageCircle, HelpCircle, Mail, Shield, Smartphone, CalendarCheck, X, Menu } from 'lucide-react'
+import { Flame, Home, Radio, Newspaper, Star, ShoppingBag, Megaphone, Calendar, Video, Hotel, Plane, MessageSquare, Heart, Ban, MessageCircle, HelpCircle, Mail, Shield, Smartphone, CalendarCheck, X, Menu, BookOpen } from 'lucide-react'
 import { Link, useLocation } from 'wouter'
 import { useState, useEffect } from 'react'
 import { useSidebar } from '@/lib/sidebar-context'
@@ -32,6 +32,7 @@ const NAV_SECTIONS = [
     title: 'Community',
     items: [
       { icon: Star,          label: 'Reviews',         href: '/reviews' },
+      { icon: BookOpen,      label: 'Blog',            href: '/blog' },
       { icon: Ban,           label: 'Blacklisted',     href: '/blacklist' },
       { icon: MessageCircle, label: 'Testimonials',    href: '/testimonials' },
     ],

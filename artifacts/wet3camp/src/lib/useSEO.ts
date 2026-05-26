@@ -2,9 +2,9 @@ import { useEffect } from 'react'
 
 const SITE_NAME = 'Wet3 Camp'
 const SITE_URL = 'https://wet3.camp'
-const DEFAULT_TITLE = "Wet3 Camp — Kenya's #1 Premium Escort & Companion Directory"
-const DEFAULT_DESC = "Browse 1,200+ verified escorts and companions in Nairobi, Mombasa, Kisumu & across Kenya. Discreet, safe, and premium adult services. Join free today."
-const DEFAULT_KEYWORDS = "escorts Kenya, Nairobi escorts, Mombasa escorts, premium companions Kenya, adult services Kenya, verified escorts Nairobi, companion booking Kenya, escort directory Kenya"
+const DEFAULT_TITLE = "Wet3Camp — Kenya's #1 Escort Directory | Nairobi, Mombasa, Kisumu"
+const DEFAULT_DESC = "Browse 1,200+ verified escorts in Nairobi, Mombasa, Kisumu & across Kenya. Find elite, VIP & premium female escorts near you. Discreet bookings. Join free today."
+const DEFAULT_KEYWORDS = "escorts Kenya, Nairobi escorts, Mombasa escorts, Kisumu escorts, female escorts Kenya, elite escorts Nairobi, VIP escorts Mombasa, escort directory Kenya, escort bookings Kenya, verified escorts Kenya, escort near me Kenya, Kenyan escort girls"
 const DEFAULT_OG_IMAGE = `${SITE_URL}/opengraph.jpg`
 
 interface SEOProps {

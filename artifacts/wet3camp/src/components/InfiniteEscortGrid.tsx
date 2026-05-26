@@ -110,7 +110,7 @@ export default function InfiniteEscortGrid({
 
   const handleFollow = (e: React.MouseEvent, id: string) => {
     e.preventDefault(); e.stopPropagation()
-    if (isLoggedIn) toggleFollow(id)
+    toggleFollow(id)
   }
 
   return (

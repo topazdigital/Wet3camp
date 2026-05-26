@@ -35,6 +35,8 @@ import Shop from "@/pages/shop";
 import Testimonials from "@/pages/testimonials";
 import Tours from "@/pages/tours";
 import Videos from "@/pages/videos";
+import Blog from "@/pages/blog";
+import BlogPost from "@/pages/blog-post";
 
 const queryClient = new QueryClient();
 
@@ -76,6 +78,8 @@ function Router() {
       <Route path="/testimonials" component={Testimonials} />
       <Route path="/tours" component={Tours} />
       <Route path="/videos" component={Videos} />
+      <Route path="/blog" component={Blog} />
+      <Route path="/blog/:slug" component={BlogPost} />
       <Route component={NotFound} />
     </Switch>
   );

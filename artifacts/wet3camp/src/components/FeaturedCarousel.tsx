@@ -150,7 +150,7 @@ export default function FeaturedCarousel() {
 
   const handleFollow = (e: React.MouseEvent, id: string) => {
     e.preventDefault(); e.stopPropagation()
-    if (isLoggedIn) toggleFollow(id)
+    toggleFollow(id)
   }
 
   // Triple the cards so we always have content to scroll into

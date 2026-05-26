@@ -41,9 +41,9 @@ export default function ProfilePage() {
   const similar = ESCORTS.filter(e => e.id !== escort.id && e.city === escort.city).slice(0, 6)
 
   useSEO({
-    title: escort ? `${escort.name} — ${escort.tier} Companion in ${escort.city}` : 'Escort Profile Kenya',
-    description: escort ? `Book ${escort.name}, verified ${escort.tier} companion in ${escort.area}, ${escort.city}. ${escort.bio?.slice(0, 130)}` : "Verified escort profile on Wet3 Camp — Kenya's #1 companion directory.",
-    keywords: escort ? `${escort.name}, escort ${escort.city} Kenya, ${escort.tier} companion ${escort.area}, book ${escort.name}` : undefined,
+    title: escort ? `${escort.name} — ${escort.tier} Escort in ${escort.city} | Wet3Camp` : 'Verified Escort Profile Kenya | Wet3Camp',
+    description: escort ? `Book ${escort.name}, verified ${escort.tier} escort in ${escort.area}, ${escort.city}. ${escort.bio?.slice(0, 130)}` : "Verified escort profiles on Wet3Camp — Kenya's #1 escort directory.",
+    keywords: escort ? `${escort.name}, ${escort.city} escort, ${escort.area} escort Kenya, ${escort.tier} escort ${escort.city}, book escort ${escort.city}, female escort ${escort.area}` : undefined,
   })
 
   const [liked, setLiked] = useState(false)
@@ -130,7 +130,7 @@ export default function ProfilePage() {
           {/* Top-right: actions */}
           <div className="absolute top-4 right-4 flex items-center gap-2">
             <button
-              onClick={() => { if (isLoggedIn) toggleFollow(escort.id) }}
+              onClick={() => toggleFollow(escort.id)}
               className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold backdrop-blur-sm transition-all border ${following ? 'bg-[#8B0000]/40 border-[#8B0000]/60 text-white' : 'bg-black/50 border-white/20 text-white hover:bg-black/70'}`}
             >
               {following ? <UserCheck size={13} /> : <UserPlus size={13} />}
@@ -203,7 +203,7 @@ export default function ProfilePage() {
                   </div>
                   <div className="ml-auto">
                     <button
-                      onClick={() => { if (isLoggedIn) toggleFollow(escort.id) }}
+                      onClick={() => toggleFollow(escort.id)}
                       className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all border ${following ? 'bg-card-bg border-color text-text-muted hover:border-[#EF4444] hover:text-[#EF4444]' : 'bg-[#8B0000] border-[#8B0000] text-white hover:bg-[#a00000]'}`}
                     >
                       {following ? <><UserCheck size={12} /> Following</> : <><UserPlus size={12} /> Follow</>}
