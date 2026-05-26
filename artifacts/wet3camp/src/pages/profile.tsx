@@ -50,6 +50,7 @@ export default function ProfilePage() {
   const [bookingOpen, setBookingOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<'about' | 'services' | 'reviews'>('about')
   const [selectedImg, setSelectedImg] = useState<string | null>(null)
+  const [mainImg, setMainImg] = useState(escort.image)
   const tier = TIER_STYLE[escort.tier] ?? TIER_STYLE.Elite
   const following = isFollowing(escort.id)
 
@@ -71,7 +72,7 @@ export default function ProfilePage() {
         <div className="relative w-full overflow-hidden" style={{ minHeight: '420px', maxHeight: '600px', height: '65vw' }}>
           {/* Blurred background fill */}
           <img
-            src={escort.image}
+            src={mainImg}
             alt=""
             aria-hidden="true"
             className="absolute inset-0 w-full h-full object-cover scale-110"
@@ -84,9 +85,10 @@ export default function ProfilePage() {
           {/* Full portrait — centered, fully visible */}
           <div className="absolute inset-0 flex items-center justify-center">
             <img
-              src={escort.image}
+              src={mainImg}
               alt={escort.name}
-              className="h-full w-auto max-w-[65%] sm:max-w-[45%] lg:max-w-[35%] object-contain drop-shadow-2xl"
+              onClick={() => setSelectedImg(mainImg)}
+              className="h-full w-auto max-w-[65%] sm:max-w-[45%] lg:max-w-[35%] object-contain drop-shadow-2xl cursor-zoom-in"
               style={{ filter: 'drop-shadow(0 8px 40px rgba(0,0,0,0.7))' }}
               draggable={false}
             />
@@ -96,11 +98,11 @@ export default function ProfilePage() {
           {escort.gallery && escort.gallery.length > 0 && (
             <div className="absolute bottom-14 left-0 right-0 px-4 flex gap-2 overflow-x-auto"
               style={{ scrollbarWidth: 'none' }}>
-              {escort.gallery.slice(0, 6).map((img, i) => (
+              {escort.gallery.slice(0, 6).map((img: string, i: number) => (
                 <button
                   key={i}
-                  onClick={() => setSelectedImg(img)}
-                  className="flex-shrink-0 w-14 h-20 sm:w-16 sm:h-24 rounded-xl overflow-hidden border-2 border-white/20 hover:border-[#FFD700]/70 transition-all shadow-lg backdrop-blur-sm"
+                  onClick={() => setMainImg(img)}
+                  className={`flex-shrink-0 w-14 h-20 sm:w-16 sm:h-24 rounded-xl overflow-hidden border-2 transition-all shadow-lg backdrop-blur-sm ${mainImg === img ? 'border-[#FFD700]/90 ring-1 ring-[#FFD700]/50' : 'border-white/20 hover:border-[#FFD700]/70'}`}
                   style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.5)' }}
                 >
                   <img src={img} alt={`Gallery ${i + 1}`} className="w-full h-full object-cover" draggable={false} />
@@ -108,7 +110,7 @@ export default function ProfilePage() {
               ))}
               {escort.gallery.length > 6 && (
                 <button
-                  onClick={() => setSelectedImg(escort.gallery[6])}
+                  onClick={() => setMainImg(escort.gallery[6])}
                   className="flex-shrink-0 w-14 h-20 sm:w-16 sm:h-24 rounded-xl overflow-hidden border-2 border-white/20 hover:border-[#FFD700]/70 transition-all shadow-lg relative"
                 >
                   <img src={escort.gallery[6]} alt="more" className="w-full h-full object-cover opacity-40" draggable={false} />
@@ -130,7 +132,10 @@ export default function ProfilePage() {
           {/* Top-right: actions */}
           <div className="absolute top-4 right-4 flex items-center gap-2">
             <button
-              onClick={() => toggleFollow(escort.id)}
+              onClick={() => {
+                if (!isLoggedIn) { window.location.href = `/login?redirect=/profile/${escort.id}`; return }
+                toggleFollow(escort.id)
+              }}
               className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold backdrop-blur-sm transition-all border ${following ? 'bg-[#8B0000]/40 border-[#8B0000]/60 text-white' : 'bg-black/50 border-white/20 text-white hover:bg-black/70'}`}
             >
               {following ? <UserCheck size={13} /> : <UserPlus size={13} />}
@@ -203,7 +208,10 @@ export default function ProfilePage() {
                   </div>
                   <div className="ml-auto">
                     <button
-                      onClick={() => toggleFollow(escort.id)}
+                      onClick={() => {
+                        if (!isLoggedIn) { window.location.href = `/login?redirect=/profile/${escort.id}`; return }
+                        toggleFollow(escort.id)
+                      }}
                       className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all border ${following ? 'bg-card-bg border-color text-text-muted hover:border-[#EF4444] hover:text-[#EF4444]' : 'bg-[#8B0000] border-[#8B0000] text-white hover:bg-[#a00000]'}`}
                     >
                       {following ? <><UserCheck size={12} /> Following</> : <><UserPlus size={12} /> Follow</>}
@@ -270,7 +278,7 @@ export default function ProfilePage() {
                   )}
                   {activeTab === 'services' && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {escort.services.map(s => (
+                      {escort.services.map((s: any) => (
                         <div key={s.name} className={`flex items-center justify-between p-3 rounded-xl border text-xs ${s.available ? 'bg-dark-bg border-color' : 'bg-dark-bg/50 border-color/30 opacity-50'}`}>
                           <span className={`font-medium ${s.available ? 'text-text-light' : 'text-text-muted'}`}>{s.name}</span>
                           {s.available
@@ -282,7 +290,7 @@ export default function ProfilePage() {
                   )}
                   {activeTab === 'reviews' && (
                     <div className="space-y-3">
-                      {(escort.reviews_data ?? []).map(r => (
+                      {(escort.reviews_data ?? []).map((r: any) => (
                         <div key={r.id} className="p-4 bg-dark-bg rounded-xl border border-color/50">
                           <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-2">
@@ -306,8 +314,8 @@ export default function ProfilePage() {
               <div className="bg-card-bg border border-color rounded-2xl p-5">
                 <h3 className="text-sm font-bold text-text-light mb-3">Photo Gallery</h3>
                 <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
-                  {escort.gallery.map((img, i) => (
-                    <button key={i} onClick={() => setSelectedImg(img)} className="aspect-square rounded-xl overflow-hidden border border-color hover:border-[#8B0000]/60 transition-all group">
+                  {escort.gallery.map((img: string, i: number) => (
+                    <button key={i} onClick={() => setSelectedImg(img)} title="View larger" className="aspect-square rounded-xl overflow-hidden border border-color hover:border-[#8B0000]/60 transition-all group">
                       <img src={img} alt={`Gallery ${i + 1}`} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" loading="lazy" />
                     </button>
                   ))}

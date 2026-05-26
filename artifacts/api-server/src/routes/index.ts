@@ -9,6 +9,7 @@ import reviewsRouter   from "./reviews.js";
 import adminRouter     from "./admin.js";
 import profileRouter   from "./profile.js";
 import sseRouter       from "./sse.js";
+import sitemapRouter   from "./sitemap.js";
 
 const router: IRouter = Router();
 
@@ -22,5 +23,6 @@ router.use(reviewsRouter);
 router.use(adminRouter);
 router.use(profileRouter);
 router.use(sseRouter);
+router.use(sitemapRouter);
 
 export default router;

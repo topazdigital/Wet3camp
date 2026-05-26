@@ -1,11 +1,11 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import Header from '@/components/Header'
 import Sidebar from '@/components/Sidebar'
 import { useAuth } from '@/lib/auth-context'
 import {
   Shield, Users, Calendar, BarChart2, Settings, Plus, Trash2, Edit2, CheckCircle2, XCircle,
   AlertTriangle, Lock, Mail, Eye, EyeOff, TrendingUp, DollarSign, Crown, Key, Instagram,
-  Smartphone, Globe, MessageCircle, Bell, Star, Save, RefreshCw
+  Smartphone, Globe, MessageCircle, Bell, Star, Save, RefreshCw, Camera
 } from 'lucide-react'
 import { useSEO } from '@/lib/useSEO'
 
@@ -615,6 +615,33 @@ function AdminDashboard() {
                   <label htmlFor="maintenance" className="text-xs text-text-muted cursor-pointer">Require admin approval for new escort registrations</label>
                 </div>
                 <button className="mt-5 px-6 py-2.5 bg-[#8B0000] text-white text-xs font-bold rounded-xl hover:bg-[#a00000] transition-all flex items-center gap-2"><Save size={12}/>Save Settings</button>
+              </div>
+              <div className="bg-card-bg border border-[#FFD700]/20 rounded-2xl p-5">
+                <h3 className="text-sm font-bold text-text-light mb-2 flex items-center gap-2">
+                  <Camera size={14} className="text-[#FFD700]" /> Verification Pose Reference Photo
+                </h3>
+                <p className="text-[11px] text-text-muted mb-4">This photo is shown to escorts during registration as the required selfie pose. Update it here when you want a different pose.</p>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-[10px] text-text-muted uppercase tracking-widest mb-2">Current Pose Guide</p>
+                    <div className="aspect-[4/3] rounded-2xl border-2 border-[#FFD700]/20 bg-dark-bg overflow-hidden flex items-center justify-center">
+                      <img src="/pose-guide.png" alt="Pose guide" className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                      <p className="text-xs text-text-muted absolute">No pose guide uploaded yet</p>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-text-muted uppercase tracking-widest mb-2">Upload New Pose</p>
+                    <label className="aspect-[4/3] rounded-2xl border-2 border-dashed border-color hover:border-[#FFD700] transition-all cursor-pointer bg-dark-bg flex flex-col items-center justify-center gap-2">
+                      <Camera size={24} className="text-text-muted" />
+                      <span className="text-xs text-text-muted text-center px-4">Click to upload a new pose reference photo</span>
+                      <span className="text-[10px] text-text-muted">PNG, JPG · Max 5MB</span>
+                      <input type="file" accept="image/*" className="hidden" />
+                    </label>
+                  </div>
+                </div>
+                <button className="mt-4 px-4 py-2 bg-[#FFD700] text-black text-xs font-bold rounded-xl hover:bg-[#e6c000] transition-all flex items-center gap-2">
+                  <Save size={12} /> Save Pose Photo
+                </button>
               </div>
               <div className="bg-card-bg border border-color rounded-2xl p-5">
                 <h3 className="text-sm font-bold text-text-light mb-4">Admin Credentials</h3>

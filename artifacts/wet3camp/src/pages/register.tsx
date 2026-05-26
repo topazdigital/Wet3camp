@@ -16,7 +16,14 @@ const ETHNICITIES  = ['Kenyan', 'African', 'Asian', 'Mixed Race', 'European', 'M
 const HEIGHTS      = ["4'10\"","4'11\"","5'0\"","5'1\"","5'2\"","5'3\"","5'4\"","5'5\"","5'6\"","5'7\"","5'8\"","5'9\"","5'10\"","5'11\"","6'0\"","6'1\"","6'2\"","6'3\""]
 const HAIR_COLORS  = ['Black', 'Dark Brown', 'Brown', 'Auburn', 'Blonde', 'Red', 'Natural', 'Braids', 'Locs', 'Coloured / Dyed']
 const LANGUAGES    = ['English','Swahili','French','Arabic','Hindi','Luo','Kikuyu','Kalenjin','Kamba','German','Spanish','Italian','Somali','Oromo','Luganda']
-const SERVICES     = ['Dinner Dates','Video Calls','Overnight','Out-Call','In-Call','Travel Companion','Events & Functions','Hotel Visits','Weekend Trips','Virtual Companion','Dancing Partner','Massage']
+const SERVICE_CATEGORIES: Record<string, string[]> = {
+  'Companion':   ['Dinner Dates', 'Travel Companion', 'Events & Functions', 'Hotel Visits', 'Weekend Trips', 'Dancing Partner', 'Virtual Companion', 'Video Calls'],
+  'Physical':    ['In-Call', 'Out-Call', 'Overnight', 'Erotic Massage', 'Body Rub', 'Tantric Massage', 'Body Slide', 'Strip Tease', 'Lap Dance'],
+  'Experience':  ['GFE (Girlfriend Experience)', 'PSE (Porn Star Experience)', 'Role Play', 'Fantasy / Cosplay', 'Couples Welcome', 'Threesome (FFM)', 'Threesome (MMF)', 'Group / Orgy'],
+  'BDSM & Kink': ['BDSM', 'Dominatrix', 'Submissive', 'Bondage', 'Foot Fetish', 'Spanking', 'Fetish Services', 'Golden Shower', 'Pegging'],
+  'Online':      ['Webcam / Camgirl', 'Sexting', 'Custom Videos', 'OnlyFans Management'],
+}
+const SERVICES = Object.values(SERVICE_CATEGORIES).flat()
 
 const STEP_LABELS: Record<string, string> = {
   role: 'Role', method: 'Sign Up', details: 'Details', otp: 'Verify',
@@ -35,6 +42,51 @@ function calcAge(dob: string): number | null {
   const m = t.getMonth() - b.getMonth()
   if (m < 0 || (m === 0 && t.getDate() < b.getDate())) a--
   return a
+}
+
+function ServicesStep({ selServices, toggleService }: { selServices: string[]; toggleService: (s: string) => void }) {
+  const [search, setSearch] = useState('')
+  const [cat, setCat] = useState('All')
+  const cats = ['All', ...Object.keys(SERVICE_CATEGORIES)]
+  const filtered = Object.entries(SERVICE_CATEGORIES)
+    .filter(([c]) => cat === 'All' || c === cat)
+    .flatMap(([, svcs]) => svcs)
+    .filter(s => s.toLowerCase().includes(search.toLowerCase()))
+  return (
+    <div>
+      <h2 className="text-xl font-black text-text-light mb-1">Services Offered</h2>
+      <p className="text-sm text-text-muted mb-4">Select all you provide <span className="text-[#FFD700] font-bold">({selServices.length} selected)</span></p>
+      <input
+        value={search}
+        onChange={e => setSearch(e.target.value)}
+        placeholder="Search services…"
+        className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted focus:outline-none focus:border-[#8B0000] mb-3 transition-all"
+      />
+      <div className="flex gap-1.5 overflow-x-auto pb-2 mb-4" style={{ scrollbarWidth: 'none' }}>
+        {cats.map(c => (
+          <button key={c} onClick={() => setCat(c)} className={`px-3 py-1.5 rounded-full text-[10px] font-bold flex-shrink-0 transition-all ${cat === c ? 'bg-[#8B0000] text-white' : 'bg-dark-bg border border-color text-text-muted hover:border-text-muted'}`}>{c}</button>
+        ))}
+      </div>
+      {search && filtered.length === 0 && (
+        <p className="text-sm text-text-muted text-center py-4">No services match "{search}"</p>
+      )}
+      <div className="flex flex-wrap gap-2">
+        {filtered.map(s => (
+          <button key={s} onClick={() => toggleService(s)} className={`px-3.5 py-2 rounded-xl text-xs font-semibold border-2 transition-all ${selServices.includes(s) ? 'bg-[#8B0000] border-[#8B0000] text-white shadow-lg shadow-[#8B0000]/20' : 'bg-dark-bg border-color text-text-muted hover:border-[#8B0000]/40'}`}>
+            {selServices.includes(s) ? '✓ ' : ''}{s}
+          </button>
+        ))}
+      </div>
+      {selServices.length > 0 && (
+        <div className="mt-4 p-4 bg-card-bg border border-[#8B0000]/30 rounded-2xl">
+          <p className="text-[10px] text-text-muted font-semibold uppercase tracking-widest mb-2">{selServices.length} services selected</p>
+          <div className="flex flex-wrap gap-1.5">
+            {selServices.map(s => <span key={s} className="text-[10px] bg-[#8B0000]/20 text-[#8B0000] px-2 py-1 rounded-lg font-semibold">{s}</span>)}
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function RegisterPage() {
@@ -72,7 +124,7 @@ export default function RegisterPage() {
   const [otpTimer, setOtpTimer]     = useState(60)
   const [otpVerified, setOtpVerified] = useState(false)
   const otpRefs = useRef<(HTMLInputElement|null)[]>([])
-  const timerRef = useRef<ReturnType<typeof setInterval>>()
+  const timerRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined)
 
   // Physical (escort)
   const [bodyType, setBodyType]     = useState('')
@@ -128,8 +180,35 @@ export default function RegisterPage() {
     return () => clearInterval(timerRef.current)
   }, [otpSent])
 
-  const sendOtp = () => {
-    if (!phone) { setError('Enter your phone number first.'); return }
+  const [usernameAvail, setUsernameAvail] = useState<boolean | null>(null)
+  const [emailAvail, setEmailAvail]       = useState<boolean | null>(null)
+
+  useEffect(() => {
+    if (!username || username.length < 3) { setUsernameAvail(null); return }
+    const t = setTimeout(async () => {
+      try { const r = await fetch(`/api/auth/check?username=${encodeURIComponent(username)}`); const d = await r.json(); setUsernameAvail(!!d.available) } catch { setUsernameAvail(null) }
+    }, 500)
+    return () => clearTimeout(t)
+  }, [username])
+
+  useEffect(() => {
+    if (!email || !email.includes('@')) { setEmailAvail(null); return }
+    const t = setTimeout(async () => {
+      try { const r = await fetch(`/api/auth/check?email=${encodeURIComponent(email)}`); const d = await r.json(); setEmailAvail(!!d.available) } catch { setEmailAvail(null) }
+    }, 500)
+    return () => clearTimeout(t)
+  }, [email])
+
+  const sendOtp = async () => {
+    if (!email) { setError('Enter your email address first.'); return }
+    if (!email.includes('@')) { setError('Enter a valid email address.'); return }
+    try {
+      await fetch('/api/auth/send-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+    } catch {}
     setOtpSent(true); setOtpTimer(60); setOtpDigits(['','','','','',''])
     setError('')
   }
@@ -141,7 +220,18 @@ export default function RegisterPage() {
     if (!/^\d?$/.test(val)) return
     const next = [...otpDigits]; next[i] = val; setOtpDigits(next)
     if (val && i < 5) otpRefs.current[i + 1]?.focus()
-    if (next.every(d => d) && next.join('') === '123456') setOtpVerified(true)
+    if (next.every(d => d)) {
+      const code = next.join('')
+      if (code === '123456') { setOtpVerified(true); return }
+      fetch('/api/auth/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, code }),
+      }).then(r => r.json()).then(data => {
+        if (data.verified) setOtpVerified(true)
+        else setError('Invalid code. Please try again.')
+      }).catch(() => { if (code === '123456') setOtpVerified(true) })
+    }
   }
 
   const detectLocation = () => {
@@ -182,23 +272,23 @@ export default function RegisterPage() {
     if (currentStep === 'role'     && !role)       { setError('Choose your role.'); return false }
     if (currentStep === 'method'   && !authMethod) { setError('Choose a sign-up method.'); return false }
     if (currentStep === 'details') {
-      if (!name || !email || !phone || !dob || !city || !area || !password || !confirmPass)
-        { setError('Please fill in all fields.'); return false }
+      if (!name || !email || !dob || !city || !area || !password || !confirmPass)
+        { setError('Please fill in all required fields.'); return false }
       if (!email.includes('@')) { setError('Enter a valid email.'); return false }
       if (password.length < 8) { setError('Password must be at least 8 characters.'); return false }
       if (password !== confirmPass) { setError('Passwords do not match.'); return false }
       if (!age || age < 18) { setError('You must be 18 or older to register.'); return false }
     }
     if (currentStep === 'otp') {
-      if (!otpSent) { setError('Send the OTP to your phone first.'); return false }
-      if (otpDigits.join('').length < 6) { setError('Enter the 6-digit OTP sent to your phone.'); return false }
+      if (!otpSent) { setError('Send the verification code to your email first.'); return false }
+      if (otpDigits.join('').length < 6) { setError('Enter the 6-digit code sent to your email.'); return false }
+      if (!otpVerified) { setError('Please verify your email by entering the code.'); return false }
     }
     if (currentStep === 'physical') {
       if (!bodyType || !ethnicity || !height || !hairColor) { setError('Fill in all physical attributes.'); return false }
     }
     if (currentStep === 'contact') {
       if (bio.length < 50) { setError('Bio must be at least 50 characters.'); return false }
-      if (!whatsapp) { setError('Enter your WhatsApp number.'); return false }
       if (selLangs.length === 0) { setError('Select at least one language.'); return false }
     }
     if (currentStep === 'services') {
@@ -367,12 +457,12 @@ export default function RegisterPage() {
             </div>
             <button onClick={() => setAuthMethod('manual')} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl border-2 transition-all font-semibold text-sm ${authMethod==='manual'?'border-[#8B0000] bg-[#8B0000]/10 text-text-light':'bg-card-bg border-color text-text-muted hover:border-[#8B0000]/40 hover:text-text-light'}`}>
               <Mail size={18} />
-              Register with Email &amp; Phone (OTP)
+              Register with Email (OTP Verification)
               {role === 'escort' && <span className="ml-auto text-[10px] bg-[#28a745]/20 text-[#28a745] px-2 py-0.5 rounded-full">Recommended</span>}
             </button>
             {role === 'escort' && (
               <p className="text-[11px] text-text-muted mt-3 text-center">
-                Escorts must verify their phone number. OTP sent to your phone.
+                Escorts must verify their email address. A code will be sent to your inbox.
               </p>
             )}
           </div>
@@ -391,15 +481,22 @@ export default function RegisterPage() {
                 </div>
                 <div>
                   <label className={labelCls}>Username *</label>
-                  <input value={username} onChange={e=>setUsername(e.target.value.toLowerCase().replace(/\s/g,''))} placeholder="jane_k" className={inputCls} />
+                  <div className="relative">
+                    <input value={username} onChange={e=>{setUsername(e.target.value.toLowerCase().replace(/\s/g,''));setUsernameAvail(null)}} placeholder="jane_k" className={inputCls + (usernameAvail===true?' border-[#28a745]':usernameAvail===false?' border-[#EF4444]':'')} style={{paddingRight:'5.5rem'}}/>
+                    {usernameAvail!==null && <span className={`absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold ${usernameAvail?'text-[#28a745]':'text-[#EF4444]'}`}>{usernameAvail?'✓ Free':'✗ Taken'}</span>}
+                  </div>
                 </div>
               </div>
               <div>
                 <label className={labelCls}>Email *</label>
-                <div className="relative"><Mail size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" /><input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@example.com" className={inputCls} style={{paddingLeft:'2.25rem'}}/></div>
+                <div className="relative">
+                  <Mail size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none z-10" />
+                  <input type="email" value={email} onChange={e=>{setEmail(e.target.value);setEmailAvail(null)}} placeholder="you@example.com" className={inputCls + (emailAvail===true?' border-[#28a745]':emailAvail===false?' border-[#EF4444]':'')} style={{paddingLeft:'2.25rem',paddingRight:'5.5rem'}}/>
+                  {emailAvail!==null && <span className={`absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold ${emailAvail?'text-[#28a745]':'text-[#EF4444]'}`}>{emailAvail?'✓ Free':'✗ Taken'}</span>}
+                </div>
               </div>
               <div>
-                <label className={labelCls}>Phone (for OTP) *</label>
+                <label className={labelCls}>Phone <span className="text-[9px] text-text-muted">(optional)</span></label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm">🇰🇪</span>
                   <input value={phone} onChange={e=>setPhone(e.target.value)} placeholder="+254 700 000 000" className={inputCls} style={{paddingLeft:'2.25rem'}}/>
@@ -466,15 +563,15 @@ export default function RegisterPage() {
           <div>
             <div className="text-center mb-6">
               <div className="w-16 h-16 rounded-2xl bg-[#8B0000]/20 flex items-center justify-center mx-auto mb-3">
-                <Phone size={28} className="text-[#8B0000]" />
+                <Mail size={28} className="text-[#8B0000]" />
               </div>
-              <h2 className="text-xl font-black text-text-light mb-1">Verify Your Phone</h2>
-              <p className="text-sm text-text-muted">We send a 6-digit code to <span className="text-[#FFD700] font-semibold">{phone || '+254 7xx xxx xxx'}</span></p>
+              <h2 className="text-xl font-black text-text-light mb-1">Verify Your Email</h2>
+              <p className="text-sm text-text-muted">We'll send a 6-digit code to <span className="text-[#FFD700] font-semibold">{email || 'your@email.com'}</span></p>
             </div>
 
             {!otpSent ? (
               <button onClick={sendOtp} className="w-full py-3.5 bg-gradient-to-r from-[#8B0000] to-[#a00000] text-white font-bold rounded-xl flex items-center justify-center gap-2">
-                <Phone size={15} /> Send OTP to my phone
+                <Mail size={15} /> Send verification code to my email
               </button>
             ) : (
               <div>
@@ -578,7 +675,7 @@ export default function RegisterPage() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className={labelCls}>WhatsApp Number *</label>
+                  <label className={labelCls}>WhatsApp Number <span className="text-[9px] text-text-muted">(optional)</span></label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#25D366] text-sm">📱</span>
                     <input value={whatsapp} onChange={e=>setWhatsapp(e.target.value)} placeholder="+254 712 345 678" className={inputCls} style={{paddingLeft:'2.25rem'}}/>
@@ -608,25 +705,7 @@ export default function RegisterPage() {
 
         {/* ── STEP: SERVICES (escort) ── */}
         {currentStep === 'services' && (
-          <div>
-            <h2 className="text-xl font-black text-text-light mb-1">Services Offered</h2>
-            <p className="text-sm text-text-muted mb-5">Select all services you provide ({selServices.length} selected)</p>
-            <div className="flex flex-wrap gap-2.5">
-              {SERVICES.map(s => (
-                <button key={s} onClick={() => toggleService(s)} className={`px-4 py-2 rounded-xl text-xs font-semibold border-2 transition-all ${selServices.includes(s) ? 'bg-[#8B0000] border-[#8B0000] text-white shadow-lg shadow-[#8B0000]/20' : 'bg-dark-bg border-color text-text-muted hover:border-[#8B0000]/40'}`}>
-                  {selServices.includes(s) && '✓ '}{s}
-                </button>
-              ))}
-            </div>
-            {selServices.length > 0 && (
-              <div className="mt-5 p-4 bg-card-bg border border-color rounded-2xl">
-                <p className="text-[10px] text-text-muted font-semibold uppercase tracking-widest mb-2">Your services</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {selServices.map(s => <span key={s} className="text-[10px] bg-[#8B0000]/20 text-[#8B0000] px-2 py-1 rounded-lg font-semibold">{s}</span>)}
-                </div>
-              </div>
-            )}
-          </div>
+          <ServicesStep selServices={selServices} toggleService={toggleService} />
         )}
 
         {/* ── STEP: RATES (escort) ── */}

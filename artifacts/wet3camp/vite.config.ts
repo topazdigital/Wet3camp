@@ -26,6 +26,13 @@ if (!basePath) {
   );
 }
 
+function jsonErrorHandler(proxy: any) {
+  proxy.on('error', (_err: Error, _req: any, res: any) => {
+    res.writeHead(503, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify({ message: 'API server unavailable', code: 'NO_DB' }))
+  })
+}
+
 export default defineConfig({
   base: basePath,
   plugins: [
@@ -67,9 +74,15 @@ export default defineConfig({
       strict: true,
     },
     proxy: {
+      '/sitemap.xml': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+        configure: jsonErrorHandler,
+      },
       '/api': {
         target: 'http://localhost:8080',
         changeOrigin: true,
+        configure: jsonErrorHandler,
       },
     },
   },

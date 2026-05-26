@@ -30,7 +30,7 @@ const TIER_STYLES = {
 
 const CARD_W = 220
 const GAP = 14
-const SPEED = 0.6 // px per frame at 60fps
+const SPEED = 0.6
 
 export default function FeaturedCarousel() {
   const [liked, setLiked] = useState<Set<number>>(new Set())
@@ -38,8 +38,6 @@ export default function FeaturedCarousel() {
   const { isLoggedIn } = useAuth()
   const { isOnline, onlineIds } = useOnlineStatus()
 
-  // Count how many featured cards are online — prefer live API data,
-  // fall back to static online flags when SSE hasn't connected yet
   const liveOnlineCount = FEATURED.filter(c => isOnline(String(c.id))).length
   const staticOnlineCount = FEATURED.filter(c => c.online).length
   const onlineCount = onlineIds.size > 0 ? liveOnlineCount : staticOnlineCount
@@ -51,6 +49,8 @@ export default function FeaturedCarousel() {
   const paused = useRef(false)
   const isDragging = useRef(false)
   const dragStartX = useRef(0)
+  const dragStartY = useRef(0)
+  const dragDir = useRef<'h' | 'v' | null>(null)
   const dragStartOffset = useRef(0)
   const dragMoved = useRef(false)
   const velocity = useRef(0)
@@ -62,7 +62,6 @@ export default function FeaturedCarousel() {
 
   const applyTransform = useCallback(() => {
     if (!trackRef.current) return
-    // wrap offset within [0, singleWidth) for seamless loop
     offsetRef.current = ((offsetRef.current % singleWidth) + singleWidth) % singleWidth
     trackRef.current.style.transform = `translateX(-${offsetRef.current}px)`
   }, [singleWidth])
@@ -82,7 +81,6 @@ export default function FeaturedCarousel() {
     inertiaRaf.current = requestAnimationFrame(runInertia)
   }, [applyTransform])
 
-  // Auto-scroll RAF loop
   useEffect(() => {
     const tick = () => {
       if (!paused.current && !isDragging.current) {
@@ -97,24 +95,44 @@ export default function FeaturedCarousel() {
     }
   }, [applyTransform])
 
-  // Pointer drag handlers
   const onPointerDown = (e: React.PointerEvent) => {
     stopInertia()
     isDragging.current = true
     dragMoved.current = false
+    dragDir.current = null
     dragStartX.current = e.clientX
+    dragStartY.current = e.clientY
     dragStartOffset.current = offsetRef.current
     lastDragX.current = e.clientX
     lastDragTime.current = performance.now()
     velocity.current = 0
     ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
-    e.preventDefault()
+    // NOTE: intentionally NOT calling e.preventDefault() — it blocks link clicks
   }
 
   const onPointerMove = (e: React.PointerEvent) => {
     if (!isDragging.current) return
     const dx = e.clientX - dragStartX.current
+    const dy = e.clientY - dragStartY.current
+
+    // Determine gesture direction on first significant move (>5px)
+    if (dragDir.current === null && (Math.abs(dx) > 5 || Math.abs(dy) > 5)) {
+      if (Math.abs(dy) > Math.abs(dx)) {
+        // Vertical gesture — release capture and let browser scroll the page
+        isDragging.current = false
+        dragDir.current = 'v'
+        ;(e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId)
+        return
+      }
+      dragDir.current = 'h'
+    }
+
+    if (dragDir.current !== 'h') return
+
+    // Horizontal drag — prevent page scroll and move carousel
+    e.preventDefault()
     if (Math.abs(dx) > 4) dragMoved.current = true
+
     const now = performance.now()
     const dt = now - lastDragTime.current
     if (dt > 0) {
@@ -129,10 +147,9 @@ export default function FeaturedCarousel() {
   const onPointerUp = () => {
     if (!isDragging.current) return
     isDragging.current = false
-    if (Math.abs(velocity.current) > 0.5) {
+    if (dragDir.current === 'h' && Math.abs(velocity.current) > 0.5) {
       inertiaRaf.current = requestAnimationFrame(runInertia)
     }
-    // Reset dragMoved AFTER the click event fires (click fires after pointerup)
     setTimeout(() => { dragMoved.current = false }, 50)
   }
 
@@ -153,7 +170,6 @@ export default function FeaturedCarousel() {
     toggleFollow(id)
   }
 
-  // Triple the cards so we always have content to scroll into
   const allCards = [...FEATURED, ...FEATURED, ...FEATURED]
 
   return (
@@ -177,19 +193,18 @@ export default function FeaturedCarousel() {
 
       <div
         className="overflow-hidden select-none"
-        style={{ cursor: isDragging.current ? 'grabbing' : 'grab' }}
+        style={{ touchAction: 'pan-y', cursor: 'grab' }}
         onMouseEnter={() => { paused.current = true }}
-        onMouseLeave={() => { paused.current = false }}
+        onMouseLeave={() => { paused.current = false; if (isDragging.current) onPointerUp() }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
-        onPointerLeave={onPointerUp}
       >
         <div
           ref={trackRef}
           className="flex will-change-transform"
-          style={{ gap: `${GAP}px`, paddingLeft: '12px', width: 'max-content', touchAction: 'none' }}
+          style={{ gap: `${GAP}px`, paddingLeft: '12px', width: 'max-content' }}
         >
           {allCards.map((card, idx) => {
             const tier = TIER_STYLES[card.tier]
@@ -220,7 +235,6 @@ export default function FeaturedCarousel() {
                     <CheckCircle2 size={14} className="text-[#28a745]" fill="#28a745" />
                   </div>
 
-                  {/* Online dot */}
                   {(isOnline(String(card.id)) || card.online) && (
                     <div className="absolute top-2 right-[68px] flex items-center gap-1 px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(40,167,69,0.2)', border: '1px solid rgba(40,167,69,0.4)' }}>
                       <div className="w-1.5 h-1.5 rounded-full bg-[#28a745] animate-pulse" />

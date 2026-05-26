@@ -1,0 +1,2 @@
+- [Wet3Camp stack](wet3camp-stack.md) — MySQL/mysql2, Express 5 (port 8080), React+Vite (port 19099), Expo mobile; JWT auth in localStorage as 'auth_token'
+- [Wet3Camp pre-existing TS errors](wet3camp-ts-errors.md) — Several non-blocking TS errors exist before any edits; don't treat as regressions
