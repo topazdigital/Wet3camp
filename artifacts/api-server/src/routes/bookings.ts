@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { getPool } from '../lib/db.js'
 import { requireAuth, type AuthRequest } from '../middlewares/requireAuth.js'
+import { sendBookingNotification } from '../lib/mailer.js'
 
 const router = Router()
 
@@ -57,6 +58,21 @@ router.post('/bookings', requireAuth, async (req: AuthRequest, res) => {
       'INSERT INTO bookings (user_id, escort_id, booking_date, start_time, duration_hrs, type, amount, notes, location, status) VALUES (?,?,?,?,?,?,?,?,?,?)',
       [req.userId, escortId, date, time, duration, type, amount, notes ?? null, location ?? null, 'pending']
     )
+
+    const [[client]] = await pool.query<any[]>('SELECT name, email FROM users WHERE id = ?', [req.userId]).catch(() => [[null]])
+    sendBookingNotification({
+      escortName:  escort.name,
+      escortEmail: escort.email ?? null,
+      clientName:  client?.name ?? 'Client',
+      clientEmail: client?.email ?? '',
+      date,
+      time,
+      duration,
+      type,
+      amount,
+      location:    location ?? null,
+      notes:       notes ?? null,
+    }).catch(() => {})
 
     res.status(201).json({ id: (result as any).insertId, escortId: String(escortId), date, time, duration, type, amount, status: 'pending' })
   } catch {

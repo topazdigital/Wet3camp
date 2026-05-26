@@ -15,20 +15,20 @@ API_DIR="/home/admin/api-server"
 API_ENV="$API_DIR/env"
 
 echo ""
-echo "==> [1/6] Installing pnpm (if not already installed)..."
+echo "==> [1/7] Installing pnpm (if not already installed)..."
 if ! command -v pnpm &>/dev/null; then
   npm install -g pnpm
 fi
 echo "    pnpm $(pnpm --version)"
 
 echo ""
-echo "==> [2/6] Installing dependencies..."
+echo "==> [2/7] Installing dependencies..."
 cd "$REPO_DIR"
 pnpm install --frozen-lockfile
 echo "    Done."
 
 echo ""
-echo "==> [3/6] Running DB migrations..."
+echo "==> [3/7] Running DB migrations..."
 if [ -f "$API_ENV" ]; then
   set -a; source "$API_ENV"; set +a
 fi
@@ -41,36 +41,61 @@ if [ -n "$DB_HOST" ] && [ -n "$DB_USER" ] && [ -n "$DB_NAME" ]; then
   fi
 else
   echo "    WARNING: DB env vars not found in $API_ENV — skipping migrations."
-  echo "    Make sure your env file contains DB_HOST, DB_USER, DB_PASS, DB_NAME."
 fi
 
 echo ""
-echo "==> [4/6] Building frontend and API..."
+echo "==> [4/7] Building frontend and API..."
 PORT=19099 BASE_PATH=/ pnpm --filter "@workspace/wet3camp"  run build
 pnpm --filter "@workspace/api-server" run build
 echo "    Build complete."
 
 echo ""
-echo "==> [5/6] Copying files to live folders..."
+echo "==> [5/7] Copying files to live folders..."
 mkdir -p "$WEB_ROOT"
 rm -rf "${WEB_ROOT:?}"/*
-cp -r "$REPO_DIR/artifacts/wet3camp/dist/." "$WEB_ROOT/"
+# Vite outputs to dist/public — copy that subfolder to web root
+cp -r "$REPO_DIR/artifacts/wet3camp/dist/public/." "$WEB_ROOT/"
+chmod -R 755 "$WEB_ROOT"
 mkdir -p "$API_DIR/dist"
 cp -r "$REPO_DIR/artifacts/api-server/dist/." "$API_DIR/dist/"
 cp    "$REPO_DIR/artifacts/api-server/package.json" "$API_DIR/"
 echo "    Files copied."
 
 echo ""
-echo "==> [6/6] Starting/restarting API server via PM2..."
+echo "==> [6/7] Ensuring env file has all required vars..."
+if [ ! -f "$API_ENV" ]; then
+  echo "" > "$API_ENV"
+  echo "    Created new env file at $API_ENV"
+fi
+
+add_if_missing() {
+  local key="$1"
+  local value="$2"
+  if ! grep -q "^${key}=" "$API_ENV" 2>/dev/null; then
+    echo "${key}=${value}" >> "$API_ENV"
+    echo "    Added missing: $key"
+  fi
+}
+
+add_if_missing "PORT"         "8080"
+add_if_missing "DB_HOST"      "localhost"
+add_if_missing "DB_PORT"      "3306"
+add_if_missing "DB_USER"      "admin_wet3camp"
+add_if_missing "DB_PASS"      "CHANGE_ME"
+add_if_missing "DB_NAME"      "admin_wet3camp"
+add_if_missing "JWT_SECRET"   "CHANGE_ME_$(openssl rand -hex 32 2>/dev/null || echo 'replace_with_random_string')"
+add_if_missing "NODE_ENV"     "production"
+add_if_missing "SMTP_HOST"    "mail.wet3.camp"
+add_if_missing "SMTP_PORT"    "587"
+add_if_missing "SMTP_USER"    "support@wet3.camp"
+add_if_missing "SMTP_PASS"    "CHANGE_ME"
+
+echo "    Env file checked. Edit $API_ENV to fill in any CHANGE_ME values."
+
+echo ""
+echo "==> [7/7] Starting/restarting API server via PM2..."
 cd "$API_DIR"
 npm install --omit=dev --no-package-lock --silent 2>/dev/null || true
-
-if [ ! -f "$API_ENV" ]; then
-  echo ""
-  echo "  ⚠️  No env file found at $API_ENV"
-  echo "  Create it with the variables shown at the bottom of this script."
-  echo ""
-fi
 
 if pm2 describe wet3camp-api > /dev/null 2>&1; then
   pm2 restart wet3camp-api --update-env
@@ -86,18 +111,8 @@ fi
 echo ""
 echo "✅ Deploy complete! https://wet3.camp is now live."
 echo ""
-echo "─────────────────────────────────────────────────────"
-echo "If the API shows 'Service Unavailable', your env file"
-echo "is missing DB credentials. Edit $API_ENV to contain:"
-echo ""
-echo "PORT=8080"
-echo "DB_HOST=localhost"
-echo "DB_PORT=3306"
-echo "DB_USER=admin_betcheza"
-echo "DB_PASS=YOUR_MYSQL_PASSWORD"
-echo "DB_NAME=admin_wet3camp"
-echo "JWT_SECRET=REPLACE_WITH_64_CHAR_RANDOM_STRING"
-echo "NODE_ENV=production"
-echo ""
-echo "Then run:  pm2 restart wet3camp-api --update-env"
-echo "─────────────────────────────────────────────────────"
+echo "─────────────────────────────────────────────────────────────"
+echo "⚠️  If any value in $API_ENV says CHANGE_ME, edit it:"
+echo "     nano $API_ENV"
+echo "   Then run:  pm2 restart wet3camp-api --update-env"
+echo "─────────────────────────────────────────────────────────────"
