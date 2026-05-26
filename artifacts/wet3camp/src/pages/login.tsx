@@ -117,13 +117,6 @@ export default function LoginPage() {
               <p className="text-text-muted text-sm mt-1">Sign in to your account to continue</p>
             </div>
 
-            {/* Demo hint */}
-            <div className="mb-5 p-3 bg-[#FFD700]/10 border border-[#FFD700]/20 rounded-xl">
-              <p className="text-[10px] text-[#FFD700] font-bold mb-1">Demo Accounts</p>
-              <p className="text-[10px] text-text-muted">Client: <span className="text-text-light">client@test.com</span> / Test1234!</p>
-              <p className="text-[10px] text-text-muted">Escort: <span className="text-text-light">amara@wet3camp.com</span> / Test1234!</p>
-              <p className="text-[10px] text-text-muted">Admin: <span className="text-text-light">admin@wet3camp.com</span> / Admin@Wet3Camp2024</p>
-            </div>
 
             {error && (
               <div className="mb-4 flex items-start gap-2.5 p-3 bg-[#EF4444]/10 border border-[#EF4444]/20 rounded-xl">

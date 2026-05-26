@@ -269,6 +269,48 @@ router.post('/auth/verify-otp', (req, res) => {
   res.json({ verified: true, message: 'Email verified successfully.' })
 })
 
+router.post('/auth/admin-reset', async (req, res) => {
+  try {
+    const resetSecret = process.env.ADMIN_RESET_SECRET
+    if (!resetSecret) {
+      res.status(403).json({ message: 'Admin reset is not enabled on this server. Set ADMIN_RESET_SECRET in the env file.' }); return
+    }
+    const { secret, email, password, name } = req.body as { secret?: string; email?: string; password?: string; name?: string }
+    if (!secret || secret !== resetSecret) {
+      res.status(403).json({ message: 'Invalid reset secret.' }); return
+    }
+    if (!email || !password) {
+      res.status(400).json({ message: 'email and password are required' }); return
+    }
+    if (password.length < 8) {
+      res.status(400).json({ message: 'Password must be at least 8 characters' }); return
+    }
+    const pool = getPool()
+    if (!pool) {
+      res.status(503).json({ message: 'Database not configured' }); return
+    }
+    const hash = await hashPassword(password)
+    const [[existing]] = await pool.query<any[]>('SELECT id FROM users WHERE role = ? LIMIT 1', ['admin'])
+    if (existing) {
+      await pool.query(
+        'UPDATE users SET email = ?, password_hash = ?, display_name = ?, is_active = 1 WHERE id = ?',
+        [email.toLowerCase().trim(), hash, name ?? 'Platform Admin', existing.id]
+      )
+      res.json({ message: `Admin credentials updated. Email: ${email}` })
+    } else {
+      const username = 'admin_' + Math.floor(Math.random() * 9999)
+      await pool.query(
+        'INSERT INTO users (username, email, password_hash, display_name, role, is_active) VALUES (?,?,?,?,?,1)',
+        [username, email.toLowerCase().trim(), hash, name ?? 'Platform Admin', 'admin']
+      )
+      res.status(201).json({ message: `Admin created. Email: ${email}` })
+    }
+  } catch (err) {
+    console.error('[admin-reset]', err)
+    res.status(500).json({ message: 'Reset failed' })
+  }
+})
+
 router.post('/auth/setup-admin', async (req, res) => {
   try {
     const { email, password, name } = req.body as { email?: string; password?: string; name?: string }
