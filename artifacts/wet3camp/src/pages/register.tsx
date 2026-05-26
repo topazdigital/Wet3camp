@@ -119,6 +119,9 @@ export default function RegisterPage() {
   const [citySuggestions, setCitySuggestions] = useState<string[]>([])
   const [showCitySuggestions, setShowCitySuggestions] = useState(false)
   const cityPickedRef = useRef(false)
+  const [areaSuggestions, setAreaSuggestions] = useState<string[]>([])
+  const [showAreaSuggestions, setShowAreaSuggestions] = useState(false)
+  const areaPickedRef = useRef(false)
 
   // OTP
   const [otpDigits, setOtpDigits]   = useState(['','','','','',''])
@@ -205,8 +208,7 @@ export default function RegisterPage() {
     const t = setTimeout(async () => {
       try {
         const r = await fetch(
-          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(city)}&format=json&addressdetails=1&limit=6&countrycodes=ke`,
-          { headers: { 'User-Agent': 'Wet3Camp/1.0' } }
+          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(city)}&format=json&addressdetails=1&limit=6&countrycodes=ke`
         )
         const data = await r.json()
         const names: string[] = []
@@ -220,6 +222,27 @@ export default function RegisterPage() {
     }, 450)
     return () => clearTimeout(t)
   }, [city])
+
+  useEffect(() => {
+    if (areaPickedRef.current || !area || area.length < 2) { setAreaSuggestions([]); return }
+    const t = setTimeout(async () => {
+      try {
+        const q = city ? `${area}, ${city}, Kenya` : `${area}, Kenya`
+        const r = await fetch(
+          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&addressdetails=1&limit=6&countrycodes=ke`
+        )
+        const data = await r.json()
+        const names: string[] = []
+        for (const d of data) {
+          const a = d.address ?? {}
+          const n = a.suburb || a.neighbourhood || a.residential || a.quarter || a.hamlet || a.village || d.display_name.split(',')[0]
+          if (n && !names.includes(n)) names.push(n)
+        }
+        setAreaSuggestions(names.slice(0, 5))
+      } catch {}
+    }, 450)
+    return () => clearTimeout(t)
+  }, [area, city])
 
   const sendOtp = async () => {
     if (!email) { setError('Enter your email address first.'); return }
@@ -264,15 +287,14 @@ export default function RegisterPage() {
         const { latitude: lat, longitude: lng } = pos.coords
         try {
           const r = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1`,
-            { headers: { 'User-Agent': 'Wet3Camp/1.0' } }
+            `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1`
           )
           const d = await r.json()
           const a = d.address ?? {}
           const detectedCity = a.city || a.town || a.village || a.county || ''
-          const detectedArea = a.suburb || a.neighbourhood || a.residential || ''
+          const detectedArea = a.suburb || a.neighbourhood || a.residential || a.quarter || ''
           if (detectedCity) { cityPickedRef.current = true; setCity(detectedCity); setShowCitySuggestions(false) }
-          if (detectedArea) setArea(detectedArea)
+          if (detectedArea) { areaPickedRef.current = true; setArea(detectedArea) }
           if (!detectedCity) setError('Could not determine city. Please type your city.')
         } catch {
           setError('Could not detect location. Please type your city manually.')
@@ -589,7 +611,33 @@ export default function RegisterPage() {
                       </div>
                     )}
                   </div>
-                  <input value={area} onChange={e=>setArea(e.target.value)} placeholder="Area / neighbourhood" className={selectCls} />
+                  <div className="relative">
+                    <input
+                      value={area}
+                      onChange={e => { areaPickedRef.current = false; setArea(e.target.value); setShowAreaSuggestions(true) }}
+                      onFocus={() => { if (area.length >= 2) setShowAreaSuggestions(true) }}
+                      onBlur={() => setTimeout(() => {
+                        setShowAreaSuggestions(false)
+                        if (!areaPickedRef.current && area) setArea('')
+                      }, 150)}
+                      placeholder="Type area…"
+                      className={selectCls}
+                      autoComplete="off"
+                    />
+                    {showAreaSuggestions && areaSuggestions.length > 0 && (
+                      <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-card-bg border border-color rounded-xl shadow-xl overflow-hidden">
+                        {areaSuggestions.map(s => (
+                          <button
+                            key={s} type="button"
+                            onMouseDown={() => { setArea(s); areaPickedRef.current = true; setShowAreaSuggestions(false); setAreaSuggestions([]) }}
+                            className="w-full text-left px-3 py-2.5 text-xs text-text-light hover:bg-dark-bg flex items-center gap-2 border-b border-color/30 last:border-0"
+                          >
+                            <MapPin size={9} className="text-text-muted flex-shrink-0" /> {s}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">

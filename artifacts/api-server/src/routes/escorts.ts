@@ -87,4 +87,23 @@ router.get('/escorts/:id', async (req, res) => {
   }
 })
 
+router.get('/escorts/search', async (req, res) => {
+  const q = (req.query.q as string ?? '').trim()
+  if (q.length < 2) { res.json([]); return }
+  const pool = getPool()
+  if (!pool) {
+    const results = STATIC_ESCORTS.filter(e => e.name.toLowerCase().includes(q.toLowerCase())).slice(0, 6)
+    return res.json(results.map(e => ({ id: e.id, name: e.name, city: e.city })))
+  }
+  try {
+    const [rows] = await pool.query<any[]>(
+      'SELECT id, name, city, area FROM escorts WHERE name LIKE ? AND is_active = 1 LIMIT 6',
+      [`%${q}%`]
+    )
+    res.json(rows.map((e: any) => ({ id: String(e.id), name: e.name, city: e.city, area: e.area })))
+  } catch {
+    res.json([])
+  }
+})
+
 export default router

@@ -1,7 +1,7 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import Header from '@/components/Header'
 import Sidebar from '@/components/Sidebar'
-import { Search, AlertTriangle, Flag, MapPin, Calendar, Shield, Eye } from 'lucide-react'
+import { Search, AlertTriangle, Flag, MapPin, Calendar, Shield, Eye, User } from 'lucide-react'
 import { useSEO } from '@/lib/useSEO'
 
 const BLACKLIST = [
@@ -21,6 +21,8 @@ const SEVERITY_STYLE: Record<string,{color:string,bg:string,label:string}> = {
   medium:   { color:'#FFD700', bg:'#FFD70020', label:'MEDIUM'   },
 }
 
+type EscortSuggestion = { id: string; name: string; city?: string }
+
 export default function BlacklistPage() {
   useSEO({
     title: 'Escort Blacklist Kenya — Safety Database',
@@ -34,6 +36,26 @@ export default function BlacklistPage() {
   const [reportName, setReportName] = useState('')
   const [reportReason, setReportReason] = useState('')
   const [reportSent, setReportSent] = useState(false)
+
+  // Escort name autocomplete
+  const [escortSuggestions, setEscortSuggestions] = useState<EscortSuggestion[]>([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const suggestTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+
+  useEffect(() => {
+    clearTimeout(suggestTimer.current)
+    if (!reportName || reportName.length < 2) { setEscortSuggestions([]); return }
+    suggestTimer.current = setTimeout(async () => {
+      try {
+        const r = await fetch(`/api/escorts/search?q=${encodeURIComponent(reportName)}`)
+        if (r.ok) {
+          const data = await r.json()
+          setEscortSuggestions(data)
+        }
+      } catch {}
+    }, 350)
+    return () => clearTimeout(suggestTimer.current)
+  }, [reportName])
 
   const filtered = BLACKLIST.filter(b => {
     const matchSearch = !search || b.name.toLowerCase().includes(search.toLowerCase()) || b.reason.toLowerCase().includes(search.toLowerCase())
@@ -91,7 +113,37 @@ export default function BlacklistPage() {
                 <div className="flex items-center gap-2 text-[#28a745] text-sm"><Shield size={16}/> Report submitted. Our team will review within 24 hours.</div>
               ) : (
                 <div className="space-y-3">
-                  <input value={reportName} onChange={e=>setReportName(e.target.value)} placeholder="Person's name or alias" className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted focus:outline-none focus:border-[#EF4444] transition-all"/>
+                  {/* Name with escort autocomplete */}
+                  <div className="relative">
+                    <div className="relative">
+                      <User size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none z-10" />
+                      <input
+                        value={reportName}
+                        onChange={e => { setReportName(e.target.value); setShowSuggestions(true) }}
+                        onFocus={() => { if (reportName.length >= 2) setShowSuggestions(true) }}
+                        onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                        placeholder="Person's name or alias"
+                        className="w-full pl-9 pr-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted focus:outline-none focus:border-[#EF4444] transition-all"
+                        autoComplete="off"
+                      />
+                    </div>
+                    {showSuggestions && escortSuggestions.length > 0 && (
+                      <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-card-bg border border-color rounded-xl shadow-xl overflow-hidden">
+                        <p className="px-3 py-1.5 text-[9px] text-text-muted uppercase tracking-widest border-b border-color/40">Registered escorts matching your search</p>
+                        {escortSuggestions.map(s => (
+                          <button
+                            key={s.id} type="button"
+                            onMouseDown={() => { setReportName(s.name); setShowSuggestions(false); setEscortSuggestions([]) }}
+                            className="w-full text-left px-3.5 py-2.5 text-xs text-text-light hover:bg-dark-bg flex items-center gap-2 border-b border-color/30 last:border-0"
+                          >
+                            <User size={10} className="text-text-muted flex-shrink-0" />
+                            <span className="font-semibold">{s.name}</span>
+                            {s.city && <span className="text-text-muted ml-auto">{s.city}</span>}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                   <textarea value={reportReason} onChange={e=>setReportReason(e.target.value)} rows={3} placeholder="Describe what happened…" className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted focus:outline-none focus:border-[#EF4444] transition-all resize-none"/>
                   <button onClick={()=>{setReportSent(true);setTimeout(()=>{setReportSent(false);setReportOpen(false);setReportName('');setReportReason('')},3000)}} className="px-6 py-2.5 bg-[#EF4444] text-white font-bold text-xs rounded-xl hover:bg-[#dc3545] transition-all">Submit Report</button>
                 </div>

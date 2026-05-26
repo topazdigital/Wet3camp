@@ -103,6 +103,34 @@ function ApiKeyField({ label, placeholder, icon: Icon, hint }: { label: string; 
   )
 }
 
+function SmtpTestButton() {
+  const [status, setStatus] = useState<'idle'|'loading'|'ok'|'err'>('idle')
+  const [msg, setMsg] = useState('')
+  const test = async () => {
+    setStatus('loading'); setMsg('')
+    try {
+      const data = await adminFetch('/admin/test-email', { method: 'POST' })
+      setStatus('ok'); setMsg(data.message ?? 'Test email sent!')
+    } catch (e: any) {
+      setStatus('err'); setMsg(e?.message ?? 'SMTP test failed.')
+    }
+    setTimeout(() => setStatus('idle'), 6000)
+  }
+  return (
+    <div className="flex items-center gap-3">
+      <button
+        onClick={test}
+        disabled={status === 'loading'}
+        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${status==='ok'?'bg-[#28a745] text-white':status==='err'?'bg-[#EF4444] text-white':'bg-[#FF9800]/20 text-[#FF9800] border border-[#FF9800]/30 hover:bg-[#FF9800]/30'}`}
+      >
+        {status==='loading' ? <div className="w-3 h-3 border-2 border-[#FF9800]/30 border-t-[#FF9800] rounded-full animate-spin" /> : <Mail size={12}/>}
+        {status==='loading'?'Sending…':status==='ok'?'✓ Email Sent':status==='err'?'✕ Failed':'Send Test Email'}
+      </button>
+      {msg && <p className={`text-[10px] ${status==='ok'?'text-[#28a745]':'text-[#EF4444]'}`}>{msg}</p>}
+    </div>
+  )
+}
+
 function OverviewBulkToggle() {
   const [cities, setCities] = useState<string[]>([])
   const [selectedCity, setSelectedCity] = useState('all')
@@ -340,13 +368,15 @@ function EscortsTab() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'all'|'pending'|'active'>('all')
+  const [actionLoading, setActionLoading] = useState<string|null>(null)
 
   const load = useCallback(async () => {
     setLoading(true); setError('')
     try {
       const data = await adminFetch('/admin/escorts')
       setEscorts(data)
-    } catch (e: any) {
+    } catch {
       setError('Failed to load escorts')
     }
     setLoading(false)
@@ -364,17 +394,46 @@ function EscortsTab() {
     ))
   }
 
-  const filtered = escorts.filter(e =>
-    !search || e.name?.toLowerCase().includes(search.toLowerCase()) || e.city?.toLowerCase().includes(search.toLowerCase())
-  )
+  const handleApprove = async (id: string) => {
+    setActionLoading(id + '_approve')
+    try {
+      await adminFetch(`/admin/escorts/${id}/verify`, { method: 'PATCH' })
+      setEscorts(prev => prev.map(e => e.id === id ? { ...e, is_active: true, verified: true } : e))
+    } catch {}
+    setActionLoading(null)
+  }
+
+  const handleReject = async (id: string) => {
+    setActionLoading(id + '_reject')
+    try {
+      await adminFetch(`/admin/escorts/${id}/reject`, { method: 'PATCH' })
+      setEscorts(prev => prev.map(e => e.id === id ? { ...e, is_active: false, verified: false } : e))
+    } catch {}
+    setActionLoading(null)
+  }
+
+  const pendingCount = escorts.filter(e => !Boolean(e.is_active) && !Boolean(e.verified)).length
+
+  const filtered = escorts.filter(e => {
+    const matchSearch = !search || e.name?.toLowerCase().includes(search.toLowerCase()) || e.city?.toLowerCase().includes(search.toLowerCase())
+    const matchStatus = statusFilter === 'all' || (statusFilter === 'pending' ? (!Boolean(e.is_active) && !Boolean(e.verified)) : Boolean(e.is_active))
+    return matchSearch && matchStatus
+  })
 
   const onlineCount = escorts.filter(e => Boolean(e.online)).length
 
   return (
     <div className="space-y-4">
       <BulkOnlinePanel escorts={escorts} onBulkToggle={handleBulkToggle} />
+      {pendingCount > 0 && (
+        <div className="flex items-center gap-3 p-3.5 bg-[#FFD700]/10 border border-[#FFD700]/30 rounded-2xl">
+          <AlertTriangle size={14} className="text-[#FFD700] flex-shrink-0" />
+          <p className="text-xs text-[#FFD700] font-semibold flex-1">{pendingCount} escort{pendingCount !== 1 ? 's' : ''} waiting for approval</p>
+          <button onClick={() => setStatusFilter('pending')} className="px-3 py-1 bg-[#FFD700] text-black text-[10px] font-bold rounded-lg">Review</button>
+        </div>
+      )}
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-2 px-3 py-1.5 bg-[#28a745]/10 border border-[#28a745]/30 rounded-xl">
             <Radio size={11} className="text-[#28a745]" />
             <span className="text-xs font-bold text-[#28a745]">{onlineCount} Online</span>
@@ -382,6 +441,13 @@ function EscortsTab() {
           <div className="flex items-center gap-2 px-3 py-1.5 bg-dark-bg border border-color rounded-xl">
             <WifiOff size={11} className="text-text-muted" />
             <span className="text-xs font-bold text-text-muted">{escorts.length - onlineCount} Offline</span>
+          </div>
+          <div className="flex gap-1">
+            {(['all','pending','active'] as const).map(f => (
+              <button key={f} onClick={() => setStatusFilter(f)} className={`px-2.5 py-1 text-[10px] font-bold rounded-lg capitalize transition-all ${statusFilter===f?'bg-[#8B0000] text-white':'bg-dark-bg border border-color text-text-muted'}`}>
+                {f}{f==='pending'&&pendingCount>0?` (${pendingCount})`:''}
+              </button>
+            ))}
           </div>
           <button onClick={load} className="p-1.5 text-text-muted hover:text-text-light rounded-lg hover:bg-card-bg transition-colors" title="Refresh"><RefreshCw size={13} /></button>
         </div>
@@ -449,9 +515,34 @@ function EscortsTab() {
                         : <span className="flex items-center gap-1 text-text-muted"><AlertTriangle size={11}/>Unverified</span>}
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex gap-1.5">
-                        <button className="p-1.5 text-text-muted hover:text-text-light rounded-lg hover:bg-dark-bg"><Edit2 size={13}/></button>
-                        <button className="p-1.5 text-[#EF4444] rounded-lg hover:bg-dark-bg"><Trash2 size={13}/></button>
+                      <div className="flex gap-1.5 flex-wrap">
+                        {!Boolean(e.is_active) && !Boolean(e.verified) ? (
+                          <>
+                            <button
+                              onClick={() => handleApprove(e.id)}
+                              disabled={actionLoading === e.id + '_approve'}
+                              className="px-2.5 py-1 bg-[#28a745]/20 text-[#28a745] text-[9px] font-bold rounded-lg border border-[#28a745]/30 hover:bg-[#28a745]/30 disabled:opacity-50 flex items-center gap-1"
+                            >
+                              {actionLoading === e.id + '_approve' ? <div className="w-2.5 h-2.5 border border-[#28a745]/40 border-t-[#28a745] rounded-full animate-spin" /> : <CheckCircle2 size={10}/>}
+                              Approve
+                            </button>
+                            <button
+                              onClick={() => handleReject(e.id)}
+                              disabled={actionLoading === e.id + '_reject'}
+                              className="px-2.5 py-1 bg-[#EF4444]/20 text-[#EF4444] text-[9px] font-bold rounded-lg border border-[#EF4444]/30 hover:bg-[#EF4444]/30 disabled:opacity-50 flex items-center gap-1"
+                            >
+                              {actionLoading === e.id + '_reject' ? <div className="w-2.5 h-2.5 border border-[#EF4444]/40 border-t-[#EF4444] rounded-full animate-spin" /> : <XCircle size={10}/>}
+                              Reject
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button className="p-1.5 text-text-muted hover:text-text-light rounded-lg hover:bg-dark-bg"><Edit2 size={13}/></button>
+                            {Boolean(e.is_active) && (
+                              <button onClick={() => handleReject(e.id)} disabled={actionLoading === e.id + '_reject'} className="p-1.5 text-[#EF4444] rounded-lg hover:bg-dark-bg disabled:opacity-50" title="Deactivate"><Trash2 size={13}/></button>
+                            )}
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -876,6 +967,7 @@ function AdminDashboard() {
                   </div>
                   <ApiKeyField label="SMTP Username" placeholder="noreply@wet3camp.com" icon={Mail} />
                   <ApiKeyField label="SMTP Password / App Password" placeholder="xxxx xxxx xxxx xxxx" icon={Lock} />
+                  <SmtpTestButton />
                 </div>
               </div>
 

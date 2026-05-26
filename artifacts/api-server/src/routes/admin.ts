@@ -102,6 +102,44 @@ router.patch('/admin/escorts/:id/online', requireAuth, requireAdmin, async (req:
   }
 })
 
+router.patch('/admin/escorts/:id/reject', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const pool = getPool()
+    if (!pool) { res.status(503).json({ message: 'No database' }); return }
+    await pool.query('UPDATE escorts SET is_active = 0, verified = 0 WHERE id = ?', [req.params!.id])
+    res.json({ success: true })
+  } catch {
+    res.status(500).json({ message: 'Failed to reject escort' })
+  }
+})
+
+router.post('/admin/test-email', requireAuth, requireAdmin, async (_req: AuthRequest, res) => {
+  const smtpConfigured = !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS)
+  if (!smtpConfigured) {
+    res.status(400).json({ success: false, message: 'SMTP not configured. Add SMTP_HOST, SMTP_USER, SMTP_PASS to your .env file.' })
+    return
+  }
+  try {
+    const nodemailer = await import('nodemailer')
+    const transporter = nodemailer.default.createTransport({
+      host: process.env.SMTP_HOST,
+      port: parseInt(process.env.SMTP_PORT ?? '587'),
+      secure: process.env.SMTP_SECURE === 'true',
+      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+    })
+    await transporter.verify()
+    await transporter.sendMail({
+      from: `"Wet3 Camp Admin" <${process.env.SMTP_USER}>`,
+      to: process.env.SMTP_USER,
+      subject: '✓ Wet3 Camp SMTP Test',
+      html: `<div style="font-family:sans-serif;max-width:500px"><h2 style="color:#8B0000">Wet3 Camp SMTP Test ✓</h2><p>Your SMTP configuration is working correctly!</p><p style="color:#999;font-size:12px">Sent: ${new Date().toISOString()}<br>Host: ${process.env.SMTP_HOST}:${process.env.SMTP_PORT ?? 587}</p></div>`,
+    })
+    res.json({ success: true, message: `Test email sent to ${process.env.SMTP_USER}` })
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: `SMTP error: ${err.message}` })
+  }
+})
+
 router.delete('/admin/users/:id', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
   try {
     const pool = getPool()
