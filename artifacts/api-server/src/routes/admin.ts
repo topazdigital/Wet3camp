@@ -13,6 +13,27 @@ function requireAdmin(req: AuthRequest, res: any, next: any) {
   next()
 }
 
+async function getSmtpConfig(pool: ReturnType<typeof getPool>): Promise<{ host?: string; port: number; user?: string; pass?: string }> {
+  const cfg = {
+    host: process.env.SMTP_HOST,
+    port: parseInt(process.env.SMTP_PORT ?? '587'),
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  }
+  if ((!cfg.host || !cfg.user || !cfg.pass) && pool) {
+    const [rows] = await pool.query<any[]>(
+      "SELECT `key`, `value` FROM platform_settings WHERE `key` IN ('smtp_host','smtp_port','smtp_user','smtp_pass')"
+    ).catch(() => [[]] as any)
+    for (const r of rows as any[]) {
+      if (r.key === 'smtp_host' && r.value) cfg.host = r.value
+      if (r.key === 'smtp_port' && r.value) cfg.port = parseInt(r.value)
+      if (r.key === 'smtp_user' && r.value) cfg.user = r.value
+      if (r.key === 'smtp_pass' && r.value) cfg.pass = r.value
+    }
+  }
+  return cfg
+}
+
 router.get('/admin/stats', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
   try {
     const pool = getPool()
@@ -35,7 +56,7 @@ router.get('/admin/users', requireAuth, requireAdmin, async (req: AuthRequest, r
     if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
     const limit = Math.min(parseInt((req.query as any).limit ?? '200', 10), 500)
     const [rows] = await pool.query<any[]>(
-      'SELECT id, username, email, role, display_name, phone, is_active FROM users ORDER BY id DESC LIMIT ?',
+      'SELECT id, username, email, role, display_name, phone, is_active, created_at FROM users ORDER BY id DESC LIMIT ?',
       [limit]
     )
     res.json(rows.map(u => ({ ...u, id: String(u.id) })))
@@ -49,12 +70,19 @@ router.get('/admin/escorts', requireAuth, requireAdmin, async (req: AuthRequest,
     const pool = getPool()
     if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
     const limit = Math.min(parseInt((req.query as any).limit ?? '200', 10), 500)
-    const [rows] = await pool.query<any[]>(
-      'SELECT e.*, u.email as user_email, u.display_name as user_display_name FROM escorts e LEFT JOIN users u ON u.id = e.user_id ORDER BY e.id DESC LIMIT ?',
-      [limit]
-    )
+    const status = (req.query as any).status
+    let sql = `SELECT e.*,
+      u.email AS user_email,
+      COALESCE(u.display_name, u.username) AS user_display_name
+      FROM escorts e
+      LEFT JOIN users u ON u.id = e.user_id`
+    if (status === 'pending') sql += ' WHERE e.is_active = 0 AND e.verified = 0'
+    else if (status === 'active') sql += ' WHERE e.is_active = 1'
+    sql += ' ORDER BY e.id DESC LIMIT ?'
+    const [rows] = await pool.query<any[]>(sql, [limit])
     res.json(rows.map(e => ({ ...e, id: String(e.id) })))
-  } catch {
+  } catch (err: any) {
+    console.error('[admin/escorts]', err?.message ?? err)
     res.status(500).json({ message: 'Failed to fetch escorts' })
   }
 })
@@ -65,7 +93,9 @@ router.get('/admin/bookings', requireAuth, requireAdmin, async (req: AuthRequest
     if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
     const limit = Math.min(parseInt((req.query as any).limit ?? '200', 10), 500)
     const [rows] = await pool.query<any[]>(
-      `SELECT b.*, e.name AS escort_name, u.display_name AS client_name, u.email AS client_email
+      `SELECT b.*, e.name AS escort_name,
+        COALESCE(u.display_name, u.username) AS client_name,
+        u.email AS client_email
        FROM bookings b
        LEFT JOIN escorts e ON e.id = b.escort_id
        LEFT JOIN users u ON u.id = b.user_id
@@ -199,37 +229,99 @@ router.delete('/admin/escorts/:id', requireAuth, requireAdmin, async (req: AuthR
 
 router.post('/admin/test-email', requireAuth, requireAdmin, async (_req: AuthRequest, res) => {
   res.setHeader('Content-Type', 'application/json')
-  const smtpConfigured = !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS)
-  if (!smtpConfigured) {
-    res.status(400).json({ success: false, message: 'SMTP not configured. Add SMTP_HOST, SMTP_USER, SMTP_PASS to your .env file and restart the server.' })
+  const pool = getPool()
+  const cfg = await getSmtpConfig(pool)
+  if (!cfg.host || !cfg.user || !cfg.pass) {
+    res.status(400).json({ success: false, message: 'SMTP not configured. Save SMTP Host, Username and Password in the API Keys tab first.' })
     return
   }
   try {
     const nodemailer = await import('nodemailer')
     const transporter = nodemailer.default.createTransport({
-      host: process.env.SMTP_HOST,
-      port: parseInt(process.env.SMTP_PORT ?? '587'),
-      secure: process.env.SMTP_PORT === '465',
-      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+      host: cfg.host,
+      port: cfg.port,
+      secure: cfg.port === 465,
+      auth: { user: cfg.user, pass: cfg.pass },
       tls: { rejectUnauthorized: false },
+      connectionTimeout: 8000,
     })
     await transporter.verify()
     await transporter.sendMail({
-      from: `"Wet3 Camp Admin" <${process.env.SMTP_USER}>`,
-      to: process.env.SMTP_USER,
+      from: `"Wet3 Camp Admin" <${cfg.user}>`,
+      to: cfg.user,
       subject: '✓ Wet3 Camp SMTP Test',
-      html: `<div style="font-family:sans-serif;max-width:500px"><h2 style="color:#8B0000">Wet3 Camp SMTP Test ✓</h2><p>Your SMTP configuration is working correctly!</p><p style="color:#999;font-size:12px">Sent: ${new Date().toISOString()}<br>Host: ${process.env.SMTP_HOST}:${process.env.SMTP_PORT ?? 587}</p></div>`,
+      html: `<div style="font-family:sans-serif;max-width:500px"><h2 style="color:#8B0000">Wet3 Camp SMTP Test ✓</h2><p>Your SMTP configuration is working correctly!</p><p style="color:#999;font-size:12px">Sent: ${new Date().toISOString()}<br>Host: ${cfg.host}:${cfg.port}</p></div>`,
     })
-    res.json({ success: true, message: `Test email sent to ${process.env.SMTP_USER}` })
+    res.json({ success: true, message: `Test email sent to ${cfg.user}` })
   } catch (err: any) {
     res.status(500).json({ success: false, message: `SMTP error: ${err.message ?? err}` })
   }
 })
 
+router.post('/admin/test-connections', requireAuth, requireAdmin, async (_req: AuthRequest, res) => {
+  res.setHeader('Content-Type', 'application/json')
+  const results: Record<string, { ok: boolean; message: string }> = {}
+  const pool = getPool()
+
+  if (pool) {
+    try {
+      await pool.query('SELECT 1')
+      results.database = { ok: true, message: 'Database connected ✓' }
+    } catch (e: any) {
+      results.database = { ok: false, message: `DB error: ${e?.message ?? e}` }
+    }
+  } else {
+    results.database = { ok: false, message: 'DATABASE_URL not set' }
+  }
+
+  const cfg = await getSmtpConfig(pool)
+  if (!cfg.host || !cfg.user || !cfg.pass) {
+    results.smtp = { ok: false, message: 'SMTP not configured — save credentials first' }
+  } else {
+    try {
+      const nodemailer = await import('nodemailer')
+      const transporter = nodemailer.default.createTransport({
+        host: cfg.host,
+        port: cfg.port,
+        secure: cfg.port === 465,
+        auth: { user: cfg.user, pass: cfg.pass },
+        tls: { rejectUnauthorized: false },
+        connectionTimeout: 8000,
+      })
+      await transporter.verify()
+      results.smtp = { ok: true, message: `SMTP connected to ${cfg.host}:${cfg.port} ✓` }
+    } catch (e: any) {
+      results.smtp = { ok: false, message: `SMTP error: ${e?.message ?? e}` }
+    }
+  }
+
+  if (pool) {
+    const [rows] = await pool.query<any[]>(
+      "SELECT value FROM platform_settings WHERE `key` = 'telegram_token'"
+    ).catch(() => [[]] as any)
+    const token = (rows as any[])?.[0]?.value
+    if (token) {
+      try {
+        const r = await fetch(`https://api.telegram.org/bot${token}/getMe`)
+        const d = await r.json() as any
+        results.telegram = d.ok
+          ? { ok: true, message: `Bot @${d.result.username} connected ✓` }
+          : { ok: false, message: `Telegram: ${d.description}` }
+      } catch (e: any) {
+        results.telegram = { ok: false, message: `Telegram error: ${e?.message ?? e}` }
+      }
+    } else {
+      results.telegram = { ok: false, message: 'Telegram token not configured' }
+    }
+  }
+
+  res.json({ results })
+})
+
 router.get('/admin/settings', requireAuth, requireAdmin, async (_req: AuthRequest, res) => {
   try {
     const pool = getPool()
-    if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
+    if (!pool) { res.json({}); return }
     const [rows] = await pool.query<any[]>('SELECT `key`, `value` FROM platform_settings').catch(() => [[] as any[]])
     const settings: Record<string, string> = {}
     for (const row of rows) settings[row.key] = row.value
@@ -239,19 +331,25 @@ router.get('/admin/settings', requireAuth, requireAdmin, async (_req: AuthReques
   }
 })
 
+async function upsertSetting(pool: any, key: string, value: string) {
+  try {
+    await pool.query('INSERT INTO platform_settings (`key`, `value`) VALUES (?,?)', [key, value])
+  } catch {
+    await pool.query('UPDATE platform_settings SET `value` = ?, updated_at = NOW() WHERE `key` = ?', [value, key])
+  }
+}
+
 router.post('/admin/settings', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
   try {
     const { key, value } = req.body as { key?: string; value?: string }
     if (!key) { res.status(400).json({ message: 'key is required' }); return }
     const pool = getPool()
     if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
-    await pool.query(
-      'INSERT INTO platform_settings (`key`, `value`) VALUES (?,?) ON DUPLICATE KEY UPDATE `value` = VALUES(`value`), updated_at = NOW()',
-      [key, value ?? '']
-    )
+    await upsertSetting(pool, key, value ?? '')
     res.json({ success: true, key, value })
-  } catch {
-    res.status(500).json({ message: 'Failed to save setting' })
+  } catch (err: any) {
+    console.error('[admin/settings POST]', err?.message ?? err)
+    res.status(500).json({ message: 'Failed to save setting — run the migration SQL to create platform_settings table.' })
   }
 })
 
@@ -261,16 +359,12 @@ router.post('/admin/settings/bulk', requireAuth, requireAdmin, async (req: AuthR
     const pool = getPool()
     if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
     for (const [key, value] of Object.entries(settings)) {
-      if (key) {
-        await pool.query(
-          'INSERT INTO platform_settings (`key`, `value`) VALUES (?,?) ON DUPLICATE KEY UPDATE `value` = VALUES(`value`), updated_at = NOW()',
-          [key, value ?? '']
-        )
-      }
+      if (key) await upsertSetting(pool, key, value ?? '')
     }
     res.json({ success: true, count: Object.keys(settings).length })
-  } catch {
-    res.status(500).json({ message: 'Failed to save settings' })
+  } catch (err: any) {
+    console.error('[admin/settings/bulk]', err?.message ?? err)
+    res.status(500).json({ message: 'Failed to save settings — run the migration SQL to create platform_settings table.' })
   }
 })
 
@@ -280,7 +374,6 @@ router.delete('/admin/cleanup-seed-escorts', requireAuth, requireAdmin, async (r
     if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
     const [[{ cnt }]] = await pool.query<any[]>('SELECT COUNT(*) as cnt FROM escorts WHERE user_id IS NULL')
     if (Number(cnt) === 0) { res.json({ success: true, deleted: 0, message: 'No fake escorts found.' }); return }
-    // Get IDs of fake escorts first, then delete dependents to avoid FK constraint errors
     const [fakeRows] = await pool.query<any[]>('SELECT id FROM escorts WHERE user_id IS NULL')
     const fakeIds = fakeRows.map((r: any) => r.id)
     if (fakeIds.length > 0) {

@@ -6,29 +6,53 @@ let _pool: CompatPool | null = null
 
 export const hasDb = (): boolean => !!process.env.DATABASE_URL
 
-// A pool wrapper that makes pg behave like mysql2's Pool interface:
-// pool.query(sql, params) returns:
-//   - For SELECT/UPDATE/DELETE: [rows, fields]  (rows is an array)
-//   - For INSERT: [{ insertId, affectedRows }, null]
-// Handles MySQL → PostgreSQL SQL dialect translation transparently.
+function isMysqlUrl(url: string): boolean {
+  return url.startsWith('mysql://') || url.startsWith('mysql2://')
+}
+
 export class CompatPool {
-  private pg: pg.Pool
+  private type: 'pg' | 'mysql' = 'pg'
+  private pgPool: pg.Pool | null = null
+  private mysqlPool: any = null
 
   constructor(connectionString: string) {
-    this.pg = new Pool({ connectionString, max: 10 })
+    if (isMysqlUrl(connectionString)) {
+      this.type = 'mysql'
+      import('mysql2/promise').then(m => {
+        this.mysqlPool = m.default.createPool(connectionString)
+      }).catch(e => {
+        console.error('[db] mysql2 import failed:', e.message)
+      })
+    } else {
+      this.type = 'pg'
+      this.pgPool = new Pool({ connectionString, max: 10 })
+    }
   }
 
   async query<T = any>(sql: string, params: unknown[] = []): Promise<[T[] | any, any]> {
-    let pgSql = this.translateSQL(sql)
+    if (this.type === 'mysql') {
+      if (!this.mysqlPool) {
+        const m = await import('mysql2/promise')
+        const connStr = process.env.DATABASE_URL!
+        this.mysqlPool = m.default.createPool(connStr)
+      }
+      return this.mysqlPool.query(sql, params) as Promise<[T[] | any, any]>
+    }
 
+    let pgSql = this.translateSQL(sql)
     const isInsert = /^\s*INSERT\s+INTO/i.test(pgSql)
 
-    // For INSERTs (not ON CONFLICT DO NOTHING), add RETURNING id
-    if (isInsert && !/RETURNING/i.test(pgSql) && !/ON CONFLICT\s+DO\s+NOTHING/i.test(pgSql)) {
+    // Only add RETURNING id when the table has an auto-generated id column
+    // (i.e. "id" is NOT listed in the INSERT column list — it's auto-incremented)
+    const insertColMatch = pgSql.match(/INSERT\s+INTO\s+\w+\s*\(([^)]+)\)/i)
+    const insertCols = insertColMatch ? insertColMatch[1].replace(/[`"]/g, '').split(',').map((c: string) => c.trim().toLowerCase()) : []
+    const hasAutoId = !insertCols.includes('id') && !insertCols.includes('key')
+
+    if (isInsert && !/RETURNING/i.test(pgSql) && !/ON CONFLICT\s+DO\s+NOTHING/i.test(pgSql) && hasAutoId) {
       pgSql = pgSql.trimEnd().replace(/;$/, '') + ' RETURNING id'
     }
 
-    const result = await this.pg.query(pgSql, params as any[])
+    const result = await this.pgPool!.query(pgSql, params as any[])
 
     if (isInsert && !/ON CONFLICT\s+DO\s+NOTHING/i.test(pgSql)) {
       const insertId = result.rows[0]?.id ?? 0
@@ -41,17 +65,14 @@ export class CompatPool {
   private translateSQL(sql: string): string {
     let s = sql
 
-    // Skip MySQL-only statements
     if (/^\s*SET\s+FOREIGN_KEY_CHECKS/i.test(s)) return 'SELECT 1'
 
-    // Replace ? placeholders with $1, $2, ...
     let idx = 0
     s = s.replace(/\?/g, () => `$${++idx}`)
 
-    // GROUP_CONCAT → STRING_AGG
     s = s.replace(
       /GROUP_CONCAT\(\s*DISTINCT\s+(\w+(?:\.\w+)?)\s+ORDER\s+BY\s+(\w+(?:\.\w+)?)\s+SEPARATOR\s+'([^']*)'\s*\)/gi,
-      (_, col, orderCol, sep) => `STRING_AGG(DISTINCT ${col}, '${sep}' ORDER BY ${col})`
+      (_, col, _orderCol, sep) => `STRING_AGG(DISTINCT ${col}, '${sep}' ORDER BY ${col})`
     )
     s = s.replace(
       /GROUP_CONCAT\(\s*DISTINCT\s+(\w+(?:\.\w+)?)\s+ORDER\s+BY\s+(\w+(?:\.\w+)?)\s*\)/gi,
@@ -62,7 +83,6 @@ export class CompatPool {
       (_, col) => `STRING_AGG(DISTINCT ${col}, ',')`
     )
 
-    // FIELD(col, 'v1','v2',...) → CASE WHEN col='v1' THEN 0 WHEN ... END
     s = s.replace(
       /FIELD\((\w+(?:\.\w+)?)\s*,([^)]+)\)/gi,
       (_, col, valsPart) => {
@@ -72,7 +92,6 @@ export class CompatPool {
       }
     )
 
-    // INSERT IGNORE INTO → INSERT INTO ... ON CONFLICT DO NOTHING
     if (/INSERT\s+IGNORE\s+INTO/i.test(s)) {
       s = s.replace(/INSERT\s+IGNORE\s+INTO/gi, 'INSERT INTO')
       if (!/ON\s+CONFLICT/i.test(s)) {
@@ -80,17 +99,25 @@ export class CompatPool {
       }
     }
 
-    // ON DUPLICATE KEY UPDATE `key` = VALUES(`key`), `value` = VALUES(`value`), updated_at = NOW()
+    // Rewrite ON DUPLICATE KEY UPDATE → ON CONFLICT (pk) DO UPDATE SET ...
+    // Determine conflict column by finding which INSERT column is NOT in the UPDATE clause
     s = s.replace(
-      /ON\s+DUPLICATE\s+KEY\s+UPDATE\s+`?key`?\s*=\s*VALUES\(`?key`?\)\s*,\s*`?value`?\s*=\s*VALUES\(`?value`?\)\s*,\s*updated_at\s*=\s*NOW\(\)/gi,
-      'ON CONFLICT ("key") DO UPDATE SET "value" = EXCLUDED."value", updated_at = NOW()'
+      /INSERT\s+INTO\s+(\w+)\s*\(([^)]+)\)\s*(VALUES\s*\([^)]+\))\s*ON\s+DUPLICATE\s+KEY\s+UPDATE\s+([\s\S]+?)(?=\s*$)/gi,
+      (_match, _table, colsPart, valuesPart, updateClause) => {
+        const insertCols = colsPart.split(',').map((c: string) => c.trim().replace(/`/g, '').replace(/"/g, ''))
+        let uc = updateClause.replace(/`(\w+)`/g, '"$1"')
+        uc = uc.replace(/VALUES\("?(\w+)"?\)/gi, 'EXCLUDED."$1"')
+        // Updated columns in the UPDATE clause
+        const updatedCols = [...uc.matchAll(/"(\w+)"\s*=/g)].map((m: RegExpMatchArray) => m[1])
+        // The conflict column is the INSERT column that is NOT being updated (primary/unique key)
+        const conflictCol = insertCols.find((c: string) => !updatedCols.includes(c)) ?? insertCols[0] ?? 'id'
+        const normalCols = colsPart.replace(/`(\w+)`/g, '"$1"')
+        const normalTable = _table
+        return `INSERT INTO ${normalTable} (${normalCols}) ${valuesPart} ON CONFLICT ("${conflictCol}") DO UPDATE SET ${uc}`
+      }
     )
 
-    // Backtick identifiers → double-quoted
     s = s.replace(/`(\w+)`/g, '"$1"')
-
-    // COALESCE(MAX(...),0)+1 subquery alias fix — already valid in PG
-    // NOW() is valid in both MySQL and PostgreSQL
 
     return s
   }

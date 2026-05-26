@@ -1,7 +1,7 @@
 -- =============================================================================
--- Wet3.camp — Database Migration SQL (v2)
--- Run this in phpMyAdmin (admin_wet3camp database) BEFORE going live.
--- Each statement uses IF NOT EXISTS / IGNORE — safe to run multiple times.
+-- Wet3.camp — Database Migration SQL (v3)
+-- Run this in phpMyAdmin (admin_wet3camp database) BEFORE deploying new code.
+-- Every statement uses IF NOT EXISTS / IGNORE — 100% safe to re-run.
 -- =============================================================================
 
 -- =============================================================================
@@ -20,11 +20,12 @@ ALTER TABLE escorts
   ADD COLUMN IF NOT EXISTS `lng`       decimal(10,7) DEFAULT NULL;
 
 -- =============================================================================
--- 3. Create platform_settings table (Admin → Settings tab)
+-- 3. Create platform_settings table (Admin → Settings & API Keys tabs)
+--    THIS IS REQUIRED for admin settings save/load to work.
 -- =============================================================================
-CREATE TABLE IF NOT EXISTS platform_settings (
+CREATE TABLE IF NOT EXISTS `platform_settings` (
   `key`        varchar(100)  NOT NULL,
-  `value`      text          NOT NULL,
+  `value`      text          NOT NULL DEFAULT '',
   `updated_at` datetime      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -32,7 +33,7 @@ CREATE TABLE IF NOT EXISTS platform_settings (
 -- =============================================================================
 -- 4. Ensure escort_gallery table exists (for photo uploads)
 -- =============================================================================
-CREATE TABLE IF NOT EXISTS escort_gallery (
+CREATE TABLE IF NOT EXISTS `escort_gallery` (
   `id`          int(11)      NOT NULL AUTO_INCREMENT,
   `escort_id`   int(11)      NOT NULL,
   `image_url`   varchar(500) NOT NULL,
@@ -43,9 +44,34 @@ CREATE TABLE IF NOT EXISTS escort_gallery (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =============================================================================
--- 5. Create rooms table (for the /rooms page)
+-- 5. Ensure escort_languages table exists
 -- =============================================================================
-CREATE TABLE IF NOT EXISTS rooms (
+CREATE TABLE IF NOT EXISTS `escort_languages` (
+  `id`         int(11)     NOT NULL AUTO_INCREMENT,
+  `escort_id`  int(11)     NOT NULL,
+  `language`   varchar(50) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_escort_lang` (`escort_id`, `language`),
+  KEY `idx_escort_id` (`escort_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =============================================================================
+-- 6. Ensure escort_services table exists
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS `escort_services` (
+  `id`         int(11)      NOT NULL AUTO_INCREMENT,
+  `escort_id`  int(11)      NOT NULL,
+  `name`       varchar(100) NOT NULL,
+  `available`  tinyint(1)   NOT NULL DEFAULT 1,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_escort_svc` (`escort_id`, `name`),
+  KEY `idx_escort_id` (`escort_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =============================================================================
+-- 7. Create rooms table (for the /rooms page)
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS `rooms` (
   `id`            int(11)         NOT NULL AUTO_INCREMENT,
   `name`          varchar(150)    NOT NULL,
   `hotel`         varchar(150)    NOT NULL,
@@ -64,9 +90,9 @@ CREATE TABLE IF NOT EXISTS rooms (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =============================================================================
--- 6. Create room_bookings table
+-- 8. Create room_bookings table
 -- =============================================================================
-CREATE TABLE IF NOT EXISTS room_bookings (
+CREATE TABLE IF NOT EXISTS `room_bookings` (
   `id`           int(11)      NOT NULL AUTO_INCREMENT,
   `room_id`      int(11)      NOT NULL,
   `guest_name`   varchar(150) NOT NULL,
@@ -87,41 +113,80 @@ CREATE TABLE IF NOT EXISTS room_bookings (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =============================================================================
--- 7. Remove fake/seed escort profiles (ADMIN BUTTON DOES THIS — SQL backup)
---    Run this ONLY if the "Delete Fakes" button in admin panel doesn't work.
---    It deletes ALL escorts with no real user account (user_id IS NULL).
+-- 9. Ensure password_resets table exists (for forgot-password flow)
 -- =============================================================================
--- Step A: Disable FK checks so dependent rows don't block deletion
-SET FOREIGN_KEY_CHECKS=0;
-
--- Step B: Remove all rows that reference fake escort IDs
-DELETE FROM escort_gallery   WHERE escort_id IN (SELECT id FROM escorts WHERE user_id IS NULL);
-DELETE FROM escort_languages WHERE escort_id IN (SELECT id FROM escorts WHERE user_id IS NULL);
-DELETE FROM escort_services  WHERE escort_id IN (SELECT id FROM escorts WHERE user_id IS NULL);
-DELETE FROM favorites        WHERE escort_id IN (SELECT id FROM escorts WHERE user_id IS NULL);
-DELETE FROM followers        WHERE escort_id IN (SELECT id FROM escorts WHERE user_id IS NULL);
-DELETE FROM reviews          WHERE escort_id IN (SELECT id FROM escorts WHERE user_id IS NULL);
-DELETE FROM bookings         WHERE escort_id IN (SELECT id FROM escorts WHERE user_id IS NULL);
-
--- Step C: Delete the fake escort profiles
-DELETE FROM escorts WHERE user_id IS NULL;
-
--- Step D: Re-enable FK checks
-SET FOREIGN_KEY_CHECKS=1;
+CREATE TABLE IF NOT EXISTS `password_resets` (
+  `id`         int(11)      NOT NULL AUTO_INCREMENT,
+  `email`      varchar(255) NOT NULL,
+  `token`      varchar(100) NOT NULL,
+  `expires_at` datetime     NOT NULL,
+  `created_at` datetime     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_token` (`token`),
+  KEY `idx_email` (`email`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =============================================================================
--- 8. Create the first admin user
---    OPTION A (recommended): Use the built-in setup endpoint.
+-- 10. Ensure reviews table exists
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS `reviews` (
+  `id`         int(11)      NOT NULL AUTO_INCREMENT,
+  `escort_id`  int(11)      NOT NULL,
+  `user_id`    int(11)      NOT NULL,
+  `rating`     tinyint      NOT NULL DEFAULT 5,
+  `comment`    text,
+  `created_at` datetime     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_escort_id` (`escort_id`),
+  KEY `idx_user_id`   (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =============================================================================
+-- 11. Ensure favorites and followers tables exist
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS `favorites` (
+  `id`         int(11) NOT NULL AUTO_INCREMENT,
+  `user_id`    int(11) NOT NULL,
+  `escort_id`  int(11) NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_fav` (`user_id`, `escort_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `followers` (
+  `id`         int(11) NOT NULL AUTO_INCREMENT,
+  `user_id`    int(11) NOT NULL,
+  `escort_id`  int(11) NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_follow` (`user_id`, `escort_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =============================================================================
+-- 12. Create the first admin user
+--    RECOMMENDED: Use the built-in setup endpoint via PowerShell (see below)
 --    POST https://wet3.camp/api/auth/setup-admin
 --    Body: { "email": "admin@wet3camp.com", "password": "YourSecurePassword", "name": "Platform Admin" }
 --    This only works ONCE — disabled after first admin is created.
+--
+--    PowerShell one-liner:
+--    Invoke-RestMethod -Uri "https://wet3.camp/api/auth/setup-admin" -Method POST -ContentType "application/json" -Body '{"email":"admin@wet3camp.com","password":"YourSecurePassword","name":"Platform Admin"}'
 -- =============================================================================
 
 -- =============================================================================
--- 9. (Optional) Sample rooms data
+-- POWERSHELL DEPLOY INSTRUCTIONS
+-- ================================
+-- 1. SSH into your server and run:
+--      cd /home/admin/wet3camp-build
+--      git pull origin main
+--      bash /home/admin/wet3camp-build/deploy-on-server.sh
+--
+-- 2. Then run THIS SQL in phpMyAdmin on database admin_wet3camp:
+--    (Copy everything above and paste into phpMyAdmin → SQL tab → Go)
+--
+-- 3. After migration, test admin panel at wet3.camp/admin
+--    - Go to API Keys tab → enter SMTP Host, Port, Username, Password → Save each
+--    - Click "Test All Connections" to verify SMTP, DB and Telegram
+--    - Go to Escorts tab to see all escorts including pending ones (e.g. Bettcy)
+--    - Approve or reject escorts from the Escorts tab
 -- =============================================================================
--- INSERT INTO rooms (name, hotel, city, area, type, price_night, price_hourly, rating, reviews_count, amenities, available) VALUES
--- ('Deluxe King Suite',  'Serena Hotel',       'Nairobi', 'Upper Hill',  'Suite',    18000, 5000, 4.8, 127, 'WiFi, Parking, Breakfast, 24hr Security', 1),
--- ('Executive Room',     'Tribe Hotel',        'Nairobi', 'Gigiri',      'Executive',12000, 3500, 4.6,  89, 'WiFi, Parking, 24hr Security',           1),
--- ('Ocean View Villa',   'Serena Beach Hotel', 'Mombasa',  'Nyali',       'Villa',    22000, 6500, 4.9,  64, 'WiFi, Parking, Breakfast, 24hr Security', 1),
--- ('Premier Suite',      'PrideInn Azure',     'Mombasa',  'Mombasa Road','Suite',    15000, 4500, 4.7,  98, 'WiFi, Parking, Breakfast',                1);

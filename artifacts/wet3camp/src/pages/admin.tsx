@@ -42,6 +42,96 @@ interface FeaturedRequest {
 }
 const INIT_FEATURED: FeaturedRequest[] = []
 
+function TextSettingField({ label, placeholder, settingKey, hint, type: inputType }: { label: string; placeholder: string; settingKey: string; hint?: string; type?: string }) {
+  const [value, setValue] = useState('')
+  const [saved, setSaved] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [err, setErr] = useState('')
+
+  useEffect(() => {
+    adminFetch('/admin/settings').then((s: Record<string,string>) => {
+      if (s[settingKey] !== undefined) setValue(s[settingKey])
+    }).catch(() => {})
+  }, [settingKey])
+
+  const save = async () => {
+    if (!value.trim()) return
+    setSaving(true); setErr('')
+    try {
+      await adminFetch('/admin/settings', { method: 'POST', body: JSON.stringify({ key: settingKey, value }) })
+      setSaved(true); setTimeout(() => setSaved(false), 2500)
+    } catch {
+      setErr('Save failed')
+    }
+    setSaving(false)
+  }
+
+  return (
+    <div>
+      <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">{label}</label>
+      <div className="flex gap-2">
+        <input
+          type={inputType ?? 'text'}
+          value={value}
+          onChange={e => setValue(e.target.value)}
+          placeholder={placeholder}
+          className="flex-1 px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted/40 focus:outline-none focus:border-[#FF9800] transition-all"
+        />
+        <button
+          onClick={save}
+          disabled={saving}
+          className={`px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 ${saved ? 'bg-[#28a745] text-white' : 'bg-[#8B0000] text-white hover:bg-[#a00000]'} disabled:opacity-60`}
+        >
+          {saving ? <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"/> : <Save size={11} />}
+          {saved ? 'Saved' : 'Save'}
+        </button>
+      </div>
+      {hint && <p className="text-[10px] text-text-muted mt-1">{hint}</p>}
+      {err  && <p className="text-[10px] text-[#EF4444] mt-1">{err}</p>}
+    </div>
+  )
+}
+
+function TestAllConnectionsButton() {
+  const [status, setStatus] = useState<'idle'|'loading'|'done'>('idle')
+  const [results, setResults] = useState<Record<string,{ok:boolean;message:string}>>({})
+
+  const run = async () => {
+    setStatus('loading'); setResults({})
+    try {
+      const data = await adminFetch('/admin/test-connections', { method: 'POST' })
+      setResults(data.results ?? {})
+    } catch (e: any) {
+      setResults({ error: { ok: false, message: e?.message ?? 'Request failed' } })
+    }
+    setStatus('done')
+    setTimeout(() => setStatus('idle'), 12000)
+  }
+
+  return (
+    <div className="space-y-2">
+      <button
+        onClick={run}
+        disabled={status === 'loading'}
+        className="w-full py-3 bg-gradient-to-r from-[#8B0000] to-[#a00000] text-white font-black text-sm rounded-xl hover:from-[#a00000] hover:to-[#8B0000] transition-all flex items-center justify-center gap-2 disabled:opacity-60"
+      >
+        {status === 'loading' ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <RefreshCw size={14} />}
+        {status === 'loading' ? 'Testing…' : 'Test All Connections'}
+      </button>
+      {status === 'done' && Object.keys(results).length > 0 && (
+        <div className="space-y-1.5">
+          {Object.entries(results).map(([name, r]) => (
+            <div key={name} className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs ${r.ok ? 'bg-[#28a745]/10 border border-[#28a745]/20' : 'bg-[#EF4444]/10 border border-[#EF4444]/20'}`}>
+              <span className={`font-bold uppercase tracking-wider w-16 flex-shrink-0 ${r.ok ? 'text-[#28a745]' : 'text-[#EF4444]'}`}>{name}</span>
+              <span className={r.ok ? 'text-[#28a745]' : 'text-[#EF4444]'}>{r.message}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function ApiKeyField({ label, placeholder, icon: Icon, hint, settingKey }: { label: string; placeholder: string; icon: React.ComponentType<{size:number;className?:string}>; hint?: string; settingKey?: string }) {
   const [visible, setVisible] = useState(false)
   const [value, setValue] = useState('')
@@ -1139,12 +1229,8 @@ function AdminDashboard() {
                   <a href="https://t.me/BotFather" target="_blank" rel="noopener noreferrer" className="ml-auto text-[10px] text-[#FFD700] hover:underline">@BotFather ↗</a>
                 </div>
                 <div className="space-y-4">
-                  <ApiKeyField label="Telegram Bot Token" placeholder="1234567890:XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" icon={Key} hint="Create a bot via @BotFather on Telegram" />
-                  <div>
-                    <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Admin Chat ID</label>
-                    <input defaultValue="" placeholder="e.g. -1001234567890" className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted/40 focus:outline-none focus:border-[#229ED9] transition-all"/>
-                    <p className="text-[10px] text-text-muted mt-1">Your group chat ID for admin notifications (new registrations, featured requests, etc.)</p>
-                  </div>
+                  <ApiKeyField label="Telegram Bot Token" placeholder="1234567890:XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" icon={Key} settingKey="telegram_token" hint="Create a bot via @BotFather on Telegram" />
+                  <TextSettingField label="Admin Chat ID" placeholder="e.g. -1001234567890" settingKey="telegram_chat_id" hint="Your group chat ID for admin notifications (new registrations, featured requests, etc.)" />
                 </div>
               </div>
 
@@ -1156,14 +1242,8 @@ function AdminDashboard() {
                 </div>
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">SMTP Host</label>
-                      <input defaultValue="" placeholder="smtp.gmail.com" className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted/40 focus:outline-none focus:border-[#FF9800] transition-all"/>
-                    </div>
-                    <div>
-                      <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Port</label>
-                      <input type="number" defaultValue="587" className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#FF9800] transition-all"/>
-                    </div>
+                    <TextSettingField label="SMTP Host" placeholder="smtp.gmail.com" settingKey="smtp_host" />
+                    <TextSettingField label="Port" placeholder="587" settingKey="smtp_port" type="number" />
                   </div>
                   <ApiKeyField label="SMTP Username" placeholder="noreply@wet3camp.com" icon={Mail} settingKey="smtp_user" />
                   <ApiKeyField label="SMTP Password / App Password" placeholder="xxxx xxxx xxxx xxxx" icon={Lock} settingKey="smtp_pass" />
@@ -1171,9 +1251,7 @@ function AdminDashboard() {
                 </div>
               </div>
 
-              <button className="w-full py-3 bg-gradient-to-r from-[#8B0000] to-[#a00000] text-white font-black text-sm rounded-xl hover:from-[#a00000] hover:to-[#8B0000] transition-all flex items-center justify-center gap-2">
-                <RefreshCw size={14} /> Test All Connections
-              </button>
+              <TestAllConnectionsButton />
             </div>
           )}
 
