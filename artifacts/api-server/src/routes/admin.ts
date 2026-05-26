@@ -407,4 +407,58 @@ router.delete('/admin/users/:id', requireAuth, requireAdmin, async (req: AuthReq
   }
 })
 
+router.get('/admin/health', requireAuth, requireAdmin, async (_req: AuthRequest, res) => {
+  const pool = getPool()
+  const status: Record<string, { ok: boolean; detail: string }> = {}
+
+  // Database
+  if (pool) {
+    try {
+      await pool.query('SELECT 1')
+      status.database = { ok: true, detail: 'Connected ✓' }
+
+      // Check key tables
+      const tables = ['users', 'escorts', 'platform_settings', 'rooms', 'bookings']
+      const missing: string[] = []
+      for (const t of tables) {
+        try {
+          await pool.query(`SELECT 1 FROM ${t} LIMIT 1`)
+        } catch {
+          missing.push(t)
+        }
+      }
+      if (missing.length > 0) {
+        status.tables = { ok: false, detail: `Missing tables: ${missing.join(', ')}` }
+      } else {
+        status.tables = { ok: true, detail: 'All required tables exist ✓' }
+      }
+
+      // Row counts
+      const [[{ users }]]    = await pool.query<any[]>('SELECT COUNT(*) as users FROM users').catch(() => [[{ users: '?' }]])
+      const [[{ escorts }]]  = await pool.query<any[]>('SELECT COUNT(*) as escorts FROM escorts').catch(() => [[{ escorts: '?' }]])
+      const [[{ settings }]] = await pool.query<any[]>('SELECT COUNT(*) as settings FROM platform_settings').catch(() => [[{ settings: '?' }]])
+      status.counts = { ok: true, detail: `users=${users} escorts=${escorts} settings=${settings}` }
+    } catch (e: any) {
+      status.database = { ok: false, detail: e?.message ?? String(e) }
+    }
+  } else {
+    status.database = { ok: false, detail: 'DATABASE_URL not set — no pool' }
+  }
+
+  // Env vars (safe keys only)
+  const envKeys = ['DATABASE_URL', 'DB_HOST', 'DB_USER', 'DB_NAME', 'NODE_ENV', 'PORT', 'JWT_SECRET', 'SMTP_HOST']
+  const envStatus: Record<string, string> = {}
+  for (const k of envKeys) {
+    const v = process.env[k]
+    if (!v) { envStatus[k] = 'NOT SET' }
+    else if (k === 'DATABASE_URL') { envStatus[k] = v.replace(/:([^@]+)@/, ':***@') }
+    else if (k === 'JWT_SECRET') { envStatus[k] = v.slice(0, 6) + '...' }
+    else { envStatus[k] = v }
+  }
+  status.env = { ok: !envStatus['DATABASE_URL']?.includes('NOT SET'), detail: JSON.stringify(envStatus) }
+
+  const allOk = Object.values(status).every(s => s.ok)
+  res.status(allOk ? 200 : 207).json({ ok: allOk, status, ts: new Date().toISOString() })
+})
+
 export default router

@@ -1,50 +1,110 @@
 -- =============================================================================
--- Wet3.camp — Database Migration SQL (v3)
--- Run this in phpMyAdmin (admin_wet3camp database) BEFORE deploying new code.
+-- Wet3.camp — Database Migration SQL (v4)
+-- Run automatically by deploy-on-server.sh on every deploy.
 -- Every statement uses IF NOT EXISTS / IGNORE — 100% safe to re-run.
 -- =============================================================================
 
 -- =============================================================================
--- 1. Fix escorts.age column so registration never fails when age is missing
+-- 1. Create users table (required for all auth)
 -- =============================================================================
-ALTER TABLE escorts
-  MODIFY COLUMN age tinyint(3) UNSIGNED NOT NULL DEFAULT 0;
+CREATE TABLE IF NOT EXISTS `users` (
+  `id`            int(10) UNSIGNED    NOT NULL AUTO_INCREMENT,
+  `username`      varchar(100)        NOT NULL,
+  `email`         varchar(255)        NOT NULL,
+  `password_hash` varchar(255)        NOT NULL,
+  `display_name`  varchar(150)        DEFAULT NULL,
+  `phone`         varchar(30)         DEFAULT NULL,
+  `role`          varchar(20)         NOT NULL DEFAULT 'user',
+  `avatar`        varchar(500)        DEFAULT NULL,
+  `is_active`     tinyint(1)          NOT NULL DEFAULT 1,
+  `created_at`    datetime            NOT NULL DEFAULT current_timestamp(),
+  `updated_at`    datetime            NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_email`    (`email`),
+  UNIQUE KEY `uq_username` (`username`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =============================================================================
--- 2. Add missing columns to escorts table (safe — only adds if missing)
+-- 2. Create escorts table (full schema)
 -- =============================================================================
+CREATE TABLE IF NOT EXISTS `escorts` (
+  `id`               int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id`          int(10) UNSIGNED DEFAULT NULL,
+  `name`             varchar(100)     NOT NULL,
+  `age`              tinyint(3) UNSIGNED NOT NULL DEFAULT 0,
+  `city`             varchar(100)     NOT NULL DEFAULT '',
+  `area`             varchar(100)     NOT NULL DEFAULT '',
+  `lat`              decimal(9,6)     NOT NULL DEFAULT 0.000000,
+  `lng`              decimal(9,6)     NOT NULL DEFAULT 0.000000,
+  `tier`             enum('elite','vip','premium','standard','free') NOT NULL DEFAULT 'standard',
+  `rating`           decimal(2,1)     NOT NULL DEFAULT 0.0,
+  `reviews_count`    smallint(5) UNSIGNED NOT NULL DEFAULT 0,
+  `bio`              text             DEFAULT NULL,
+  `image`            varchar(500)     DEFAULT NULL,
+  `height`           varchar(20)      DEFAULT NULL,
+  `body_type`        varchar(50)      DEFAULT NULL,
+  `ethnicity`        varchar(50)      DEFAULT NULL,
+  `hair_color`       varchar(50)      DEFAULT NULL,
+  `price_hourly`     int(10) UNSIGNED NOT NULL DEFAULT 0,
+  `price_overnight`  int(10) UNSIGNED NOT NULL DEFAULT 0,
+  `price_video`      int(10) UNSIGNED NOT NULL DEFAULT 0,
+  `whatsapp`         varchar(20)      DEFAULT NULL,
+  `telegram`         varchar(100)     DEFAULT NULL,
+  `phone`            varchar(20)      DEFAULT NULL,
+  `available`        tinyint(1)       NOT NULL DEFAULT 0,
+  `verified`         tinyint(1)       NOT NULL DEFAULT 0,
+  `online`           tinyint(1)       NOT NULL DEFAULT 0,
+  `is_active`        tinyint(1)       NOT NULL DEFAULT 1,
+  `created_at`       datetime         NOT NULL DEFAULT current_timestamp(),
+  `updated_at`       datetime         NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_city`    (`city`),
+  KEY `idx_tier`    (`tier`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Safe column additions for existing installs
 ALTER TABLE escorts
-  ADD COLUMN IF NOT EXISTS `is_active` tinyint(1) NOT NULL DEFAULT 0,
-  ADD COLUMN IF NOT EXISTS `online`    tinyint(1) NOT NULL DEFAULT 0,
-  ADD COLUMN IF NOT EXISTS `lat`       decimal(10,7) DEFAULT NULL,
-  ADD COLUMN IF NOT EXISTS `lng`       decimal(10,7) DEFAULT NULL;
+  ADD COLUMN IF NOT EXISTS `is_active`       tinyint(1)       NOT NULL DEFAULT 1,
+  ADD COLUMN IF NOT EXISTS `online`          tinyint(1)       NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS `lat`             decimal(9,6)     NOT NULL DEFAULT 0.000000,
+  ADD COLUMN IF NOT EXISTS `lng`             decimal(9,6)     NOT NULL DEFAULT 0.000000,
+  ADD COLUMN IF NOT EXISTS `height`          varchar(20)      DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS `body_type`       varchar(50)      DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS `ethnicity`       varchar(50)      DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS `hair_color`      varchar(50)      DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS `price_hourly`    int(10) UNSIGNED NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS `price_overnight` int(10) UNSIGNED NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS `price_video`     int(10) UNSIGNED NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS `whatsapp`        varchar(20)      DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS `telegram`        varchar(100)     DEFAULT NULL;
 
 -- =============================================================================
 -- 3. Create platform_settings table (Admin → Settings & API Keys tabs)
---    THIS IS REQUIRED for admin settings save/load to work.
+--    REQUIRED for admin settings save/load to work.
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS `platform_settings` (
   `key`        varchar(100)  NOT NULL,
   `value`      text          NOT NULL DEFAULT '',
-  `updated_at` datetime      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `updated_at` datetime      NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =============================================================================
--- 4. Ensure escort_gallery table exists (for photo uploads)
+-- 4. Create escort_gallery table
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS `escort_gallery` (
   `id`          int(11)      NOT NULL AUTO_INCREMENT,
   `escort_id`   int(11)      NOT NULL,
   `image_url`   varchar(500) NOT NULL,
   `sort_order`  int(11)      NOT NULL DEFAULT 0,
-  `created_at`  datetime     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `created_at`  datetime     NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
   KEY `idx_escort_id` (`escort_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =============================================================================
--- 5. Ensure escort_languages table exists
+-- 5. Create escort_languages table
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS `escort_languages` (
   `id`         int(11)     NOT NULL AUTO_INCREMENT,
@@ -56,7 +116,7 @@ CREATE TABLE IF NOT EXISTS `escort_languages` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =============================================================================
--- 6. Ensure escort_services table exists
+-- 6. Create escort_services table
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS `escort_services` (
   `id`         int(11)      NOT NULL AUTO_INCREMENT,
@@ -69,7 +129,7 @@ CREATE TABLE IF NOT EXISTS `escort_services` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =============================================================================
--- 7. Create rooms table (for the /rooms page)
+-- 7. Create rooms table
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS `rooms` (
   `id`            int(11)         NOT NULL AUTO_INCREMENT,
@@ -85,7 +145,7 @@ CREATE TABLE IF NOT EXISTS `rooms` (
   `amenities`     text,
   `image`         varchar(500),
   `available`     tinyint(1)      NOT NULL DEFAULT 1,
-  `created_at`    datetime        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `created_at`    datetime        NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -105,7 +165,7 @@ CREATE TABLE IF NOT EXISTS `room_bookings` (
   `total_amount` int(11)      NOT NULL DEFAULT 0,
   `notes`        text,
   `status`       enum('pending','confirmed','cancelled','completed') NOT NULL DEFAULT 'pending',
-  `created_at`   datetime     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `created_at`   datetime     NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
   KEY `idx_room_id`  (`room_id`),
   KEY `idx_check_in` (`check_in`),
@@ -113,21 +173,43 @@ CREATE TABLE IF NOT EXISTS `room_bookings` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =============================================================================
--- 9. Ensure password_resets table exists (for forgot-password flow)
+-- 9. Create bookings table
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS `bookings` (
+  `id`           int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id`      int(10) UNSIGNED NOT NULL,
+  `escort_id`    int(10) UNSIGNED NOT NULL,
+  `booking_date` date             NOT NULL,
+  `start_time`   time             NOT NULL,
+  `duration_hrs` tinyint(3) UNSIGNED NOT NULL DEFAULT 1,
+  `type`         enum('hourly','overnight','video') NOT NULL DEFAULT 'hourly',
+  `amount`       int(10) UNSIGNED NOT NULL DEFAULT 0,
+  `location`     varchar(300)     DEFAULT NULL,
+  `notes`        text             DEFAULT NULL,
+  `status`       enum('pending','confirmed','completed','cancelled') NOT NULL DEFAULT 'pending',
+  `created_at`   datetime         NOT NULL DEFAULT current_timestamp(),
+  `updated_at`   datetime         NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_user_id`   (`user_id`),
+  KEY `idx_escort_id` (`escort_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =============================================================================
+-- 10. Create password_resets table
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS `password_resets` (
   `id`         int(11)      NOT NULL AUTO_INCREMENT,
   `email`      varchar(255) NOT NULL,
   `token`      varchar(100) NOT NULL,
   `expires_at` datetime     NOT NULL,
-  `created_at` datetime     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `created_at` datetime     NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
   KEY `idx_token` (`token`),
   KEY `idx_email` (`email`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =============================================================================
--- 10. Ensure reviews table exists
+-- 11. Create reviews table
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS `reviews` (
   `id`         int(11)      NOT NULL AUTO_INCREMENT,
@@ -135,20 +217,20 @@ CREATE TABLE IF NOT EXISTS `reviews` (
   `user_id`    int(11)      NOT NULL,
   `rating`     tinyint      NOT NULL DEFAULT 5,
   `comment`    text,
-  `created_at` datetime     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `created_at` datetime     NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
   KEY `idx_escort_id` (`escort_id`),
   KEY `idx_user_id`   (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =============================================================================
--- 11. Ensure favorites and followers tables exist
+-- 12. Create favorites and followers tables
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS `favorites` (
   `id`         int(11) NOT NULL AUTO_INCREMENT,
   `user_id`    int(11) NOT NULL,
   `escort_id`  int(11) NOT NULL,
-  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_fav` (`user_id`, `escort_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -157,36 +239,98 @@ CREATE TABLE IF NOT EXISTS `followers` (
   `id`         int(11) NOT NULL AUTO_INCREMENT,
   `user_id`    int(11) NOT NULL,
   `escort_id`  int(11) NOT NULL,
-  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_follow` (`user_id`, `escort_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =============================================================================
--- 12. Create the first admin user
---    RECOMMENDED: Use the built-in setup endpoint via PowerShell (see below)
---    POST https://wet3.camp/api/auth/setup-admin
---    Body: { "email": "admin@wet3camp.com", "password": "YourSecurePassword", "name": "Platform Admin" }
---    This only works ONCE — disabled after first admin is created.
---
---    PowerShell one-liner:
---    Invoke-RestMethod -Uri "https://wet3.camp/api/auth/setup-admin" -Method POST -ContentType "application/json" -Body '{"email":"admin@wet3camp.com","password":"YourSecurePassword","name":"Platform Admin"}'
+-- 13. Create adverts table
 -- =============================================================================
+CREATE TABLE IF NOT EXISTS `adverts` (
+  `id`          int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `escort_id`   int(10) UNSIGNED DEFAULT NULL,
+  `title`       varchar(200)     NOT NULL,
+  `description` text             DEFAULT NULL,
+  `image`       varchar(500)     DEFAULT NULL,
+  `link`        varchar(500)     DEFAULT NULL,
+  `position`    enum('banner','sidebar','card','popup') NOT NULL DEFAULT 'banner',
+  `is_active`   tinyint(1)       NOT NULL DEFAULT 1,
+  `starts_at`   datetime         DEFAULT NULL,
+  `ends_at`     datetime         DEFAULT NULL,
+  `created_at`  datetime         NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =============================================================================
--- POWERSHELL DEPLOY INSTRUCTIONS
--- ================================
--- 1. SSH into your server and run:
---      cd /home/admin/wet3camp-build
---      git pull origin main
---      bash /home/admin/wet3camp-build/deploy-on-server.sh
+-- 14. Create blacklist table
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS `blacklist` (
+  `id`          int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `name`        varchar(200)     NOT NULL,
+  `phone`       varchar(20)      DEFAULT NULL,
+  `reason`      text             NOT NULL,
+  `reported_by` int(10) UNSIGNED DEFAULT NULL,
+  `created_at`  datetime         NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =============================================================================
+-- 15. Create messages table
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS `messages` (
+  `id`          int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `sender_id`   int(10) UNSIGNED NOT NULL,
+  `receiver_id` int(10) UNSIGNED NOT NULL,
+  `body`        text             NOT NULL,
+  `read`        tinyint(1)       NOT NULL DEFAULT 0,
+  `created_at`  datetime         NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_sender`   (`sender_id`),
+  KEY `idx_receiver` (`receiver_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =============================================================================
+-- 16. Create notifications table
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS `notifications` (
+  `id`         int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id`    int(10) UNSIGNED NOT NULL,
+  `type`       varchar(50)      NOT NULL,
+  `title`      varchar(200)     NOT NULL,
+  `body`       text             DEFAULT NULL,
+  `read`       tinyint(1)       NOT NULL DEFAULT 0,
+  `created_at` datetime         NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =============================================================================
+-- 17. Create sessions table
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS `sessions` (
+  `id`         varchar(128)     NOT NULL,
+  `user_id`    int(10) UNSIGNED NOT NULL,
+  `data`       text             DEFAULT NULL,
+  `expires_at` datetime         NOT NULL,
+  `created_at` datetime         NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =============================================================================
+-- DEPLOY INSTRUCTIONS
+-- =============================================================================
+-- This file runs automatically on every deploy via deploy-on-server.sh.
+-- You do NOT need to run it manually in phpMyAdmin.
 --
--- 2. Then run THIS SQL in phpMyAdmin on database admin_wet3camp:
---    (Copy everything above and paste into phpMyAdmin → SQL tab → Go)
+-- To deploy:
+--   cd /home/admin/wet3camp-build && git pull origin main
+--   bash /home/admin/wet3camp-build/deploy-on-server.sh
 --
--- 3. After migration, test admin panel at wet3.camp/admin
---    - Go to API Keys tab → enter SMTP Host, Port, Username, Password → Save each
---    - Click "Test All Connections" to verify SMTP, DB and Telegram
---    - Go to Escorts tab to see all escorts including pending ones (e.g. Bettcy)
---    - Approve or reject escorts from the Escorts tab
+-- To create the first admin account after deploy:
+--   Invoke-RestMethod -Uri "https://wet3.camp/api/auth/setup-admin" -Method POST -ContentType "application/json" -Body '{"email":"admin@wet3.camp","password":"YourPassword","name":"Platform Admin"}'
+--
+-- To diagnose issues on the live server, visit:
+--   GET https://wet3.camp/api/admin/health  (requires admin login token)
 -- =============================================================================
