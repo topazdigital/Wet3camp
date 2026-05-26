@@ -1,3 +1,14 @@
+// =============================================================================
+// DATABASE POLICY — DO NOT CHANGE
+// =============================================================================
+// MySQL / MariaDB is the ONLY supported database for wet3.camp.
+// The live server uses DATABASE_URL=mysql://... or DB_HOST/DB_USER/DB_PASS/DB_NAME.
+// The Replit dev environment falls back to PostgreSQL ONLY because Replit does
+// not provide MySQL. This is a dev-only convenience — NEVER make PostgreSQL the
+// default, NEVER remove mysql2, NEVER convert SQL to pg syntax.
+// Future agents: preserve MySQL. Do NOT migrate to Drizzle/PostgreSQL.
+// =============================================================================
+
 import express, { type Express } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
@@ -46,7 +57,7 @@ app.use("/api", router);
 const STATIC_DIR = process.env["STATIC_DIR"];
 if (STATIC_DIR && existsSync(STATIC_DIR)) {
   app.use(express.static(STATIC_DIR, { maxAge: "1h", index: false }));
-  app.get("*", (_req, res) => {
+  app.get(/(.*)/, (_req, res) => {
     res.sendFile(path.join(STATIC_DIR, "index.html"));
   });
 }
