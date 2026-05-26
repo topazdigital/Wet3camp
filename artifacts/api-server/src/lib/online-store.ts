@@ -21,3 +21,13 @@ function broadcast() {
   const payload = `data: ${JSON.stringify([...onlineEscorts])}\n\n`
   sseClients.forEach(r => { try { r.write(payload) } catch { sseClients.delete(r) } })
 }
+
+export async function seedOnlineFromDb(pool: import('mysql2/promise').Pool) {
+  try {
+    const [rows] = await pool.query<any[]>(
+      "SELECT id FROM escorts WHERE is_active = 1 AND online = 1 LIMIT 500"
+    )
+    for (const row of rows) onlineEscorts.add(Number(row.id))
+    if (rows.length > 0) broadcast()
+  } catch {}
+}

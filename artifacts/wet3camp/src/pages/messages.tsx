@@ -1,10 +1,10 @@
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
 import Header from '@/components/Header'
 import Sidebar from '@/components/Sidebar'
 import { useSEO } from '@/lib/useSEO'
-import { Send, Search, CheckCheck, Check, MoreVertical, Phone, Video, Paperclip, Smile, ArrowLeft, Calendar, X } from 'lucide-react'
+import { Send, Search, CheckCheck, Check, MoreVertical, Phone, Video, Paperclip, Smile, ArrowLeft, Calendar, X, Wifi, WifiOff } from 'lucide-react'
 import { Link } from 'wouter'
-import { api } from '@/lib/api'
+import { api, getToken } from '@/lib/api'
 import { useAuth } from '@/lib/auth-context'
 
 const STATIC_CONVERSATIONS = [
@@ -64,7 +64,12 @@ export default function MessagesPage() {
   const [typing, setTyping] = useState<Record<number, boolean>>({})
   const [unread, setUnread] = useState<Record<number, number>>({ 1: 2, 3: 1 })
   const [bookingPrompt, setBookingPrompt] = useState(false)
+  const [sseConnected, setSseConnected] = useState(false)
   const chatEndRef = useRef<HTMLDivElement>(null)
+  const selectedRef = useRef<number | null>(selected)
+  const sseRef = useRef<EventSource | null>(null)
+
+  useEffect(() => { selectedRef.current = selected }, [selected])
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -103,12 +108,93 @@ export default function MessagesPage() {
     }).catch(() => {})
   }, [isLoggedIn])
 
+  // Real-time SSE connection for incoming messages
+  useEffect(() => {
+    if (!isLoggedIn) return
+    const token = getToken()
+    if (!token) return
+
+    const connect = () => {
+      const es = new EventSource(`/api/events/messages?token=${encodeURIComponent(token)}`)
+      sseRef.current = es
+
+      es.onopen = () => setSseConnected(true)
+
+      es.onmessage = (e) => {
+        try {
+          const msg = JSON.parse(e.data)
+          if (!msg || typeof msg !== 'object') return
+          const escortId = Number(msg.escortId)
+          const time = new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+
+          // Clear typing indicator for this escort
+          setTyping(prev => ({ ...prev, [escortId]: false }))
+
+          // Append message to thread
+          const incomingMsg: Msg = {
+            id: msg.id,
+            text: msg.content,
+            mine: !msg.fromEscort,
+            time,
+            status: msg.fromEscort ? undefined : 'sent',
+          }
+          setMessages(prev => {
+            const existing = prev[escortId] ?? []
+            // Avoid duplicates
+            if (existing.some(m => m.id === msg.id)) return prev
+            return { ...prev, [escortId]: [...existing, incomingMsg] }
+          })
+
+          // Update conversation last message
+          setConversations(prev => prev.map(c =>
+            c.id === escortId ? { ...c, last: msg.content, time: 'now' } : c
+          ))
+
+          // Increment unread if not viewing this conversation
+          if (selectedRef.current !== escortId && msg.fromEscort) {
+            setUnread(prev => ({ ...prev, [escortId]: (prev[escortId] ?? 0) + 1 }))
+          }
+        } catch {}
+      }
+
+      es.onerror = () => {
+        setSseConnected(false)
+        es.close()
+        sseRef.current = null
+        setTimeout(connect, 5000)
+      }
+    }
+
+    connect()
+    return () => {
+      sseRef.current?.close()
+      sseRef.current = null
+      setSseConnected(false)
+    }
+  }, [isLoggedIn])
+
   const selectConv = (id: number) => {
     setSelected(id)
     setShowList(false)
     setUnread(prev => ({ ...prev, [id]: 0 }))
     setBookingPrompt(false)
   }
+
+  const simulateReply = useCallback((convId: number) => {
+    setTimeout(() => {
+      setTyping(prev => ({ ...prev, [convId]: true }))
+      const replyDelay = 1500 + Math.random() * 1500
+      setTimeout(() => {
+        setTyping(prev => ({ ...prev, [convId]: false }))
+        const replies = AUTO_REPLIES[convId] ?? ["Thanks for your message! 😊"]
+        const replyText = replies[Math.floor(Math.random() * replies.length)]
+        const replyTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        const reply: Msg = { id: Date.now() + 1, text: replyText, mine: false, time: replyTime }
+        setMessages(prev => ({ ...prev, [convId]: [...(prev[convId] ?? []), reply] }))
+        setUnread(prev => selectedRef.current === convId ? prev : { ...prev, [convId]: (prev[convId] ?? 0) + 1 })
+      }, replyDelay)
+    }, 800)
+  }, [])
 
   const sendMsg = () => {
     if (!input.trim() || !selected) return
@@ -118,24 +204,18 @@ export default function MessagesPage() {
     setMessages(prev => ({ ...prev, [selected]: [...(prev[selected] ?? []), newMsg] }))
     setInput('')
 
-    api.messages.send(selected, text).catch(() => {})
-
     const convId = selected
-    setTimeout(() => {
-      setTyping(prev => ({ ...prev, [convId]: true }))
-      const replyDelay = 1500 + Math.random() * 1500
-      setTimeout(() => {
-        setTyping(prev => ({ ...prev, [convId]: false }))
-        const replies = AUTO_REPLIES[convId] ?? ["Thanks for your message!"]
-        const replyText = replies[Math.floor(Math.random() * replies.length)]
-        const replyTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        const reply: Msg = { id: Date.now() + 1, text: replyText, mine: false, time: replyTime }
-        setMessages(prev => ({ ...prev, [convId]: [...(prev[convId] ?? []), reply] }))
-        if (convId !== selected) {
-          setUnread(prev => ({ ...prev, [convId]: (prev[convId] ?? 0) + 1 }))
-        }
-      }, replyDelay)
-    }, 800)
+
+    if (isLoggedIn) {
+      api.messages.send(selected, text).then(() => {
+        // Show typing indicator — real reply will arrive via SSE
+        setTimeout(() => setTyping(prev => ({ ...prev, [convId]: true })), 800)
+      }).catch(() => {
+        simulateReply(convId)
+      })
+    } else {
+      simulateReply(convId)
+    }
   }
 
   const sendBookingRequest = () => {
@@ -240,7 +320,16 @@ export default function MessagesPage() {
                   {activeCon?.online && <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-[#28a745] rounded-full border-2 border-card-bg" />}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-bold text-text-light text-sm">{activeCon?.name}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-bold text-text-light text-sm">{activeCon?.name}</p>
+                    {isLoggedIn && (
+                      <span title={sseConnected ? 'Real-time connected' : 'Connecting…'}>
+                        {sseConnected
+                          ? <Wifi size={10} className="text-[#28a745]" />
+                          : <WifiOff size={10} className="text-text-muted animate-pulse" />}
+                      </span>
+                    )}
+                  </div>
                   <p className={`text-[11px] ${typing[selected] ? 'text-[#28a745] animate-pulse' : activeCon?.online ? 'text-[#28a745]' : 'text-text-muted'}`}>
                     {typing[selected] ? 'typing…' : activeCon?.online ? 'Online' : 'Offline'}
                   </p>

@@ -1,5 +1,7 @@
 import app from "./app";
 import { logger } from "./lib/logger";
+import { getPool } from "./lib/db.js";
+import { seedOnlineFromDb } from "./lib/online-store.js";
 
 const rawPort = process.env["PORT"];
 
@@ -22,4 +24,11 @@ app.listen(port, (err) => {
   }
 
   logger.info({ port }, "Server listening");
+
+  const pool = getPool();
+  if (pool) {
+    seedOnlineFromDb(pool).then(() => {
+      logger.info("Online escort status seeded from DB");
+    });
+  }
 });
