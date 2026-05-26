@@ -49,6 +49,12 @@ echo "▶ [5/6] Writing .htaccess..."
 HTACCESS="$PROJECT_DIR/.htaccess"
 [ -f "$HTACCESS" ] && cp "$HTACCESS" "$HTACCESS.bak"
 
+# Remove any old root-level index.html that would shadow the dist build
+if [ -f "$PROJECT_DIR/index.html" ]; then
+  mv "$PROJECT_DIR/index.html" "$PROJECT_DIR/index.html.old"
+  echo "  Moved old root index.html → index.html.old"
+fi
+
 cat > "$HTACCESS" << 'HTACCESS_CONTENT'
 Options -Indexes
 RewriteEngine On
