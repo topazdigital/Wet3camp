@@ -1176,8 +1176,8 @@ function AdminDashboard() {
                   <a href="https://console.cloud.google.com" target="_blank" rel="noopener noreferrer" className="ml-auto text-[10px] text-[#FFD700] hover:underline">Google Console ↗</a>
                 </div>
                 <div className="space-y-4">
-                  <ApiKeyField label="Google Client ID" placeholder="xxxxxxxxxx.apps.googleusercontent.com" icon={Key} hint="Create OAuth 2.0 credentials in Google Cloud Console" />
-                  <ApiKeyField label="Google Client Secret" placeholder="GOCSPX-xxxxxxxxxxxxxxx" icon={Lock} />
+                  <ApiKeyField label="Google Client ID" placeholder="xxxxxxxxxx.apps.googleusercontent.com" icon={Key} hint="Create OAuth 2.0 credentials in Google Cloud Console" settingKey="google_client_id" />
+                  <ApiKeyField label="Google Client Secret" placeholder="GOCSPX-xxxxxxxxxxxxxxx" icon={Lock} settingKey="google_client_secret" />
                 </div>
               </div>
 

@@ -22,6 +22,12 @@ export default function LoginPage() {
 
   const redirectTo = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('redirect') ?? null
 
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const oauthError = params.get('oauthError')
+    if (oauthError) setError(decodeURIComponent(oauthError))
+  }, [])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
@@ -42,7 +48,11 @@ export default function LoginPage() {
   }
 
   const handleOAuth = (provider: string) => {
-    setError(`${provider} OAuth is configured in the Admin Panel under API Keys. Contact your administrator to enable it.`)
+    if (provider === 'Google') {
+      window.location.href = '/api/auth/google'
+    } else {
+      setError(`${provider} login is not yet enabled. Please sign in with email/password.`)
+    }
   }
 
   return (
