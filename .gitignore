@@ -50,3 +50,6 @@ Thumbs.db
 
 # Auto-attached session assets (screenshots, pastes) — never commit these
 attached_assets/
+
+# Server environment file — contains DB passwords and JWT secret, never commit
+server.env
