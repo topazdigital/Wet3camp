@@ -139,16 +139,18 @@ export class CompatPool {
 export function getPool(): CompatPool | null {
   if (_pool) return _pool
 
-  let connectionString = process.env.DATABASE_URL
+  let connectionString: string | undefined
 
-  // Fallback: build mysql:// URL from individual DB_* vars (live server env file)
-  if (!connectionString) {
-    const { DB_HOST, DB_PORT, DB_USER, DB_PASS, DB_NAME } = process.env
-    if (DB_HOST && DB_USER && DB_NAME) {
-      const pass = DB_PASS ? encodeURIComponent(DB_PASS) : ''
-      const user = DB_USER ? encodeURIComponent(DB_USER) : ''
-      connectionString = `mysql://${user}:${pass}@${DB_HOST}:${DB_PORT ?? '3306'}/${DB_NAME}`
-    }
+  // Prefer individual DB_* vars when present — they get properly URL-encoded,
+  // which handles passwords containing special characters like @ # % etc.
+  // DATABASE_URL is only used as a fallback (e.g. Replit PostgreSQL dev env).
+  const { DB_HOST, DB_PORT, DB_USER, DB_PASS, DB_NAME } = process.env
+  if (DB_HOST && DB_USER && DB_NAME) {
+    const pass = DB_PASS ? encodeURIComponent(DB_PASS) : ''
+    const user = DB_USER ? encodeURIComponent(DB_USER) : ''
+    connectionString = `mysql://${user}:${pass}@${DB_HOST}:${DB_PORT ?? '3306'}/${DB_NAME}`
+  } else {
+    connectionString = process.env.DATABASE_URL
   }
 
   if (!connectionString) return null
