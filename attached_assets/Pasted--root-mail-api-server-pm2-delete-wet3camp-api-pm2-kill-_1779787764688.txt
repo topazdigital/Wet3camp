@@ -1,0 +1,91 @@
+[root@mail api-server]# pm2 delete wet3camp-api
+pm2 kill[PM2] Applying action deleteProcessId on app [wet3camp-api](ids: [ 27 ])
+
+pm2 res[PM2] [wet3camp-api](27) ✓
+┌────┬────────────────────┬──────────┬──────┬───────────┬──────────┬──────────┐
+│ id │ name               │ mode     │ ↺    │ status    │ cpu      │ memory   │
+├────┼────────────────────┼──────────┼──────┼───────────┼──────────┼──────────┤
+│ 24 │ betcheza           │ fork     │ 10   │ online    │ 0%       │ 626.6mb  │
+│ 0  │ dossy              │ fork     │ 0    │ online    │ 0%       │ 57.0mb   │
+│ 3  │ rdn-api            │ fork     │ 0    │ online    │ 0%       │ 102.3mb  │
+│ 2  │ rdn-test           │ fork     │ 974… │ online    │ 86.7%    │ 69.0mb   │
+└────┴────────────────────┴──────────┴──────┴───────────┴──────────┴──────────┘
+[root@mail api-server]# pm2 kill
+urrect[PM2] Applying action deleteProcessId on app [all](ids: [ 0, 2, 3, 24 ])
+[PM2] [rdn-test](2) ✓
+[PM2] [rdn-api](3) ✓
+[PM2] [betcheza](24) ✓
+[PM2] [dossy](0) ✓
+[PM2] [v] All Applications Stopped
+[PM2] [v] PM2 Daemon Stopped
+[root@mail api-server]# pm2 resurrect
+[PM2] Spawning PM2 daemon with pm2_home=/root/.pm2
+[PM2] PM2 Successfully daemonized
+[PM2] Resurrecting
+[PM2] Restoring processes located in /root/.pm2/dump.pm2
+[PM2] Process /usr/bin/npm restored
+[PM2] Process /home/admin/domains/test.richdatingnetwork.com/public_html/artifacts/api-server/dist/index.mjs restored
+[PM2] Process /home/admin/apps/betcheza/node_modules/.bin/next restored
+[PM2] Process /home/admin/domains/test.richdatingnetwork.com/public_html/artifacts/api-server/dist/index.mjs restored
+[PM2] Process /home/admin/api-server/dist/index.mjs restored
+┌────┬────────────────────┬──────────┬──────┬───────────┬──────────┬──────────┐
+│ id │ name               │ mode     │ ↺    │ status    │ cpu      │ memory   │
+├────┼────────────────────┼──────────┼──────┼───────────┼──────────┼──────────┤
+│ 3  │ betcheza           │ fork     │ 0    │ online    │ 0%       │ 44.6mb   │
+│ 0  │ dossy              │ fork     │ 0    │ online    │ 0%       │ 46.2mb   │
+│ 2  │ rdn-api            │ fork     │ 0    │ online    │ 0%       │ 29.8mb   │
+│ 1  │ rdn-test           │ fork     │ 0    │ online    │ 0%       │ 39.9mb   │
+│ 4  │ wet3camp-api       │ fork     │ 0    │ online    │ 0%       │ 29.4mb   │
+└────┴────────────────────┴──────────┴──────┴───────────┴──────────┴──────────┘
+[root@mail api-server]# cd /home/admin/api-server
+[root@mail api-server]# npm install mysql2
+npm error code EUNSUPPORTEDPROTOCOL
+npm error Unsupported URL Type "workspace:": workspace:*
+npm error A complete log of this run can be found in: /root/.npm/_logs/2026-05-26T09_27_57_166Z-debug-0.log
+[root@mail api-server]# node -e "console.log(require('crypto').randomBytes(64).toString('hex'))" > /home/admin/.wet3camp_jwt
+home/adm[root@mail api-server]# cat /home/admin/.wet3camp_jwt
+0d1c3da4ff210e8f5efd48dca3561238f8da33264e439dd296ba970a39a79c5867345a8fd9f73effdd8023b59eb2b01c97a8b1c881251e9af4b2cb47f4e37a2b
+[root@mail api-server]# cd /home/admin/api-server
+[root@mail api-server]#
+[root@mail api-server]# PORT=4500 \
+> DB_HOST=localhost \
+> DB_USER=admin_wet3camp \
+> DB_PASS=dj@Topaz2016 \
+> DB_NAME=admin_wet3camp \
+> JWT_SECRET=$(cat /home/admin/.wet3camp_jwt) \
+> pm2 start dist/index.mjs \
+>   --name wet3camp-api \
+>   --node-args="--enable-source-maps"
+m2 save
+[PM2][ERROR] Script already launched, add -f option to force re-execution
+[root@mail api-server]#
+[root@mail api-server]# pm2 save
+[PM2] Saving current process list...
+[PM2] Successfully saved in /root/.pm2/dump.pm2
+[root@mail api-server]# pm2 logs wet3camp-api --lines 10 --nostream
+[TAILING] Tailing last 10 lines for [wet3camp-api] process (change the value with --lines option)
+/root/.pm2/logs/wet3camp-api-out.log last 10 lines:
+4|wet3camp |               at Function.listen (/home/admin/domains/wet3.camp/public_html/node_modules/.pnpm/express@5.2.1/node_modules/express/lib/application.js:605:24)
+4|wet3camp |               at <anonymous> (/home/admin/domains/wet3.camp/public_html/artifacts/api-server/src/index.ts:18:5)
+4|wet3camp |               at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+4|wet3camp |               at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+4|wet3camp |       "code": "EADDRINUSE",
+4|wet3camp |       "errno": -98,
+4|wet3camp |       "syscall": "listen",
+4|wet3camp |       "address": "::",
+4|wet3camp |       "port": 8080
+4|wet3camp |     }
+
+/home/admin/api-server/JWT_SECRET=YOUR_JWT_SECRET last 10 lines:
+4|wet3camp |     at packageResolve (node:internal/modules/esm/resolve:873:9)
+4|wet3camp |     at moduleResolve (node:internal/modules/esm/resolve:946:18)
+4|wet3camp |     at defaultResolve (node:internal/modules/esm/resolve:1188:11)
+4|wet3camp |     at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:708:12)
+4|wet3camp |     at #cachedDefaultResolve (node:internal/modules/esm/loader:657:25)
+4|wet3camp |     at ModuleLoader.resolve (node:internal/modules/esm/loader:640:38)
+4|wet3camp |     at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:264:38)
+4|wet3camp |     at ModuleJob._link (node:internal/modules/esm/module_job:168:49) {
+4|wet3camp |   code: 'ERR_MODULE_NOT_FOUND'
+4|wet3camp | }
+
+[root@mail api-server]#
