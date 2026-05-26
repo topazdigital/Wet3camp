@@ -1,13 +1,29 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import Header from '@/components/Header'
 import Sidebar from '@/components/Sidebar'
 import { useAuth } from '@/lib/auth-context'
 import {
   Shield, Users, Calendar, BarChart2, Settings, Plus, Trash2, Edit2, CheckCircle2, XCircle,
   AlertTriangle, Lock, Mail, Eye, EyeOff, TrendingUp, DollarSign, Crown, Key, Instagram,
-  Smartphone, Globe, MessageCircle, Bell, Star, Save, RefreshCw, Camera
+  Smartphone, Globe, MessageCircle, Bell, Star, Save, RefreshCw, Camera, Radio, WifiOff
 } from 'lucide-react'
 import { useSEO } from '@/lib/useSEO'
+
+async function adminFetch(path: string, opts?: RequestInit) {
+  const token = localStorage.getItem('wet3camp_token')
+  const res = await fetch(`/api${path}`, {
+    ...opts,
+    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}), ...opts?.headers },
+  })
+  if (!res.ok) throw new Error(await res.text())
+  return res.json()
+}
+
+interface AdminEscort {
+  id: string; name: string; city: string; tier: string
+  online: boolean | number; is_active: boolean | number; verified: boolean | number
+  price_hourly?: number; bookings_count?: number
+}
 
 const TABS = ['Overview','Escorts','Clients','Bookings','Moderators','Featured','Blog','API Keys','Settings']
 
@@ -147,6 +163,151 @@ function AdminLogin() {
   )
 }
 
+function OnlineToggle({ id, online, onToggle }: { id: string; online: boolean; onToggle: (id: string, val: boolean) => void }) {
+  const [loading, setLoading] = useState(false)
+  const toggle = async () => {
+    setLoading(true)
+    try {
+      await adminFetch(`/admin/escorts/${id}/online`, { method: 'PATCH', body: JSON.stringify({ online: !online }) })
+      onToggle(id, !online)
+    } catch {}
+    setLoading(false)
+  }
+  return (
+    <button
+      onClick={toggle}
+      disabled={loading}
+      title={online ? 'Set offline' : 'Set online'}
+      className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 transition-colors duration-200 focus:outline-none disabled:opacity-50 ${online ? 'bg-[#28a745] border-[#28a745]' : 'bg-gray-600 border-gray-600'}`}
+    >
+      <span className={`pointer-events-none inline-block h-3.5 w-3.5 rounded-full bg-white shadow transform transition-transform duration-200 mt-px ${online ? 'translate-x-3.5' : 'translate-x-0.5'}`} />
+    </button>
+  )
+}
+
+function EscortsTab() {
+  const [escorts, setEscorts] = useState<AdminEscort[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [search, setSearch] = useState('')
+
+  const load = useCallback(async () => {
+    setLoading(true); setError('')
+    try {
+      const data = await adminFetch('/admin/escorts')
+      setEscorts(data)
+    } catch (e: any) {
+      setError('Failed to load escorts')
+    }
+    setLoading(false)
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  const handleToggle = (id: string, online: boolean) => {
+    setEscorts(prev => prev.map(e => e.id === id ? { ...e, online } : e))
+  }
+
+  const filtered = escorts.filter(e =>
+    !search || e.name?.toLowerCase().includes(search.toLowerCase()) || e.city?.toLowerCase().includes(search.toLowerCase())
+  )
+
+  const onlineCount = escorts.filter(e => Boolean(e.online)).length
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-[#28a745]/10 border border-[#28a745]/30 rounded-xl">
+            <Radio size={11} className="text-[#28a745]" />
+            <span className="text-xs font-bold text-[#28a745]">{onlineCount} Online</span>
+          </div>
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-dark-bg border border-color rounded-xl">
+            <WifiOff size={11} className="text-text-muted" />
+            <span className="text-xs font-bold text-text-muted">{escorts.length - onlineCount} Offline</span>
+          </div>
+          <button onClick={load} className="p-1.5 text-text-muted hover:text-text-light rounded-lg hover:bg-card-bg transition-colors" title="Refresh"><RefreshCw size={13} /></button>
+        </div>
+        <input
+          type="text"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Search by name or city…"
+          className="w-full sm:w-56 px-3 py-1.5 bg-dark-bg border border-color rounded-xl text-xs text-text-light placeholder-text-muted/50 focus:outline-none focus:border-[#8B0000] transition-all"
+        />
+      </div>
+
+      <div className="bg-card-bg border border-color rounded-2xl overflow-hidden">
+        <div className="px-4 py-3 border-b border-color flex items-center justify-between">
+          <h3 className="text-sm font-bold text-text-light">All Escorts {!loading && `(${filtered.length})`}</h3>
+          <button className="flex items-center gap-1.5 px-3 py-1.5 bg-[#8B0000] text-white text-xs font-bold rounded-xl"><Plus size={12}/>Add Escort</button>
+        </div>
+
+        {loading && (
+          <div className="flex items-center justify-center py-16 gap-2 text-text-muted">
+            <div className="w-4 h-4 border-2 border-text-muted/30 border-t-text-muted rounded-full animate-spin" />
+            <span className="text-sm">Loading escorts…</span>
+          </div>
+        )}
+        {!loading && error && (
+          <div className="flex items-center gap-2 m-4 p-3 bg-[#EF4444]/10 border border-[#EF4444]/20 rounded-xl">
+            <AlertTriangle size={14} className="text-[#EF4444]" /><p className="text-xs text-[#EF4444]">{error}</p>
+          </div>
+        )}
+        {!loading && !error && (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead className="bg-dark-bg border-b border-color">
+                <tr>{['Name','City','Tier','Active','Online Now','Verified','Actions'].map(h=><th key={h} className="px-4 py-3 text-left font-semibold text-text-muted">{h}</th>)}</tr>
+              </thead>
+              <tbody>
+                {filtered.length === 0 && (
+                  <tr><td colSpan={7} className="px-4 py-10 text-center text-text-muted">No escorts found.</td></tr>
+                )}
+                {filtered.map(e => (
+                  <tr key={e.id} className="border-b border-color/40 hover:bg-dark-bg transition-colors">
+                    <td className="px-4 py-3 font-semibold text-text-light">{e.name}</td>
+                    <td className="px-4 py-3 text-text-muted">{e.city || '—'}</td>
+                    <td className="px-4 py-3">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{background:e.tier==='Elite'?'#8B000020':e.tier==='VIP'?'#FF450020':'#55555520',color:e.tier==='Elite'?'#8B0000':e.tier==='VIP'?'#FF4500':'#aaa'}}>
+                        {e.tier || 'Standard'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      {Boolean(e.is_active)
+                        ? <span className="flex items-center gap-1 text-[#28a745]"><CheckCircle2 size={11}/>Active</span>
+                        : <span className="flex items-center gap-1 text-text-muted"><XCircle size={11}/>Inactive</span>}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <OnlineToggle id={e.id} online={Boolean(e.online)} onToggle={handleToggle} />
+                        <span className={`text-[10px] font-semibold ${Boolean(e.online) ? 'text-[#28a745]' : 'text-text-muted'}`}>
+                          {Boolean(e.online) ? 'Online' : 'Offline'}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      {Boolean(e.verified)
+                        ? <span className="flex items-center gap-1 text-[#FFD700]"><CheckCircle2 size={11}/>Verified</span>
+                        : <span className="flex items-center gap-1 text-text-muted"><AlertTriangle size={11}/>Unverified</span>}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex gap-1.5">
+                        <button className="p-1.5 text-text-muted hover:text-text-light rounded-lg hover:bg-dark-bg"><Edit2 size={13}/></button>
+                        <button className="p-1.5 text-[#EF4444] rounded-lg hover:bg-dark-bg"><Trash2 size={13}/></button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('Overview')
   const [mods, setMods] = useState<Moderator[]>(INIT_MODS)
@@ -274,34 +435,7 @@ function AdminDashboard() {
           )}
 
           {/* ── ESCORTS ── */}
-          {activeTab === 'Escorts' && (
-            <div className="bg-card-bg border border-color rounded-2xl overflow-hidden">
-              <div className="px-4 py-3 border-b border-color flex items-center justify-between">
-                <h3 className="text-sm font-bold text-text-light">All Escorts ({ESCORTS_DATA.length})</h3>
-                <button className="flex items-center gap-1.5 px-3 py-1.5 bg-[#8B0000] text-white text-xs font-bold rounded-xl"><Plus size={12}/>Add Escort</button>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead className="bg-dark-bg border-b border-color">
-                    <tr>{['Name','City','Tier','Status','Bookings','Earnings','Actions'].map(h=><th key={h} className="px-4 py-3 text-left font-semibold text-text-muted">{h}</th>)}</tr>
-                  </thead>
-                  <tbody>
-                    {ESCORTS_DATA.map((e,i)=>(
-                      <tr key={i} className="border-b border-color/40 hover:bg-dark-bg transition-colors">
-                        <td className="px-4 py-3 font-semibold text-text-light">{e.name}</td>
-                        <td className="px-4 py-3 text-text-muted">{e.city}</td>
-                        <td className="px-4 py-3"><span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{background:e.tier==='Elite'?'#8B000020':e.tier==='VIP'?'#FF450020':'#55555520',color:e.tier==='Elite'?'#8B0000':e.tier==='VIP'?'#FF4500':'#aaa'}}>{e.tier}</span></td>
-                        <td className="px-4 py-3">{e.status==='active'?<span className="flex items-center gap-1 text-[#28a745]"><CheckCircle2 size={11}/>Active</span>:<span className="flex items-center gap-1 text-[#FFD700]"><AlertTriangle size={11}/>Pending</span>}</td>
-                        <td className="px-4 py-3 text-text-muted">{e.bookings}</td>
-                        <td className="px-4 py-3 text-[#FFD700] font-bold">KES {e.earnings.toLocaleString()}</td>
-                        <td className="px-4 py-3"><div className="flex gap-1.5"><button className="p-1.5 text-text-muted hover:text-text-light rounded-lg hover:bg-dark-bg"><Edit2 size={13}/></button><button className="p-1.5 text-[#EF4444] rounded-lg hover:bg-dark-bg"><Trash2 size={13}/></button></div></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
+          {activeTab === 'Escorts' && <EscortsTab />}
 
           {/* ── CLIENTS ── */}
           {activeTab === 'Clients' && (

@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { getPool } from '../lib/db.js'
 import { requireAuth, type AuthRequest } from '../middlewares/requireAuth.js'
+import { setEscortOnline } from '../lib/online-store.js'
 
 const router = Router()
 
@@ -55,6 +56,21 @@ router.patch('/admin/escorts/:id/verify', requireAuth, requireAdmin, async (req:
     res.json({ success: true })
   } catch {
     res.status(500).json({ message: 'Failed to verify escort' })
+  }
+})
+
+router.patch('/admin/escorts/:id/online', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const online = req.body.online === true || req.body.online === 1
+    const id = Number(req.params!.id)
+    const pool = getPool()
+    if (pool) {
+      await pool.query('UPDATE escorts SET online = ? WHERE id = ?', [online ? 1 : 0, id])
+    }
+    setEscortOnline(id, online)
+    res.json({ success: true, id, online })
+  } catch {
+    res.status(500).json({ message: 'Failed to update online status' })
   }
 })
 
