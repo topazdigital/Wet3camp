@@ -1,0 +1,59 @@
+[root@mail api-server]# PORT=4500 \
+> DB_HOST=localhost \
+> DB_USER=admin_wet3camp \
+> DB_PASS=dj@Topaz2016 \
+> DB_NAME=admin_wet3camp \
+> JWT_SECRET=$(node -e "console.log(require('crypto').randomBytes(64).toString('hex'))") \
+> pm2 start dist/index.mjs \
+>   --name wet3camp-api \
+>   --node-args="--enable-source-maps"
+[PM2][ERROR] Script already launched, add -f option to force re-execution
+[root@mail api-server]#
+[root@mail api-server]# pm2 save
+2 logs w[PM2] Saving current process list...
+[PM2] Successfully saved in /root/.pm2/dump.pm2
+[root@mail api-server]# pm2 logs wet3camp-api --lines 20
+[TAILING] Tailing last 20 lines for [wet3camp-api] process (change the value with --lines option)
+/root/.pm2/logs/wet3camp-api-out.log last 20 lines:
+27|wet3cam |     }
+27|wet3cam | [05:18:12.317] ERROR (3258257): Error listening on port
+27|wet3cam |     err: {
+27|wet3cam |       "type": "Error",
+27|wet3cam |       "message": "listen EADDRINUSE: address already in use :::8080",
+27|wet3cam |       "stack":
+27|wet3cam |           Error: listen EADDRINUSE: address already in use :::8080
+27|wet3cam |               at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+27|wet3cam |               at listenInCluster (node:net:1965:12)
+27|wet3cam |               at Server.listen (node:net:2067:7)
+27|wet3cam |               at Function.listen (/home/admin/domains/wet3.camp/public_html/node_modules/.pnpm/express@5.2.1/node_modules/express/lib/application.js:605:24)
+27|wet3cam |               at <anonymous> (/home/admin/domains/wet3.camp/public_html/artifacts/api-server/src/index.ts:18:5)
+27|wet3cam |               at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+27|wet3cam |               at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+27|wet3cam |       "code": "EADDRINUSE",
+27|wet3cam |       "errno": -98,
+27|wet3cam |       "syscall": "listen",
+27|wet3cam |       "address": "::",
+27|wet3cam |       "port": 8080
+27|wet3cam |     }
+
+/home/admin/api-server/JWT_SECRET=YOUR_JWT_SECRET last 20 lines:
+27|wet3cam |     at moduleResolve (node:internal/modules/esm/resolve:946:18)
+27|wet3cam |     at defaultResolve (node:internal/modules/esm/resolve:1188:11)
+27|wet3cam |     at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:708:12)
+27|wet3cam |     at #cachedDefaultResolve (node:internal/modules/esm/loader:657:25)
+27|wet3cam |     at ModuleLoader.resolve (node:internal/modules/esm/loader:640:38)
+27|wet3cam |     at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:264:38)
+27|wet3cam |     at ModuleJob._link (node:internal/modules/esm/module_job:168:49) {
+27|wet3cam |   code: 'ERR_MODULE_NOT_FOUND'
+27|wet3cam | }
+27|wet3cam | Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'mysql2' imported from /home/admin/api-server/dist/index.mjs
+27|wet3cam |     at packageResolve (node:internal/modules/esm/resolve:873:9)
+27|wet3cam |     at moduleResolve (node:internal/modules/esm/resolve:946:18)
+27|wet3cam |     at defaultResolve (node:internal/modules/esm/resolve:1188:11)
+27|wet3cam |     at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:708:12)
+27|wet3cam |     at #cachedDefaultResolve (node:internal/modules/esm/loader:657:25)
+27|wet3cam |     at ModuleLoader.resolve (node:internal/modules/esm/loader:640:38)
+27|wet3cam |     at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:264:38)
+27|wet3cam |     at ModuleJob._link (node:internal/modules/esm/module_job:168:49) {
+27|wet3cam |   code: 'ERR_MODULE_NOT_FOUND'
+27|wet3cam | }
