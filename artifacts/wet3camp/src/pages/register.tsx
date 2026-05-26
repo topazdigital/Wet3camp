@@ -398,6 +398,7 @@ export default function RegisterPage() {
   const handleOAuthClick = (provider: string) => {
     if (provider === 'google')   { window.location.href = '/api/auth/google';   return }
     if (provider === 'facebook') { window.location.href = '/api/auth/facebook'; return }
+    if (provider === 'apple')    { window.location.href = '/api/auth/apple';    return }
     setOauthProvider(provider); setAuthMethod('oauth')
   }
 

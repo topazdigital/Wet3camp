@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { getPool } from '../lib/db.js'
 import { signToken } from '../lib/jwt.js'
+import { SignJWT, importPKCS8, decodeJwt } from 'jose'
 
 const router = Router()
 
@@ -237,6 +238,126 @@ router.get('/auth/facebook/callback', async (req, res) => {
     redirectWithToken(res, origin, token, displayName, email.toLowerCase(), userRole)
   } catch (err: any) {
     console.error('[oauth/facebook/callback]', err?.message ?? err)
+    res.redirect(`${origin}/login?oauthError=Unexpected+error.+Please+try+again.`)
+  }
+})
+
+// ─── Apple Sign-In ────────────────────────────────────────────────────────────
+
+async function buildAppleClientSecret(cfg: Record<string, string>): Promise<string> {
+  const { apple_team_id, apple_key_id, apple_service_id, apple_private_key } = cfg
+  const privateKey = await importPKCS8(apple_private_key.replace(/\\n/g, '\n'), 'ES256')
+  return new SignJWT({})
+    .setProtectedHeader({ alg: 'ES256', kid: apple_key_id })
+    .setIssuedAt()
+    .setExpirationTime('180d')
+    .setIssuer(apple_team_id)
+    .setAudience('https://appleid.apple.com')
+    .setSubject(apple_service_id)
+    .sign(privateKey)
+}
+
+router.get('/auth/apple', async (req, res) => {
+  try {
+    const pool = getPool()
+    const cfg  = await getSettings(pool, ['apple_service_id'])
+    if (!cfg.apple_service_id) {
+      res.redirect('/login?oauthError=Apple+Sign-In+is+not+configured+yet.')
+      return
+    }
+    const origin = getOrigin(req)
+    const params = new URLSearchParams({
+      client_id:     cfg.apple_service_id,
+      redirect_uri:  `${origin}/api/auth/apple/callback`,
+      response_type: 'code',
+      scope:         'name email',
+      response_mode: 'form_post',
+    })
+    res.redirect(`https://appleid.apple.com/auth/authorize?${params}`)
+  } catch (err: any) {
+    console.error('[oauth/apple]', err?.message ?? err)
+    res.redirect('/login?oauthError=OAuth+error.+Please+try+again.')
+  }
+})
+
+// Apple sends a POST with form-encoded body (response_mode=form_post)
+router.post('/auth/apple/callback', async (req, res) => {
+  const origin = getOrigin(req)
+  try {
+    const { code, error: appleErr, id_token, user: userJson } = req.body as Record<string, string>
+    if (appleErr || !code) {
+      res.redirect(`${origin}/login?oauthError=${encodeURIComponent('Apple sign-in was cancelled.')}`)
+      return
+    }
+
+    const pool = getPool()
+    if (!pool) { res.redirect(`${origin}/login?oauthError=Database+unavailable.`); return }
+
+    const cfg = await getSettings(pool, ['apple_service_id', 'apple_team_id', 'apple_key_id', 'apple_private_key'])
+    if (!cfg.apple_service_id || !cfg.apple_team_id || !cfg.apple_key_id || !cfg.apple_private_key) {
+      res.redirect(`${origin}/login?oauthError=Apple+Sign-In+is+not+fully+configured.`); return
+    }
+
+    // Build the client secret JWT and exchange the code for tokens
+    const clientSecret = await buildAppleClientSecret(cfg)
+    const tokenRes = await fetch('https://appleid.apple.com/auth/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id:     cfg.apple_service_id,
+        client_secret: clientSecret,
+        redirect_uri:  `${origin}/api/auth/apple/callback`,
+        grant_type:    'authorization_code',
+        code,
+      }),
+    })
+    if (!tokenRes.ok) {
+      console.error('[oauth/apple] token exchange:', await tokenRes.text())
+      res.redirect(`${origin}/login?oauthError=Apple+sign-in+failed.`); return
+    }
+    const tokens = await tokenRes.json() as any
+
+    // Decode the id_token — contains sub (Apple User ID) and email
+    const rawToken = tokens.id_token ?? id_token
+    if (!rawToken) { res.redirect(`${origin}/login?oauthError=No+identity+token+from+Apple.`); return }
+    const claims = decodeJwt(rawToken) as any
+    const appleUserId = claims.sub as string
+
+    // Email: from id_token claims OR from the user JSON Apple sends on first sign-in
+    let email = claims.email as string | undefined
+    let name  = ''
+    if (!email && userJson) {
+      try {
+        const parsed = JSON.parse(userJson)
+        email = parsed.email
+        if (parsed.name) {
+          name = [parsed.name.firstName, parsed.name.lastName].filter(Boolean).join(' ')
+        }
+      } catch {}
+    }
+
+    if (!email) {
+      // Try to find existing user by Apple sub stored in a notes/username field
+      const [[byApple]] = await pool.query<any[]>(
+        "SELECT * FROM users WHERE username LIKE ? LIMIT 1",
+        [`apple_${appleUserId}%`]
+      ).catch(() => [[undefined]])
+      if (byApple) {
+        const token = await signToken({ id: byApple.id, role: byApple.role, email: byApple.email })
+        redirectWithToken(res, origin, token, byApple.display_name ?? byApple.username, byApple.email, byApple.role)
+        return
+      }
+      res.redirect(`${origin}/login?oauthError=${encodeURIComponent('Your Apple account has no visible email. Enable email sharing in your Apple ID settings.')}`)
+      return
+    }
+
+    const { userId, userRole, displayName } = await findOrCreateUser(
+      pool, email, name || email.split('@')[0], null
+    )
+    const token = await signToken({ id: userId, role: userRole, email: email.toLowerCase() })
+    redirectWithToken(res, origin, token, displayName, email.toLowerCase(), userRole)
+  } catch (err: any) {
+    console.error('[oauth/apple/callback]', err?.message ?? err)
     res.redirect(`${origin}/login?oauthError=Unexpected+error.+Please+try+again.`)
   }
 })

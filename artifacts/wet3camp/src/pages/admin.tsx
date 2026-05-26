@@ -1202,9 +1202,10 @@ function AdminDashboard() {
                   <a href="https://developer.apple.com" target="_blank" rel="noopener noreferrer" className="ml-auto text-[10px] text-[#FFD700] hover:underline">Apple Developer ↗</a>
                 </div>
                 <div className="space-y-4">
-                  <ApiKeyField label="Apple Team ID" placeholder="XXXXXXXXXX" icon={Key} />
-                  <ApiKeyField label="Apple Key ID" placeholder="XXXXXXXXXX" icon={Key} hint="10-character key ID from Apple Developer Portal" />
-                  <ApiKeyField label="Apple Private Key (.p8)" placeholder="-----BEGIN PRIVATE KEY-----..." icon={Lock} />
+                  <ApiKeyField label="Apple Service ID" placeholder="com.wet3camp.auth" icon={Key} hint="Services ID registered in Apple Developer → Certificates, Identifiers & Profiles" settingKey="apple_service_id" />
+                  <ApiKeyField label="Apple Team ID" placeholder="XXXXXXXXXX" icon={Key} settingKey="apple_team_id" />
+                  <ApiKeyField label="Apple Key ID" placeholder="XXXXXXXXXX" icon={Key} hint="10-character key ID from Apple Developer Portal" settingKey="apple_key_id" />
+                  <ApiKeyField label="Apple Private Key (.p8)" placeholder="-----BEGIN PRIVATE KEY-----..." icon={Lock} settingKey="apple_private_key" />
                 </div>
               </div>
 

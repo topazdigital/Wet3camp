@@ -122,7 +122,7 @@ export default function LoginPage() {
   const handleOAuth = (provider: 'google' | 'facebook' | 'apple') => {
     if (provider === 'google')   { window.location.href = '/api/auth/google';   return }
     if (provider === 'facebook') { window.location.href = '/api/auth/facebook'; return }
-    setError('Apple Sign-In is coming soon. Please use email or Google.')
+    if (provider === 'apple')    { window.location.href = '/api/auth/apple';    return }
   }
 
   return (
