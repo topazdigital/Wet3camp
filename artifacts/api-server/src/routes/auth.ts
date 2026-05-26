@@ -99,13 +99,14 @@ router.post('/auth/register', async (req, res) => {
     if (dbRole === 'escort') {
       const [escResult] = await pool.query<any>(
         `INSERT INTO escorts
-           (user_id, name, city, area, bio, tier, whatsapp, telegram,
+           (user_id, name, age, city, area, bio, tier, whatsapp, telegram,
             height, body_type, ethnicity, hair_color,
             price_hourly, price_overnight, price_video,
             available, verified, is_active)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,0,0)`,
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,0,0)`,
         [
           userId, name,
+          parseInt(req.body.age ?? '0') || 0,
           city   ?? null, area    ?? null,
           bio    ?? null, 'standard',
           whatsapp ?? null, telegram ?? null,
@@ -266,6 +267,36 @@ router.post('/auth/verify-otp', (req, res) => {
   }
   otpStore.delete(emailKey)
   res.json({ verified: true, message: 'Email verified successfully.' })
+})
+
+router.post('/auth/setup-admin', async (req, res) => {
+  try {
+    const { email, password, name } = req.body as { email?: string; password?: string; name?: string }
+    if (!email || !password || !name) {
+      res.status(400).json({ message: 'email, password and name are required' }); return
+    }
+    if (password.length < 8) {
+      res.status(400).json({ message: 'Password must be at least 8 characters' }); return
+    }
+    const pool = getPool()
+    if (!pool) {
+      res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return
+    }
+    const [[existing]] = await pool.query<any[]>('SELECT id FROM users WHERE role = ? LIMIT 1', ['admin'])
+    if (existing) {
+      res.status(409).json({ message: 'An admin user already exists. Setup is disabled.' }); return
+    }
+    const hash = await hashPassword(password)
+    const username = 'admin_' + Math.floor(Math.random() * 9999)
+    await pool.query(
+      'INSERT INTO users (username, email, password_hash, display_name, role, is_active) VALUES (?,?,?,?,?,1)',
+      [username, email.toLowerCase().trim(), hash, name, 'admin']
+    )
+    res.status(201).json({ message: 'Admin user created successfully. You can now log in to the admin panel.' })
+  } catch (err) {
+    console.error('[setup-admin]', err)
+    res.status(500).json({ message: 'Setup failed' })
+  }
 })
 
 export default router

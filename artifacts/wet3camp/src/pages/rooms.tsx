@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import Header from '@/components/Header'
 import Sidebar from '@/components/Sidebar'
-import { MapPin, Star, Wifi, Car, Coffee, Shield, Filter, Hotel, Loader2, AlertCircle } from 'lucide-react'
+import { MapPin, Star, Wifi, Car, Coffee, Shield, Filter, Hotel, Loader2, AlertCircle, X, Calendar, Users, Phone, Mail, MessageSquare, CheckCircle2 } from 'lucide-react'
 import { useSEO } from '@/lib/useSEO'
 
 interface Room {
@@ -27,6 +27,149 @@ const amenityIcons: Record<string, React.ReactNode> = {
   '24hr Security': <Shield size={10}/>,
 }
 
+function BookingModal({ room, onClose }: { room: Room; onClose: () => void }) {
+  const [form, setForm] = useState({ guestName: '', guestEmail: '', guestPhone: '', checkIn: '', checkOut: '', guests: 1, notes: '' })
+  const [loading, setLoading]   = useState(false)
+  const [success, setSuccess]   = useState(false)
+  const [error, setError]       = useState('')
+  const [result, setResult]     = useState<any>(null)
+
+  const nights = (() => {
+    if (!form.checkIn || !form.checkOut) return 0
+    const diff = new Date(form.checkOut).getTime() - new Date(form.checkIn).getTime()
+    return Math.max(0, Math.ceil(diff / 86400000))
+  })()
+
+  const totalAmount = room.price_night * Math.max(1, nights)
+
+  const set = (k: string, v: string | number) => setForm(p => ({ ...p, [k]: v }))
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    if (!form.guestName.trim() || !form.guestEmail.trim() || !form.checkIn || !form.checkOut) {
+      setError('Please fill in all required fields.'); return
+    }
+    if (nights < 1) { setError('Check-out must be after check-in.'); return }
+    setLoading(true)
+    try {
+      const res = await fetch('/api/rooms/book', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roomId: room.id, ...form }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.message || `Error ${res.status}`)
+      setResult(data)
+      setSuccess(true)
+    } catch (err: any) {
+      setError(err.message || 'Booking failed. Please try again.')
+    }
+    setLoading(false)
+  }
+
+  const today = new Date().toISOString().split('T')[0]
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="w-full max-w-md bg-dark-bg border border-color rounded-2xl overflow-hidden shadow-2xl max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-color bg-card-bg">
+          <div>
+            <h2 className="font-black text-text-light text-sm">Book {room.name}</h2>
+            <p className="text-[10px] text-text-muted">{room.hotel} · {room.area}, {room.city}</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-text-muted hover:text-text-light hover:bg-dark-bg transition-all"><X size={16}/></button>
+        </div>
+
+        {success && result ? (
+          <div className="p-6 text-center space-y-4">
+            <div className="w-14 h-14 rounded-full bg-[#28a745]/20 flex items-center justify-center mx-auto">
+              <CheckCircle2 size={28} className="text-[#28a745]"/>
+            </div>
+            <h3 className="font-black text-text-light text-base">Booking Received!</h3>
+            <p className="text-sm text-text-muted">Your booking has been submitted and is pending confirmation. We'll contact you within 2 hours.</p>
+            <div className="bg-card-bg border border-color rounded-xl p-4 text-left space-y-2">
+              <p className="text-[11px] text-text-muted"><span className="text-text-light font-semibold">Room:</span> {result.roomName}</p>
+              <p className="text-[11px] text-text-muted"><span className="text-text-light font-semibold">Check-in:</span> {result.checkIn}</p>
+              <p className="text-[11px] text-text-muted"><span className="text-text-light font-semibold">Check-out:</span> {result.checkOut}</p>
+              <p className="text-[11px] text-text-muted"><span className="text-text-light font-semibold">Nights:</span> {result.nights}</p>
+              <p className="text-[11px] text-text-muted"><span className="text-text-light font-semibold">Total:</span> <span className="text-[#FFD700] font-bold">KES {Number(result.totalAmount).toLocaleString()}</span></p>
+              <p className="text-[11px] text-text-muted"><span className="text-text-light font-semibold">Confirmation email:</span> {result.guestEmail}</p>
+            </div>
+            <button onClick={onClose} className="w-full py-2.5 bg-[#FF9800] text-white font-bold text-sm rounded-xl hover:opacity-90 transition-all">Close</button>
+          </div>
+        ) : (
+          <form onSubmit={submit} className="p-5 space-y-4">
+            {error && (
+              <div className="flex items-center gap-2 p-3 bg-[#EF4444]/10 border border-[#EF4444]/20 rounded-xl">
+                <AlertCircle size={14} className="text-[#EF4444] flex-shrink-0"/>
+                <p className="text-xs text-[#EF4444]">{error}</p>
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-card-bg border border-color rounded-xl p-3 col-span-2">
+                <p className="text-[10px] text-text-muted mb-0.5">Rate</p>
+                <p className="text-sm font-bold text-text-light">KES {room.price_night.toLocaleString()} / night</p>
+                {nights > 0 && <p className="text-xs text-[#FF9800] font-bold mt-1">{nights} night{nights>1?'s':''} → KES {totalAmount.toLocaleString()}</p>}
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5 flex items-center gap-1"><Users size={9}/> Full Name *</label>
+              <input required value={form.guestName} onChange={e=>set('guestName',e.target.value)} placeholder="Your full name" className="w-full px-3.5 py-2.5 bg-card-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted/50 focus:outline-none focus:border-[#FF9800] transition-all"/>
+            </div>
+
+            <div>
+              <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5 flex items-center gap-1"><Mail size={9}/> Email Address *</label>
+              <input required type="email" value={form.guestEmail} onChange={e=>set('guestEmail',e.target.value)} placeholder="your@email.com" className="w-full px-3.5 py-2.5 bg-card-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted/50 focus:outline-none focus:border-[#FF9800] transition-all"/>
+            </div>
+
+            <div>
+              <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5 flex items-center gap-1"><Phone size={9}/> Phone / WhatsApp</label>
+              <input type="tel" value={form.guestPhone} onChange={e=>set('guestPhone',e.target.value)} placeholder="07XX XXX XXX" className="w-full px-3.5 py-2.5 bg-card-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted/50 focus:outline-none focus:border-[#FF9800] transition-all"/>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5 flex items-center gap-1"><Calendar size={9}/> Check-in *</label>
+                <input required type="date" min={today} value={form.checkIn} onChange={e=>set('checkIn',e.target.value)} className="w-full px-3.5 py-2.5 bg-card-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#FF9800] transition-all"/>
+              </div>
+              <div>
+                <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5 flex items-center gap-1"><Calendar size={9}/> Check-out *</label>
+                <input required type="date" min={form.checkIn||today} value={form.checkOut} onChange={e=>set('checkOut',e.target.value)} className="w-full px-3.5 py-2.5 bg-card-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#FF9800] transition-all"/>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5 flex items-center gap-1"><Users size={9}/> Number of Guests</label>
+              <select value={form.guests} onChange={e=>set('guests',parseInt(e.target.value))} className="w-full px-3.5 py-2.5 bg-card-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#FF9800] transition-all">
+                {[1,2,3,4].map(n=><option key={n} value={n}>{n} guest{n>1?'s':''}</option>)}
+              </select>
+            </div>
+
+            <div>
+              <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5 flex items-center gap-1"><MessageSquare size={9}/> Notes (optional)</label>
+              <textarea rows={2} value={form.notes} onChange={e=>set('notes',e.target.value)} placeholder="Any special requests or notes…" className="w-full px-3.5 py-2.5 bg-card-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted/50 focus:outline-none focus:border-[#FF9800] transition-all resize-none"/>
+            </div>
+
+            <p className="text-[10px] text-text-muted">A confirmation email will be sent to your address. We'll contact you within 2 hours to confirm availability.</p>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-3 bg-gradient-to-r from-[#FF9800] to-[#f57c00] text-white font-black text-sm rounded-xl hover:opacity-90 transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+            >
+              {loading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/> : null}
+              {loading ? 'Submitting…' : `Book for KES ${totalAmount.toLocaleString()}`}
+            </button>
+          </form>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function RoomsPage() {
   useSEO({
     title: 'Discreet Rooms Kenya — Companion Accommodation',
@@ -35,11 +178,12 @@ export default function RoomsPage() {
     canonicalPath: '/rooms',
   })
 
-  const [rooms, setRooms] = useState<Room[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [city, setCity] = useState('All')
-  const [type, setType] = useState('All')
+  const [rooms, setRooms]         = useState<Room[]>([])
+  const [loading, setLoading]     = useState(true)
+  const [error, setError]         = useState('')
+  const [city, setCity]           = useState('All')
+  const [type, setType]           = useState('All')
+  const [bookingRoom, setBookingRoom] = useState<Room | null>(null)
 
   useEffect(() => {
     setLoading(true)
@@ -144,7 +288,11 @@ export default function RoomsPage() {
                           </span>
                         ))}
                       </div>
-                      <button disabled={!r.available} className={`w-full py-2.5 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-2 ${r.available?'bg-gradient-to-r from-[#FF9800] to-[#f57c00] text-white hover:opacity-90':'bg-dark-bg text-text-muted cursor-not-allowed'}`}>
+                      <button
+                        disabled={!r.available}
+                        onClick={() => r.available && setBookingRoom(r)}
+                        className={`w-full py-2.5 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-2 ${r.available?'bg-gradient-to-r from-[#FF9800] to-[#f57c00] text-white hover:opacity-90':'bg-dark-bg text-text-muted cursor-not-allowed'}`}
+                      >
                         {r.available?'Book This Room':'Not Available'}
                       </button>
                     </div>
@@ -155,6 +303,8 @@ export default function RoomsPage() {
           )}
         </div>
       </div>
+
+      {bookingRoom && <BookingModal room={bookingRoom} onClose={() => setBookingRoom(null)} />}
     </main>
   )
 }

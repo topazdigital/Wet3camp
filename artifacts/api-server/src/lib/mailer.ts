@@ -188,6 +188,58 @@ export async function sendNewMessageEmail(opts: {
   })
 }
 
+// ─── Room Bookings ────────────────────────────────────────────────────────────
+
+export async function sendRoomBookingEmail(opts: {
+  roomName: string
+  hotel: string
+  city: string
+  guestName: string
+  guestEmail: string
+  checkIn: string
+  checkOut: string
+  nights: number
+  guests: number
+  totalAmount: number
+  notes: string | null
+}) {
+  const adminEmail = process.env.SMTP_USER!
+  const details = `
+Room:      ${opts.roomName} — ${opts.hotel}, ${opts.city}
+Guest:     ${opts.guestName} <${opts.guestEmail}>
+Check-in:  ${opts.checkIn}
+Check-out: ${opts.checkOut}
+Nights:    ${opts.nights}
+Guests:    ${opts.guests}
+Total:     KES ${opts.totalAmount.toLocaleString()}
+${opts.notes ? `Notes:     ${opts.notes}` : ''}`.trim()
+
+  const detailsHtml = details.replace(/\n/g, '<br>')
+
+  await Promise.all([
+    send({
+      to: adminEmail,
+      subject: `New Room Booking — ${opts.roomName} (${opts.checkIn})`,
+      text: `New room booking on Wet3.camp\n\n${details}`,
+      html: `<div style="font-family:sans-serif;max-width:500px"><h2 style="color:#FF9800">New Room Booking</h2><p>${detailsHtml}</p></div>`,
+    }),
+    send({
+      to: opts.guestEmail,
+      subject: `Room Booking Confirmed — ${opts.roomName}`,
+      text: `Hi ${opts.guestName},\n\nYour room booking has been received:\n\n${details}\n\nWe'll confirm availability within 2 hours.\n\nWet3.camp Team`,
+      html: `<div style="font-family:sans-serif;max-width:500px">
+        <h2 style="color:#FF9800">Booking Received ✓</h2>
+        <p>Hi <strong>${opts.guestName}</strong>,</p>
+        <p>Your room booking has been received and is pending confirmation.</p>
+        <div style="background:#f9f9f9;padding:16px;border-radius:8px;margin:16px 0">${detailsHtml}</div>
+        <p>We'll confirm availability and contact you within 2 hours.</p>
+        <a href="${SITE}/rooms" style="display:inline-block;background:#FF9800;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;margin:16px 0">View Rooms</a>
+        <p style="color:#999;font-size:12px">Wet3.camp — Discreet. Verified. Trusted.</p>
+      </div>`,
+    }),
+  ])
+}
+
 // ─── Password reset ───────────────────────────────────────────────────────────
 
 export async function sendPasswordResetEmail(email: string, token: string) {

@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { getPool } from '../lib/db.js'
 import { requireAuth, type AuthRequest } from '../middlewares/requireAuth.js'
+import { sendRoomBookingEmail } from '../lib/mailer.js'
 
 const router = Router()
 
@@ -44,6 +45,67 @@ router.get('/rooms/all', async (_req, res) => {
     })))
   } catch {
     res.status(500).json({ message: 'Failed to fetch rooms' })
+  }
+})
+
+router.post('/rooms/book', async (req, res) => {
+  try {
+    const { roomId, guestName, guestEmail, guestPhone, checkIn, checkOut, guests = 1, notes } = req.body as Record<string, any>
+    if (!roomId || !guestName || !guestEmail || !checkIn || !checkOut) {
+      res.status(400).json({ message: 'roomId, guestName, guestEmail, checkIn and checkOut are required' })
+      return
+    }
+
+    const pool = getPool()
+    if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
+
+    const [[room]] = await pool.query<any[]>('SELECT * FROM rooms WHERE id = ? AND available = 1', [roomId])
+    if (!room) { res.status(404).json({ message: 'Room not found or not available' }); return }
+
+    const checkInDate  = new Date(checkIn)
+    const checkOutDate = new Date(checkOut)
+    if (isNaN(checkInDate.getTime()) || isNaN(checkOutDate.getTime()) || checkOutDate <= checkInDate) {
+      res.status(400).json({ message: 'Invalid check-in or check-out dates' }); return
+    }
+    const nights = Math.max(1, Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / 86400000))
+    const totalAmount = room.price_night * nights
+
+    const [result] = await pool.query<any>(
+      `INSERT INTO room_bookings (room_id, guest_name, guest_email, guest_phone, check_in, check_out, nights, guests, total_amount, notes, status)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+      [roomId, guestName, guestEmail, guestPhone ?? null, checkIn, checkOut, nights, guests, totalAmount, notes ?? null, 'pending']
+    )
+
+    sendRoomBookingEmail({
+      roomName: room.name,
+      hotel: room.hotel,
+      city: room.city,
+      guestName,
+      guestEmail,
+      checkIn,
+      checkOut,
+      nights,
+      guests,
+      totalAmount,
+      notes: notes ?? null,
+    }).catch(() => {})
+
+    res.status(201).json({
+      id: (result as any).insertId,
+      roomId: String(roomId),
+      roomName: room.name,
+      hotel: room.hotel,
+      guestName,
+      guestEmail,
+      checkIn,
+      checkOut,
+      nights,
+      totalAmount,
+      status: 'pending',
+    })
+  } catch (err: any) {
+    console.error('[rooms/book]', err?.message ?? err)
+    res.status(500).json({ message: 'Failed to create room booking' })
   }
 })
 

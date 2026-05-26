@@ -4,7 +4,7 @@ import Sidebar from '@/components/Sidebar'
 import { useAuth } from '@/lib/auth-context'
 import {
   Shield, Users, Calendar, BarChart2, Settings, Plus, Trash2, Edit2, CheckCircle2, XCircle,
-  AlertTriangle, Lock, Mail, Eye, EyeOff, TrendingUp, DollarSign, Crown, Key, Instagram,
+  AlertTriangle, Lock, Mail, Eye, EyeOff, TrendingUp, Crown, Key, Instagram,
   Smartphone, Globe, MessageCircle, Bell, Star, Save, RefreshCw, Camera, Radio, WifiOff
 } from 'lucide-react'
 import { useSEO } from '@/lib/useSEO'
@@ -34,45 +34,41 @@ const INIT_MODS: Moderator[] = [
   { id: 2, name: 'Mike Chen',     email: 'mike@wet3camp.com',  role: 'moderator', level: 2, status: 'active',   createdAt: '2024-02-20' },
 ]
 
-const ESCORTS_DATA = [
-  { name: 'Amara K.',   city: 'Nairobi', tier: 'Elite',    status: 'active',  earnings: 184000, bookings: 23, verified: true  },
-  { name: 'Zara M.',    city: 'Nairobi', tier: 'VIP',      status: 'active',  earnings: 142000, bookings: 18, verified: true  },
-  { name: 'Wanjiku G.', city: 'Mombasa', tier: 'Elite',    status: 'active',  earnings: 231000, bookings: 31, verified: true  },
-  { name: 'Diana V.',   city: 'Nairobi', tier: 'Standard', status: 'pending', earnings: 0,      bookings: 0,  verified: false },
-  { name: 'Faith C.',   city: 'Eldoret', tier: 'Standard', status: 'pending', earnings: 0,      bookings: 0,  verified: false },
-]
-
-const CLIENTS_DATA = [
-  { name: 'John K.',  email: 'john@gmail.com',  city: 'Nairobi', joined: '2024-05-10', bookings: 12, spent: 96000  },
-  { name: 'Mike O.',  email: 'mike@yahoo.com',  city: 'Nairobi', joined: '2024-04-22', bookings: 8,  spent: 64000  },
-  { name: 'David L.', email: 'david@gmail.com', city: 'Mombasa', joined: '2024-06-01', bookings: 5,  spent: 40000  },
-  { name: 'Paul M.',  email: 'paul@icloud.com', city: 'Kisumu',  joined: '2024-05-30', bookings: 3,  spent: 24000  },
-]
-
-const BOOKINGS_DATA = [
-  { client: 'John K.',  escort: 'Amara K.',   date: 'Today 8PM',    duration: '2hrs',      amount: 16000, status: 'confirmed' },
-  { client: 'Mike O.',  escort: 'Zara M.',    date: 'Tomorrow 6PM', duration: '1hr',        amount: 8000,  status: 'pending'   },
-  { client: 'David L.', escort: 'Wanjiku G.', date: 'Sat 7PM',      duration: 'Overnight',  amount: 60000, status: 'confirmed' },
-  { client: 'Paul M.',  escort: 'Luna K.',    date: 'Last week',    duration: '3hrs',       amount: 15000, status: 'completed' },
-]
 
 interface FeaturedRequest {
   id: number; name: string; city: string; plan: string; amount: number
   txRef: string; date: string; status: 'pending' | 'approved' | 'rejected'
   phone: string
 }
-const INIT_FEATURED: FeaturedRequest[] = [
-  { id:1, name:'Sophia N.', city:'Kilimani',  plan:'Weekly Featured',  amount:1500, txRef:'FT-A3K9B', date:'Today 9:12 AM',    status:'pending',  phone:'0712 345 004' },
-  { id:2, name:'Faith C.',  city:'Eldoret',   plan:'3-Day Boost',      amount:500,  txRef:'FT-M2X7P', date:'Today 8:45 AM',    status:'pending',  phone:'0723 456 005' },
-  { id:3, name:'Priya S.',  city:'Lavington', plan:'Monthly Elite',    amount:4500, txRef:'FT-R5W1Q', date:'Yesterday 5:30 PM',status:'approved', phone:'0712 345 005' },
-  { id:4, name:'Diana V.',  city:'Nairobi',   plan:'3-Day Boost',      amount:500,  txRef:'FT-N8L4T', date:'2 days ago',       status:'rejected', phone:'0701 234 006' },
-]
+const INIT_FEATURED: FeaturedRequest[] = []
 
-function ApiKeyField({ label, placeholder, icon: Icon, hint }: { label: string; placeholder: string; icon: React.ComponentType<{size:number;className?:string}>; hint?: string }) {
+function ApiKeyField({ label, placeholder, icon: Icon, hint, settingKey }: { label: string; placeholder: string; icon: React.ComponentType<{size:number;className?:string}>; hint?: string; settingKey?: string }) {
   const [visible, setVisible] = useState(false)
   const [value, setValue] = useState('')
   const [saved, setSaved] = useState(false)
-  const save = () => { setSaved(true); setTimeout(() => setSaved(false), 2000) }
+  const [saving, setSaving] = useState(false)
+  const [err, setErr] = useState('')
+
+  useEffect(() => {
+    if (!settingKey) return
+    adminFetch('/admin/settings').then((s: Record<string,string>) => {
+      if (s[settingKey]) setValue(s[settingKey])
+    }).catch(() => {})
+  }, [settingKey])
+
+  const save = async () => {
+    if (!value.trim()) return
+    setSaving(true); setErr('')
+    try {
+      if (settingKey) {
+        await adminFetch('/admin/settings', { method: 'POST', body: JSON.stringify({ key: settingKey, value }) })
+      }
+      setSaved(true); setTimeout(() => setSaved(false), 2500)
+    } catch {
+      setErr('Save failed')
+    }
+    setSaving(false)
+  }
   return (
     <div>
       <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5 flex items-center gap-1.5">
@@ -93,12 +89,257 @@ function ApiKeyField({ label, placeholder, icon: Icon, hint }: { label: string; 
         </div>
         <button
           onClick={save}
-          className={`px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 ${saved ? 'bg-[#28a745] text-white' : 'bg-[#8B0000] text-white hover:bg-[#a00000]'}`}
+          disabled={saving}
+          className={`px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 ${saved ? 'bg-[#28a745] text-white' : 'bg-[#8B0000] text-white hover:bg-[#a00000]'} disabled:opacity-60`}
         >
-          <Save size={11} /> {saved ? 'Saved' : 'Save'}
+          {saving ? <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"/> : <Save size={11} />}
+          {saved ? 'Saved' : 'Save'}
         </button>
       </div>
       {hint && <p className="text-[10px] text-text-muted mt-1">{hint}</p>}
+      {err  && <p className="text-[10px] text-[#EF4444] mt-1">{err}</p>}
+    </div>
+  )
+}
+
+function ClientsTab() {
+  const [clients, setClients] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError]   = useState('')
+
+  useEffect(() => {
+    setLoading(true)
+    adminFetch('/admin/users?limit=200')
+      .then((data: any[]) => setClients(data))
+      .catch(() => setError('Failed to load clients'))
+      .finally(() => setLoading(false))
+  }, [])
+
+  const deactivate = async (id: string) => {
+    try {
+      await adminFetch(`/admin/users/${id}`, { method: 'DELETE' })
+      setClients(p => p.filter(c => c.id !== id))
+    } catch {}
+  }
+
+  return (
+    <div className="bg-card-bg border border-color rounded-2xl overflow-hidden">
+      <div className="px-4 py-3 border-b border-color flex items-center justify-between">
+        <h3 className="text-sm font-bold text-text-light">Registered Users</h3>
+        {!loading && <span className="text-[10px] text-text-muted">{clients.length} total</span>}
+      </div>
+      {loading && <div className="flex items-center justify-center py-16 gap-2 text-text-muted"><div className="w-4 h-4 border-2 border-text-muted/30 border-t-text-muted rounded-full animate-spin"/><span className="text-sm">Loading…</span></div>}
+      {!loading && error && <div className="m-4 p-3 bg-[#EF4444]/10 border border-[#EF4444]/20 rounded-xl"><p className="text-xs text-[#EF4444]">{error}</p></div>}
+      {!loading && !error && (
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead className="bg-dark-bg border-b border-color">
+              <tr>{['Name','Email','Role','Phone','Joined','Status','Actions'].map(h=><th key={h} className="px-4 py-3 text-left font-semibold text-text-muted">{h}</th>)}</tr>
+            </thead>
+            <tbody>
+              {clients.length === 0 && <tr><td colSpan={7} className="px-4 py-10 text-center text-text-muted">No users yet.</td></tr>}
+              {clients.map(c=>(
+                <tr key={c.id} className="border-b border-color/40 hover:bg-dark-bg transition-colors">
+                  <td className="px-4 py-3 font-semibold text-text-light">{c.display_name || c.username}</td>
+                  <td className="px-4 py-3 text-text-muted">{c.email}</td>
+                  <td className="px-4 py-3">
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${c.role==='admin'?'bg-[#8B0000]/20 text-[#8B0000]':c.role==='escort'?'bg-[#FF9800]/20 text-[#FF9800]':'bg-[#2196F3]/20 text-[#2196F3]'}`}>{c.role}</span>
+                  </td>
+                  <td className="px-4 py-3 text-text-muted">{c.phone || '—'}</td>
+                  <td className="px-4 py-3 text-text-muted">{c.created_at ? new Date(c.created_at).toLocaleDateString() : '—'}</td>
+                  <td className="px-4 py-3">
+                    <span className={`text-[10px] font-bold ${c.is_active?'text-[#28a745]':'text-[#EF4444]'}`}>{c.is_active?'Active':'Inactive'}</span>
+                  </td>
+                  <td className="px-4 py-3">
+                    {c.role !== 'admin' && (
+                      <button onClick={() => deactivate(c.id)} title="Deactivate" className="p-1.5 text-[#EF4444] rounded-lg hover:bg-dark-bg"><XCircle size={13}/></button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function BookingsTab() {
+  const [bookings, setBookings] = useState<any[]>([])
+  const [loading, setLoading]   = useState(true)
+  const [error, setError]       = useState('')
+  const statusColor: Record<string,string> = { confirmed:'#28a745', pending:'#FFD700', completed:'#6B7280', cancelled:'#EF4444' }
+
+  useEffect(() => {
+    setLoading(true)
+    adminFetch('/admin/bookings?limit=200')
+      .then((data: any[]) => setBookings(data))
+      .catch(() => setError('Failed to load bookings'))
+      .finally(() => setLoading(false))
+  }, [])
+
+  return (
+    <div className="bg-card-bg border border-color rounded-2xl overflow-hidden">
+      <div className="px-4 py-3 border-b border-color flex items-center justify-between">
+        <h3 className="text-sm font-bold text-text-light">All Bookings</h3>
+        {!loading && <span className="text-[10px] text-text-muted">{bookings.length} total</span>}
+      </div>
+      {loading && <div className="flex items-center justify-center py-16 gap-2 text-text-muted"><div className="w-4 h-4 border-2 border-text-muted/30 border-t-text-muted rounded-full animate-spin"/><span className="text-sm">Loading…</span></div>}
+      {!loading && error && <div className="m-4 p-3 bg-[#EF4444]/10 border border-[#EF4444]/20 rounded-xl"><p className="text-xs text-[#EF4444]">{error}</p></div>}
+      {!loading && !error && (
+        <div className="divide-y divide-color/40">
+          {bookings.length === 0 && <p className="text-center text-text-muted text-sm py-10">No bookings yet.</p>}
+          {bookings.map(b=>(
+            <div key={b.id} className="flex items-center gap-4 px-4 py-3.5 hover:bg-dark-bg transition-colors">
+              <div className="flex-1">
+                <p className="text-xs font-semibold text-text-light">{b.clientName} → {b.escortName}</p>
+                <p className="text-[10px] text-text-muted">{b.date} {b.time} · {b.duration}hr{b.duration>1?'s':''} · {b.type}</p>
+                {b.location && <p className="text-[10px] text-text-muted">{b.location}</p>}
+              </div>
+              <div className="text-right">
+                <p className="text-xs font-bold text-[#FFD700]">KES {Number(b.amount).toLocaleString()}</p>
+                <span className="text-[9px] font-semibold capitalize px-2 py-0.5 rounded-full" style={{color:statusColor[b.status]??'#aaa',backgroundColor:(statusColor[b.status]??'#aaa')+'20'}}>{b.status}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function PlatformSettingsForm() {
+  const keys = [
+    { label: 'Platform Name',         key: 'platform_name',     def: 'Wet3 Camp' },
+    { label: 'Tagline',               key: 'tagline',           def: "Kenya's #1 Premium Companion Platform" },
+    { label: 'Support Email',         key: 'support_email',     def: 'support@wet3camp.com' },
+    { label: 'Min Escort Rate (KES)', key: 'min_rate',          def: '1500' },
+    { label: 'Commission %',          key: 'commission_pct',    def: '10' },
+    { label: 'Max Photos Per Profile',key: 'max_photos',        def: '12' },
+  ]
+  const [values, setValues]   = useState<Record<string,string>>({})
+  const [approval, setApproval] = useState(true)
+  const [saving, setSaving]   = useState(false)
+  const [saved, setSaved]     = useState(false)
+  const [err, setErr]         = useState('')
+
+  useEffect(() => {
+    adminFetch('/admin/settings').then((s: Record<string,string>) => {
+      const v: Record<string,string> = {}
+      for (const { key, def } of keys) v[key] = s[key] ?? def
+      setValues(v)
+      if (s.require_approval !== undefined) setApproval(s.require_approval === '1')
+    }).catch(() => {
+      const v: Record<string,string> = {}
+      for (const { key, def } of keys) v[key] = def
+      setValues(v)
+    })
+  }, [])
+
+  const save = async () => {
+    setSaving(true); setErr('')
+    try {
+      await adminFetch('/admin/settings/bulk', {
+        method: 'POST',
+        body: JSON.stringify({ ...values, require_approval: approval ? '1' : '0' }),
+      })
+      setSaved(true); setTimeout(() => setSaved(false), 2500)
+    } catch {
+      setErr('Failed to save settings')
+    }
+    setSaving(false)
+  }
+
+  return (
+    <div className="space-y-4">
+      {keys.map(({ label, key }) => (
+        <div key={key}>
+          <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">{label}</label>
+          <input
+            value={values[key] ?? ''}
+            onChange={e => setValues(p => ({ ...p, [key]: e.target.value }))}
+            className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#8B0000] transition-all"
+          />
+        </div>
+      ))}
+      <div className="flex items-center gap-3 mt-2">
+        <input type="checkbox" checked={approval} onChange={e => setApproval(e.target.checked)} id="approval" className="w-3.5 h-3.5 accent-[#8B0000]"/>
+        <label htmlFor="approval" className="text-xs text-text-muted cursor-pointer">Require admin approval for new escort registrations</label>
+      </div>
+      {err && <p className="text-[10px] text-[#EF4444]">{err}</p>}
+      <button
+        onClick={save}
+        disabled={saving}
+        className={`px-6 py-2.5 text-white text-xs font-bold rounded-xl transition-all flex items-center gap-2 ${saved?'bg-[#28a745]':'bg-[#8B0000] hover:bg-[#a00000]'} disabled:opacity-60`}
+      >
+        {saving ? <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"/> : <Save size={12}/>}
+        {saved ? '✓ Saved' : 'Save Settings'}
+      </button>
+    </div>
+  )
+}
+
+function OverviewStats() {
+  const [stats, setStats] = useState<{users:number;escorts:number;pending:number;bookings:number;reviews:number;room_bookings:number}|null>(null)
+  useEffect(() => {
+    adminFetch('/admin/stats').then(setStats).catch(() => {})
+  }, [])
+  const items = [
+    { icon: Users,      label: 'Total Escorts',  value: stats ? String(stats.escorts)  : '…', color: '#8B0000'  },
+    { icon: Users,      label: 'Registered Users',value: stats ? String(stats.users)   : '…', color: '#2196F3'  },
+    { icon: Calendar,   label: 'Total Bookings', value: stats ? String(stats.bookings)  : '…', color: '#28a745' },
+    { icon: Star,       label: 'Pending Approval',value: stats ? String(stats.pending) : '…', color: '#FFD700'  },
+  ]
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      {items.map(s => {
+        const Icon = s.icon
+        return (
+          <div key={s.label} className="bg-card-bg border border-color rounded-2xl p-4">
+            <div className="flex items-center gap-2 mb-2"><Icon size={14} style={{color:s.color}}/><span className="text-[10px] text-text-muted uppercase tracking-widest">{s.label}</span></div>
+            <p className="text-xl font-black text-text-light">{s.value}</p>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function PendingApprovals() {
+  const [escorts, setEscorts] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  useEffect(() => {
+    adminFetch('/admin/escorts?limit=200')
+      .then((data: any[]) => setEscorts(data.filter(e => !Boolean(e.is_active) && !Boolean(e.verified))))
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
+
+  const approve = async (id: string) => {
+    try { await adminFetch(`/admin/escorts/${id}/verify`, { method: 'PATCH' }); setEscorts(p => p.filter(e => e.id !== id)) } catch {}
+  }
+  const reject = async (id: string) => {
+    try { await adminFetch(`/admin/escorts/${id}/reject`, { method: 'PATCH' }); setEscorts(p => p.filter(e => e.id !== id)) } catch {}
+  }
+
+  return (
+    <div className="bg-card-bg border border-color rounded-2xl p-4">
+      <h3 className="text-sm font-bold text-text-light mb-3 flex items-center gap-2"><AlertTriangle size={14} className="text-[#FFD700]"/>Pending Approvals</h3>
+      {loading && <div className="w-4 h-4 border-2 border-text-muted/30 border-t-text-muted rounded-full animate-spin mx-auto my-4"/>}
+      {!loading && escorts.length === 0 && <p className="text-xs text-text-muted">No pending approvals.</p>}
+      <div className="space-y-2">
+        {escorts.slice(0,5).map(e=>(
+          <div key={e.id} className="flex items-center gap-3 p-3 bg-dark-bg rounded-xl border border-color/50">
+            <div className="w-8 h-8 rounded-full bg-[#8B0000]/20 flex items-center justify-center text-xs font-bold text-[#8B0000]">{(e.name||'?').charAt(0)}</div>
+            <div className="flex-1"><p className="text-xs font-semibold text-text-light">{e.name}</p><p className="text-[10px] text-text-muted">{e.city||'—'} · {e.tier||'Standard'}</p></div>
+            <div className="flex gap-1.5">
+              <button onClick={() => approve(e.id)} className="px-2.5 py-1 bg-[#28a745]/20 text-[#28a745] text-[10px] font-bold rounded-lg border border-[#28a745]/30 hover:bg-[#28a745]/30">Approve</button>
+              <button onClick={() => reject(e.id)}  className="px-2.5 py-1 bg-[#EF4444]/20 text-[#EF4444]  text-[10px] font-bold rounded-lg border border-[#EF4444]/30 hover:bg-[#EF4444]/30">Reject</button>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
@@ -612,40 +853,10 @@ function AdminDashboard() {
           {/* ── OVERVIEW ── */}
           {activeTab === 'Overview' && (
             <div className="space-y-5">
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {[
-                  { icon: Users,      label: 'Total Escorts',  value: '1,247', change: '+23 this month',  color: '#8B0000'  },
-                  { icon: Users,      label: 'Active Clients', value: '8,432', change: '+156 this month', color: '#2196F3'  },
-                  { icon: Calendar,   label: 'Bookings Today', value: '89',    change: '+12% vs yesterday',color: '#28a745' },
-                  { icon: DollarSign, label: 'Revenue (KES)',  value: '4.2M',  change: '+18% this month', color: '#FFD700'  },
-                ].map(s => {
-                  const Icon = s.icon
-                  return (
-                    <div key={s.label} className="bg-card-bg border border-color rounded-2xl p-4">
-                      <div className="flex items-center gap-2 mb-2"><Icon size={14} style={{color:s.color}}/><span className="text-[10px] text-text-muted uppercase tracking-widest">{s.label}</span></div>
-                      <p className="text-xl font-black text-text-light">{s.value}</p>
-                      <p className="text-[10px] text-[#28a745] mt-1">{s.change}</p>
-                    </div>
-                  )
-                })}
-              </div>
+              <OverviewStats />
               <OverviewBulkToggle />
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                <div className="bg-card-bg border border-color rounded-2xl p-4">
-                  <h3 className="text-sm font-bold text-text-light mb-3 flex items-center gap-2"><AlertTriangle size={14} className="text-[#FFD700]"/>Pending Approvals</h3>
-                  <div className="space-y-2">
-                    {ESCORTS_DATA.filter(e=>e.status==='pending').map((e,i)=>(
-                      <div key={i} className="flex items-center gap-3 p-3 bg-dark-bg rounded-xl border border-color/50">
-                        <div className="w-8 h-8 rounded-full bg-[#8B0000]/20 flex items-center justify-center text-xs font-bold text-[#8B0000]">{e.name.charAt(0)}</div>
-                        <div className="flex-1"><p className="text-xs font-semibold text-text-light">{e.name}</p><p className="text-[10px] text-text-muted">{e.city} · {e.tier}</p></div>
-                        <div className="flex gap-1.5">
-                          <button className="px-2.5 py-1 bg-[#28a745]/20 text-[#28a745] text-[10px] font-bold rounded-lg border border-[#28a745]/30">Approve</button>
-                          <button className="px-2.5 py-1 bg-[#EF4444]/20 text-[#EF4444] text-[10px] font-bold rounded-lg border border-[#EF4444]/30">Reject</button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                <PendingApprovals />
                 <div className="bg-card-bg border border-color rounded-2xl p-4">
                   <h3 className="text-sm font-bold text-text-light mb-3 flex items-center gap-2"><TrendingUp size={14} className="text-[#28a745]"/>Revenue This Week</h3>
                   <div className="flex items-end gap-1.5 h-28">
@@ -687,47 +898,10 @@ function AdminDashboard() {
           {activeTab === 'Escorts' && <EscortsTab />}
 
           {/* ── CLIENTS ── */}
-          {activeTab === 'Clients' && (
-            <div className="bg-card-bg border border-color rounded-2xl overflow-hidden">
-              <div className="px-4 py-3 border-b border-color"><h3 className="text-sm font-bold text-text-light">Registered Clients</h3></div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead className="bg-dark-bg border-b border-color"><tr>{['Name','Email','City','Joined','Bookings','Total Spent','Actions'].map(h=><th key={h} className="px-4 py-3 text-left font-semibold text-text-muted">{h}</th>)}</tr></thead>
-                  <tbody>
-                    {CLIENTS_DATA.map((c,i)=>(
-                      <tr key={i} className="border-b border-color/40 hover:bg-dark-bg transition-colors">
-                        <td className="px-4 py-3 font-semibold text-text-light">{c.name}</td>
-                        <td className="px-4 py-3 text-text-muted">{c.email}</td>
-                        <td className="px-4 py-3 text-text-muted">{c.city}</td>
-                        <td className="px-4 py-3 text-text-muted">{c.joined}</td>
-                        <td className="px-4 py-3 text-text-muted">{c.bookings}</td>
-                        <td className="px-4 py-3 text-[#FFD700] font-bold">KES {c.spent.toLocaleString()}</td>
-                        <td className="px-4 py-3"><button className="p-1.5 text-[#EF4444] rounded-lg hover:bg-dark-bg"><XCircle size={13}/></button></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
+          {activeTab === 'Clients' && <ClientsTab />}
 
           {/* ── BOOKINGS ── */}
-          {activeTab === 'Bookings' && (
-            <div className="bg-card-bg border border-color rounded-2xl overflow-hidden">
-              <div className="px-4 py-3 border-b border-color"><h3 className="text-sm font-bold text-text-light">Recent Bookings</h3></div>
-              <div className="divide-y divide-color/40">
-                {BOOKINGS_DATA.map((b,i)=>(
-                  <div key={i} className="flex items-center gap-4 px-4 py-3.5">
-                    <div className="flex-1"><p className="text-xs font-semibold text-text-light">{b.client} → {b.escort}</p><p className="text-[10px] text-text-muted">{b.date} · {b.duration}</p></div>
-                    <div className="text-right">
-                      <p className="text-xs font-bold text-[#FFD700]">KES {b.amount.toLocaleString()}</p>
-                      <span className="text-[9px] font-semibold capitalize px-2 py-0.5 rounded-full" style={{color:(statusColor as any)[b.status],backgroundColor:(statusColor as any)[b.status]+'20'}}>{b.status}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          {activeTab === 'Bookings' && <BookingsTab />}
 
           {/* ── MODERATORS ── */}
           {activeTab === 'Moderators' && (
@@ -965,8 +1139,8 @@ function AdminDashboard() {
                       <input type="number" defaultValue="587" className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#FF9800] transition-all"/>
                     </div>
                   </div>
-                  <ApiKeyField label="SMTP Username" placeholder="noreply@wet3camp.com" icon={Mail} />
-                  <ApiKeyField label="SMTP Password / App Password" placeholder="xxxx xxxx xxxx xxxx" icon={Lock} />
+                  <ApiKeyField label="SMTP Username" placeholder="noreply@wet3camp.com" icon={Mail} settingKey="smtp_user" />
+                  <ApiKeyField label="SMTP Password / App Password" placeholder="xxxx xxxx xxxx xxxx" icon={Lock} settingKey="smtp_pass" />
                   <SmtpTestButton />
                 </div>
               </div>
@@ -982,23 +1156,7 @@ function AdminDashboard() {
             <div className="max-w-xl space-y-5">
               <div className="bg-card-bg border border-color rounded-2xl p-5">
                 <h3 className="text-sm font-bold text-text-light mb-4 flex items-center gap-2"><Settings size={14}/>Platform Settings</h3>
-                <div className="space-y-4">
-                  {[
-                    ['Platform Name','Wet3 Camp'],
-                    ['Tagline',"Kenya's #1 Premium Companion Platform"],
-                    ['Support Email','support@wet3camp.com'],
-                    ['Min Escort Rate (KES)','1500'],
-                    ['Commission %','10'],
-                    ['Max Photos Per Profile','12'],
-                  ].map(([l,v])=>(
-                    <div key={l}><label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">{l}</label><input defaultValue={v} className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#8B0000] transition-all"/></div>
-                  ))}
-                </div>
-                <div className="mt-4 flex items-center gap-3">
-                  <input type="checkbox" defaultChecked id="maintenance" className="w-3.5 h-3.5 accent-[#8B0000]"/>
-                  <label htmlFor="maintenance" className="text-xs text-text-muted cursor-pointer">Require admin approval for new escort registrations</label>
-                </div>
-                <button className="mt-5 px-6 py-2.5 bg-[#8B0000] text-white text-xs font-bold rounded-xl hover:bg-[#a00000] transition-all flex items-center gap-2"><Save size={12}/>Save Settings</button>
+                <PlatformSettingsForm />
               </div>
               <div className="bg-card-bg border border-[#FFD700]/20 rounded-2xl p-5">
                 <h3 className="text-sm font-bold text-text-light mb-2 flex items-center gap-2">
@@ -1034,17 +1192,6 @@ function AdminDashboard() {
                   <div className="bg-dark-bg border border-color rounded-xl p-3"><p className="text-[10px] text-text-muted mb-1">Password</p><p className="text-xs font-mono text-[#FFD700]">••••••••••••••</p></div>
                 </div>
                 <p className="text-[10px] text-[#EF4444] mt-3 flex items-center gap-1"><Shield size={10}/>Keep credentials secure — never share admin access.</p>
-              </div>
-              <div className="bg-card-bg border border-color rounded-2xl p-5">
-                <h3 className="text-sm font-bold text-text-light mb-4 flex items-center gap-2"><Star size={14} className="text-[#FFD700]"/>Platform Stats</h3>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {[['1,247','Total Escorts'],['8,432','Registered Clients'],['23,891','Total Bookings'],['KES 4.2M','Monthly Revenue'],['890+','Verified Profiles'],['12','Active Cities']].map(([v,l])=>(
-                    <div key={l} className="bg-dark-bg border border-color rounded-xl p-3 text-center">
-                      <p className="text-sm font-black text-[#FFD700]">{v}</p>
-                      <p className="text-[9px] text-text-muted mt-0.5">{l}</p>
-                    </div>
-                  ))}
-                </div>
               </div>
             </div>
           )}
