@@ -15,9 +15,20 @@ async function getGoogleCreds(pool: any): Promise<{ clientId?: string; clientSec
 }
 
 function getCallbackUrl(req: any): string {
-  if (process.env.APP_URL) return `${process.env.APP_URL}/api/auth/google/callback`
-  const proto = (req.headers['x-forwarded-proto'] as string) || req.protocol
-  const host  = (req.headers['x-forwarded-host'] as string) || req.headers.host
+  // Prefer explicit env var — always set APP_URL=https://wet3.camp on the live server
+  const base = process.env.APP_URL || process.env.SITE_URL
+  if (base) return `${base.replace(/\/$/, '')}/api/auth/google/callback`
+
+  // Try forwarded headers (set by nginx/Apache with mod_proxy)
+  const fwdProto = req.headers['x-forwarded-proto'] as string | undefined
+  const fwdHost  = (req.headers['x-forwarded-host'] as string | undefined)
+               || (req.headers['x-forwarded-server'] as string | undefined)
+  if (fwdProto && fwdHost) return `${fwdProto}://${fwdHost}/api/auth/google/callback`
+
+  // Fallback: if host looks like a real domain (no port, not localhost) assume https
+  const host = req.headers.host as string || 'localhost'
+  const isLocal = host.startsWith('localhost') || host.startsWith('127.') || host.includes(':')
+  const proto = isLocal ? (req.protocol || 'http') : 'https'
   return `${proto}://${host}/api/auth/google/callback`
 }
 
