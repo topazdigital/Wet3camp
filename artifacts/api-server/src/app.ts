@@ -1,8 +1,15 @@
 import express, { type Express } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
+import path from "path";
+import { fileURLToPath } from "url";
+import { mkdirSync, existsSync } from "fs";
 import router from "./routes";
 import { logger } from "./lib/logger";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const UPLOADS_DIR = process.env.UPLOADS_DIR || path.join(__dirname, "..", "uploads");
+if (!existsSync(UPLOADS_DIR)) { try { mkdirSync(UPLOADS_DIR, { recursive: true }) } catch {} }
 
 const app: Express = express();
 
@@ -26,8 +33,11 @@ app.use(
   }),
 );
 app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Serve uploaded photos at /api/uploads/ (proxied by Vite in dev, direct in production)
+app.use("/api/uploads", express.static(UPLOADS_DIR, { maxAge: '7d' }));
 
 app.use("/api", router);
 

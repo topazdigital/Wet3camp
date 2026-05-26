@@ -35,7 +35,7 @@ router.get('/admin/users', requireAuth, requireAdmin, async (req: AuthRequest, r
     if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
     const limit = Math.min(parseInt((req.query as any).limit ?? '200', 10), 500)
     const [rows] = await pool.query<any[]>(
-      'SELECT id, username, email, role, display_name, phone, created_at, is_active FROM users ORDER BY created_at DESC LIMIT ?',
+      'SELECT id, username, email, role, display_name, phone, is_active FROM users ORDER BY id DESC LIMIT ?',
       [limit]
     )
     res.json(rows.map(u => ({ ...u, id: String(u.id) })))
@@ -50,7 +50,7 @@ router.get('/admin/escorts', requireAuth, requireAdmin, async (req: AuthRequest,
     if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
     const limit = Math.min(parseInt((req.query as any).limit ?? '200', 10), 500)
     const [rows] = await pool.query<any[]>(
-      'SELECT e.*, u.email as user_email, u.display_name as user_display_name FROM escorts e LEFT JOIN users u ON u.id = e.user_id ORDER BY e.created_at DESC LIMIT ?',
+      'SELECT e.*, u.email as user_email, u.display_name as user_display_name FROM escorts e LEFT JOIN users u ON u.id = e.user_id ORDER BY e.id DESC LIMIT ?',
       [limit]
     )
     res.json(rows.map(e => ({ ...e, id: String(e.id) })))
@@ -69,7 +69,7 @@ router.get('/admin/bookings', requireAuth, requireAdmin, async (req: AuthRequest
        FROM bookings b
        LEFT JOIN escorts e ON e.id = b.escort_id
        LEFT JOIN users u ON u.id = b.user_id
-       ORDER BY b.created_at DESC LIMIT ?`,
+       ORDER BY b.id DESC LIMIT ?`,
       [limit]
     )
     res.json(rows.map(b => ({
@@ -100,7 +100,7 @@ router.get('/admin/room-bookings', requireAuth, requireAdmin, async (req: AuthRe
       `SELECT rb.*, r.name AS room_name, r.hotel
        FROM room_bookings rb
        LEFT JOIN rooms r ON r.id = rb.room_id
-       ORDER BY rb.created_at DESC LIMIT 200`
+       ORDER BY rb.id DESC LIMIT 200`
     )
     res.json(rows.map(b => ({ ...b, id: b.id })))
   } catch {
@@ -279,13 +279,27 @@ router.delete('/admin/cleanup-seed-escorts', requireAuth, requireAdmin, async (r
     const pool = getPool()
     if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
     const [[{ cnt }]] = await pool.query<any[]>('SELECT COUNT(*) as cnt FROM escorts WHERE user_id IS NULL')
-    await pool.query('DELETE FROM escort_gallery WHERE escort_id IN (SELECT id FROM escorts WHERE user_id IS NULL)').catch(() => {})
-    await pool.query('DELETE FROM escort_languages WHERE escort_id IN (SELECT id FROM escorts WHERE user_id IS NULL)').catch(() => {})
-    await pool.query('DELETE FROM escort_services WHERE escort_id IN (SELECT id FROM escorts WHERE user_id IS NULL)').catch(() => {})
-    await pool.query('DELETE FROM escorts WHERE user_id IS NULL')
-    res.json({ success: true, deleted: cnt })
-  } catch {
-    res.status(500).json({ message: 'Failed to delete seed escorts' })
+    if (Number(cnt) === 0) { res.json({ success: true, deleted: 0, message: 'No fake escorts found.' }); return }
+    // Get IDs of fake escorts first, then delete dependents to avoid FK constraint errors
+    const [fakeRows] = await pool.query<any[]>('SELECT id FROM escorts WHERE user_id IS NULL')
+    const fakeIds = fakeRows.map((r: any) => r.id)
+    if (fakeIds.length > 0) {
+      const ids = fakeIds.join(',')
+      await pool.query(`DELETE FROM escort_gallery   WHERE escort_id IN (${ids})`).catch(() => {})
+      await pool.query(`DELETE FROM escort_languages WHERE escort_id IN (${ids})`).catch(() => {})
+      await pool.query(`DELETE FROM escort_services  WHERE escort_id IN (${ids})`).catch(() => {})
+      await pool.query(`DELETE FROM favorites  WHERE escort_id IN (${ids})`).catch(() => {})
+      await pool.query(`DELETE FROM followers  WHERE escort_id IN (${ids})`).catch(() => {})
+      await pool.query(`DELETE FROM reviews    WHERE escort_id IN (${ids})`).catch(() => {})
+      await pool.query(`DELETE FROM bookings   WHERE escort_id IN (${ids})`).catch(() => {})
+      await pool.query('SET FOREIGN_KEY_CHECKS=0').catch(() => {})
+      await pool.query('DELETE FROM escorts WHERE user_id IS NULL')
+      await pool.query('SET FOREIGN_KEY_CHECKS=1').catch(() => {})
+    }
+    res.json({ success: true, deleted: Number(cnt) })
+  } catch (err: any) {
+    console.error('[cleanup-seed-escorts]', err)
+    res.status(500).json({ message: 'Failed to delete seed escorts', detail: err?.message ?? '' })
   }
 })
 

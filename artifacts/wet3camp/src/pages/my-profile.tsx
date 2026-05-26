@@ -92,6 +92,65 @@ export default function MyProfile() {
   const [editSaveError, setEditSaveError] = useState('')
   const [editSaving, setEditSaving] = useState(false)
 
+  // Photo upload state
+  const [avatarUploading, setAvatarUploading] = useState(false)
+  const [galleryUploading, setGalleryUploading] = useState(false)
+  const [galleryError, setGalleryError] = useState('')
+  const [gallery, setGallery] = useState<string[]>([])
+
+  // Load gallery when escort profile loads
+  useEffect(() => {
+    if (escortProfile?.gallery) setGallery(escortProfile.gallery)
+  }, [escortProfile?.gallery])
+
+  const readFileAsBase64 = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result as string)
+      reader.onerror = reject
+      reader.readAsDataURL(file)
+    })
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setAvatarUploading(true)
+    try {
+      const data = await readFileAsBase64(file)
+      const res = await api.upload.photo(data, 'avatar', file.name)
+      setEscortProfile((p: any) => ({ ...p, image: res.url }))
+    } catch { } finally {
+      setAvatarUploading(false)
+      e.target.value = ''
+    }
+  }
+
+  const handleGalleryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || [])
+    if (!files.length) return
+    if (gallery.length + files.length > 12) {
+      setGalleryError('Maximum 12 photos allowed.'); return
+    }
+    setGalleryError(''); setGalleryUploading(true)
+    try {
+      for (const file of files) {
+        const data = await readFileAsBase64(file)
+        const res = await api.upload.photo(data, 'gallery', file.name)
+        setGallery(g => [...g, res.url])
+      }
+    } catch (err: any) {
+      setGalleryError(err.message ?? 'Upload failed')
+    } finally {
+      setGalleryUploading(false)
+      e.target.value = ''
+    }
+  }
+
+  const handleRemoveGalleryPhoto = async (url: string) => {
+    setGallery(g => g.filter(u => u !== url))
+    try { await api.upload.removeGallery(url) } catch {}
+  }
+
   const BODY_TYPES  = ['Slim', 'Athletic', 'Curvy', 'Petite', 'BBW', 'Average', 'Muscular']
   const ETHNICITIES = ['Kenyan', 'African', 'Asian', 'Mixed Race', 'European', 'Middle Eastern', 'Latin', 'Other']
   const HAIR_COLORS = ['Black', 'Dark Brown', 'Brown', 'Auburn', 'Blonde', 'Red', 'Natural', 'Braids', 'Locs', 'Coloured / Dyed']
@@ -186,9 +245,10 @@ export default function MyProfile() {
             <div className="flex items-end gap-4 w-full">
               <div className="relative">
                 <img src={escortProfile?.image || PLACEHOLDER_IMG} alt={escortProfile?.name || user?.name || 'Profile'} className="w-20 h-20 rounded-2xl object-cover border-2 border-[#FFD700]/50 shadow-xl" />
-                <button className="absolute -bottom-1 -right-1 w-6 h-6 bg-[#8B0000] rounded-full flex items-center justify-center border border-dark-bg">
-                  <Camera size={10} className="text-white" />
-                </button>
+                <label className="absolute -bottom-1 -right-1 w-6 h-6 bg-[#8B0000] rounded-full flex items-center justify-center border border-dark-bg cursor-pointer" title="Change profile photo">
+                  {avatarUploading ? <Loader2 size={10} className="text-white animate-spin" /> : <Camera size={10} className="text-white" />}
+                  <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} disabled={avatarUploading} />
+                </label>
               </div>
               <div className="pb-1">
                 <h1 className="text-xl font-black text-white">{escortProfile?.name || user?.name || 'My Profile'}</h1>
@@ -411,22 +471,33 @@ export default function MyProfile() {
 
           {activeTab === 'Gallery' && (
             <div>
+              {galleryError && (
+                <div className="mb-3 p-3 bg-red-900/20 border border-red-500/30 rounded-xl text-xs text-red-400 flex items-center gap-2">
+                  <AlertCircle size={14}/>{galleryError}
+                </div>
+              )}
               <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2 mb-4">
-                {(escortProfile?.gallery || []).map((img: string, i: number) => (
+                {gallery.map((img: string, i: number) => (
                   <div key={i} className="relative aspect-square rounded-xl overflow-hidden border border-color group">
                     <img src={img} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform"/>
-                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <button className="text-white text-xs font-bold">Remove</button>
+                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <button
+                        onClick={() => handleRemoveGalleryPhoto(img)}
+                        className="px-2 py-1 bg-red-700 hover:bg-red-600 text-white text-[10px] font-bold rounded-lg transition-colors"
+                      >Remove</button>
                     </div>
+                    {i === 0 && <span className="absolute top-1 left-1 text-[8px] font-bold bg-[#FFD700] text-black px-1.5 py-0.5 rounded">COVER</span>}
                   </div>
                 ))}
-                <label className="aspect-square rounded-xl border-2 border-dashed border-color hover:border-[#8B0000] transition-colors flex flex-col items-center justify-center gap-1.5 cursor-pointer">
-                  <Camera size={20} className="text-text-muted"/>
-                  <span className="text-[10px] text-text-muted">Add Photo</span>
-                  <input type="file" accept="image/*" multiple className="hidden"/>
-                </label>
+                {gallery.length < 12 && (
+                  <label className="aspect-square rounded-xl border-2 border-dashed border-color hover:border-[#8B0000] transition-colors flex flex-col items-center justify-center gap-1.5 cursor-pointer">
+                    {galleryUploading ? <Loader2 size={20} className="text-text-muted animate-spin"/> : <Camera size={20} className="text-text-muted"/>}
+                    <span className="text-[10px] text-text-muted">{galleryUploading ? 'Uploading…' : 'Add Photo'}</span>
+                    <input type="file" accept="image/*" multiple className="hidden" onChange={handleGalleryUpload} disabled={galleryUploading}/>
+                  </label>
+                )}
               </div>
-              <p className="text-xs text-text-muted">Maximum 12 photos. Cover photo is always first.</p>
+              <p className="text-xs text-text-muted">{gallery.length}/12 photos. Cover photo is always first. Tap a photo and click Remove to delete it.</p>
             </div>
           )}
 

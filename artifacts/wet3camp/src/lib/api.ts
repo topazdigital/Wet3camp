@@ -115,4 +115,17 @@ export const api = {
     }) =>
       req<any>('/profile/escort', { method: 'PATCH', body: JSON.stringify(d) }),
   },
+
+  upload: {
+    photo: (data: string, type: 'avatar' | 'gallery', filename?: string) =>
+      req<{ success: boolean; url: string }>('/upload', {
+        method: 'POST',
+        body: JSON.stringify({ data, filename, type }),
+      }),
+    removeGallery: (url: string) =>
+      req<{ success: boolean }>('/upload', {
+        method: 'DELETE',
+        body: JSON.stringify({ url }),
+      }),
+  },
 }

@@ -12,6 +12,7 @@ import sseRouter       from "./sse.js";
 import sitemapRouter   from "./sitemap.js";
 import roomsRouter     from "./rooms.js";
 import aiRouter        from "./ai.js";
+import uploadRouter    from "./upload.js";
 
 const router: IRouter = Router();
 
@@ -28,5 +29,6 @@ router.use(sseRouter);
 router.use(sitemapRouter);
 router.use(roomsRouter);
 router.use(aiRouter);
+router.use(uploadRouter);
 
 export default router;

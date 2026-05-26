@@ -1,15 +1,26 @@
 -- =============================================================================
--- Wet3.camp — Database Migration SQL
--- Run this in phpMyAdmin (your wet3camp_db database) BEFORE going live.
--- Execute each section in order.
+-- Wet3.camp — Database Migration SQL (v2)
+-- Run this in phpMyAdmin (admin_wet3camp database) BEFORE going live.
+-- Each statement uses IF NOT EXISTS / IGNORE — safe to run multiple times.
 -- =============================================================================
 
--- 1. Fix escorts.age column so registration doesn't fail when age is not provided
+-- =============================================================================
+-- 1. Fix escorts.age column so registration never fails when age is missing
+-- =============================================================================
 ALTER TABLE escorts
   MODIFY COLUMN age tinyint(3) UNSIGNED NOT NULL DEFAULT 0;
 
 -- =============================================================================
--- 2. Create platform_settings table (API Keys & Settings tab in admin panel)
+-- 2. Add missing columns to escorts table (safe — only adds if missing)
+-- =============================================================================
+ALTER TABLE escorts
+  ADD COLUMN IF NOT EXISTS `is_active` tinyint(1) NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS `online`    tinyint(1) NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS `lat`       decimal(10,7) DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS `lng`       decimal(10,7) DEFAULT NULL;
+
+-- =============================================================================
+-- 3. Create platform_settings table (Admin → Settings tab)
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS platform_settings (
   `key`        varchar(100)  NOT NULL,
@@ -19,7 +30,20 @@ CREATE TABLE IF NOT EXISTS platform_settings (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =============================================================================
--- 3. Create rooms table (for the /rooms page)
+-- 4. Ensure escort_gallery table exists (for photo uploads)
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS escort_gallery (
+  `id`          int(11)      NOT NULL AUTO_INCREMENT,
+  `escort_id`   int(11)      NOT NULL,
+  `image_url`   varchar(500) NOT NULL,
+  `sort_order`  int(11)      NOT NULL DEFAULT 0,
+  `created_at`  datetime     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_escort_id` (`escort_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =============================================================================
+-- 5. Create rooms table (for the /rooms page)
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS rooms (
   `id`            int(11)         NOT NULL AUTO_INCREMENT,
@@ -40,7 +64,7 @@ CREATE TABLE IF NOT EXISTS rooms (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =============================================================================
--- 4. Create room_bookings table
+-- 6. Create room_bookings table
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS room_bookings (
   `id`           int(11)      NOT NULL AUTO_INCREMENT,
@@ -57,48 +81,47 @@ CREATE TABLE IF NOT EXISTS room_bookings (
   `status`       enum('pending','confirmed','cancelled','completed') NOT NULL DEFAULT 'pending',
   `created_at`   datetime     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  KEY `idx_room_id`   (`room_id`),
-  KEY `idx_check_in`  (`check_in`),
-  KEY `idx_status`    (`status`)
+  KEY `idx_room_id`  (`room_id`),
+  KEY `idx_check_in` (`check_in`),
+  KEY `idx_status`   (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =============================================================================
--- 5. Remove fake/seed escort profiles (user_id IS NULL = seeded data)
---    IMPORTANT: Run this ONLY when you are ready — it permanently deletes
---    fake profiles. Safe to skip if you already have real escorts.
+-- 7. Remove fake/seed escort profiles (ADMIN BUTTON DOES THIS — SQL backup)
+--    Run this ONLY if the "Delete Fakes" button in admin panel doesn't work.
+--    It deletes ALL escorts with no real user account (user_id IS NULL).
 -- =============================================================================
--- Step 5a: Remove dependent rows first
+-- Step A: Disable FK checks so dependent rows don't block deletion
+SET FOREIGN_KEY_CHECKS=0;
+
+-- Step B: Remove all rows that reference fake escort IDs
 DELETE FROM escort_gallery   WHERE escort_id IN (SELECT id FROM escorts WHERE user_id IS NULL);
 DELETE FROM escort_languages WHERE escort_id IN (SELECT id FROM escorts WHERE user_id IS NULL);
 DELETE FROM escort_services  WHERE escort_id IN (SELECT id FROM escorts WHERE user_id IS NULL);
--- Step 5b: Remove the fake escorts
+DELETE FROM favorites        WHERE escort_id IN (SELECT id FROM escorts WHERE user_id IS NULL);
+DELETE FROM followers        WHERE escort_id IN (SELECT id FROM escorts WHERE user_id IS NULL);
+DELETE FROM reviews          WHERE escort_id IN (SELECT id FROM escorts WHERE user_id IS NULL);
+DELETE FROM bookings         WHERE escort_id IN (SELECT id FROM escorts WHERE user_id IS NULL);
+
+-- Step C: Delete the fake escort profiles
 DELETE FROM escorts WHERE user_id IS NULL;
 
+-- Step D: Re-enable FK checks
+SET FOREIGN_KEY_CHECKS=1;
+
 -- =============================================================================
--- 6. Create the first admin user
---    OPTION A (recommended): Use the built-in setup endpoint instead.
---    Visit:  POST https://wet3.camp/api/auth/setup-admin
---    Body:   { "email": "admin@wet3camp.com", "password": "YourSecurePassword", "name": "Platform Admin" }
---    This only works ONCE — it's disabled after the first admin is created.
---
---    OPTION B: If you prefer SQL, first generate a hash by running this on
---    your server shell:
---      node -e "
---        const { scrypt, randomBytes } = require('crypto');
---        const p = require('util').promisify;
---        const salt = randomBytes(16).toString('hex');
---        p(scrypt)('YourPassword', salt, 64).then(h => console.log(salt+':'+h.toString('hex')));
---      "
---    Then insert:
--- INSERT INTO users (username, email, password_hash, display_name, role, is_active)
--- VALUES ('admin', 'admin@wet3camp.com', '<paste-hash-here>', 'Platform Admin', 'admin', 1);
+-- 8. Create the first admin user
+--    OPTION A (recommended): Use the built-in setup endpoint.
+--    POST https://wet3.camp/api/auth/setup-admin
+--    Body: { "email": "admin@wet3camp.com", "password": "YourSecurePassword", "name": "Platform Admin" }
+--    This only works ONCE — disabled after first admin is created.
 -- =============================================================================
 
 -- =============================================================================
--- 7. (Optional) Sample rooms data — uncomment to add a few sample rooms
+-- 9. (Optional) Sample rooms data
 -- =============================================================================
 -- INSERT INTO rooms (name, hotel, city, area, type, price_night, price_hourly, rating, reviews_count, amenities, available) VALUES
--- ('Deluxe King Suite',  'Serena Hotel',      'Nairobi', 'Upper Hill',  'Suite',   18000, 5000,  4.8, 127, 'WiFi, Parking, Breakfast, 24hr Security', 1),
--- ('Executive Room',     'Tribe Hotel',       'Nairobi', 'Gigiri',      'Executive',12000, 3500,  4.6,  89, 'WiFi, Parking, 24hr Security',           1),
--- ('Ocean View Villa',   'Serena Beach Hotel','Mombasa',  'Nyali',       'Villa',   22000, 6500,  4.9,  64, 'WiFi, Parking, Breakfast, 24hr Security', 1),
--- ('Premier Suite',      'PrideInn Azure',    'Mombasa',  'Mombasa Road','Suite',   15000, 4500,  4.7,  98, 'WiFi, Parking, Breakfast',                1);
+-- ('Deluxe King Suite',  'Serena Hotel',       'Nairobi', 'Upper Hill',  'Suite',    18000, 5000, 4.8, 127, 'WiFi, Parking, Breakfast, 24hr Security', 1),
+-- ('Executive Room',     'Tribe Hotel',        'Nairobi', 'Gigiri',      'Executive',12000, 3500, 4.6,  89, 'WiFi, Parking, 24hr Security',           1),
+-- ('Ocean View Villa',   'Serena Beach Hotel', 'Mombasa',  'Nyali',       'Villa',    22000, 6500, 4.9,  64, 'WiFi, Parking, Breakfast, 24hr Security', 1),
+-- ('Premier Suite',      'PrideInn Azure',     'Mombasa',  'Mombasa Road','Suite',    15000, 4500, 4.7,  98, 'WiFi, Parking, Breakfast',                1);

@@ -21,7 +21,7 @@ router.get('/escorts', async (req, res) => {
     const where = conditions.join(' AND ')
     const orderBy = sort === 'featured'
       ? `FIELD(e.tier,'elite','vip','premium','standard','free'), e.rating DESC`
-      : sort === 'rating' ? 'e.rating DESC' : 'e.created_at DESC'
+      : sort === 'rating' ? 'e.rating DESC' : 'e.id DESC'
 
     const [rows]  = await pool.query<any[]>(`SELECT e.*, GROUP_CONCAT(DISTINCT el.language ORDER BY el.language SEPARATOR ',') AS languages_csv FROM escorts e LEFT JOIN escort_languages el ON el.escort_id = e.id WHERE ${where} GROUP BY e.id ORDER BY ${orderBy} LIMIT ? OFFSET ?`, [...params, lim, off])
     const [[{ total }]] = await pool.query<any[]>(`SELECT COUNT(*) AS total FROM escorts e WHERE ${where}`, params)
