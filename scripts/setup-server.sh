@@ -9,6 +9,7 @@
 set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+DIST_DIR="$PROJECT_DIR/artifacts/wet3camp/dist/public"
 API_DIR="$PROJECT_DIR/artifacts/api-server"
 PM2_APP="wet3camp-api"
 API_PORT=8080
@@ -19,9 +20,8 @@ echo "▶ Project root: $PROJECT_DIR"
 # ── 1. Pull latest code ──────────────────────────────────────
 echo ""
 echo "▶ [1/6] Pulling latest code..."
-# Fix "dubious ownership" when running as root on a repo owned by admin
 git config --global --add safe.directory "$PROJECT_DIR" 2>/dev/null || true
-git pull origin main 2>/dev/null || git pull 2>/dev/null || echo "  (git pull skipped — check: git remote -v)"
+git pull origin main 2>/dev/null || git pull 2>/dev/null || echo "  (git pull skipped)"
 
 # ── 2. Install dependencies ──────────────────────────────────
 echo ""
@@ -35,42 +35,44 @@ pnpm install --frozen-lockfile 2>/dev/null || pnpm install
 echo ""
 echo "▶ [3/6] Building frontend..."
 PORT=80 BASE_PATH=/ pnpm --filter @workspace/wet3camp run build
-echo "  Built → artifacts/wet3camp/dist/public/"
+echo "  Built → $DIST_DIR"
 
 # ── 4. Build API ─────────────────────────────────────────────
 echo ""
 echo "▶ [4/6] Building API server..."
 cd "$API_DIR" && pnpm run build && cd "$PROJECT_DIR"
-echo "  Built → artifacts/api-server/dist/index.mjs"
+echo "  Built → $API_DIR/dist/index.mjs"
 
-# ── 5. Write .htaccess ───────────────────────────────────────
+# ── 5. Copy built files to web root ──────────────────────────
 echo ""
-echo "▶ [5/6] Writing .htaccess..."
-HTACCESS="$PROJECT_DIR/.htaccess"
-[ -f "$HTACCESS" ] && cp "$HTACCESS" "$HTACCESS.bak"
+echo "▶ [5/6] Copying frontend to web root..."
+# Copy dist files to web root so Apache serves them directly
+# (avoids complex subdirectory rewriting in .htaccess)
+rsync -a --delete \
+  --exclude='.git' \
+  --exclude='artifacts' \
+  --exclude='scripts' \
+  --exclude='lib' \
+  --exclude='node_modules' \
+  --exclude='.htaccess' \
+  --exclude='pnpm-lock.yaml' \
+  --exclude='pnpm-workspace.yaml' \
+  --exclude='package.json' \
+  --exclude='tsconfig*.json' \
+  --exclude='.replit' \
+  --exclude='.gitignore' \
+  "$DIST_DIR/" "$PROJECT_DIR/"
+echo "  Files copied to web root."
 
-# Remove any old root-level index.html that would shadow the dist build
-if [ -f "$PROJECT_DIR/index.html" ]; then
-  mv "$PROJECT_DIR/index.html" "$PROJECT_DIR/index.html.old"
-  echo "  Moved old root index.html → index.html.old"
-fi
-
-cat > "$HTACCESS" << 'HTACCESS_CONTENT'
+# Write a simple, bulletproof SPA .htaccess (no subdirectory rewriting)
+cat > "$PROJECT_DIR/.htaccess" << 'HTACCESS'
 Options -Indexes
 RewriteEngine On
-
-# Skip rewriting if the URI is already inside the dist folder
-RewriteCond %{REQUEST_URI} ^/artifacts/wet3camp/dist/public/
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
 RewriteRule ^ - [L]
-
-# Serve real static files that exist in the dist folder
-RewriteCond %{DOCUMENT_ROOT}/artifacts/wet3camp/dist/public%{REQUEST_URI} -f
-RewriteRule ^(.+)$ artifacts/wet3camp/dist/public/$1 [L]
-
-# SPA fallback — all other routes serve index.html
-RewriteRule ^ artifacts/wet3camp/dist/public/index.html [L]
-HTACCESS_CONTENT
-
+RewriteRule ^ /index.html [L]
+HTACCESS
 echo "  .htaccess written."
 
 # ── 6. Start / reload API with PM2 ───────────────────────────
@@ -90,8 +92,5 @@ echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "✅  Deploy complete!"
 echo "   Site: https://wet3.camp"
-echo "   API:  http://127.0.0.1:$API_PORT (PM2: $PM2_APP)"
-echo ""
-echo "   To route /api/ through Apache, enable mod_proxy + mod_proxy_http"
-echo "   in DirectAdmin → Extra Features → Apache Extensions, then re-run."
+echo "   API:  http://127.0.0.1:$API_PORT  (PM2: $PM2_APP)"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
