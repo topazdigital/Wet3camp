@@ -1,15 +1,36 @@
 Options -Indexes
 DirectoryIndex index.html
 
+# ── API proxy ────────────────────────────────────────────────────────────────
+# Forward all /api/* and /sitemap.xml requests to the Node.js API server (port 8080)
+<IfModule mod_proxy.c>
+  ProxyRequests Off
+  ProxyPreserveHost On
+  ProxyPass        /api/ http://localhost:8080/api/
+  ProxyPassReverse /api/ http://localhost:8080/api/
+  ProxyPass        /sitemap.xml http://localhost:8080/sitemap.xml
+  ProxyPassReverse /sitemap.xml http://localhost:8080/sitemap.xml
+</IfModule>
+
+# ── SPA fallback ─────────────────────────────────────────────────────────────
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
+
+  # Never rewrite /api/* — handled by mod_proxy above
+  RewriteRule ^api/ - [L]
+  RewriteRule ^sitemap\.xml$ - [L]
+
+  # Never rewrite actual files or directories
   RewriteRule ^index\.html$ - [L]
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
+
+  # Everything else → index.html (React Router / Wouter)
   RewriteRule . /index.html [L]
 </IfModule>
 
+# ── Static asset caching ─────────────────────────────────────────────────────
 <FilesMatch "\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot|webp)$">
   Header set Cache-Control "public, max-age=31536000, immutable"
 </FilesMatch>
