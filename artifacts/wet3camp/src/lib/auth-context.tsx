@@ -7,6 +7,7 @@ export interface AuthUser {
   id: string; name: string; email: string; role: UserRole
   city?: string; area?: string; lat?: number; lng?: number
   avatar?: string; profileId?: string; phone?: string
+  approved?: boolean
 }
 
 interface AuthCtx {
@@ -15,12 +16,13 @@ interface AuthCtx {
   logout: () => void
   loginWithApi: (email: string, password: string) => Promise<{ success: boolean; user?: AuthUser; error?: string }>
   isLoggedIn: boolean; isAdmin: boolean; isEscort: boolean; isClient: boolean
+  isPendingEscort: boolean
 }
 
 const AuthContext = createContext<AuthCtx>({
   user: null, login: () => {}, logout: () => {},
   loginWithApi: async () => ({ success: false, user: undefined }),
-  isLoggedIn: false, isAdmin: false, isEscort: false, isClient: false,
+  isLoggedIn: false, isAdmin: false, isEscort: false, isClient: false, isPendingEscort: false,
 })
 
 const KEY = 'w3c_user'
@@ -31,8 +33,9 @@ function apiUserToAuthUser(u: ApiUser): AuthUser {
     name:  u.name,
     email: u.email,
     role:  u.role === 'user' ? 'client' : u.role as UserRole,
-    avatar: u.avatar ?? undefined,
-    phone:  u.phone  ?? undefined,
+    avatar:   u.avatar   ?? undefined,
+    phone:    u.phone    ?? undefined,
+    approved: u.approved,
   }
 }
 
@@ -67,6 +70,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [login])
 
+  const isPendingEscort = user?.role === 'escort' && user?.approved === false
+
   return (
     <AuthContext.Provider value={{
       user, login, logout, loginWithApi,
@@ -74,6 +79,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isAdmin:  user?.role === 'admin',
       isEscort: user?.role === 'escort',
       isClient: user?.role === 'client',
+      isPendingEscort,
     }}>
       {children}
     </AuthContext.Provider>

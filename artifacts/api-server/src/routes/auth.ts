@@ -33,15 +33,22 @@ router.post('/auth/login', async (req, res) => {
 
     const token = await signToken({ id: user.id, role: user.role, email: user.email })
 
+    let approved = true
+    if (user.role === 'escort') {
+      const [[escRow]] = await pool.query<any[]>('SELECT is_active FROM escorts WHERE user_id = ? LIMIT 1', [user.id])
+      approved = escRow ? !!escRow.is_active : false
+    }
+
     res.json({
       token,
       user: {
-        id:          String(user.id),
-        name:        user.display_name ?? user.username,
-        email:       user.email,
-        role:        user.role,
-        avatar:      user.avatar ?? null,
-        phone:       user.phone ?? null,
+        id:       String(user.id),
+        name:     user.display_name ?? user.username,
+        email:    user.email,
+        role:     user.role,
+        avatar:   user.avatar ?? null,
+        phone:    user.phone ?? null,
+        approved,
       },
     })
   } catch {
@@ -132,6 +139,7 @@ router.post('/auth/register', async (req, res) => {
         id: String(userId), name,
         email: email.toLowerCase().trim(),
         role: dbRole, avatar: null, phone: phone ?? null,
+        approved: dbRole !== 'escort',
       },
       escortId,
     })

@@ -42,6 +42,7 @@ export interface ApiEscort {
 export interface ApiUser {
   id: string; name: string; email: string; role: 'user' | 'escort' | 'admin'
   avatar: string | null; phone: string | null
+  approved?: boolean
 }
 
 export const api = {

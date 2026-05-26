@@ -37,13 +37,15 @@ import Tours from "@/pages/tours";
 import Videos from "@/pages/videos";
 import Blog from "@/pages/blog";
 import BlogPost from "@/pages/blog-post";
+import PendingApproval from "@/pages/pending-approval";
 
 const queryClient = new QueryClient();
 
 function ProtectedRoute({ component: Component, adminOnly = false }: { component: React.ComponentType; adminOnly?: boolean }) {
-  const { isLoggedIn, isAdmin } = useAuth();
+  const { isLoggedIn, isAdmin, isPendingEscort } = useAuth();
   if (!isLoggedIn) return <Redirect to="/login" />;
   if (adminOnly && !isAdmin) return <Redirect to="/" />;
+  if (isPendingEscort) return <Redirect to="/pending-approval" />;
   return <Component />;
 }
 
@@ -80,6 +82,7 @@ function Router() {
       <Route path="/videos" component={Videos} />
       <Route path="/blog" component={Blog} />
       <Route path="/blog/:slug" component={BlogPost} />
+      <Route path="/pending-approval" component={PendingApproval} />
       <Route component={NotFound} />
     </Switch>
   );

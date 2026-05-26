@@ -103,6 +103,73 @@ function ApiKeyField({ label, placeholder, icon: Icon, hint }: { label: string; 
   )
 }
 
+function OverviewBulkToggle() {
+  const [cities, setCities] = useState<string[]>([])
+  const [selectedCity, setSelectedCity] = useState('all')
+  const [bulkLoading, setBulkLoading] = useState<'online'|'offline'|null>(null)
+  const [feedback, setFeedback] = useState<{msg:string;ok:boolean}|null>(null)
+
+  useEffect(() => {
+    adminFetch('/admin/escorts?limit=500').then((data: any) => {
+      const arr: string[] = Array.from(new Set(
+        (Array.isArray(data) ? data : data?.data ?? []).map((e: any) => e.city).filter(Boolean)
+      )).sort() as string[]
+      setCities(arr)
+    }).catch(() => {})
+  }, [])
+
+  const doBulk = async (online: boolean) => {
+    setBulkLoading(online ? 'online' : 'offline')
+    try {
+      const body: Record<string, any> = { online }
+      if (selectedCity !== 'all') body.city = selectedCity
+      const result = await adminFetch('/admin/escorts/bulk-online', { method: 'PATCH', body: JSON.stringify(body) })
+      const label = selectedCity === 'all' ? 'All escorts' : `${selectedCity} escorts`
+      setFeedback({ msg: `✓ ${label} set ${online ? 'online' : 'offline'} (${result.affected ?? 0} updated)`, ok: true })
+    } catch {
+      setFeedback({ msg: 'Failed — check connection', ok: false })
+    }
+    setBulkLoading(null)
+    setTimeout(() => setFeedback(null), 4000)
+  }
+
+  return (
+    <div className="bg-card-bg border border-color rounded-2xl p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <Radio size={14} className="text-[#8B0000]" />
+        <h3 className="text-sm font-bold text-text-light">Quick Online Status Toggle</h3>
+      </div>
+      <div className="flex flex-wrap gap-2 items-center">
+        <select
+          value={selectedCity}
+          onChange={e => setSelectedCity(e.target.value)}
+          className="px-3 py-2 bg-dark-bg border border-color rounded-xl text-xs text-text-light focus:outline-none focus:border-[#8B0000] transition-all"
+        >
+          <option value="all">All Cities</option>
+          {cities.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
+        <button
+          onClick={() => doBulk(true)}
+          disabled={!!bulkLoading}
+          className="flex items-center gap-1.5 px-4 py-2 bg-[#28a745] text-white text-xs font-bold rounded-xl hover:bg-[#22a041] disabled:opacity-50 transition-all"
+        >
+          <Radio size={11} /> {bulkLoading === 'online' ? 'Setting…' : 'All Online'}
+        </button>
+        <button
+          onClick={() => doBulk(false)}
+          disabled={!!bulkLoading}
+          className="flex items-center gap-1.5 px-4 py-2 bg-dark-bg border border-[#EF4444]/40 text-[#EF4444] text-xs font-bold rounded-xl hover:bg-[#EF4444]/10 disabled:opacity-50 transition-all"
+        >
+          <WifiOff size={11} /> {bulkLoading === 'offline' ? 'Setting…' : 'All Offline'}
+        </button>
+      </div>
+      {feedback && (
+        <p className={`mt-2 text-[11px] font-semibold ${feedback.ok ? 'text-[#28a745]' : 'text-[#EF4444]'}`}>{feedback.msg}</p>
+      )}
+    </div>
+  )
+}
+
 function AdminLogin() {
   const [email, setEmail] = useState('admin@wet3camp.com')
   const [password, setPassword] = useState('')
@@ -471,6 +538,7 @@ function AdminDashboard() {
                   )
                 })}
               </div>
+              <OverviewBulkToggle />
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                 <div className="bg-card-bg border border-color rounded-2xl p-4">
                   <h3 className="text-sm font-bold text-text-light mb-3 flex items-center gap-2"><AlertTriangle size={14} className="text-[#FFD700]"/>Pending Approvals</h3>

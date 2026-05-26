@@ -8,7 +8,6 @@ import {
 } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { api, setToken } from '@/lib/api'
-import { CITIES } from '@/data/escorts'
 import { useSEO } from '@/lib/useSEO'
 
 const BODY_TYPES   = ['Slim', 'Athletic', 'Curvy', 'Petite', 'BBW', 'Average', 'Muscular']
@@ -116,7 +115,10 @@ export default function RegisterPage() {
   const [password, setPassword]     = useState('')
   const [confirmPass, setConfirmPass] = useState('')
   const [showPass, setShowPass]     = useState(false)
-  const [geoLoading, setGeoLoading] = useState(false)
+  const [geoLoading, setGeoLoading]         = useState(false)
+  const [citySuggestions, setCitySuggestions] = useState<string[]>([])
+  const [showCitySuggestions, setShowCitySuggestions] = useState(false)
+  const cityPickedRef = useRef(false)
 
   // OTP
   const [otpDigits, setOtpDigits]   = useState(['','','','','',''])
@@ -170,8 +172,7 @@ export default function RegisterPage() {
   const currentStep = STEPS[stepIdx] ?? 'role'
   const isLastStep  = stepIdx === STEPS.length - 1
   const progress    = STEPS.length > 1 ? Math.round((stepIdx / (STEPS.length - 1)) * 100) : 0
-  const cityData    = CITIES.find(c => c.name === city)
-  const age         = calcAge(dob)
+  const age = calcAge(dob)
 
   // OTP timer
   useEffect(() => {
@@ -186,7 +187,7 @@ export default function RegisterPage() {
   useEffect(() => {
     if (!username || username.length < 3) { setUsernameAvail(null); return }
     const t = setTimeout(async () => {
-      try { const r = await fetch(`/api/auth/check?username=${encodeURIComponent(username)}`); const d = await r.json(); setUsernameAvail(!!d.available) } catch { setUsernameAvail(null) }
+      try { const r = await fetch(`/api/auth/check?type=username&value=${encodeURIComponent(username)}`); const d = await r.json(); setUsernameAvail(!!d.available) } catch { setUsernameAvail(null) }
     }, 500)
     return () => clearTimeout(t)
   }, [username])
@@ -194,10 +195,31 @@ export default function RegisterPage() {
   useEffect(() => {
     if (!email || !email.includes('@')) { setEmailAvail(null); return }
     const t = setTimeout(async () => {
-      try { const r = await fetch(`/api/auth/check?email=${encodeURIComponent(email)}`); const d = await r.json(); setEmailAvail(!!d.available) } catch { setEmailAvail(null) }
+      try { const r = await fetch(`/api/auth/check?type=email&value=${encodeURIComponent(email)}`); const d = await r.json(); setEmailAvail(!!d.available) } catch { setEmailAvail(null) }
     }, 500)
     return () => clearTimeout(t)
   }, [email])
+
+  useEffect(() => {
+    if (cityPickedRef.current || !city || city.length < 2) { setCitySuggestions([]); return }
+    const t = setTimeout(async () => {
+      try {
+        const r = await fetch(
+          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(city)}&format=json&addressdetails=1&limit=6&countrycodes=ke`,
+          { headers: { 'User-Agent': 'Wet3Camp/1.0' } }
+        )
+        const data = await r.json()
+        const names: string[] = []
+        for (const d of data) {
+          const a = d.address ?? {}
+          const n = a.city || a.town || a.village || a.county || d.display_name.split(',')[0]
+          if (n && !names.includes(n)) names.push(n)
+        }
+        setCitySuggestions(names.slice(0, 5))
+      } catch {}
+    }, 450)
+    return () => clearTimeout(t)
+  }, [city])
 
   const sendOtp = async () => {
     if (!email) { setError('Enter your email address first.'); return }
@@ -238,13 +260,26 @@ export default function RegisterPage() {
     if (!navigator.geolocation) { setError('Geolocation not supported.'); return }
     setGeoLoading(true)
     navigator.geolocation.getCurrentPosition(
-      pos => {
+      async pos => {
         const { latitude: lat, longitude: lng } = pos.coords
-        let nearest = CITIES[0], minD = Infinity
-        CITIES.forEach(c => { const d = Math.hypot(c.lat - lat, c.lng - lng); if (d < minD) { minD = d; nearest = c } })
-        setCity(nearest.name); setArea(nearest.areas[0]); setGeoLoading(false)
+        try {
+          const r = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1`,
+            { headers: { 'User-Agent': 'Wet3Camp/1.0' } }
+          )
+          const d = await r.json()
+          const a = d.address ?? {}
+          const detectedCity = a.city || a.town || a.village || a.county || ''
+          const detectedArea = a.suburb || a.neighbourhood || a.residential || ''
+          if (detectedCity) { cityPickedRef.current = true; setCity(detectedCity); setShowCitySuggestions(false) }
+          if (detectedArea) setArea(detectedArea)
+          if (!detectedCity) setError('Could not determine city. Please type your city.')
+        } catch {
+          setError('Could not detect location. Please type your city manually.')
+        }
+        setGeoLoading(false)
       },
-      () => { setError('Could not detect location. Select manually.'); setGeoLoading(false) }
+      () => { setError('Could not detect location. Type your city manually.'); setGeoLoading(false) }
     )
   }
 
@@ -272,8 +307,8 @@ export default function RegisterPage() {
     if (currentStep === 'role'     && !role)       { setError('Choose your role.'); return false }
     if (currentStep === 'method'   && !authMethod) { setError('Choose a sign-up method.'); return false }
     if (currentStep === 'details') {
-      if (!name || !email || !dob || !city || !area || !password || !confirmPass)
-        { setError('Please fill in all required fields.'); return false }
+      if (!name || !email || !phone || !dob || !city || !area || !password || !confirmPass)
+        { setError('Please fill in all required fields including phone number.'); return false }
       if (!email.includes('@')) { setError('Enter a valid email.'); return false }
       if (password.length < 8) { setError('Password must be at least 8 characters.'); return false }
       if (password !== confirmPass) { setError('Passwords do not match.'); return false }
@@ -352,12 +387,13 @@ export default function RegisterPage() {
         role: res.user.role === 'user' ? 'client' : (res.user.role as any),
         phone: res.user.phone ?? undefined,
         profileId: res.escortId ?? undefined,
+        approved: res.user.approved,
       })
-      navigate(role === 'escort' ? '/my-profile' : '/')
+      navigate(role === 'escort' ? '/pending-approval' : '/')
     } catch (err: any) {
       if ((err?.code === 'NO_DB' || err?.status === 503) && import.meta.env.DEV) {
-        login({ id: `user-${Date.now()}`, name: name || 'New User', email, role: role!, city, area, phone })
-        navigate(role === 'escort' ? '/my-profile' : '/')
+        login({ id: `user-${Date.now()}`, name: name || 'New User', email, role: role!, city, area, phone, approved: role !== 'escort' })
+        navigate(role === 'escort' ? '/pending-approval' : '/')
         return
       }
       setError(err?.message ?? 'Registration failed. Please try again.')
@@ -496,7 +532,7 @@ export default function RegisterPage() {
                 </div>
               </div>
               <div>
-                <label className={labelCls}>Phone <span className="text-[9px] text-text-muted">(optional)</span></label>
+                <label className={labelCls}>Phone *</label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm">🇰🇪</span>
                   <input value={phone} onChange={e=>setPhone(e.target.value)} placeholder="+254 700 000 000" className={inputCls} style={{paddingLeft:'2.25rem'}}/>
@@ -528,16 +564,32 @@ export default function RegisterPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="relative">
-                    <MapPin size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
-                    <select value={city} onChange={e=>{setCity(e.target.value);setArea('')}} className={selectCls} style={{paddingLeft:'2.25rem'}}>
-                      <option value="">City</option>
-                      {CITIES.map(c=><option key={c.name} value={c.name}>{c.name}</option>)}
-                    </select>
+                    <MapPin size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none z-10" />
+                    <input
+                      value={city}
+                      onChange={e => { cityPickedRef.current = false; setCity(e.target.value); setShowCitySuggestions(true) }}
+                      onFocus={() => { if (city.length >= 2) setShowCitySuggestions(true) }}
+                      onBlur={() => setTimeout(() => setShowCitySuggestions(false), 150)}
+                      placeholder="Type city…"
+                      className={selectCls}
+                      style={{paddingLeft:'2.25rem'}}
+                      autoComplete="off"
+                    />
+                    {showCitySuggestions && citySuggestions.length > 0 && (
+                      <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-card-bg border border-color rounded-xl shadow-xl overflow-hidden">
+                        {citySuggestions.map(s => (
+                          <button
+                            key={s} type="button"
+                            onMouseDown={() => { setCity(s); cityPickedRef.current = true; setShowCitySuggestions(false); setCitySuggestions([]) }}
+                            className="w-full text-left px-3 py-2.5 text-xs text-text-light hover:bg-dark-bg flex items-center gap-2 border-b border-color/30 last:border-0"
+                          >
+                            <MapPin size={9} className="text-text-muted flex-shrink-0" /> {s}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  <select value={area} onChange={e=>setArea(e.target.value)} disabled={!city} className={selectCls + " disabled:opacity-50"}>
-                    <option value="">Area</option>
-                    {cityData?.areas.map(a=><option key={a} value={a}>{a}</option>)}
-                  </select>
+                  <input value={area} onChange={e=>setArea(e.target.value)} placeholder="Area / neighbourhood" className={selectCls} />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
