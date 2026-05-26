@@ -1189,8 +1189,8 @@ function AdminDashboard() {
                   <a href="https://developers.facebook.com" target="_blank" rel="noopener noreferrer" className="ml-auto text-[10px] text-[#FFD700] hover:underline">Meta Developers ↗</a>
                 </div>
                 <div className="space-y-4">
-                  <ApiKeyField label="Facebook App ID" placeholder="123456789012345" icon={Key} hint="Create an app at Meta for Developers → Facebook Login product" />
-                  <ApiKeyField label="Facebook App Secret" placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" icon={Lock} />
+                  <ApiKeyField label="Facebook App ID" placeholder="123456789012345" icon={Key} hint="Create an app at Meta for Developers → Facebook Login product" settingKey="facebook_app_id" />
+                  <ApiKeyField label="Facebook App Secret" placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" icon={Lock} settingKey="facebook_app_secret" />
                 </div>
               </div>
 

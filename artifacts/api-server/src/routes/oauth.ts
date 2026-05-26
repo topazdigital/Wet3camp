@@ -4,45 +4,94 @@ import { signToken } from '../lib/jwt.js'
 
 const router = Router()
 
-async function getGoogleCreds(pool: any): Promise<{ clientId?: string; clientSecret?: string }> {
+// ─── helpers ─────────────────────────────────────────────────────────────────
+
+async function getSettings(pool: any, keys: string[]): Promise<Record<string, string>> {
   if (!pool) return {}
   const [rows] = await pool.query<any[]>(
-    "SELECT `key`, `value` FROM platform_settings WHERE `key` IN ('google_client_id','google_client_secret')"
+    `SELECT \`key\`, \`value\` FROM platform_settings WHERE \`key\` IN (${keys.map(() => '?').join(',')})`,
+    keys
   ).catch(() => [[]])
   const m: Record<string, string> = {}
   for (const r of rows as any[]) m[r.key] = r.value
-  return { clientId: m.google_client_id, clientSecret: m.google_client_secret }
+  return m
 }
 
-function getCallbackUrl(req: any): string {
-  // Prefer explicit env var — always set APP_URL=https://wet3.camp on the live server
+function getOrigin(req: any): string {
   const base = process.env.APP_URL || process.env.SITE_URL
-  if (base) return `${base.replace(/\/$/, '')}/api/auth/google/callback`
-
-  // Try forwarded headers (set by nginx/Apache with mod_proxy)
+  if (base) return base.replace(/\/$/, '')
   const fwdProto = req.headers['x-forwarded-proto'] as string | undefined
   const fwdHost  = (req.headers['x-forwarded-host'] as string | undefined)
                || (req.headers['x-forwarded-server'] as string | undefined)
-  if (fwdProto && fwdHost) return `${fwdProto}://${fwdHost}/api/auth/google/callback`
-
-  // Fallback: if host looks like a real domain (no port, not localhost) assume https
+  if (fwdProto && fwdHost) return `${fwdProto}://${fwdHost}`
   const host = req.headers.host as string || 'localhost'
   const isLocal = host.startsWith('localhost') || host.startsWith('127.') || host.includes(':')
-  const proto = isLocal ? (req.protocol || 'http') : 'https'
-  return `${proto}://${host}/api/auth/google/callback`
+  return `${isLocal ? (req.protocol || 'http') : 'https'}://${host}`
 }
+
+async function findOrCreateUser(
+  pool: any,
+  email: string,
+  name: string,
+  picture: string | null,
+): Promise<{ userId: number; userRole: string; displayName: string }> {
+  const [[existing]] = await pool.query<any[]>(
+    'SELECT * FROM users WHERE email = ? LIMIT 1',
+    [email.toLowerCase()]
+  )
+  if (existing) {
+    if (picture && !existing.avatar) {
+      await pool.query('UPDATE users SET avatar = ? WHERE id = ?', [picture, existing.id]).catch(() => {})
+    }
+    return {
+      userId:      existing.id,
+      userRole:    existing.role,
+      displayName: existing.display_name ?? existing.username ?? name,
+    }
+  }
+  const base     = email.split('@')[0].replace(/[^a-z0-9]/gi, '_').toLowerCase()
+  const username = `${base}_${Math.random().toString(36).slice(2, 6)}`
+  const [ins]    = await pool.query<any>(
+    'INSERT INTO users (username, email, display_name, avatar, role, is_active, created_at) VALUES (?,?,?,?,?,1,NOW())',
+    [username, email.toLowerCase(), name ?? username, picture ?? null, 'user']
+  )
+  return {
+    userId:      ins.insertId ?? ins[0]?.id,
+    userRole:    'user',
+    displayName: name ?? username,
+  }
+}
+
+function redirectWithToken(res: any, origin: string, token: string, displayName: string, email: string, role: string) {
+  const qs = new URLSearchParams({ token, name: displayName, email, role })
+  res.redirect(`${origin}/auth/callback?${qs}`)
+}
+
+// ─── Public config (client IDs only — no secrets) ────────────────────────────
+
+router.get('/auth/oauth-config', async (_req, res) => {
+  try {
+    const pool = getPool()
+    const cfg  = await getSettings(pool, ['google_client_id', 'facebook_app_id'])
+    res.json({
+      googleClientId:  cfg.google_client_id  || null,
+      facebookAppId:   cfg.facebook_app_id   || null,
+    })
+  } catch {
+    res.json({ googleClientId: null, facebookAppId: null })
+  }
+})
+
+// ─── Google redirect flow ─────────────────────────────────────────────────────
 
 router.get('/auth/google', async (req, res) => {
   try {
     const pool = getPool()
-    const { clientId } = await getGoogleCreds(pool)
-    if (!clientId) {
-      res.redirect('/login?error=google_not_configured')
-      return
-    }
+    const cfg  = await getSettings(pool, ['google_client_id'])
+    if (!cfg.google_client_id) { res.redirect('/login?oauthError=Google+login+is+not+configured+yet.'); return }
     const params = new URLSearchParams({
-      client_id:     clientId,
-      redirect_uri:  getCallbackUrl(req),
+      client_id:     cfg.google_client_id,
+      redirect_uri:  `${getOrigin(req)}/api/auth/google/callback`,
       response_type: 'code',
       scope:         'openid email profile',
       access_type:   'offline',
@@ -51,88 +100,144 @@ router.get('/auth/google', async (req, res) => {
     res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`)
   } catch (err: any) {
     console.error('[oauth/google]', err?.message ?? err)
-    res.redirect('/login?error=oauth_error')
+    res.redirect('/login?oauthError=OAuth+error.+Please+try+again.')
   }
 })
 
 router.get('/auth/google/callback', async (req, res) => {
+  const origin = getOrigin(req)
   try {
     const { code, error: oauthErr } = req.query as Record<string, string>
     if (oauthErr || !code) {
-      res.redirect(`/login?error=${encodeURIComponent(oauthErr ?? 'oauth_cancelled')}`)
+      res.redirect(`${origin}/login?oauthError=${encodeURIComponent(oauthErr === 'access_denied' ? 'Sign-in was cancelled.' : 'Google sign-in failed.')}`)
       return
     }
-
     const pool = getPool()
-    if (!pool) { res.redirect('/login?error=db_unavailable'); return }
-
-    const { clientId, clientSecret } = await getGoogleCreds(pool)
-    if (!clientId || !clientSecret) {
-      res.redirect('/login?error=google_not_configured')
-      return
+    if (!pool) { res.redirect(`${origin}/login?oauthError=Database+unavailable.`); return }
+    const cfg = await getSettings(pool, ['google_client_id', 'google_client_secret'])
+    if (!cfg.google_client_id || !cfg.google_client_secret) {
+      res.redirect(`${origin}/login?oauthError=Google+login+is+not+configured+yet.`); return
     }
-
     const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
         code,
-        client_id:     clientId,
-        client_secret: clientSecret,
-        redirect_uri:  getCallbackUrl(req),
+        client_id:     cfg.google_client_id,
+        client_secret: cfg.google_client_secret,
+        redirect_uri:  `${origin}/api/auth/google/callback`,
         grant_type:    'authorization_code',
       }),
     })
     if (!tokenRes.ok) {
-      console.error('[oauth/google] token exchange failed:', await tokenRes.text())
-      res.redirect('/login?error=oauth_token_failed')
-      return
+      console.error('[oauth/google] token exchange:', await tokenRes.text())
+      res.redirect(`${origin}/login?oauthError=Google+sign-in+failed.`); return
     }
     const { access_token } = await tokenRes.json() as any
-
     const profileRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
       headers: { Authorization: `Bearer ${access_token}` },
     })
-    if (!profileRes.ok) { res.redirect('/login?error=profile_fetch_failed'); return }
-
+    if (!profileRes.ok) { res.redirect(`${origin}/login?oauthError=Could+not+fetch+profile.`); return }
     const { email, name, picture } = await profileRes.json() as any
-    if (!email) { res.redirect('/login?error=no_email'); return }
-
-    const [[existing]] = await pool.query<any[]>(
-      'SELECT * FROM users WHERE email = ? LIMIT 1',
-      [email.toLowerCase()]
-    )
-
-    let userId: number
-    let userRole: string
-    let displayName: string
-
-    if (existing) {
-      if (picture && !existing.avatar) {
-        await pool.query('UPDATE users SET avatar = ? WHERE id = ?', [picture, existing.id]).catch(() => {})
-      }
-      userId      = existing.id
-      userRole    = existing.role
-      displayName = existing.display_name ?? existing.username ?? name
-    } else {
-      const base = email.split('@')[0].replace(/[^a-z0-9]/gi, '_').toLowerCase()
-      const username = `${base}_${Math.random().toString(36).slice(2, 6)}`
-      const [ins] = await pool.query<any>(
-        'INSERT INTO users (username, email, display_name, avatar, role, is_active, created_at) VALUES (?,?,?,?,?,1,NOW())',
-        [username, email.toLowerCase(), name ?? username, picture ?? null, 'user']
-      )
-      userId      = ins.insertId ?? ins[0]?.id
-      userRole    = 'user'
-      displayName = name ?? username
-    }
-
+    if (!email) { res.redirect(`${origin}/login?oauthError=No+email+on+Google+account.`); return }
+    const { userId, userRole, displayName } = await findOrCreateUser(pool, email, name, picture)
     const token = await signToken({ id: userId, role: userRole, email: email.toLowerCase() })
-    const base  = process.env.FRONTEND_URL ?? ''
-    const qs    = new URLSearchParams({ token, name: displayName, email: email.toLowerCase(), role: userRole })
-    res.redirect(`${base}/auth/callback?${qs}`)
+    redirectWithToken(res, origin, token, displayName, email.toLowerCase(), userRole)
   } catch (err: any) {
     console.error('[oauth/google/callback]', err?.message ?? err)
-    res.redirect('/login?error=oauth_internal')
+    res.redirect(`${origin}/login?oauthError=Unexpected+error.+Please+try+again.`)
+  }
+})
+
+// ─── Google One Tap (ID token verification) ──────────────────────────────────
+
+router.post('/auth/google/one-tap', async (req, res) => {
+  try {
+    const { credential } = req.body as { credential?: string }
+    if (!credential) { res.status(400).json({ message: 'credential is required' }); return }
+    const pool = getPool()
+    if (!pool) { res.status(503).json({ message: 'Database unavailable' }); return }
+    const cfg = await getSettings(pool, ['google_client_id'])
+    if (!cfg.google_client_id) { res.status(400).json({ message: 'Google login not configured' }); return }
+    const tokenInfoRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${credential}`)
+    if (!tokenInfoRes.ok) { res.status(401).json({ message: 'Invalid Google credential' }); return }
+    const info = await tokenInfoRes.json() as any
+    if (info.aud !== cfg.google_client_id) { res.status(401).json({ message: 'Token audience mismatch' }); return }
+    const { email, name, picture } = info
+    if (!email) { res.status(400).json({ message: 'No email on Google account' }); return }
+    const { userId, userRole, displayName } = await findOrCreateUser(pool, email, name ?? email.split('@')[0], picture ?? null)
+    const token = await signToken({ id: userId, role: userRole, email: email.toLowerCase() })
+    res.json({ token, user: { id: String(userId), name: displayName, email: email.toLowerCase(), role: userRole } })
+  } catch (err: any) {
+    console.error('[oauth/google/one-tap]', err?.message ?? err)
+    res.status(500).json({ message: 'Sign-in failed' })
+  }
+})
+
+// ─── Facebook OAuth ───────────────────────────────────────────────────────────
+
+router.get('/auth/facebook', async (req, res) => {
+  try {
+    const pool = getPool()
+    const cfg  = await getSettings(pool, ['facebook_app_id'])
+    if (!cfg.facebook_app_id) { res.redirect('/login?oauthError=Facebook+login+is+not+configured+yet.'); return }
+    const params = new URLSearchParams({
+      client_id:     cfg.facebook_app_id,
+      redirect_uri:  `${getOrigin(req)}/api/auth/facebook/callback`,
+      response_type: 'code',
+      scope:         'email,public_profile',
+    })
+    res.redirect(`https://www.facebook.com/v19.0/dialog/oauth?${params}`)
+  } catch (err: any) {
+    console.error('[oauth/facebook]', err?.message ?? err)
+    res.redirect('/login?oauthError=OAuth+error.+Please+try+again.')
+  }
+})
+
+router.get('/auth/facebook/callback', async (req, res) => {
+  const origin = getOrigin(req)
+  try {
+    const { code, error: oauthErr } = req.query as Record<string, string>
+    if (oauthErr || !code) {
+      res.redirect(`${origin}/login?oauthError=${encodeURIComponent('Facebook sign-in was cancelled.')}`)
+      return
+    }
+    const pool = getPool()
+    if (!pool) { res.redirect(`${origin}/login?oauthError=Database+unavailable.`); return }
+    const cfg = await getSettings(pool, ['facebook_app_id', 'facebook_app_secret'])
+    if (!cfg.facebook_app_id || !cfg.facebook_app_secret) {
+      res.redirect(`${origin}/login?oauthError=Facebook+login+is+not+configured+yet.`); return
+    }
+    const tokenRes = await fetch(
+      `https://graph.facebook.com/v19.0/oauth/access_token?` + new URLSearchParams({
+        client_id:     cfg.facebook_app_id,
+        client_secret: cfg.facebook_app_secret,
+        redirect_uri:  `${origin}/api/auth/facebook/callback`,
+        code,
+      })
+    )
+    if (!tokenRes.ok) {
+      console.error('[oauth/facebook] token exchange:', await tokenRes.text())
+      res.redirect(`${origin}/login?oauthError=Facebook+sign-in+failed.`); return
+    }
+    const { access_token } = await tokenRes.json() as any
+    const profileRes = await fetch(
+      `https://graph.facebook.com/me?fields=id,name,email,picture.type(large)&access_token=${access_token}`
+    )
+    if (!profileRes.ok) { res.redirect(`${origin}/login?oauthError=Could+not+fetch+profile.`); return }
+    const fb = await profileRes.json() as any
+    const email = fb.email
+    if (!email) {
+      res.redirect(`${origin}/login?oauthError=${encodeURIComponent('Your Facebook account has no email address. Please use a different sign-in method.')}`)
+      return
+    }
+    const picture = fb.picture?.data?.url ?? null
+    const { userId, userRole, displayName } = await findOrCreateUser(pool, email, fb.name ?? email.split('@')[0], picture)
+    const token = await signToken({ id: userId, role: userRole, email: email.toLowerCase() })
+    redirectWithToken(res, origin, token, displayName, email.toLowerCase(), userRole)
+  } catch (err: any) {
+    console.error('[oauth/facebook/callback]', err?.message ?? err)
+    res.redirect(`${origin}/login?oauthError=Unexpected+error.+Please+try+again.`)
   }
 })
 

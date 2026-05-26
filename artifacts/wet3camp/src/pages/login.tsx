@@ -1,8 +1,24 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { Link, useLocation } from 'wouter'
 import { Flame, Mail, Lock, Eye, EyeOff, ShieldCheck, Star, AlertCircle } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
+import { setToken } from '@/lib/api'
 import { useSEO } from '@/lib/useSEO'
+
+declare global {
+  interface Window {
+    google?: {
+      accounts: {
+        id: {
+          initialize: (cfg: any) => void
+          prompt: (cb?: (n: any) => void) => void
+          cancel: () => void
+          renderButton: (el: HTMLElement, cfg: any) => void
+        }
+      }
+    }
+  }
+}
 
 export default function LoginPage() {
   useSEO({
@@ -11,22 +27,82 @@ export default function LoginPage() {
     noIndex: false,
     canonicalPath: '/login',
   })
-  const [email, setEmail] = useState('')
+  const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')
   const [showPass, setShowPass] = useState(false)
   const [remember, setRemember] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const { loginWithApi } = useAuth()
-  const [, navigate] = useLocation()
+  const [loading, setLoading]   = useState(false)
+  const [error, setError]       = useState('')
+  const oneTapRef               = useRef<HTMLDivElement>(null)
+  const { loginWithApi, login } = useAuth()
+  const [, navigate]            = useLocation()
 
   const redirectTo = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('redirect') ?? null
 
-  React.useEffect(() => {
+  useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const oauthError = params.get('oauthError')
     if (oauthError) setError(decodeURIComponent(oauthError))
   }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/auth/oauth-config')
+      .then(r => r.json())
+      .then((cfg: { googleClientId?: string | null }) => {
+        if (cancelled || !cfg.googleClientId) return
+        const scriptId = 'gsi-script'
+        if (document.getElementById(scriptId)) {
+          initOneTap(cfg.googleClientId)
+          return
+        }
+        const script = document.createElement('script')
+        script.id  = scriptId
+        script.src = 'https://accounts.google.com/gsi/client'
+        script.async = true
+        script.defer = true
+        script.onload = () => { if (!cancelled) initOneTap(cfg.googleClientId!) }
+        document.head.appendChild(script)
+      })
+      .catch(() => {})
+    return () => { cancelled = true; window.google?.accounts.id.cancel?.() }
+  }, [])
+
+  function initOneTap(clientId: string) {
+    if (!window.google) return
+    window.google.accounts.id.initialize({
+      client_id: clientId,
+      callback:  handleOneTapCredential,
+      auto_select: true,
+      cancel_on_tap_outside: false,
+      context: 'signin',
+    })
+    window.google.accounts.id.prompt()
+  }
+
+  async function handleOneTapCredential(response: { credential: string }) {
+    setError('')
+    try {
+      const res = await fetch('/api/auth/google/one-tap', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ credential: response.credential }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setError(data.message ?? 'Google sign-in failed'); return }
+      setToken(data.token)
+      login({
+        id:    String(data.user.id),
+        name:  data.user.name,
+        email: data.user.email,
+        role:  data.user.role === 'admin' ? 'admin' : data.user.role === 'escort' ? 'escort' : 'client',
+      })
+      const role = data.user.role
+      navigate(redirectTo ?? (role === 'admin' ? '/admin' : role === 'escort' ? '/my-profile' : '/'))
+    } catch {
+      setError('Google sign-in failed. Please try again.')
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -36,23 +112,17 @@ export default function LoginPage() {
     const result = await loginWithApi(email, password)
     if (result.success && result.user) {
       const u = result.user
-      if (redirectTo) {
-        navigate(redirectTo)
-      } else {
-        navigate(u.role === 'admin' ? '/admin' : u.role === 'escort' ? '/my-profile' : '/')
-      }
+      navigate(redirectTo ?? (u.role === 'admin' ? '/admin' : u.role === 'escort' ? '/my-profile' : '/'))
     } else {
       setError(result.error ?? 'Invalid email or password.')
     }
     setLoading(false)
   }
 
-  const handleOAuth = (provider: string) => {
-    if (provider === 'Google') {
-      window.location.href = '/api/auth/google'
-    } else {
-      setError(`${provider} login is not yet enabled. Please sign in with email/password.`)
-    }
+  const handleOAuth = (provider: 'google' | 'facebook' | 'apple') => {
+    if (provider === 'google')   { window.location.href = '/api/auth/google';   return }
+    if (provider === 'facebook') { window.location.href = '/api/auth/facebook'; return }
+    setError('Apple Sign-In is coming soon. Please use email or Google.')
   }
 
   return (
@@ -127,6 +197,8 @@ export default function LoginPage() {
               <p className="text-text-muted text-sm mt-1">Sign in to your account to continue</p>
             </div>
 
+            {/* Google One Tap anchor (GSI renders the prompt above this) */}
+            <div ref={oneTapRef} id="g_id_onload" />
 
             {error && (
               <div className="mb-4 flex items-start gap-2.5 p-3 bg-[#EF4444]/10 border border-[#EF4444]/20 rounded-xl">
@@ -137,7 +209,7 @@ export default function LoginPage() {
 
             {/* Social OAuth */}
             <div className="space-y-2.5 mb-5">
-              <button onClick={() => handleOAuth('Google')} className="w-full flex items-center gap-3 py-2.5 px-4 bg-card-bg border border-color rounded-xl text-sm text-text-light font-medium hover:border-text-muted transition-all">
+              <button onClick={() => handleOAuth('google')} className="w-full flex items-center gap-3 py-2.5 px-4 bg-card-bg border border-color rounded-xl text-sm text-text-light font-medium hover:border-text-muted transition-all">
                 <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24">
                   <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                   <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -146,13 +218,13 @@ export default function LoginPage() {
                 </svg>
                 Continue with Google
               </button>
-              <button onClick={() => handleOAuth('Facebook')} className="w-full flex items-center gap-3 py-2.5 px-4 bg-[#1877F2]/10 border border-[#1877F2]/30 rounded-xl text-sm text-text-light font-medium hover:bg-[#1877F2]/20 transition-all">
+              <button onClick={() => handleOAuth('facebook')} className="w-full flex items-center gap-3 py-2.5 px-4 bg-[#1877F2]/10 border border-[#1877F2]/30 rounded-xl text-sm text-text-light font-medium hover:bg-[#1877F2]/20 transition-all">
                 <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="#1877F2">
                   <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
                 </svg>
                 Continue with Facebook
               </button>
-              <button onClick={() => handleOAuth('Apple')} className="w-full flex items-center gap-3 py-2.5 px-4 bg-card-bg border border-color rounded-xl text-sm text-text-light font-medium hover:border-text-muted transition-all">
+              <button onClick={() => handleOAuth('apple')} className="w-full flex items-center gap-3 py-2.5 px-4 bg-card-bg border border-color rounded-xl text-sm text-text-light font-medium hover:border-text-muted transition-all">
                 <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701"/>
                 </svg>

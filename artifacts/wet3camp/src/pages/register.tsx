@@ -396,10 +396,8 @@ export default function RegisterPage() {
   const back = () => { setError(''); setStepIdx(s => Math.max(0, s - 1)) }
 
   const handleOAuthClick = (provider: string) => {
-    if (provider === 'google') {
-      window.location.href = '/api/auth/google'
-      return
-    }
+    if (provider === 'google')   { window.location.href = '/api/auth/google';   return }
+    if (provider === 'facebook') { window.location.href = '/api/auth/facebook'; return }
     setOauthProvider(provider); setAuthMethod('oauth')
   }
 
