@@ -1,3 +1,16 @@
+// =============================================================================
+// DATABASE POLICY — DO NOT CHANGE
+// =============================================================================
+// MySQL / MariaDB is the ONLY production database for wet3.camp.
+// The live server uses DATABASE_URL=mysql://... or DB_HOST/DB_USER/DB_PASS/DB_NAME.
+//
+// The CompatPool below supports PostgreSQL as a Replit dev-environment fallback
+// ONLY — it is NOT a migration target. Never rewrite the SQL files to pg syntax.
+// Never remove mysql2. Never make PostgreSQL the default.
+//
+// Future agents: preserve MySQL support. Do NOT convert this project to PostgreSQL.
+// =============================================================================
+
 import pg from 'pg'
 
 const { Pool } = pg

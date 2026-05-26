@@ -328,8 +328,28 @@ CREATE TABLE IF NOT EXISTS `sessions` (
 --   cd /home/admin/wet3camp-build && git pull origin main
 --   bash /home/admin/wet3camp-build/deploy-on-server.sh
 --
--- To create the first admin account after deploy:
---   Invoke-RestMethod -Uri "https://wet3.camp/api/auth/setup-admin" -Method POST -ContentType "application/json" -Body '{"email":"admin@wet3.camp","password":"YourPassword","name":"Platform Admin"}'
+-- ⚠️  DATABASE POLICY: MySQL / MariaDB is the ONLY production database.
+--     Never convert this schema to PostgreSQL.  The Replit dev environment
+--     uses PostgreSQL only as a fallback — production is always MySQL.
+--
+-- To create / reset the admin account (OPTION 1 — direct SQL in phpMyAdmin):
+--   Run the INSERT below, replacing the password_hash with a freshly generated
+--   one from the /api/auth/admin-reset endpoint or by running the hash script.
+--   The hash format is:  <16-byte-hex-salt>:<64-byte-hex-scrypt-hash>
+--
+--   INSERT INTO `users` (`username`, `email`, `password_hash`, `display_name`, `role`, `is_active`)
+--   VALUES ('admin', 'admin@wet3.camp', 'PASTE_HASH_HERE', 'Platform Admin', 'admin', 1)
+--   ON DUPLICATE KEY UPDATE
+--     `password_hash` = 'PASTE_HASH_HERE',
+--     `display_name`  = 'Platform Admin',
+--     `role`          = 'admin',
+--     `is_active`     = 1;
+--
+-- To create / reset the admin account (OPTION 2 — API endpoint after deploy):
+--   curl -s -X POST https://wet3.camp/api/auth/admin-reset \
+--     -H "Content-Type: application/json" \
+--     -d '{"secret":"MyResetKey999","email":"admin@wet3.camp","password":"YourNewPassword","name":"Platform Admin"}'
+--   (Requires ADMIN_RESET_SECRET=MyResetKey999 in /home/admin/api-server/env)
 --
 -- To diagnose issues on the live server, visit:
 --   GET https://wet3.camp/api/admin/health  (requires admin login token)

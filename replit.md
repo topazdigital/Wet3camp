@@ -2,6 +2,15 @@
 
 Kenya escort marketplace and booking platform — discover, book, and manage companion services.
 
+## ⚠️ DATABASE RULE — READ THIS FIRST
+
+**MySQL is the ONLY supported production database. NEVER convert any SQL, schema, or code to PostgreSQL.**
+
+- The live server at wet3.camp uses MySQL (`admin_wet3camp` on MariaDB 10.6).
+- The Replit dev environment may use the built-in PostgreSQL only as a temporary dev convenience — the CompatPool in `db.ts` handles the syntax translation automatically.
+- Future agents: do NOT migrate the schema to Drizzle/PostgreSQL, do NOT rewrite MySQL SQL to pg syntax, do NOT replace mysql2 with pg. MySQL is permanent and intentional.
+- All SQL files (`wet3camp-migration.sql`, `wet3camp_database.sql`) are written in MySQL/MariaDB syntax and must stay that way.
+
 ## Run & Operate
 
 - `pnpm --filter @workspace/api-server run dev` — run the API server (port 8080)
@@ -9,17 +18,15 @@ Kenya escort marketplace and booking platform — discover, book, and manage com
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string (Replit dev); MySQL on live server
+- Required env: `DATABASE_URL` — MySQL connection string on live server (`mysql://user:pass@host/db`); Replit dev falls back to Postgres only if no MySQL URL is set.
 
 ## Stack
 
 - pnpm workspaces, Node.js 24, TypeScript 5.9
 - API: Express 5
-- DB: PostgreSQL (Replit) + MySQL (live wet3.camp) + Drizzle ORM
+- **DB: MySQL/MariaDB (primary — live server). PostgreSQL only for Replit dev fallback. Never swap these.**
 - Validation: Zod (`zod/v4`), `drizzle-zod`
-- API codegen: Orval (from OpenAPI spec)
-- Build: esbuild (CJS bundle)
+- Build: esbuild (ESM bundle)
 
 ## Where things live
 
