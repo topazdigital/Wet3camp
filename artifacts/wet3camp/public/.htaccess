@@ -1,21 +1,13 @@
 Options -Indexes -MultiViews
 DirectoryIndex index.html
 
-# ── API proxy ─────────────────────────────────────────────────────────────────
-# Method A: ProxyPass (Apache 2.4+ with mod_proxy enabled in VirtualHost)
-<IfModule mod_proxy.c>
-  ProxyPreserveHost On
-  ProxyPass        /api http://localhost:8080/api
-  ProxyPassReverse /api http://localhost:8080/api
-</IfModule>
-
-# Method B: RewriteRule [P] fallback (same result via mod_rewrite + mod_proxy)
 <IfModule mod_rewrite.c>
   RewriteEngine On
 
-  # Skip /api paths if already handled by ProxyPass above
+  # Proxy all /api/* requests to the Node.js server on port 8080
+  # Uses %{REQUEST_URI} so the full path + query string is preserved
   RewriteCond %{REQUEST_URI} ^/api [NC]
-  RewriteRule ^ http://localhost:8080%{REQUEST_URI} [P,L,QSA,NE]
+  RewriteRule ^ http://localhost:8080%{REQUEST_URI} [P,L,QSA]
 
   # SPA fallback — serve index.html for all non-file, non-directory routes
   RewriteCond %{REQUEST_FILENAME} -f [OR]
