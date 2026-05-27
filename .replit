@@ -56,16 +56,8 @@ externalPort = 80
 [userenv]
 
 [userenv.shared]
+NODE_ENV = "development"
 PORT = "8080"
-NODE_ENV = "production"
-APP_URL = "https://wet3.camp"
-DB_HOST = "localhost"
-DB_PORT = "3306"
-DB_NAME = "admin_wet3camp"
-SMTP_HOST = "mail.wet3.camp"
-SMTP_PORT = "587"
-SMTP_USER = "support@wet3.camp"
-STATIC_DIR = "/home/admin/api-server/public"
 
 [nix]
 channel = "stable-25_05"
