@@ -57,22 +57,36 @@ router.get('/escorts/search', async (req, res) => {
   }
 })
 
+const slugOf = (name: string) =>
+  name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+
 router.get('/escorts/:id', async (req, res) => {
   try {
     const { id } = req.params
     const pool = getPool()
     if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
 
-    const [[row]] = await pool.query<any[]>('SELECT * FROM escorts WHERE id = ? AND is_active = 1', [id])
+    // Try numeric ID first
+    let row: any = null
+    const [[byId]] = await pool.query<any[]>('SELECT * FROM escorts WHERE id = ? AND is_active = 1', [id])
+    row = byId ?? null
+
+    // If not found and id looks like a name slug (not purely numeric), scan by slug
+    if (!row && !/^\d+$/.test(id)) {
+      const [allActive] = await pool.query<any[]>('SELECT * FROM escorts WHERE is_active = 1 LIMIT 2000')
+      row = (allActive as any[]).find(r => slugOf(r.name) === id.toLowerCase()) ?? null
+    }
+
     if (!row) return res.status(404).json({ message: 'Escort not found' })
 
-    const [gallery]   = await pool.query<any[]>('SELECT image_url FROM escort_gallery WHERE escort_id = ? ORDER BY sort_order', [id])
-    const [services]  = await pool.query<any[]>('SELECT name, available FROM escort_services WHERE escort_id = ?', [id])
-    const [languages] = await pool.query<any[]>('SELECT language FROM escort_languages WHERE escort_id = ?', [id])
+    const escortId = String(row.id)
+    const [gallery]   = await pool.query<any[]>('SELECT image_url FROM escort_gallery WHERE escort_id = ? ORDER BY sort_order', [escortId])
+    const [services]  = await pool.query<any[]>('SELECT name, available FROM escort_services WHERE escort_id = ?', [escortId])
+    const [languages] = await pool.query<any[]>('SELECT language FROM escort_languages WHERE escort_id = ?', [escortId])
 
     res.json({
       ...row,
-      id: String(row.id),
+      id: escortId,
       available: !!row.available,
       verified:  !!row.verified,
       online:    !!row.online,

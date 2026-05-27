@@ -378,6 +378,23 @@ INSERT IGNORE INTO `platform_settings` (`key`, `value`) VALUES
 -- =============================================================================
 -- DEPLOY INSTRUCTIONS
 -- =============================================================================
+-- 20. Profile claim requests (user claiming an unclaimed escort profile)
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS `profile_claims` (
+  `id`         int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `escort_id`  int(10) UNSIGNED NOT NULL,
+  `user_id`    int(10) UNSIGNED NOT NULL,
+  `message`    text             DEFAULT NULL,
+  `status`     varchar(20)      NOT NULL DEFAULT 'pending',
+  `created_at` datetime         NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime         NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_profile_claims_escort_id` (`escort_id`),
+  KEY `idx_profile_claims_user_id`   (`user_id`),
+  KEY `idx_profile_claims_status`    (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =============================================================================
 -- This file runs automatically on every deploy via deploy-on-server.sh.
 -- You do NOT need to run it manually in phpMyAdmin.
 --
