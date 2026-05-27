@@ -170,11 +170,27 @@ export default function MyProfile() {
     if (escortProfile?.gallery) setGallery(escortProfile.gallery)
   }, [escortProfile?.gallery])
 
-  const readFileAsBase64 = (file: File): Promise<string> =>
+  // Compress + resize image client-side before upload (reduces payload from 5-15MB to <2MB)
+  const compressImage = (file: File, maxDim = 1500, quality = 0.82): Promise<string> =>
     new Promise((resolve, reject) => {
       const reader = new FileReader()
-      reader.onload = () => resolve(reader.result as string)
       reader.onerror = reject
+      reader.onload = () => {
+        const img = new Image()
+        img.onerror = reject
+        img.onload = () => {
+          const scale = Math.min(1, maxDim / Math.max(img.width, img.height, 1))
+          const w = Math.round(img.width * scale)
+          const h = Math.round(img.height * scale)
+          const canvas = document.createElement('canvas')
+          canvas.width = w; canvas.height = h
+          const ctx = canvas.getContext('2d')
+          if (!ctx) { resolve(reader.result as string); return }
+          ctx.drawImage(img, 0, 0, w, h)
+          resolve(canvas.toDataURL('image/jpeg', quality))
+        }
+        img.src = reader.result as string
+      }
       reader.readAsDataURL(file)
     })
 
@@ -183,10 +199,12 @@ export default function MyProfile() {
     if (!file) return
     setAvatarUploading(true)
     try {
-      const data = await readFileAsBase64(file)
+      const data = await compressImage(file, 800, 0.88)
       const res = await api.upload.photo(data, 'avatar', file.name)
       setEscortProfile((p: any) => ({ ...p, image: res.url }))
-    } catch { } finally {
+    } catch (err: any) {
+      console.error('[avatar upload]', err?.message ?? err)
+    } finally {
       setAvatarUploading(false)
       e.target.value = ''
     }
@@ -207,14 +225,16 @@ export default function MyProfile() {
       setGalleryError(`Maximum ${tierPhotoLimit} photos allowed for your ${escortProfile?.tier ?? 'Standard'} tier.`); return
     }
     setGalleryError(''); setGalleryUploading(true)
+    let uploaded = 0
     try {
       for (const file of files) {
-        const data = await readFileAsBase64(file)
+        const data = await compressImage(file, 1500, 0.82)
         const res = await api.upload.photo(data, 'gallery', file.name)
-        setGallery(g => [...g, res.url])
+        if (res?.url) { setGallery(g => [...g, res.url]); uploaded++ }
       }
+      if (uploaded === 0) setGalleryError('No photos were uploaded. Please try again.')
     } catch (err: any) {
-      setGalleryError(err.message ?? 'Upload failed')
+      setGalleryError(err?.message ?? 'Upload failed. Please try a smaller photo or check your connection.')
     } finally {
       setGalleryUploading(false)
       e.target.value = ''
@@ -364,10 +384,14 @@ export default function MyProfile() {
           })}
         </div>
 
-        {/* Tabs */}
+        {/* Tabs — escort-only tabs hidden for clients */}
         <div className="px-4 sm:px-6 border-b border-color">
           <div className="flex gap-1 overflow-x-auto scrollbar-hide">
-            {TABS.map(tab => (
+            {TABS.filter(tab => {
+              const escortOnly = ['My Bookings', 'Gallery', 'Followers', 'Get Featured', 'Instagram Import', 'Subscription', 'Earnings']
+              if (user?.role !== 'escort' && escortOnly.includes(tab)) return false
+              return true
+            }).map(tab => (
               <button key={tab} onClick={() => setActiveTab(tab)} className={`flex-shrink-0 px-4 py-3 text-xs font-semibold transition-all border-b-2 ${activeTab === tab ? 'text-[#FFD700] border-[#FFD700]' : 'text-text-muted border-transparent hover:text-text-light'}`}>{tab}</button>
             ))}
           </div>

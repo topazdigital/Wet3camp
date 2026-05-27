@@ -121,6 +121,10 @@ export const api = {
       name: string; hotel: string; city: string; area?: string; type?: string
       price_night: number; price_hourly?: number; amenities?: string[]; image?: string
     }) => req<any>('/rooms', { method: 'POST', body: JSON.stringify(d) }),
+    book: (d: {
+      roomId: number | string; guestName: string; guestEmail: string; guestPhone?: string
+      checkIn: string; checkOut: string; guests?: number; notes?: string
+    }) => fetch('/api/rooms/book', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) }).then(r => r.json()),
   },
 
   favorites: {

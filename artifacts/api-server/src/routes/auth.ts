@@ -35,8 +35,20 @@ router.post('/auth/login', async (req, res) => {
 
     let approved = true
     if (user.role === 'escort') {
-      const [[escRow]] = await pool.query<any[]>('SELECT is_active FROM escorts WHERE user_id = ? LIMIT 1', [user.id])
-      approved = escRow ? !!escRow.is_active : false
+      const [[escRow]] = await pool.query<any[]>('SELECT id, is_active FROM escorts WHERE user_id = ? LIMIT 1', [user.id])
+      if (!escRow) {
+        // Orphaned escort — auto-create a minimal profile so the user can log in
+        try {
+          await pool.query(
+            `INSERT INTO escorts (user_id, name, city, tier, available, is_active, verified, price_hourly, price_overnight, price_video, price_incall, price_outcall)
+             VALUES (?,?,?,?,0,0,0,3000,25000,1500,0,0)`,
+            [user.id, user.display_name ?? user.username, 'Nairobi', 'standard']
+          )
+        } catch { /* migration might not have run yet — admin must run wet3camp-migration.sql */ }
+        approved = false
+      } else {
+        approved = !!escRow.is_active
+      }
     }
 
     res.json({
