@@ -87,8 +87,15 @@ export const api = {
   },
 
   messages: {
-    list:  ()                                     => req<any[]>('/messages'),
-    send:  (escortId: number, content: string)    => req('/messages',  { method: 'POST', body: JSON.stringify({ escortId, content }) }),
+    list:  ()                                       => req<any[]>('/messages'),
+    send:  (escortId: number, content: string)      => req('/messages', { method: 'POST', body: JSON.stringify({ escortId, content }) }),
+    markRead: (escortId: number)                    => req('/messages/read', { method: 'POST', body: JSON.stringify({ escortId }) }),
+  },
+
+  notifications: {
+    list:       ()          => req<any[]>('/notifications'),
+    markRead:   (id: string)=> req(`/notifications/${id}/read`,   { method: 'PATCH' }),
+    markAllRead:()          => req('/notifications/read-all',      { method: 'PATCH' }),
   },
 
   bookings: {

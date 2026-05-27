@@ -1,10 +1,35 @@
-import React from 'react'
-import { Link } from 'wouter'
-import { Flame, Clock, ShieldCheck, Bell, Mail, LogOut } from 'lucide-react'
+import React, { useEffect, useRef } from 'react'
+import { Link, useLocation } from 'wouter'
+import { Flame, Clock, ShieldCheck, Bell, Mail, LogOut, CheckCircle } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
+import { api } from '@/lib/api'
 
 export default function PendingApproval() {
-  const { user, logout } = useAuth()
+  const { user, logout, approved } = useAuth()
+  const [, navigate] = useLocation()
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  useEffect(() => {
+    if (approved) {
+      navigate('/my-profile')
+      return
+    }
+
+    const poll = async () => {
+      try {
+        const me = await api.auth.me()
+        if (me.approved) {
+          navigate('/my-profile')
+        }
+      } catch {}
+    }
+
+    poll()
+    intervalRef.current = setInterval(poll, 20000)
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current)
+    }
+  }, [approved, navigate])
 
   return (
     <div className="min-h-screen bg-dark-bg flex items-center justify-center px-4 py-12">
@@ -31,10 +56,11 @@ export default function PendingApproval() {
 
           <div className="space-y-3 mb-7 text-left">
             {[
-              { icon: ShieldCheck, text: 'Admin will verify your profile and selfie', color: '#28a745' },
-              { icon: Bell,        text: 'You\'ll be notified by email when approved', color: '#2196F3' },
-              { icon: Clock,       text: 'Review typically takes up to 24 hours',      color: '#FFD700' },
+              { icon: ShieldCheck, text: 'Admin will verify your profile and selfie',           color: '#28a745' },
+              { icon: Bell,        text: "You'll be notified by email when approved",            color: '#2196F3' },
+              { icon: Clock,       text: 'Review typically takes up to 24 hours',               color: '#FFD700' },
               { icon: Mail,        text: `Confirmation sent to ${user?.email ?? 'your email'}`, color: '#8B0000' },
+              { icon: CheckCircle, text: 'This page will automatically redirect once approved', color: '#28a745' },
             ].map(({ icon: Icon, text, color }) => (
               <div key={text} className="flex items-start gap-3 p-3 bg-dark-bg rounded-xl border border-color/50">
                 <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: color + '20' }}>
@@ -46,6 +72,10 @@ export default function PendingApproval() {
           </div>
 
           <div className="p-4 bg-[#8B0000]/10 border border-[#8B0000]/20 rounded-xl mb-6">
+            <div className="flex items-center gap-2 justify-center mb-1">
+              <div className="w-2 h-2 rounded-full bg-[#28a745] animate-pulse" />
+              <p className="text-xs font-semibold text-[#28a745]">Checking approval status every 20 seconds…</p>
+            </div>
             <p className="text-xs text-text-muted">
               While waiting, you can browse the platform as a guest. Your profile will go live and you'll gain full access once approved.
             </p>

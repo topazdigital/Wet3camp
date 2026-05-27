@@ -41,6 +41,8 @@ import PendingApproval from "@/pages/pending-approval";
 import AuthCallback from "@/pages/auth-callback";
 import Account from "@/pages/account";
 import ChooseRole from "@/pages/choose-role";
+import SearchPage from "@/pages/search";
+import TierBenefits from "@/pages/tier-benefits";
 
 const queryClient = new QueryClient();
 
@@ -89,6 +91,8 @@ function Router() {
       <Route path="/account">{() => <ProtectedRoute component={Account} />}</Route>
       <Route path="/auth/choose-role" component={ChooseRole} />
       <Route path="/auth/callback" component={AuthCallback} />
+      <Route path="/search" component={SearchPage} />
+      <Route path="/tier-benefits" component={TierBenefits} />
       <Route component={NotFound} />
     </Switch>
   );

@@ -302,14 +302,26 @@ CREATE TABLE IF NOT EXISTS `messages` (
 CREATE TABLE IF NOT EXISTS `notifications` (
   `id`         int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
   `user_id`    int(10) UNSIGNED NOT NULL,
-  `type`       varchar(50)      NOT NULL,
-  `title`      varchar(200)     NOT NULL,
-  `body`       text             DEFAULT NULL,
-  `read`       tinyint(1)       NOT NULL DEFAULT 0,
+  `type`       varchar(50)      NOT NULL DEFAULT 'system',
+  `text`       varchar(500)     NOT NULL DEFAULT '',
+  `link`       varchar(300)     NOT NULL DEFAULT '/',
+  `dot`        varchar(20)      NOT NULL DEFAULT '#8B0000',
+  `avatar`     varchar(500)     DEFAULT NULL,
+  `read_at`    datetime         DEFAULT NULL,
   `created_at` datetime         NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
-  KEY `idx_user_id` (`user_id`)
+  KEY `idx_user_id`  (`user_id`),
+  KEY `idx_read_at`  (`read_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Migrate old notifications schema if upgrading from earlier version
+ALTER TABLE `notifications` ADD COLUMN IF NOT EXISTS `text`    varchar(500) NOT NULL DEFAULT '';
+ALTER TABLE `notifications` ADD COLUMN IF NOT EXISTS `link`    varchar(300) NOT NULL DEFAULT '/';
+ALTER TABLE `notifications` ADD COLUMN IF NOT EXISTS `dot`     varchar(20)  NOT NULL DEFAULT '#8B0000';
+ALTER TABLE `notifications` ADD COLUMN IF NOT EXISTS `avatar`  varchar(500) DEFAULT NULL;
+ALTER TABLE `notifications` ADD COLUMN IF NOT EXISTS `read_at` datetime     DEFAULT NULL;
+-- Migrate old title/body to text if present
+UPDATE `notifications` SET `text` = COALESCE(NULLIF(`text`,''), title, body, 'Notification') WHERE `text` = '' AND (title IS NOT NULL OR body IS NOT NULL);
 
 -- =============================================================================
 -- 17. Create sessions table

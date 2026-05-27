@@ -1,19 +1,20 @@
 import { Router, type IRouter } from "express";
-import healthRouter    from "./health.js";
-import escortsRouter   from "./escorts.js";
-import authRouter      from "./auth.js";
-import oauthRouter     from "./oauth.js";
-import messagesRouter  from "./messages.js";
-import bookingsRouter  from "./bookings.js";
-import favoritesRouter from "./favorites.js";
-import reviewsRouter   from "./reviews.js";
-import adminRouter     from "./admin.js";
-import profileRouter   from "./profile.js";
-import sseRouter       from "./sse.js";
-import sitemapRouter   from "./sitemap.js";
-import roomsRouter     from "./rooms.js";
-import aiRouter        from "./ai.js";
-import uploadRouter    from "./upload.js";
+import healthRouter        from "./health.js";
+import escortsRouter       from "./escorts.js";
+import authRouter          from "./auth.js";
+import oauthRouter         from "./oauth.js";
+import messagesRouter      from "./messages.js";
+import bookingsRouter      from "./bookings.js";
+import favoritesRouter     from "./favorites.js";
+import reviewsRouter       from "./reviews.js";
+import adminRouter         from "./admin.js";
+import profileRouter       from "./profile.js";
+import sseRouter           from "./sse.js";
+import sitemapRouter       from "./sitemap.js";
+import roomsRouter         from "./rooms.js";
+import aiRouter            from "./ai.js";
+import uploadRouter        from "./upload.js";
+import notificationsRouter from "./notifications.js";
 
 const router: IRouter = Router();
 
@@ -32,5 +33,6 @@ router.use(sitemapRouter);
 router.use(roomsRouter);
 router.use(aiRouter);
 router.use(uploadRouter);
+router.use(notificationsRouter);
 
 export default router;

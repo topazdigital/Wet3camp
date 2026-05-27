@@ -1,13 +1,100 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { Link, useLocation } from 'wouter'
-import { Bell, Heart, Search, X, Flame, ShieldCheck, ChevronDown, LogOut, User, Settings, BookOpen } from 'lucide-react'
+import { Bell, Heart, Search, X, Flame, ShieldCheck, ChevronDown, LogOut, User, Settings, BookOpen, MapPin, Star } from 'lucide-react'
 import { useSidebar } from '@/lib/sidebar-context'
 import { useAuth } from '@/lib/auth-context'
 import { useNotifications } from '@/lib/notifications-context'
 
+interface SearchResult {
+  id: string; name: string; city: string; area: string; image?: string; tier?: string; verified?: boolean
+}
+
+const TIER_COLOR: Record<string, string> = {
+  elite: '#8B0000', vip: '#FF4500', premium: '#B8860B', standard: '#666', free: '#555'
+}
+
+function SearchDropdown({ results, loading, query, onClose }: {
+  results: SearchResult[]; loading: boolean; query: string; onClose: () => void
+}) {
+  const [, navigate] = useLocation()
+
+  if (!query || query.length < 2) return null
+  return (
+    <div className="absolute top-full left-0 right-0 mt-1 bg-card-bg border border-color rounded-xl shadow-2xl shadow-black/60 overflow-hidden z-[100]">
+      {loading && (
+        <div className="px-4 py-3 flex items-center gap-2">
+          <div className="w-3 h-3 rounded-full border-2 border-[#8B0000] border-t-transparent animate-spin" />
+          <span className="text-xs text-text-muted">Searching…</span>
+        </div>
+      )}
+      {!loading && results.length === 0 && (
+        <div className="px-4 py-4 text-center">
+          <p className="text-xs text-text-muted">No escorts found for "<span className="text-text-light">{query}</span>"</p>
+          <button
+            className="mt-2 text-xs text-[#8B0000] hover:underline"
+            onClick={() => { navigate(`/search?q=${encodeURIComponent(query)}`); onClose() }}
+          >
+            Browse all escorts →
+          </button>
+        </div>
+      )}
+      {!loading && results.length > 0 && (
+        <>
+          {results.map(r => (
+            <Link
+              key={r.id}
+              href={`/profile/${r.id}`}
+              onClick={onClose}
+              className="flex items-center gap-3 px-4 py-3 hover:bg-dark-bg transition-colors border-b border-color/30 last:border-0"
+            >
+              <div className="relative flex-shrink-0">
+                {r.image ? (
+                  <img src={r.image} alt={r.name} className="w-10 h-10 rounded-full object-cover border-2" style={{ borderColor: (TIER_COLOR[r.tier ?? ''] ?? '#555') + '60' }} />
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#8B0000] to-[#FFD700] flex items-center justify-center text-white text-sm font-bold">
+                    {r.name.charAt(0)}
+                  </div>
+                )}
+                {r.verified && (
+                  <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-[#2196F3] border border-card-bg flex items-center justify-center">
+                    <Star size={8} className="text-white fill-white" />
+                  </div>
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-bold text-text-light truncate">{r.name}</span>
+                  {r.tier && r.tier !== 'free' && r.tier !== 'standard' && (
+                    <span className="px-1.5 py-0.5 rounded text-[9px] font-black capitalize" style={{ background: (TIER_COLOR[r.tier] ?? '#555') + '25', color: TIER_COLOR[r.tier] ?? '#555' }}>
+                      {r.tier}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1 mt-0.5">
+                  <MapPin size={10} className="text-text-muted flex-shrink-0" />
+                  <span className="text-[11px] text-text-muted truncate">{r.area ? `${r.area}, ` : ''}{r.city}</span>
+                </div>
+              </div>
+            </Link>
+          ))}
+          <button
+            onClick={() => { navigate(`/search?q=${encodeURIComponent(query)}`); onClose() }}
+            className="w-full px-4 py-2.5 text-center text-xs font-semibold text-[#8B0000] hover:bg-dark-bg transition-colors border-t border-color"
+          >
+            See all results for "{query}" →
+          </button>
+        </>
+      )}
+    </div>
+  )
+}
+
 export default function Header() {
   const [showSearch, setShowSearch] = useState(false)
   const [searchVal, setSearchVal] = useState('')
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([])
+  const [searchLoading, setSearchLoading] = useState(false)
+  const [showDrop, setShowDrop] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
@@ -16,6 +103,8 @@ export default function Header() {
   const { notifications, unreadCount, markRead, markAllRead } = useNotifications()
   const notifRef = useRef<HTMLDivElement>(null)
   const userRef = useRef<HTMLDivElement>(null)
+  const searchRef = useRef<HTMLDivElement>(null)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   let isMobile = false
   try { isMobile = useSidebar().isMobile } catch (_) {}
@@ -30,10 +119,42 @@ export default function Header() {
     const handler = (e: MouseEvent) => {
       if (notifRef.current && !notifRef.current.contains(e.target as Node)) setNotifOpen(false)
       if (userRef.current && !userRef.current.contains(e.target as Node)) setUserMenuOpen(false)
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) setShowDrop(false)
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [])
+
+  const doSearch = useCallback(async (q: string) => {
+    if (q.length < 2) { setSearchResults([]); setShowDrop(false); return }
+    setSearchLoading(true)
+    setShowDrop(true)
+    try {
+      const res = await fetch(`/api/escorts/search?q=${encodeURIComponent(q)}`)
+      const data = await res.json()
+      setSearchResults(Array.isArray(data) ? data : [])
+    } catch {
+      setSearchResults([])
+    } finally {
+      setSearchLoading(false)
+    }
+  }, [])
+
+  const handleSearchChange = (val: string) => {
+    setSearchVal(val)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => doSearch(val), 350)
+    if (val.length < 2) { setShowDrop(false); setSearchResults([]) }
+    else setShowDrop(true)
+  }
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && searchVal.trim()) {
+      navigate(`/search?q=${encodeURIComponent(searchVal.trim())}`)
+      setShowDrop(false)
+    }
+    if (e.key === 'Escape') { setShowDrop(false) }
+  }
 
   const handleLogout = () => {
     setUserMenuOpen(false)
@@ -42,13 +163,7 @@ export default function Header() {
   }
 
   return (
-    <header
-      className={`sticky top-0 z-40 w-full transition-all duration-300 ${
-        scrolled
-          ? 'bg-card-bg/95 backdrop-blur-md shadow-lg shadow-black/30 border-b border-color'
-          : 'bg-card-bg border-b border-color'
-      }`}
-    >
+    <header className={`sticky top-0 z-40 w-full transition-all duration-300 ${scrolled ? 'bg-card-bg/95 backdrop-blur-md shadow-lg shadow-black/30 border-b border-color' : 'bg-card-bg border-b border-color'}`}>
       <div className="w-full px-3 sm:px-5 h-14 flex items-center gap-2">
         {/* Logo (mobile) */}
         <Link href="/" className="flex lg:hidden items-center gap-2 flex-shrink-0 group">
@@ -61,20 +176,30 @@ export default function Header() {
         </Link>
 
         {/* Desktop search */}
-        <div className="hidden lg:flex flex-1 max-w-xl mx-4">
+        <div className="hidden lg:flex flex-1 max-w-xl mx-4" ref={searchRef}>
           <div className="relative w-full">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none z-10" />
             <input
               type="text"
               placeholder="Search by name, location, service…"
               value={searchVal}
-              onChange={e => setSearchVal(e.target.value)}
+              onChange={e => handleSearchChange(e.target.value)}
+              onKeyDown={handleSearchKeyDown}
+              onFocus={() => searchVal.length >= 2 && setShowDrop(true)}
               className="w-full pl-9 pr-4 py-2 bg-dark-bg border border-color rounded-xl text-xs text-text-light placeholder-text-muted focus:outline-none focus:border-secondary-color focus:bg-black/40 transition-all"
             />
             {searchVal && (
-              <button onClick={() => setSearchVal('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-light">
+              <button onClick={() => { setSearchVal(''); setShowDrop(false); setSearchResults([]) }} className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-light z-10">
                 <X size={12} />
               </button>
+            )}
+            {showDrop && (
+              <SearchDropdown
+                results={searchResults}
+                loading={searchLoading}
+                query={searchVal}
+                onClose={() => { setShowDrop(false); setSearchVal('') }}
+              />
             )}
           </div>
         </div>
@@ -83,7 +208,7 @@ export default function Header() {
 
         {/* Actions */}
         <div className="flex items-center gap-0.5">
-          {/* Mobile search */}
+          {/* Mobile search toggle */}
           <button className="lg:hidden p-2 text-text-muted hover:text-secondary-color rounded-lg hover:bg-dark-bg transition-colors" onClick={() => setShowSearch(v => !v)}>
             <Search size={18} />
           </button>
@@ -190,6 +315,11 @@ export default function Header() {
                   <Link href="/messages" onClick={() => setUserMenuOpen(false)} className="flex items-center gap-3 px-4 py-2.5 hover:bg-dark-bg transition-colors text-xs text-text-light">
                     <BookOpen size={14} className="text-text-muted" /> Messages
                   </Link>
+                  {isEscort && (
+                    <Link href="/tier-benefits" onClick={() => setUserMenuOpen(false)} className="flex items-center gap-3 px-4 py-2.5 hover:bg-dark-bg transition-colors text-xs text-[#FFD700]">
+                      <Star size={14} className="text-[#FFD700]" /> Tier Benefits
+                    </Link>
+                  )}
                   {isAdmin && (
                     <Link href="/admin" onClick={() => setUserMenuOpen(false)} className="flex items-center gap-3 px-4 py-2.5 hover:bg-dark-bg transition-colors text-xs text-[#FFD700]">
                       <Settings size={14} className="text-[#FFD700]" /> Admin Panel
@@ -219,16 +349,25 @@ export default function Header() {
       {/* Mobile search bar */}
       {showSearch && (
         <div className="lg:hidden px-3 pb-3">
-          <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
+          <div className="relative" ref={searchRef}>
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none z-10" />
             <input
               autoFocus
               type="text"
               placeholder="Search escorts, locations…"
               value={searchVal}
-              onChange={e => setSearchVal(e.target.value)}
+              onChange={e => handleSearchChange(e.target.value)}
+              onKeyDown={handleSearchKeyDown}
               className="w-full pl-9 pr-4 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted focus:outline-none focus:border-secondary-color transition-all"
             />
+            {showDrop && (
+              <SearchDropdown
+                results={searchResults}
+                loading={searchLoading}
+                query={searchVal}
+                onClose={() => { setShowDrop(false); setSearchVal(''); setShowSearch(false) }}
+              />
+            )}
           </div>
         </div>
       )}

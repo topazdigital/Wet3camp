@@ -1,2 +1,6 @@
 - [Wet3Camp stack](wet3camp-stack.md) — MySQL/mysql2, Express 5 (port 8080), React+Vite (port 19099), Expo mobile; JWT auth in localStorage as 'auth_token'
 - [Wet3Camp pre-existing TS errors](wet3camp-ts-errors.md) — Several non-blocking TS errors exist before any edits; don't treat as regressions
+- [Notifications schema migration](notifications-schema.md) — old schema had title/body/read; new schema uses text/link/dot/avatar/read_at; idempotent ALTER TABLE statements added to wet3camp-migration.sql
+- [Booking policy decision](booking-policy.md) — platform does NOT process payments; bookings are appointment-requests only; escorts+clients arrange payment offline; STK push intentionally excluded
+- [Tier ordering protocol](tier-protocol.md) — elite > vip > premium > standard > free; search page shows Elite section first (large cards), VIP (medium), Premium, then Standard list cards
+- [Video calls via Jitsi](video-calls.md) — calls use Jitsi Meet iframe modal; room IDs encoded as [vcall]ROOM[/vcall] in message content; no WebRTC signaling server needed

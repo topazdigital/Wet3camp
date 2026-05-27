@@ -48,10 +48,10 @@ router.get('/escorts/search', async (req, res) => {
   if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
   try {
     const [rows] = await pool.query<any[]>(
-      'SELECT id, name, city, area FROM escorts WHERE name LIKE ? AND is_active = 1 LIMIT 6',
+      'SELECT id, name, city, area, image, tier, verified FROM escorts WHERE name LIKE ? AND is_active = 1 LIMIT 8',
       [`%${q}%`]
     )
-    res.json(rows.map((e: any) => ({ id: String(e.id), name: e.name, city: e.city, area: e.area })))
+    res.json(rows.map((e: any) => ({ id: String(e.id), name: e.name, city: e.city, area: e.area, image: e.image, tier: e.tier, verified: !!e.verified })))
   } catch {
     res.status(500).json({ message: 'Search failed' })
   }
