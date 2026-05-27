@@ -35,7 +35,7 @@ async function findOrCreateUser(
   email: string,
   name: string,
   picture: string | null,
-): Promise<{ userId: number; userRole: string; displayName: string }> {
+): Promise<{ userId: number; userRole: string; displayName: string; isNew: boolean }> {
   const [[existing]] = await pool.query<any[]>(
     'SELECT * FROM users WHERE email = ? LIMIT 1',
     [email.toLowerCase()]
@@ -48,6 +48,7 @@ async function findOrCreateUser(
       userId:      existing.id,
       userRole:    existing.role,
       displayName: existing.display_name ?? existing.username ?? name,
+      isNew:       false,
     }
   }
   const base     = email.split('@')[0].replace(/[^a-z0-9]/gi, '_').toLowerCase()
@@ -60,12 +61,23 @@ async function findOrCreateUser(
     userId:      ins.insertId ?? ins[0]?.id,
     userRole:    'user',
     displayName: name ?? username,
+    isNew:       true,
   }
 }
 
-function redirectWithToken(res: any, origin: string, token: string, displayName: string, email: string, role: string) {
-  const qs = new URLSearchParams({ token, name: displayName, email, role })
-  res.redirect(`${origin}/auth/callback?${qs}`)
+function redirectWithToken(
+  res: any, origin: string, token: string,
+  displayName: string, email: string, role: string,
+  isNew = false,
+) {
+  if (isNew) {
+    // New OAuth user — let them pick their role before logging in
+    const qs = new URLSearchParams({ token, name: displayName, email })
+    res.redirect(`${origin}/auth/choose-role?${qs}`)
+  } else {
+    const qs = new URLSearchParams({ token, name: displayName, email, role })
+    res.redirect(`${origin}/auth/callback?${qs}`)
+  }
 }
 
 // ─── Public config (client IDs only — no secrets) ────────────────────────────
@@ -141,9 +153,9 @@ router.get('/auth/google/callback', async (req, res) => {
     if (!profileRes.ok) { res.redirect(`${origin}/login?oauthError=Could+not+fetch+profile.`); return }
     const { email, name, picture } = await profileRes.json() as any
     if (!email) { res.redirect(`${origin}/login?oauthError=No+email+on+Google+account.`); return }
-    const { userId, userRole, displayName } = await findOrCreateUser(pool, email, name, picture)
+    const { userId, userRole, displayName, isNew } = await findOrCreateUser(pool, email, name, picture)
     const token = await signToken({ id: userId, role: userRole, email: email.toLowerCase() })
-    redirectWithToken(res, origin, token, displayName, email.toLowerCase(), userRole)
+    redirectWithToken(res, origin, token, displayName, email.toLowerCase(), userRole, isNew)
   } catch (err: any) {
     console.error('[oauth/google/callback]', err?.message ?? err)
     res.redirect(`${origin}/login?oauthError=Unexpected+error.+Please+try+again.`)
@@ -233,9 +245,9 @@ router.get('/auth/facebook/callback', async (req, res) => {
       return
     }
     const picture = fb.picture?.data?.url ?? null
-    const { userId, userRole, displayName } = await findOrCreateUser(pool, email, fb.name ?? email.split('@')[0], picture)
+    const { userId, userRole, displayName, isNew } = await findOrCreateUser(pool, email, fb.name ?? email.split('@')[0], picture)
     const token = await signToken({ id: userId, role: userRole, email: email.toLowerCase() })
-    redirectWithToken(res, origin, token, displayName, email.toLowerCase(), userRole)
+    redirectWithToken(res, origin, token, displayName, email.toLowerCase(), userRole, isNew)
   } catch (err: any) {
     console.error('[oauth/facebook/callback]', err?.message ?? err)
     res.redirect(`${origin}/login?oauthError=Unexpected+error.+Please+try+again.`)
@@ -351,11 +363,11 @@ router.post('/auth/apple/callback', async (req, res) => {
       return
     }
 
-    const { userId, userRole, displayName } = await findOrCreateUser(
+    const { userId, userRole, displayName, isNew } = await findOrCreateUser(
       pool, email, name || email.split('@')[0], null
     )
     const token = await signToken({ id: userId, role: userRole, email: email.toLowerCase() })
-    redirectWithToken(res, origin, token, displayName, email.toLowerCase(), userRole)
+    redirectWithToken(res, origin, token, displayName, email.toLowerCase(), userRole, isNew)
   } catch (err: any) {
     console.error('[oauth/apple/callback]', err?.message ?? err)
     res.redirect(`${origin}/login?oauthError=Unexpected+error.+Please+try+again.`)

@@ -157,4 +157,41 @@ router.patch('/admin/rooms/:id', requireAuth, async (req: AuthRequest, res) => {
   }
 })
 
+// ─── My room bookings (by authenticated user's email) ────────────────────────
+router.get('/bookings/my-rooms', async (req, res) => {
+  try {
+    const pool = getPool()
+    if (!pool) { res.status(503).json({ message: 'Database not configured' }); return }
+
+    const auth = req.headers.authorization?.replace('Bearer ', '')
+    if (!auth) { res.status(401).json({ message: 'Unauthorized' }); return }
+
+    const { jwtVerify } = await import('jose')
+    const { signKey } = await import('../lib/jwt.js')
+    let userId: number
+    try {
+      const { payload } = await jwtVerify(auth, signKey)
+      userId = (payload as any).id
+    } catch {
+      res.status(401).json({ message: 'Invalid token' }); return
+    }
+
+    const [[user]] = await pool.query<any[]>('SELECT email FROM users WHERE id = ?', [userId])
+    if (!user) { res.status(404).json({ message: 'User not found' }); return }
+
+    const [rows] = await pool.query<any[]>(
+      `SELECT rb.*, r.name AS room_name, r.hotel, r.city, r.image
+       FROM room_bookings rb
+       LEFT JOIN rooms r ON r.id = rb.room_id
+       WHERE rb.guest_email = ?
+       ORDER BY rb.created_at DESC`,
+      [user.email]
+    )
+    res.json(rows)
+  } catch (err: any) {
+    console.error('[bookings/my-rooms]', err?.message ?? err)
+    res.status(500).json({ message: 'Failed to fetch room bookings' })
+  }
+})
+
 export default router

@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react'
 import { Link } from 'wouter'
-import { User, Phone, Mail, Lock, Eye, EyeOff, CheckCircle2, AlertCircle, ArrowLeft, Calendar, ChevronRight, LogOut } from 'lucide-react'
+import { User, Phone, Mail, Lock, Eye, EyeOff, CheckCircle2, AlertCircle, ArrowLeft, Calendar, ChevronRight, LogOut, BedDouble, MapPin } from 'lucide-react'
 import Header from '@/components/Header'
 import Sidebar from '@/components/Sidebar'
 import { useAuth } from '@/lib/auth-context'
 import { api } from '@/lib/api'
 import { useSEO } from '@/lib/useSEO'
 
-type Tab = 'info' | 'password' | 'bookings'
+type Tab = 'info' | 'password' | 'bookings' | 'rooms'
 
 export default function Account() {
   useSEO({ title: 'My Account', noIndex: true })
@@ -35,6 +35,10 @@ export default function Account() {
   const [bookings, setBookings] = useState<any[]>([])
   const [bookLoading, setBookLoading] = useState(false)
 
+  // ── Room bookings ─────────────────────────────────────────────────────────
+  const [rooms, setRooms] = useState<any[]>([])
+  const [roomLoading, setRoomLoading] = useState(false)
+
   useEffect(() => {
     api.profile.get().then(data => {
       setName(data.name  ?? '')
@@ -50,6 +54,18 @@ export default function Account() {
       const list = Array.isArray(data) ? data : (data as any).bookings ?? []
       setBookings(list)
     }).catch(() => setBookings([])).finally(() => setBookLoading(false))
+  }, [tab])
+
+  useEffect(() => {
+    if (tab !== 'rooms') return
+    setRoomLoading(true)
+    fetch('/api/bookings/my-rooms', {
+      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+    })
+      .then(r => r.json())
+      .then(data => setRooms(Array.isArray(data) ? data : []))
+      .catch(() => setRooms([]))
+      .finally(() => setRoomLoading(false))
   }, [tab])
 
   const saveInfo = async () => {
@@ -85,8 +101,9 @@ export default function Account() {
 
   const TABS: { id: Tab; label: string }[] = [
     { id: 'info',     label: 'Account Info' },
-    { id: 'password', label: 'Change Password' },
-    { id: 'bookings', label: 'My Bookings' },
+    { id: 'password', label: 'Password' },
+    { id: 'bookings', label: 'Bookings' },
+    { id: 'rooms',    label: 'Rooms' },
   ]
 
   function statusColor(s: string) {
@@ -268,6 +285,56 @@ export default function Account() {
                     {b.status ?? 'pending'}
                   </span>
                   <ChevronRight size={14} className="text-text-muted flex-shrink-0" />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* ── My Rooms tab ── */}
+          {tab === 'rooms' && (
+            <div className="space-y-3">
+              {roomLoading && (
+                <div className="text-center py-16 text-text-muted text-sm">Loading room bookings…</div>
+              )}
+              {!roomLoading && rooms.length === 0 && (
+                <div className="bg-card-bg border border-color rounded-2xl p-10 text-center">
+                  <BedDouble size={32} className="mx-auto mb-3 text-text-muted opacity-50" />
+                  <p className="text-text-muted text-sm">No room bookings yet.</p>
+                  <Link href="/rooms" className="mt-4 inline-block text-xs text-[#FFD700] hover:underline">Browse rooms →</Link>
+                </div>
+              )}
+              {rooms.map((r: any) => (
+                <div key={r.id} className="bg-card-bg border border-color rounded-2xl p-4 flex items-start gap-4">
+                  {r.image ? (
+                    <img src={r.image} alt={r.room_name} className="w-14 h-14 rounded-xl object-cover flex-shrink-0" />
+                  ) : (
+                    <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-[#8B0000]/30 to-[#FFD700]/10 flex items-center justify-center flex-shrink-0">
+                      <BedDouble size={18} className="text-[#FFD700]/60" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-text-light truncate">{r.room_name ?? r.hotel ?? 'Room'}</p>
+                    {(r.hotel || r.city) && (
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <MapPin size={10} className="text-text-muted flex-shrink-0" />
+                        <p className="text-xs text-text-muted truncate">{[r.hotel, r.city].filter(Boolean).join(' · ')}</p>
+                      </div>
+                    )}
+                    <p className="text-xs text-text-muted mt-1">
+                      {r.check_in ? new Date(r.check_in).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
+                      {r.check_out ? ` → ${new Date(r.check_out).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' })}` : ''}
+                      {r.nights ? ` · ${r.nights} night${r.nights !== 1 ? 's' : ''}` : ''}
+                      {r.guests > 1 ? ` · ${r.guests} guests` : ''}
+                    </p>
+                    {r.total_amount != null && (
+                      <p className="text-xs font-semibold text-[#FFD700]/80 mt-0.5">
+                        KES {Number(r.total_amount).toLocaleString()}
+                      </p>
+                    )}
+                  </div>
+                  <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full capitalize flex-shrink-0 ${statusColor(r.status)}`}>
+                    {r.status ?? 'pending'}
+                  </span>
                 </div>
               ))}
             </div>

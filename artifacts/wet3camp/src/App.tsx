@@ -40,6 +40,7 @@ import BlogPost from "@/pages/blog-post";
 import PendingApproval from "@/pages/pending-approval";
 import AuthCallback from "@/pages/auth-callback";
 import Account from "@/pages/account";
+import ChooseRole from "@/pages/choose-role";
 
 const queryClient = new QueryClient();
 
@@ -86,6 +87,7 @@ function Router() {
       <Route path="/blog/:slug" component={BlogPost} />
       <Route path="/pending-approval" component={PendingApproval} />
       <Route path="/account">{() => <ProtectedRoute component={Account} />}</Route>
+      <Route path="/auth/choose-role" component={ChooseRole} />
       <Route path="/auth/callback" component={AuthCallback} />
       <Route component={NotFound} />
     </Switch>

@@ -341,4 +341,32 @@ router.post('/auth/setup-admin', async (req, res) => {
   }
 })
 
+// ─── OAuth role selection (new social sign-up users) ─────────────────────────
+router.post('/auth/set-role', requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const { role } = req.body as { role?: string }
+    if (role !== 'client' && role !== 'escort') {
+      res.status(400).json({ message: 'Role must be "client" or "escort"' }); return
+    }
+    const pool = getPool()
+    if (!pool) { res.status(503).json({ message: 'Database not configured' }); return }
+
+    const dbRole = role === 'escort' ? 'escort' : 'user'
+    await pool.query('UPDATE users SET role = ? WHERE id = ?', [dbRole, req.userId])
+
+    const [[user]] = await pool.query<any[]>(
+      'SELECT id, email, display_name, username, role FROM users WHERE id = ?', [req.userId]
+    )
+    const token = await signToken({ id: user.id, role: dbRole, email: user.email })
+    res.json({
+      token,
+      role: dbRole,
+      name: user.display_name ?? user.username,
+      email: user.email,
+    })
+  } catch {
+    res.status(500).json({ message: 'Failed to set role' })
+  }
+})
+
 export default router
