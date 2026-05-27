@@ -92,19 +92,19 @@ router.post('/admin/escorts', requireAuth, requireAdmin, async (req: AuthRequest
     const pool = getPool()
     if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
     const {
-      name, city, area, age, tier, bio, whatsapp, telegram, gender,
+      name, city, area, age, tier, bio, whatsapp, telegram, gender, image,
       price_hourly, price_overnight, price_video, price_incall, price_outcall,
     } = req.body as Record<string, any>
     if (!name?.trim() || !city) { res.status(400).json({ message: 'Name and city are required' }); return }
     const [result] = await pool.query<any>(
       `INSERT INTO escorts
-        (name, city, area, age, tier, bio, whatsapp, telegram, gender,
+        (name, city, area, age, tier, bio, whatsapp, telegram, gender, image,
          price_hourly, price_overnight, price_video, price_incall, price_outcall,
          is_active, verified, available, online, created_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,1,0,0,NOW())`,
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,1,0,0,NOW())`,
       [
-        name.trim(), city, area ?? null, age ? parseInt(age) : null, tier ?? 'standard',
-        bio ?? null, whatsapp ?? null, telegram ?? null, gender ?? 'Female',
+        name.trim(), city, area ?? '', age ? parseInt(age) : 0, tier ?? 'standard',
+        bio ?? null, whatsapp ?? null, telegram ?? null, gender ?? 'Female', image ?? null,
         price_hourly ? parseInt(price_hourly) : 0,
         price_overnight ? parseInt(price_overnight) : 0,
         price_video ? parseInt(price_video) : 0,

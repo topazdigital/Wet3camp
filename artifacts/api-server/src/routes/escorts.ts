@@ -66,15 +66,27 @@ router.get('/escorts/:id', async (req, res) => {
     const pool = getPool()
     if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
 
-    // Try numeric ID first
     let row: any = null
-    const [[byId]] = await pool.query<any[]>('SELECT * FROM escorts WHERE id = ? AND is_active = 1', [id])
-    row = byId ?? null
 
-    // If not found and id looks like a name slug (not purely numeric), scan by slug
-    if (!row && !/^\d+$/.test(id)) {
-      const [allActive] = await pool.query<any[]>('SELECT * FROM escorts WHERE is_active = 1 LIMIT 2000')
-      row = (allActive as any[]).find(r => slugOf(r.name) === id.toLowerCase()) ?? null
+    // 1. Try numeric ID (any active status)
+    if (/^\d+$/.test(id)) {
+      const [[byId]] = await pool.query<any[]>('SELECT * FROM escorts WHERE id = ?', [id])
+      row = byId ?? null
+    }
+
+    // 2. Try by user username (e.g. /profile/patrick)
+    if (!row) {
+      const [[byUsername]] = await pool.query<any[]>(
+        'SELECT e.* FROM escorts e JOIN users u ON u.id = e.user_id WHERE u.username = ? LIMIT 1',
+        [id]
+      ).catch(() => [[null]])
+      row = byUsername ?? null
+    }
+
+    // 3. Try by name slug
+    if (!row) {
+      const [allEscorts] = await pool.query<any[]>('SELECT * FROM escorts LIMIT 2000')
+      row = (allEscorts as any[]).find(r => slugOf(r.name) === id.toLowerCase()) ?? null
     }
 
     if (!row) return res.status(404).json({ message: 'Escort not found' })

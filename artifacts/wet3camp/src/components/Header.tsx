@@ -228,7 +228,7 @@ export default function Header() {
                 )}
               </button>
               {notifOpen && (
-                <div className="absolute right-0 top-10 w-80 max-w-[calc(100vw-8px)] bg-card-bg border border-color rounded-xl shadow-2xl shadow-black/60 overflow-hidden z-50" style={{ right: 'max(0px, calc(0px))' }}>
+                <div className="fixed left-2 right-2 top-14 sm:absolute sm:left-auto sm:right-0 sm:top-10 sm:w-80 bg-card-bg border border-color rounded-xl shadow-2xl shadow-black/60 overflow-hidden z-[200]">
                   <div className="px-4 py-3 border-b border-color flex items-center justify-between">
                     <span className="text-xs font-bold text-text-light uppercase tracking-widest">
                       Notifications {unreadCount > 0 && <span className="ml-1.5 px-1.5 py-0.5 bg-[#8B0000] text-white text-[9px] rounded-full">{unreadCount} new</span>}

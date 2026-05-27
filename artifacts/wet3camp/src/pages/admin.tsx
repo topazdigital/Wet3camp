@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import Header from '@/components/Header'
 import Sidebar from '@/components/Sidebar'
 import { useAuth } from '@/lib/auth-context'
@@ -717,12 +717,70 @@ function BulkOnlinePanel({ escorts, onBulkToggle }: { escorts: AdminEscort[]; on
 
 function AddEscortModal({ onClose, onCreated }: { onClose: () => void; onCreated: (e: any) => void }) {
   const [form, setForm] = useState({
-    name: '', city: 'Nairobi', area: '', age: '', tier: 'standard',
+    name: '', city: '', area: '', age: '', tier: 'standard',
     bio: '', whatsapp: '', telegram: '', gender: 'Female',
     price_hourly: '', price_overnight: '', price_video: '',
+    price_incall: '', price_outcall: '', image: '',
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [photoUploading, setPhotoUploading] = useState(false)
+  const photoRef = useRef<HTMLInputElement>(null)
+
+  const [citySuggestions, setCitySuggestions] = useState<string[]>([])
+  const [showCitySugg, setShowCitySugg] = useState(false)
+  const cityPickedRef = useRef(false)
+
+  useEffect(() => {
+    if (cityPickedRef.current || !form.city || form.city.length < 2) { setCitySuggestions([]); return }
+    const t = setTimeout(async () => {
+      try {
+        const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(form.city)}&format=json&addressdetails=1&limit=6&countrycodes=ke`)
+        const data = await r.json()
+        const names: string[] = []
+        for (const d of data) {
+          const a = d.address ?? {}
+          const n = a.city || a.town || a.village || a.county || d.display_name.split(',')[0]
+          if (n && !names.includes(n)) names.push(n)
+        }
+        setCitySuggestions(names.slice(0, 5))
+        setShowCitySugg(names.length > 0)
+      } catch {}
+    }, 450)
+    return () => clearTimeout(t)
+  }, [form.city])
+
+  const compressImage = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onerror = reject
+      reader.onload = () => {
+        const img = new Image()
+        img.onerror = reject
+        img.onload = () => {
+          const scale = Math.min(1, 1200 / Math.max(img.width, img.height))
+          const canvas = document.createElement('canvas')
+          canvas.width = Math.round(img.width * scale)
+          canvas.height = Math.round(img.height * scale)
+          canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height)
+          resolve(canvas.toDataURL('image/jpeg', 0.85))
+        }
+        img.src = reader.result as string
+      }
+      reader.readAsDataURL(file)
+    })
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; if (!file) return
+    setPhotoUploading(true); setError('')
+    try {
+      const base64 = await compressImage(file)
+      const data = await adminFetch('/upload', { method: 'POST', body: JSON.stringify({ data: base64, filename: file.name, type: 'gallery' }) })
+      if (data?.url) setForm(f => ({ ...f, image: data.url }))
+    } catch { setError('Photo upload failed.') }
+    setPhotoUploading(false)
+    e.target.value = ''
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -734,9 +792,11 @@ function AddEscortModal({ onClose, onCreated }: { onClose: () => void; onCreated
         body: JSON.stringify({
           ...form,
           age: form.age ? parseInt(form.age) : 0,
-          price_hourly: form.price_hourly ? parseInt(form.price_hourly) : 0,
-          price_overnight: form.price_overnight ? parseInt(form.price_overnight) : 0,
-          price_video: form.price_video ? parseInt(form.price_video) : 0,
+          price_hourly:   form.price_hourly   ? parseInt(form.price_hourly)   : 0,
+          price_overnight:form.price_overnight? parseInt(form.price_overnight): 0,
+          price_video:    form.price_video    ? parseInt(form.price_video)    : 0,
+          price_incall:   form.price_incall   ? parseInt(form.price_incall)   : 0,
+          price_outcall:  form.price_outcall  ? parseInt(form.price_outcall)  : 0,
         }),
       })
       onCreated(data)
@@ -747,78 +807,133 @@ function AddEscortModal({ onClose, onCreated }: { onClose: () => void; onCreated
     setSaving(false)
   }
 
+  const inputCls = 'w-full px-3 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted/50 focus:outline-none focus:border-[#8B0000] transition-all'
+  const priceCls = 'w-full px-3 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted/50 focus:outline-none focus:border-[#FFD700] transition-all'
+
   return (
-    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="bg-card-bg border border-color rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/70 z-50 flex items-start justify-center p-4 overflow-y-auto" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="bg-card-bg border border-color rounded-2xl w-full max-w-lg my-4">
         <div className="flex items-center justify-between p-5 border-b border-color">
           <h3 className="text-sm font-bold text-text-light flex items-center gap-2"><Plus size={14} className="text-[#8B0000]"/>Add Escort Profile</h3>
           <button onClick={onClose} className="p-1.5 text-text-muted hover:text-text-light rounded-lg"><XCircle size={16}/></button>
         </div>
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           {error && <p className="text-xs text-[#EF4444] bg-[#EF4444]/10 px-3 py-2 rounded-lg">{error}</p>}
+
+          {/* Profile Photo */}
+          <div>
+            <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-2">Profile Photo</label>
+            <div className="flex items-center gap-3">
+              {form.image ? (
+                <div className="relative w-16 h-16 rounded-xl overflow-hidden border border-[#28a745]/40 flex-shrink-0">
+                  <img src={form.image} alt="Preview" className="w-full h-full object-cover"/>
+                  <button type="button" onClick={() => setForm(f => ({ ...f, image: '' }))} className="absolute top-0.5 right-0.5 w-5 h-5 bg-black/70 rounded-full flex items-center justify-center text-white hover:bg-red-600 transition-colors"><XCircle size={10}/></button>
+                </div>
+              ) : (
+                <div className="w-16 h-16 rounded-xl border border-dashed border-color bg-dark-bg flex items-center justify-center text-text-muted flex-shrink-0"><Camera size={18}/></div>
+              )}
+              <label className={`flex-1 flex items-center justify-center gap-2 py-2.5 border border-dashed rounded-xl text-xs font-semibold cursor-pointer transition-all ${photoUploading ? 'border-color text-text-muted opacity-60' : 'border-[#8B0000]/40 text-text-muted hover:border-[#8B0000] hover:text-text-light'}`}>
+                <input ref={photoRef} type="file" accept="image/*" className="hidden" disabled={photoUploading} onChange={handlePhotoUpload}/>
+                {photoUploading ? <><div className="w-3 h-3 border-2 border-text-muted/30 border-t-text-muted rounded-full animate-spin"/>Uploading…</> : <><Camera size={13}/>{form.image ? 'Change Photo' : 'Upload Photo'}</>}
+              </label>
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Name *</label>
-              <input value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="e.g. Amara K." className="w-full px-3 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted/50 focus:outline-none focus:border-[#8B0000] transition-all"/>
-            </div>
-            <div>
-              <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">City *</label>
-              <select value={form.city} onChange={e=>setForm(f=>({...f,city:e.target.value}))} className="w-full px-3 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#8B0000] transition-all">
-                {['Nairobi','Mombasa','Kisumu','Nakuru','Eldoret','Malindi','Thika','Nyeri'].map(c=><option key={c}>{c}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Area</label>
-              <input value={form.area} onChange={e=>setForm(f=>({...f,area:e.target.value}))} placeholder="e.g. Westlands" className="w-full px-3 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted/50 focus:outline-none focus:border-[#8B0000] transition-all"/>
-            </div>
-            <div>
-              <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Age</label>
-              <input type="number" min="18" max="70" value={form.age} onChange={e=>setForm(f=>({...f,age:e.target.value}))} placeholder="e.g. 24" className="w-full px-3 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted/50 focus:outline-none focus:border-[#8B0000] transition-all"/>
-            </div>
-            <div>
-              <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Tier</label>
-              <select value={form.tier} onChange={e=>setForm(f=>({...f,tier:e.target.value}))} className="w-full px-3 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#8B0000] transition-all">
-                {['standard','premium','vip','elite'].map(t=><option key={t} value={t}>{t.charAt(0).toUpperCase()+t.slice(1)}</option>)}
-              </select>
+              <input value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="e.g. Amara K." className={inputCls}/>
             </div>
             <div>
               <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Gender</label>
-              <select value={form.gender} onChange={e=>setForm(f=>({...f,gender:e.target.value}))} className="w-full px-3 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#8B0000] transition-all">
+              <select value={form.gender} onChange={e=>setForm(f=>({...f,gender:e.target.value}))} className={inputCls}>
                 {['Female','Male','Trans Woman','Trans Man','Non-Binary'].map(g=><option key={g}>{g}</option>)}
               </select>
             </div>
+            {/* City with geocoding */}
+            <div className="relative">
+              <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">City *</label>
+              <input
+                value={form.city}
+                onChange={e => { cityPickedRef.current = false; setForm(f => ({...f, city: e.target.value})) }}
+                onBlur={() => setTimeout(() => setShowCitySugg(false), 150)}
+                placeholder="Type city name…"
+                className={inputCls}
+                autoComplete="off"
+              />
+              {showCitySugg && citySuggestions.length > 0 && (
+                <div className="absolute left-0 right-0 top-full mt-1 bg-card-bg border border-color rounded-xl shadow-xl z-50 overflow-hidden">
+                  {citySuggestions.map(s => (
+                    <button key={s} type="button" className="w-full text-left px-3 py-2 text-xs text-text-light hover:bg-dark-bg border-b border-color/30 last:border-0 transition-colors"
+                      onMouseDown={() => { cityPickedRef.current = true; setForm(f => ({...f, city: s})); setShowCitySugg(false) }}>
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div>
+              <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Area / Estate</label>
+              <input value={form.area} onChange={e=>setForm(f=>({...f,area:e.target.value}))} placeholder="e.g. Westlands" className={inputCls}/>
+            </div>
+            <div>
+              <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Age</label>
+              <input type="number" min="18" max="70" value={form.age} onChange={e=>setForm(f=>({...f,age:e.target.value}))} placeholder="e.g. 24" className={inputCls}/>
+            </div>
+            <div>
+              <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Tier</label>
+              <select value={form.tier} onChange={e=>setForm(f=>({...f,tier:e.target.value}))} className={inputCls}>
+                {['standard','premium','vip','elite'].map(t=><option key={t} value={t}>{t.charAt(0).toUpperCase()+t.slice(1)}</option>)}
+              </select>
+            </div>
           </div>
+
           <div>
             <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Bio</label>
-            <textarea value={form.bio} onChange={e=>setForm(f=>({...f,bio:e.target.value}))} rows={3} placeholder="Short profile description…" className="w-full px-3 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted/50 focus:outline-none focus:border-[#8B0000] transition-all resize-none"/>
+            <textarea value={form.bio} onChange={e=>setForm(f=>({...f,bio:e.target.value}))} rows={3} placeholder="Short profile description…" className={`${inputCls} resize-none`}/>
           </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">WhatsApp</label>
-              <input value={form.whatsapp} onChange={e=>setForm(f=>({...f,whatsapp:e.target.value}))} placeholder="254712345678" className="w-full px-3 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted/50 focus:outline-none focus:border-[#8B0000] transition-all"/>
+              <input value={form.whatsapp} onChange={e=>setForm(f=>({...f,whatsapp:e.target.value}))} placeholder="254712345678" className={inputCls}/>
             </div>
             <div>
               <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Telegram</label>
-              <input value={form.telegram} onChange={e=>setForm(f=>({...f,telegram:e.target.value}))} placeholder="@username" className="w-full px-3 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted/50 focus:outline-none focus:border-[#8B0000] transition-all"/>
+              <input value={form.telegram} onChange={e=>setForm(f=>({...f,telegram:e.target.value}))} placeholder="@username" className={inputCls}/>
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Hourly (KES)</label>
-              <input type="number" value={form.price_hourly} onChange={e=>setForm(f=>({...f,price_hourly:e.target.value}))} placeholder="3000" className="w-full px-3 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted/50 focus:outline-none focus:border-[#FFD700] transition-all"/>
-            </div>
-            <div>
-              <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Overnight (KES)</label>
-              <input type="number" value={form.price_overnight} onChange={e=>setForm(f=>({...f,price_overnight:e.target.value}))} placeholder="20000" className="w-full px-3 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted/50 focus:outline-none focus:border-[#FFD700] transition-all"/>
-            </div>
-            <div>
-              <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Video (KES)</label>
-              <input type="number" value={form.price_video} onChange={e=>setForm(f=>({...f,price_video:e.target.value}))} placeholder="1500" className="w-full px-3 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted/50 focus:outline-none focus:border-[#FFD700] transition-all"/>
+
+          {/* Pricing */}
+          <div>
+            <p className="text-[10px] text-text-muted uppercase tracking-widest mb-2 border-b border-color pb-1.5">Pricing (KES)</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Incall / 1hr</label>
+                <input type="number" value={form.price_incall} onChange={e=>setForm(f=>({...f,price_incall:e.target.value}))} placeholder="e.g. 3000" className={priceCls}/>
+              </div>
+              <div>
+                <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Outcall / 1hr</label>
+                <input type="number" value={form.price_outcall} onChange={e=>setForm(f=>({...f,price_outcall:e.target.value}))} placeholder="e.g. 5000" className={priceCls}/>
+              </div>
+              <div>
+                <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Hourly Rate</label>
+                <input type="number" value={form.price_hourly} onChange={e=>setForm(f=>({...f,price_hourly:e.target.value}))} placeholder="e.g. 3000" className={priceCls}/>
+              </div>
+              <div>
+                <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Overnight</label>
+                <input type="number" value={form.price_overnight} onChange={e=>setForm(f=>({...f,price_overnight:e.target.value}))} placeholder="e.g. 20000" className={priceCls}/>
+              </div>
+              <div>
+                <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Video Call</label>
+                <input type="number" value={form.price_video} onChange={e=>setForm(f=>({...f,price_video:e.target.value}))} placeholder="e.g. 1500" className={priceCls}/>
+              </div>
             </div>
           </div>
+
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onClose} className="flex-1 py-2.5 border border-color text-text-muted text-sm rounded-xl hover:bg-dark-bg transition-all">Cancel</button>
-            <button type="submit" disabled={saving} className="flex-1 py-2.5 bg-[#8B0000] text-white text-sm font-bold rounded-xl hover:bg-[#a00000] disabled:opacity-60 transition-all flex items-center justify-center gap-2">
+            <button type="submit" disabled={saving || photoUploading} className="flex-1 py-2.5 bg-[#8B0000] text-white text-sm font-bold rounded-xl hover:bg-[#a00000] disabled:opacity-60 transition-all flex items-center justify-center gap-2">
               {saving && <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"/>}
               {saving ? 'Creating…' : 'Create Profile'}
             </button>
