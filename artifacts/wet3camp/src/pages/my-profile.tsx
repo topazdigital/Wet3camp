@@ -145,11 +145,19 @@ export default function MyProfile() {
     }
   }
 
+  const tierPhotoLimit = (() => {
+    const t = (escortProfile?.tier ?? 'standard').toLowerCase()
+    if (t === 'elite')   return 30
+    if (t === 'vip')     return 20
+    if (t === 'premium') return 15
+    return 10
+  })()
+
   const handleGalleryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
     if (!files.length) return
-    if (gallery.length + files.length > 12) {
-      setGalleryError('Maximum 12 photos allowed.'); return
+    if (gallery.length + files.length > tierPhotoLimit) {
+      setGalleryError(`Maximum ${tierPhotoLimit} photos allowed for your ${escortProfile?.tier ?? 'Standard'} tier.`); return
     }
     setGalleryError(''); setGalleryUploading(true)
     try {
@@ -229,14 +237,21 @@ export default function MyProfile() {
     setTimeout(() => setIgImported(false), 3000)
   }
 
-  const handleSubscribe = () => {
+  const [subError, setSubError] = useState('')
+
+  const handleSubscribe = async () => {
     const cleaned = subPhone.replace(/\s/g, '').replace(/^\+/, '')
-    if (!cleaned || cleaned.length < 9) return
-    setSubLoading(true)
-    setTimeout(() => {
-      setSubTxRef('SUB-' + Date.now().toString(36).toUpperCase())
+    if (!cleaned || cleaned.length < 9) { setSubError('Enter a valid M-Pesa phone number.'); return }
+    setSubError(''); setSubLoading(true)
+    try {
+      const res = await api.profile.subscribe(subPlan, cleaned)
+      setSubTxRef(res.txRef)
+      setSubscription({ active: false, plan: res.plan, expiresAt: res.expiresAt, status: 'pending' })
+    } catch (err: any) {
+      setSubError(err?.message ?? 'Failed to initiate subscription. Please try again.')
+    } finally {
       setSubLoading(false)
-    }, 2000)
+    }
   }
 
   return (
@@ -273,7 +288,7 @@ export default function MyProfile() {
                 </button>
                 {escortProfile?.id && (
                   <Link href={`/profile/${escortProfile.id}`} className="flex items-center gap-1.5 px-3 py-2 bg-white/10 hover:bg-white/20 text-white text-xs font-medium rounded-xl transition-all">
-                    <Eye size={12} /> View Public
+                    <Eye size={12} /> View Profile
                   </Link>
                 )}
               </div>
@@ -517,7 +532,7 @@ export default function MyProfile() {
                     {i === 0 && <span className="absolute top-1 left-1 text-[8px] font-bold bg-[#FFD700] text-black px-1.5 py-0.5 rounded">COVER</span>}
                   </div>
                 ))}
-                {gallery.length < 12 && (
+                {gallery.length < tierPhotoLimit && (
                   <label className="aspect-square rounded-xl border-2 border-dashed border-color hover:border-[#8B0000] transition-colors flex flex-col items-center justify-center gap-1.5 cursor-pointer">
                     {galleryUploading ? <Loader2 size={20} className="text-text-muted animate-spin"/> : <Camera size={20} className="text-text-muted"/>}
                     <span className="text-[10px] text-text-muted">{galleryUploading ? 'Uploading…' : 'Add Photo'}</span>
@@ -525,7 +540,7 @@ export default function MyProfile() {
                   </label>
                 )}
               </div>
-              <p className="text-xs text-text-muted">{gallery.length}/12 photos. Cover photo is always first. Tap a photo and click Remove to delete it.</p>
+              <p className="text-xs text-text-muted">{gallery.length}/{tierPhotoLimit} photos ({escortProfile?.tier ?? 'Standard'} tier limit). Cover photo is always first. Tap a photo and click Remove to delete it.</p>
             </div>
           )}
 
@@ -663,9 +678,10 @@ export default function MyProfile() {
                       <input value={subPhone} onChange={e=>setSubPhone(e.target.value)} placeholder="0712 345 678" className="w-full pl-9 pr-3 py-3 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted focus:outline-none focus:border-[#28a745] transition-all"/>
                     </div>
                   </div>
+                  {subError && <p className="text-[11px] text-[#EF4444] bg-[#EF4444]/10 px-3 py-2 rounded-lg">{subError}</p>}
                   <button onClick={handleSubscribe} disabled={subLoading||!subPhone} className="w-full py-3.5 bg-[#28a745] hover:bg-[#218838] text-white font-black text-sm rounded-xl disabled:opacity-50 transition-all flex items-center justify-center gap-2">
                     {subLoading?<Loader2 size={15} className="animate-spin"/>:<Smartphone size={15}/>}
-                    {subLoading?'Sending prompt…':'Pay via M-Pesa'}
+                    {subLoading?'Initiating subscription…':'Pay via M-Pesa'}
                   </button>
                 </div>
               ) : (

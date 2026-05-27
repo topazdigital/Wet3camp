@@ -301,12 +301,21 @@ function BookingsTab() {
 
 function PlatformSettingsForm() {
   const keys = [
-    { label: 'Platform Name',         key: 'platform_name',     def: 'Wet3 Camp' },
-    { label: 'Tagline',               key: 'tagline',           def: "Kenya's #1 Premium Companion Platform" },
-    { label: 'Support Email',         key: 'support_email',     def: 'support@wet3camp.com' },
-    { label: 'Min Escort Rate (KES)', key: 'min_rate',          def: '1500' },
-    { label: 'Commission %',          key: 'commission_pct',    def: '10' },
-    { label: 'Max Photos Per Profile',key: 'max_photos',        def: '12' },
+    { label: 'Platform Name',              key: 'platform_name',      def: 'Wet3 Camp',                              section: 'general' },
+    { label: 'Tagline',                    key: 'tagline',            def: "Kenya's #1 Premium Companion Platform",  section: 'general' },
+    { label: 'Support Email',              key: 'support_email',      def: 'support@wet3camp.com',                   section: 'general' },
+    { label: 'Min Escort Rate (KES)',      key: 'min_rate',           def: '1500',                                   section: 'general' },
+    { label: 'Commission %',              key: 'commission_pct',     def: '10',                                     section: 'general' },
+    { label: 'Elite Tier Price (KES/mo)', key: 'tier_elite_monthly', def: '8500',                                   section: 'tiers' },
+    { label: 'VIP Tier Price (KES/mo)',   key: 'tier_vip_monthly',   def: '4500',                                   section: 'tiers' },
+    { label: 'Premium Tier Price (KES/mo)',key:'tier_premium_monthly',def: '2200',                                   section: 'tiers' },
+    { label: 'Standard Tier Price (KES/mo)',key:'tier_standard_monthly',def:'0',                                    section: 'tiers' },
+    { label: 'Featured 3-Day (KES)',      key: 'featured_3day',      def: '500',                                    section: 'featured' },
+    { label: 'Featured Weekly (KES)',     key: 'featured_weekly',    def: '1500',                                   section: 'featured' },
+    { label: 'Featured Monthly (KES)',    key: 'featured_monthly',   def: '4500',                                   section: 'featured' },
+    { label: 'Subscription Monthly (KES)',key: 'sub_monthly',        def: '500',                                    section: 'subscriptions' },
+    { label: 'Subscription Quarterly (KES)',key:'sub_quarterly',     def: '1200',                                   section: 'subscriptions' },
+    { label: 'Subscription Annual (KES)', key: 'sub_annual',         def: '4000',                                   section: 'subscriptions' },
   ]
   const [values, setValues]   = useState<Record<string,string>>({})
   const [approval, setApproval] = useState(true)
@@ -341,16 +350,28 @@ function PlatformSettingsForm() {
     setSaving(false)
   }
 
+  const sections = [
+    { id: 'general',       label: 'General'                 },
+    { id: 'tiers',         label: 'Tier Subscription Prices' },
+    { id: 'featured',      label: 'Featured Placement Prices' },
+    { id: 'subscriptions', label: 'Platform Subscription Prices' },
+  ]
+
   return (
-    <div className="space-y-4">
-      {keys.map(({ label, key }) => (
-        <div key={key}>
-          <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">{label}</label>
-          <input
-            value={values[key] ?? ''}
-            onChange={e => setValues(p => ({ ...p, [key]: e.target.value }))}
-            className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#8B0000] transition-all"
-          />
+    <div className="space-y-6">
+      {sections.map(sec => (
+        <div key={sec.id} className="space-y-3">
+          <p className="text-[10px] font-black text-text-muted uppercase tracking-widest border-b border-color pb-1.5">{sec.label}</p>
+          {keys.filter(k => k.section === sec.id).map(({ label, key }) => (
+            <div key={key}>
+              <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">{label}</label>
+              <input
+                value={values[key] ?? ''}
+                onChange={e => setValues(p => ({ ...p, [key]: e.target.value }))}
+                className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#8B0000] transition-all"
+              />
+            </div>
+          ))}
         </div>
       ))}
       <div className="flex items-center gap-3 mt-2">

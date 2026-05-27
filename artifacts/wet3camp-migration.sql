@@ -337,6 +337,42 @@ CREATE TABLE IF NOT EXISTS `sessions` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =============================================================================
+-- 18. Create subscriptions table (escort platform subscription tracking)
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS `subscriptions` (
+  `id`         int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id`    int(10) UNSIGNED NOT NULL,
+  `escort_id`  int(10) UNSIGNED DEFAULT NULL,
+  `plan`       varchar(50)      NOT NULL DEFAULT 'monthly',
+  `amount`     int(10) UNSIGNED NOT NULL DEFAULT 0,
+  `phone`      varchar(30)      DEFAULT NULL,
+  `tx_ref`     varchar(100)     DEFAULT NULL,
+  `status`     varchar(20)      NOT NULL DEFAULT 'pending',
+  `expires_at` datetime         DEFAULT NULL,
+  `created_at` datetime         NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime         NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_subscriptions_user_id`  (`user_id`),
+  KEY `idx_subscriptions_status`   (`status`),
+  KEY `idx_subscriptions_expires`  (`expires_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =============================================================================
+-- 19. Default tier subscription prices in platform_settings
+-- =============================================================================
+INSERT IGNORE INTO `platform_settings` (`key`, `value`) VALUES
+  ('tier_elite_monthly',    '8500'),
+  ('tier_vip_monthly',      '4500'),
+  ('tier_premium_monthly',  '2200'),
+  ('tier_standard_monthly', '0'),
+  ('featured_3day',         '500'),
+  ('featured_weekly',       '1500'),
+  ('featured_monthly',      '4500'),
+  ('sub_monthly',           '500'),
+  ('sub_quarterly',         '1200'),
+  ('sub_annual',            '4000');
+
+-- =============================================================================
 -- DEPLOY INSTRUCTIONS
 -- =============================================================================
 -- This file runs automatically on every deploy via deploy-on-server.sh.

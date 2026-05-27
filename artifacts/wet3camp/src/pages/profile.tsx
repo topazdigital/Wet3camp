@@ -38,11 +38,16 @@ export default function ProfilePage() {
 
   const slug = params?.slug
   const { escort: apiEscort, isLoading } = useEscort(slug)
+
+  // Only fall back to static ESCORTS for name-slug URLs; never fall back to ESCORTS[0]
   const escort = (apiEscort as any) ??
-    ESCORTS.find(e => getSlug(e.name) === slug) ??
-    ESCORTS.find(e => e.id === slug) ??
-    ESCORTS[0]
-  const similar = ESCORTS.filter(e => e.id !== escort.id && e.city === escort.city).slice(0, 6)
+    (!isLoading && slug ? (
+      ESCORTS.find(e => getSlug(e.name) === slug) ??
+      ESCORTS.find(e => e.id === slug) ??
+      null
+    ) : null)
+
+  const similar = ESCORTS.filter(e => e.id !== escort?.id && e.city === escort?.city).slice(0, 6)
 
   useSEO({
     title: escort ? `${escort.name} — ${escort.tier} Escort in ${escort.city} | Wet3Camp` : 'Verified Escort Profile Kenya | Wet3Camp',
@@ -54,18 +59,48 @@ export default function ProfilePage() {
   const [bookingOpen, setBookingOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<'about' | 'services' | 'reviews'>('about')
   const [selectedImg, setSelectedImg] = useState<string | null>(null)
-  const [mainImg, setMainImg] = useState(escort.image)
-  const tier = TIER_STYLE[escort.tier] ?? TIER_STYLE.Elite
-  const following = isFollowing(escort.id)
+  const [mainImg, setMainImg] = useState<string | null>(escort?.image ?? null)
+  const tier = TIER_STYLE[(escort?.tier as string)] ?? TIER_STYLE.Standard
+  const following = isFollowing(escort?.id ?? '')
+
+  // Sync main image when escort data loads
+  React.useEffect(() => {
+    if (escort?.image) setMainImg(escort.image)
+  }, [escort?.image])
 
   // Detect if viewer is looking at their own profile
-  const isOwnProfile = !!(user?.id && (escort as any).user_id && String((escort as any).user_id) === user.id)
+  const isOwnProfile = !!(user?.id && (escort as any)?.user_id && String((escort as any).user_id) === user.id)
 
   return (
     <div className="flex min-h-screen bg-dark-bg flex-col lg:flex-row">
       <Sidebar />
       <div className="flex-1 w-full overflow-x-hidden lg:pb-0 pb-24 min-w-0">
         <Header />
+
+        {/* Loading state */}
+        {isLoading && (
+          <div className="flex items-center justify-center min-h-[60vh]">
+            <div className="text-center">
+              <div className="w-10 h-10 border-2 border-[#8B0000] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+              <p className="text-sm text-text-muted">Loading profile…</p>
+            </div>
+          </div>
+        )}
+
+        {/* Not found state */}
+        {!isLoading && !escort && (
+          <div className="flex items-center justify-center min-h-[60vh]">
+            <div className="text-center max-w-sm">
+              <div className="text-6xl mb-4">🔍</div>
+              <h2 className="text-xl font-black text-text-light mb-2">Profile Not Found</h2>
+              <p className="text-sm text-text-muted mb-6">This escort profile doesn't exist or may have been removed.</p>
+              <Link href="/" className="px-6 py-2.5 bg-[#8B0000] text-white text-sm font-bold rounded-xl hover:bg-[#a00000] transition-colors inline-block">Browse Escorts</Link>
+            </div>
+          </div>
+        )}
+
+        {/* Main content — only rendered when escort exists */}
+        {!isLoading && escort && <>
 
         {/* Lightbox */}
         {selectedImg && (
@@ -79,7 +114,7 @@ export default function ProfilePage() {
         <div className="relative w-full overflow-hidden" style={{ minHeight: '420px', maxHeight: '600px', height: '65vw' }}>
           {/* Blurred background fill */}
           <img
-            src={mainImg}
+            src={mainImg ?? undefined}
             alt=""
             aria-hidden="true"
             className="absolute inset-0 w-full h-full object-cover scale-110"
@@ -91,14 +126,20 @@ export default function ProfilePage() {
 
           {/* Full portrait — centered, fully visible */}
           <div className="absolute inset-0 flex items-center justify-center">
-            <img
-              src={mainImg}
-              alt={escort.name}
-              onClick={() => setSelectedImg(mainImg)}
-              className="h-full w-auto max-w-[65%] sm:max-w-[45%] lg:max-w-[35%] object-contain drop-shadow-2xl cursor-zoom-in"
-              style={{ filter: 'drop-shadow(0 8px 40px rgba(0,0,0,0.7))' }}
-              draggable={false}
-            />
+            {mainImg ? (
+              <img
+                src={mainImg}
+                alt={escort.name}
+                onClick={() => setSelectedImg(mainImg)}
+                className="h-full w-auto max-w-[65%] sm:max-w-[45%] lg:max-w-[35%] object-contain drop-shadow-2xl cursor-zoom-in"
+                style={{ filter: 'drop-shadow(0 8px 40px rgba(0,0,0,0.7))' }}
+                draggable={false}
+              />
+            ) : (
+              <div className="w-48 h-64 bg-dark-bg/50 rounded-2xl flex items-center justify-center">
+                <span className="text-6xl">👤</span>
+              </div>
+            )}
           </div>
 
           {/* Gallery filmstrip — bottom of hero */}
@@ -482,20 +523,23 @@ export default function ProfilePage() {
         </div>
 
         <div className="h-8" />
+        </>}
       </div>
 
-      <BookingModal
-        open={bookingOpen}
-        onClose={() => setBookingOpen(false)}
-        escort={{
-          id: escort.id,
-          name: escort.name,
-          avatar: escort.image,
-          tier: escort.tier,
-          city: escort.city,
-          pricing: { hourly: escort.pricing.hourly, overnight: escort.pricing.overnight },
-        }}
-      />
+      {escort && (
+        <BookingModal
+          open={bookingOpen}
+          onClose={() => setBookingOpen(false)}
+          escort={{
+            id: escort.id,
+            name: escort.name,
+            avatar: escort.image,
+            tier: escort.tier,
+            city: escort.city,
+            pricing: { hourly: escort.pricing.hourly, overnight: escort.pricing.overnight },
+          }}
+        />
+      )}
     </div>
   )
 }

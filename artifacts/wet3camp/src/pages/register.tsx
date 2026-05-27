@@ -273,15 +273,14 @@ export default function RegisterPage() {
     if (val && i < 5) otpRefs.current[i + 1]?.focus()
     if (next.every(d => d)) {
       const code = next.join('')
-      if (code === '123456') { setOtpVerified(true); return }
       fetch('/api/auth/verify-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, code }),
       }).then(r => r.json()).then(data => {
         if (data.verified) setOtpVerified(true)
-        else setError('Invalid code. Please try again.')
-      }).catch(() => { if (code === '123456') setOtpVerified(true) })
+        else setError('Invalid code. Please check your email and try again.')
+      }).catch(() => setError('Could not verify code. Please try again.'))
     }
   }
 

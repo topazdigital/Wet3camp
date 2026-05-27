@@ -3,45 +3,37 @@ import { useQuery } from '@tanstack/react-query'
 import { api, type ApiEscort } from '@/lib/api'
 import { ESCORTS, getSlug } from '@/data/escorts'
 
-const FALLBACK_PHOTOS = [
-  'photo-1531123897727-8f129e1688ce',
-  'photo-1522529599102-193c0d76b5b6',
-  'photo-1509868918748-a554bf5f7e09',
-  'photo-1531123414780-f74242c2b052',
-  'photo-1583195764036-798f1052af7e',
-  'photo-1488716820095-cbe80883c496',
-]
-function fallbackImage(id: string) {
-  const idx = parseInt(id.replace(/\D/g, '') || '0') % FALLBACK_PHOTOS.length
-  return `https://images.unsplash.com/${FALLBACK_PHOTOS[idx]}?w=600&h=800&fit=crop&crop=face`
-}
+const PLACEHOLDER_IMAGE = '/api/placeholder-escort.jpg'
 
 function toAppEscort(e: ApiEscort) {
   return {
-    id:        e.id,
-    name:      e.name,
-    age:       e.age,
-    city:      e.city,
-    area:      e.area,
-    lat:       Number(e.lat),
-    lng:       Number(e.lng),
-    tier:      e.tier as 'elite'|'vip'|'premium'|'standard'|'free',
-    rating:    Number(e.rating),
-    reviews:   e.reviews_count,
-    image:     e.image || fallbackImage(e.id),
-    gallery:   e.gallery  ?? [],
-    bio:       e.bio,
-    services:  e.services ?? [],
-    pricing:   { hourly: e.price_hourly, overnight: e.price_overnight, video: e.price_video },
-    languages: e.languages ?? [],
-    height:    e.height,
-    bodyType:  e.body_type,
-    ethnicity: e.ethnicity,
-    hairColor: e.hair_color,
-    available: e.available,
-    verified:  e.verified,
-    online:    e.online,
-    phone:     e.whatsapp,
+    id:          e.id,
+    user_id:     (e as any).user_id ?? null,
+    name:        e.name,
+    age:         e.age,
+    city:        e.city,
+    area:        e.area,
+    lat:         Number(e.lat),
+    lng:         Number(e.lng),
+    tier:        e.tier as 'elite'|'vip'|'premium'|'standard'|'free',
+    rating:      Number(e.rating),
+    reviews:     e.reviews_count,
+    image:       e.image || null,
+    gallery:     e.gallery  ?? [],
+    bio:         e.bio,
+    services:    e.services ?? [],
+    pricing:     { hourly: e.price_hourly, overnight: e.price_overnight, video: e.price_video, incall: (e as any).price_incall ?? 0, outcall: (e as any).price_outcall ?? 0 },
+    languages:   e.languages ?? [],
+    height:      e.height,
+    bodyType:    e.body_type,
+    ethnicity:   e.ethnicity,
+    hairColor:   e.hair_color,
+    available:   e.available,
+    verified:    e.verified,
+    online:      e.online,
+    phone:       e.whatsapp,
+    whatsapp:    e.whatsapp,
+    telegram:    (e as any).telegram ?? null,
   }
 }
 
@@ -55,11 +47,12 @@ export function useAllEscorts() {
 
   const escorts = useMemo(() => {
     if (data?.data?.length) return data.data.map(toAppEscort)
+    if (!isLoading && isError) return []
     return ESCORTS
-  }, [data])
+  }, [data, isLoading, isError])
 
   const fromApi = !!(data?.data?.length)
-  const total   = data?.total ?? ESCORTS.length
+  const total   = data?.total ?? (fromApi ? 0 : ESCORTS.length)
 
   return { escorts, total, fromApi, isLoading: isLoading && !isError }
 }
@@ -78,12 +71,13 @@ export function useEscort(slugOrId: string | undefined) {
   const escort = useMemo(() => {
     if (data) return toAppEscort(data)
     if (!slugOrId) return null
-    return (
-      ESCORTS.find(e => getSlug(e.name) === slugOrId) ??
-      ESCORTS.find(e => e.id === slugOrId) ??
-      null
-    )
-  }, [data, slugOrId])
+    if (numericId) return null
+    const staticEscort = ESCORTS.find(e => getSlug(e.name) === slugOrId) ??
+      ESCORTS.find(e => e.id === slugOrId) ?? null
+    return staticEscort
+  }, [data, slugOrId, numericId])
 
   return { escort, isLoading: isLoading && !isError, fromApi: !!data }
 }
+
+export { PLACEHOLDER_IMAGE }

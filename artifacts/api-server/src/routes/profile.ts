@@ -261,6 +261,50 @@ router.get('/profile/escort/followers', requireAuth, async (req: AuthRequest, re
   }
 })
 
+// ─── Subscribe (create/renew subscription) ─────────────────────────────────────
+router.post('/profile/escort/subscribe', requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const pool = getPool()
+    if (!pool) { res.status(503).json({ message: 'Database not configured' }); return }
+
+    const { plan, phone } = req.body as { plan?: string; phone?: string }
+    if (!plan || !phone) { res.status(400).json({ message: 'plan and phone are required' }); return }
+
+    const validPlans: Record<string, { days: number; amount: number }> = {
+      monthly:   { days: 30,  amount: 500  },
+      quarterly: { days: 90,  amount: 1200 },
+      annual:    { days: 365, amount: 4000 },
+    }
+    const planInfo = validPlans[plan]
+    if (!planInfo) { res.status(400).json({ message: 'Invalid plan. Choose monthly, quarterly, or annual.' }); return }
+
+    // Get escort ID
+    const [[escort]] = await pool.query<any[]>('SELECT id FROM escorts WHERE user_id = ?', [req.userId])
+
+    const expiresAt = new Date()
+    expiresAt.setDate(expiresAt.getDate() + planInfo.days)
+
+    const txRef = 'SUB-' + Date.now().toString(36).toUpperCase() + '-' + Math.random().toString(36).slice(2, 6).toUpperCase()
+    const cleanPhone = phone.replace(/\s/g, '').replace(/^\+/, '')
+
+    await pool.query(
+      `INSERT INTO subscriptions (user_id, escort_id, plan, amount, phone, tx_ref, status, expires_at)
+       VALUES (?, ?, ?, ?, ?, ?, 'pending', ?)`,
+      [req.userId, escort?.id ?? null, plan, planInfo.amount, cleanPhone, txRef, expiresAt]
+    )
+
+    res.json({
+      txRef,
+      plan,
+      amount:    planInfo.amount,
+      expiresAt: expiresAt.toISOString(),
+      message:   'Subscription initiated. Complete the M-Pesa prompt on your phone.',
+    })
+  } catch (err: any) {
+    res.status(500).json({ message: 'Failed to initiate subscription', detail: err?.message ?? '' })
+  }
+})
+
 // ─── Subscription status ───────────────────────────────────────────────────────
 router.get('/profile/escort/subscription', requireAuth, async (req: AuthRequest, res) => {
   try {

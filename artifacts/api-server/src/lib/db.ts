@@ -141,16 +141,23 @@ export function getPool(): CompatPool | null {
 
   let connectionString: string | undefined
 
-  // Prefer individual DB_* vars when present — they get properly URL-encoded,
-  // which handles passwords containing special characters like @ # % etc.
-  // DATABASE_URL is only used as a fallback (e.g. Replit PostgreSQL dev env).
+  // Prefer individual DB_* vars — they handle special chars in passwords correctly.
   const { DB_HOST, DB_PORT, DB_USER, DB_PASS, DB_NAME } = process.env
   if (DB_HOST && DB_USER && DB_NAME) {
     const pass = DB_PASS ? encodeURIComponent(DB_PASS) : ''
     const user = DB_USER ? encodeURIComponent(DB_USER) : ''
     connectionString = `mysql://${user}:${pass}@${DB_HOST}:${DB_PORT ?? '3306'}/${DB_NAME}`
-  } else {
+  } else if (process.env.DATABASE_URL && isMysqlUrl(process.env.DATABASE_URL)) {
     connectionString = process.env.DATABASE_URL
+  } else {
+    // PostgreSQL and other non-MySQL databases are not supported.
+    // Set DB_HOST, DB_USER, DB_PASS, DB_NAME to connect to MySQL.
+    if (process.env.DATABASE_URL) {
+      console.warn('[db] DATABASE_URL is not a MySQL URL — MySQL/MariaDB is required. Set DB_HOST/DB_USER/DB_PASS/DB_NAME for MySQL.')
+    } else {
+      console.warn('[db] No MySQL credentials set. Set DB_HOST, DB_USER, DB_PASS, DB_NAME environment variables.')
+    }
+    return null
   }
 
   if (!connectionString) return null
