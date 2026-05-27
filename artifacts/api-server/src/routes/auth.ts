@@ -62,8 +62,8 @@ router.post('/auth/register', async (req, res) => {
       name, email, password, phone,
       role: rawRole,
       city, area, bio, whatsapp, telegram,
-      bodyType, ethnicity, height, hairColor,
-      rateHourly, rateOvernight, rateVideo,
+      bodyType, ethnicity, height, hairColor, gender,
+      rateHourly, rateOvernight, rateVideo, rateIncall, rateOutcall,
       languages, services,
     } = req.body as Record<string, any>
 
@@ -100,10 +100,10 @@ router.post('/auth/register', async (req, res) => {
       const [escResult] = await pool.query<any>(
         `INSERT INTO escorts
            (user_id, name, age, city, area, bio, tier, whatsapp, telegram,
-            height, body_type, ethnicity, hair_color,
-            price_hourly, price_overnight, price_video,
+            height, body_type, ethnicity, hair_color, gender,
+            price_hourly, price_overnight, price_video, price_incall, price_outcall,
             available, verified, is_active)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,0,0)`,
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,0,0)`,
         [
           userId, name,
           parseInt(req.body.age ?? '0') || 0,
@@ -112,9 +112,12 @@ router.post('/auth/register', async (req, res) => {
           whatsapp ?? null, telegram ?? null,
           height ?? null,  bodyType ?? null,
           ethnicity ?? null, hairColor ?? null,
-          rateHourly   ? parseInt(rateHourly)   : 3000,
+          gender ?? 'Female',
+          rateHourly    ? parseInt(rateHourly)    : 3000,
           rateOvernight ? parseInt(rateOvernight) : 25000,
-          rateVideo    ? parseInt(rateVideo)    : 1500,
+          rateVideo     ? parseInt(rateVideo)     : 1500,
+          rateIncall    ? parseInt(rateIncall)    : 0,
+          rateOutcall   ? parseInt(rateOutcall)   : 0,
         ]
       )
       escortId = String((escResult as any).insertId)
@@ -188,7 +191,17 @@ router.get('/auth/me', requireAuth, async (req: AuthRequest, res) => {
     )
     if (!user) { res.status(404).json({ message: 'User not found' }); return }
 
-    res.json({ id: String(user.id), name: user.display_name ?? user.username, email: user.email, role: user.role, avatar: user.avatar, phone: user.phone })
+    let approved = true
+    if (user.role === 'escort') {
+      const [[escRow]] = await pool.query<any[]>('SELECT is_active FROM escorts WHERE user_id = ? LIMIT 1', [user.id])
+      approved = escRow ? !!escRow.is_active : false
+    }
+
+    res.json({
+      id: String(user.id), name: user.display_name ?? user.username,
+      email: user.email, role: user.role, avatar: user.avatar, phone: user.phone,
+      approved,
+    })
   } catch {
     res.status(500).json({ message: 'Failed to fetch user' })
   }

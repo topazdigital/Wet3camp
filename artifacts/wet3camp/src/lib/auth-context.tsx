@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState, useCallback } from 'react'
-import { api, setToken, clearToken, type ApiUser } from './api'
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react'
+import { api, setToken, clearToken, getToken, type ApiUser } from './api'
 
 export type UserRole = 'client' | 'escort' | 'admin'
 
@@ -53,6 +53,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null)
     clearToken()
     try { localStorage.removeItem(KEY) } catch {}
+  }, [])
+
+  // On mount, refresh approved status from server so approved escorts
+  // don't stay stuck on the pending-approval page after admin approves them
+  useEffect(() => {
+    const token = getToken()
+    if (!token || !user) return
+    fetch('/api/auth/me', { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (!data) return
+        const updated: AuthUser = {
+          ...user,
+          approved: data.approved,
+          name: data.name ?? user.name,
+          avatar: data.avatar ?? user.avatar,
+        }
+        setUser(updated)
+        try { localStorage.setItem(KEY, JSON.stringify(updated)) } catch {}
+      })
+      .catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const loginWithApi = useCallback(async (email: string, password: string): Promise<{ success: boolean; user?: AuthUser; error?: string }> => {

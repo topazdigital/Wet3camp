@@ -7,6 +7,7 @@ let _openai: OpenAI | null = null
 function getOpenAI(): OpenAI | null {
   if (_openai) return _openai
   const apiKey  = process.env.AI_INTEGRATIONS_OPENAI_API_KEY
+             || process.env.OPENAI_API_KEY
   const baseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL
   if (!apiKey) return null
   _openai = new OpenAI({ apiKey, ...(baseURL ? { baseURL } : {}) })
@@ -40,7 +41,7 @@ The bio should be 80-120 words, written in first person, confident but tasteful,
 Do NOT include phone numbers, prices, or explicit content. Make it sophisticated and appealing to discerning clients.`
 
     const completion = await openai.chat.completions.create({
-      model: 'gpt-5.4',
+      model: 'gpt-4o-mini',
       messages: [{ role: 'user', content: prompt }],
       max_tokens: 200,
       temperature: 0.85,

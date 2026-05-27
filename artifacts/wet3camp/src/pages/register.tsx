@@ -136,6 +136,7 @@ export default function RegisterPage() {
   const [ethnicity, setEthnicity]   = useState('')
   const [height, setHeight]         = useState('')
   const [hairColor, setHairColor]   = useState('')
+  const [gender, setGender]         = useState('Female')
 
   // Contact (escort)
   const [bio, setBio]               = useState('')
@@ -145,9 +146,11 @@ export default function RegisterPage() {
 
   // Services & rates (escort)
   const [selServices, setSelServices] = useState<string[]>([])
-  const [rateHourly, setRateHourly]   = useState('3000')
+  const [rateHourly, setRateHourly]       = useState('3000')
   const [rateOvernight, setRateOvernight] = useState('25000')
-  const [rateVideo, setRateVideo]     = useState('1500')
+  const [rateVideo, setRateVideo]         = useState('1500')
+  const [rateIncall, setRateIncall]       = useState('5000')
+  const [rateOutcall, setRateOutcall]     = useState('8000')
 
   // Photos & pose (escort)
   const [photos, setPhotos]         = useState<string[]>([])
@@ -363,7 +366,7 @@ export default function RegisterPage() {
       if (!otpVerified) { setError('Please verify your email by entering the code.'); return false }
     }
     if (currentStep === 'physical') {
-      if (!bodyType || !ethnicity || !height || !hairColor) { setError('Fill in all physical attributes.'); return false }
+      if (!bodyType || !ethnicity || !height || !hairColor || !gender) { setError('Fill in all physical attributes including gender.'); return false }
     }
     if (currentStep === 'contact') {
       if (bio.length < 50) { setError('Bio must be at least 50 characters.'); return false }
@@ -416,12 +419,14 @@ export default function RegisterPage() {
       if (role === 'escort') {
         Object.assign(payload, {
           bio, whatsapp, telegram,
-          bodyType, ethnicity, height, hairColor,
+          bodyType, ethnicity, height, hairColor, gender,
           languages: selLangs,
           services: selServices,
-          rateHourly:   parseInt(rateHourly)   || 3000,
+          rateHourly:    parseInt(rateHourly)    || 3000,
           rateOvernight: parseInt(rateOvernight) || 25000,
-          rateVideo:    parseInt(rateVideo)    || 1500,
+          rateVideo:     parseInt(rateVideo)     || 1500,
+          rateIncall:    parseInt(rateIncall)    || 0,
+          rateOutcall:   parseInt(rateOutcall)   || 0,
         })
       }
       const res = await api.auth.register(payload as any)
@@ -742,6 +747,14 @@ export default function RegisterPage() {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
+                  <label className={labelCls}>Gender *</label>
+                  <select value={gender} onChange={e=>setGender(e.target.value)} className={selectCls}>
+                    <option value="Female">Female</option>
+                    <option value="Male">Male</option>
+                    <option value="Transgender">Transgender</option>
+                  </select>
+                </div>
+                <div>
                   <label className={labelCls}>Body Type *</label>
                   <select value={bodyType} onChange={e=>setBodyType(e.target.value)} className={selectCls}>
                     <option value="">Select…</option>
@@ -773,7 +786,7 @@ export default function RegisterPage() {
               {bodyType && ethnicity && height && hairColor && (
                 <div className="p-3 bg-[#28a745]/10 border border-[#28a745]/20 rounded-xl">
                   <p className="text-[11px] text-[#28a745] font-semibold mb-1">Profile preview</p>
-                  <p className="text-[11px] text-text-muted">{height} · {bodyType} · {ethnicity} · {hairColor} hair{age ? ` · ${age} years old` : ''}</p>
+                  <p className="text-[11px] text-text-muted">{gender} · {height} · {bodyType} · {ethnicity} · {hairColor} hair{age ? ` · ${age} years old` : ''}</p>
                 </div>
               )}
             </div>
@@ -846,6 +859,8 @@ export default function RegisterPage() {
               {[
                 { label:'Per Hour *', key:'hourly', val:rateHourly, set:setRateHourly, hint:'Recommended: KES 2,000 – 15,000' },
                 { label:'Overnight *', key:'overnight', val:rateOvernight, set:setRateOvernight, hint:'Recommended: KES 15,000 – 60,000' },
+                { label:'In-Call', key:'incall', val:rateIncall, set:setRateIncall, hint:'Client comes to you — Recommended: KES 3,000 – 10,000' },
+                { label:'Out-Call', key:'outcall', val:rateOutcall, set:setRateOutcall, hint:'You go to client — Recommended: KES 5,000 – 15,000' },
                 { label:'Video Call', key:'video', val:rateVideo, set:setRateVideo, hint:'Recommended: KES 500 – 3,000' },
               ].map(({ label, key, val, set, hint }) => (
                 <div key={key}>
@@ -962,6 +977,7 @@ export default function RegisterPage() {
                 ['Role',      role === 'escort' ? '⭐ Escort' : '👤 Client'],
                 ...(role === 'escort' ? [
                   ['Sign-up method', authMethod === 'oauth' ? `${oauthProvider} OAuth` : 'Email + OTP'],
+                  ['Gender',     gender    || '—'],
                   ['Body type',  bodyType  || '—'],
                   ['Height',     height    || '—'],
                   ['Ethnicity',  ethnicity || '—'],

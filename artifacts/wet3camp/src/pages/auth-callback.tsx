@@ -28,16 +28,18 @@ export default function AuthCallback() {
     try {
       const payloadB64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')
       const payload = JSON.parse(atob(payloadB64)) as { id?: number; role?: string; email?: string }
-      const name  = decodeURIComponent(params.get('name') ?? 'User')
-      const email = params.get('email') ?? payload.email ?? ''
-      const role  = payload.role ?? params.get('role') ?? 'user'
+      const name     = decodeURIComponent(params.get('name') ?? 'User')
+      const email    = params.get('email') ?? payload.email ?? ''
+      const role     = payload.role ?? params.get('role') ?? 'user'
+      const approved = params.get('approved') !== 'false'
 
       setToken(token)
       login({
         id:    String(payload.id ?? ''),
         name,
         email,
-        role:  role === 'admin' ? 'admin' : role === 'escort' ? 'escort' : 'client',
+        role:     role === 'admin' ? 'admin' : role === 'escort' ? 'escort' : 'client',
+        approved: role === 'escort' ? approved : true,
       })
       navigate(role === 'admin' ? '/admin' : role === 'escort' ? '/my-profile' : '/')
     } catch {
