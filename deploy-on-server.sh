@@ -53,6 +53,7 @@ add_if_missing() {
 }
 
 add_if_missing "PORT"         "8080"
+add_if_missing "APP_URL"      "https://wet3.camp"
 add_if_missing "DB_HOST"      "localhost"
 add_if_missing "DB_PORT"      "3306"
 add_if_missing "DB_USER"      "admin_wet3camp"
