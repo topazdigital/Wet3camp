@@ -186,6 +186,8 @@ export default function MyProfile() {
           canvas.width = w; canvas.height = h
           const ctx = canvas.getContext('2d')
           if (!ctx) { resolve(reader.result as string); return }
+          ctx.fillStyle = '#ffffff'
+          ctx.fillRect(0, 0, w, h)
           ctx.drawImage(img, 0, 0, w, h)
           resolve(canvas.toDataURL('image/jpeg', quality))
         }

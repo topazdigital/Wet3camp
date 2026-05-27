@@ -767,7 +767,6 @@ export default function RegisterPage() {
                     )}
                   </p>
                 )}
-                <p className="text-center text-[10px] text-text-muted">Demo: enter <span className="text-[#FFD700] font-mono">123456</span> to verify</p>
               </div>
             )}
           </div>
