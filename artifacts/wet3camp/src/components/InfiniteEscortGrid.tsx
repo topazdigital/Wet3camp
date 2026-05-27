@@ -193,7 +193,7 @@ export default function InfiniteEscortGrid({
                       <span className="text-[10px] font-bold text-text-light">{escort.rating}</span>
                       <span className="text-[9px] text-text-muted">({escort.reviews})</span>
                     </div>
-                    <span className="text-[10px] font-bold text-[#FFD700]">KES {(escort.pricing.hourly / 1000).toFixed(0)}k/hr</span>
+                    <span className="text-[10px] font-bold text-[#FFD700]">KES {((escort.pricing?.incall || escort.pricing?.hourly || 0) / 1000).toFixed(0)}k/hr</span>
                   </div>
                 </div>
               </div>

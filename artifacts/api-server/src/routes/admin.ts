@@ -93,27 +93,33 @@ router.post('/admin/escorts', requireAuth, requireAdmin, async (req: AuthRequest
     if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
     const {
       name, city, area, age, tier, bio, whatsapp, telegram, gender, image,
-      price_hourly, price_overnight, price_video, price_incall, price_outcall,
+      price_incall, price_outcall,
+      price_incall_overnight, price_outcall_overnight,
+      price_video,
     } = req.body as Record<string, any>
     if (!name?.trim() || !city) { res.status(400).json({ message: 'Name and city are required' }); return }
     const [result] = await pool.query<any>(
       `INSERT INTO escorts
         (name, city, area, age, tier, bio, whatsapp, telegram, gender, image,
-         price_hourly, price_overnight, price_video, price_incall, price_outcall,
+         price_incall, price_outcall,
+         price_incall_overnight, price_outcall_overnight,
+         price_video,
          is_active, verified, available, online, created_at)
        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,1,0,0,NOW())`,
       [
         name.trim(), city, area ?? '', age ? parseInt(age) : 0, tier ?? 'standard',
         bio ?? null, whatsapp ?? null, telegram ?? null, gender ?? 'Female', image ?? null,
-        price_hourly ? parseInt(price_hourly) : 0,
-        price_overnight ? parseInt(price_overnight) : 0,
-        price_video ? parseInt(price_video) : 0,
         price_incall ? parseInt(price_incall) : 0,
         price_outcall ? parseInt(price_outcall) : 0,
+        price_incall_overnight ? parseInt(price_incall_overnight) : 0,
+        price_outcall_overnight ? parseInt(price_outcall_overnight) : 0,
+        price_video ? parseInt(price_video) : 0,
       ]
     )
     const insertId = (result as any).insertId
+    if (!insertId) { res.status(500).json({ message: 'Insert succeeded but no ID returned' }); return }
     const [[escort]] = await pool.query<any[]>('SELECT * FROM escorts WHERE id = ?', [insertId])
+    if (!escort) { res.status(500).json({ message: 'Escort created but could not be fetched', insertId }); return }
     res.status(201).json({ ...escort, id: String(escort.id) })
   } catch (err: any) {
     console.error('[POST /admin/escorts]', err?.message ?? err)
@@ -517,56 +523,6 @@ router.post('/admin/seed-escorts', requireAuth, requireAdmin, async (_req: AuthR
   }
 })
 
-router.post('/admin/escorts', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
-  const pool = getPool()
-  if (!pool) { res.status(503).json({ message: 'Database not configured' }); return }
-  try {
-    const {
-      name, age, city, area, tier, bio, whatsapp, telegram, phone, gender,
-      price_hourly, price_overnight, price_video,
-    } = req.body as Record<string, any>
-
-    if (!name || !city) {
-      res.status(400).json({ message: 'name and city are required' }); return
-    }
-
-    const [result] = await pool.query<any>(
-      `INSERT INTO escorts (name, age, city, area, tier, bio, whatsapp, telegram, phone, gender,
-        price_hourly, price_overnight, price_video, price_incall, price_outcall,
-        available, verified, is_active, lat, lng, rating, reviews_count)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-      [
-        name.trim(),
-        age ? parseInt(age) : 0,
-        city,
-        area || '',
-        tier || 'standard',
-        bio || null,
-        whatsapp || null,
-        telegram || null,
-        phone || null,
-        gender || 'Female',
-        price_hourly ? parseInt(price_hourly) : 0,
-        price_overnight ? parseInt(price_overnight) : 0,
-        price_video ? parseInt(price_video) : 0,
-        0, 0, 0, 0, 1, 0, 0, 0, 0,
-      ]
-    )
-
-    res.status(201).json({
-      id: String((result as any).insertId),
-      name: name.trim(),
-      city,
-      tier: tier || 'standard',
-      is_active: true,
-      verified: false,
-      online: false,
-    })
-  } catch (err: any) {
-    console.error('[admin/escorts POST]', err?.message ?? err)
-    res.status(500).json({ message: 'Failed to create escort', detail: err?.message ?? '' })
-  }
-})
 
 router.get('/admin/health', requireAuth, requireAdmin, async (_req: AuthRequest, res) => {
   const pool = getPool()

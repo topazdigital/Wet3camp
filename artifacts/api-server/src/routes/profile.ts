@@ -89,7 +89,9 @@ router.patch('/profile/escort', requireAuth, async (req: AuthRequest, res) => {
     const {
       bio, city, area, whatsapp, telegram,
       height, bodyType, ethnicity, hairColor,
-      rateHourly, rateOvernight, rateVideo, rateIncall, rateOutcall,
+      rateIncall, rateOutcall,
+      rateIncallOvernight, rateOutcallOvernight,
+      rateVideo,
       available, languages, services,
     } = req.body as Record<string, any>
 
@@ -109,11 +111,11 @@ router.patch('/profile/escort', requireAuth, async (req: AuthRequest, res) => {
     if (bodyType)                    { updates.push('body_type = ?');      params.push(bodyType) }
     if (ethnicity)                   { updates.push('ethnicity = ?');      params.push(ethnicity) }
     if (hairColor)                   { updates.push('hair_color = ?');     params.push(hairColor) }
-    if (rateHourly !== undefined)    { updates.push('price_hourly = ?');    params.push(parseInt(rateHourly)) }
-    if (rateOvernight !== undefined) { updates.push('price_overnight = ?'); params.push(parseInt(rateOvernight)) }
-    if (rateVideo !== undefined)     { updates.push('price_video = ?');     params.push(parseInt(rateVideo)) }
-    if (rateIncall !== undefined)    { updates.push('price_incall = ?');    params.push(parseInt(rateIncall)) }
-    if (rateOutcall !== undefined)   { updates.push('price_outcall = ?');   params.push(parseInt(rateOutcall)) }
+    if (rateIncall !== undefined)          { updates.push('price_incall = ?');          params.push(parseInt(rateIncall)) }
+    if (rateOutcall !== undefined)         { updates.push('price_outcall = ?');         params.push(parseInt(rateOutcall)) }
+    if (rateIncallOvernight !== undefined) { updates.push('price_incall_overnight = ?'); params.push(parseInt(rateIncallOvernight)) }
+    if (rateOutcallOvernight !== undefined){ updates.push('price_outcall_overnight = ?');params.push(parseInt(rateOutcallOvernight)) }
+    if (rateVideo !== undefined)           { updates.push('price_video = ?');           params.push(parseInt(rateVideo)) }
     if (available !== undefined)     { updates.push('available = ?');       params.push(available ? 1 : 0) }
 
     if (updates.length) {

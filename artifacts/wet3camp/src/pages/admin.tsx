@@ -719,8 +719,9 @@ function AddEscortModal({ onClose, onCreated }: { onClose: () => void; onCreated
   const [form, setForm] = useState({
     name: '', city: '', area: '', age: '', tier: 'standard',
     bio: '', whatsapp: '', telegram: '', gender: 'Female',
-    price_hourly: '', price_overnight: '', price_video: '',
-    price_incall: '', price_outcall: '', image: '',
+    price_incall: '', price_outcall: '',
+    price_incall_overnight: '', price_outcall_overnight: '',
+    price_video: '', image: '',
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -792,11 +793,11 @@ function AddEscortModal({ onClose, onCreated }: { onClose: () => void; onCreated
         body: JSON.stringify({
           ...form,
           age: form.age ? parseInt(form.age) : 0,
-          price_hourly:   form.price_hourly   ? parseInt(form.price_hourly)   : 0,
-          price_overnight:form.price_overnight? parseInt(form.price_overnight): 0,
-          price_video:    form.price_video    ? parseInt(form.price_video)    : 0,
-          price_incall:   form.price_incall   ? parseInt(form.price_incall)   : 0,
-          price_outcall:  form.price_outcall  ? parseInt(form.price_outcall)  : 0,
+          price_incall:           form.price_incall           ? parseInt(form.price_incall)           : 0,
+          price_outcall:          form.price_outcall          ? parseInt(form.price_outcall)          : 0,
+          price_incall_overnight: form.price_incall_overnight ? parseInt(form.price_incall_overnight) : 0,
+          price_outcall_overnight:form.price_outcall_overnight? parseInt(form.price_outcall_overnight): 0,
+          price_video:            form.price_video            ? parseInt(form.price_video)            : 0,
         }),
       })
       onCreated(data)
@@ -904,31 +905,29 @@ function AddEscortModal({ onClose, onCreated }: { onClose: () => void; onCreated
             </div>
           </div>
 
-          {/* Pricing */}
+          {/* Pricing — 2-column incall/outcall grid */}
           <div>
             <p className="text-[10px] text-text-muted uppercase tracking-widest mb-2 border-b border-color pb-1.5">Pricing (KES)</p>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Incall / 1hr</label>
-                <input type="number" value={form.price_incall} onChange={e=>setForm(f=>({...f,price_incall:e.target.value}))} placeholder="e.g. 3000" className={priceCls}/>
-              </div>
-              <div>
-                <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Outcall / 1hr</label>
-                <input type="number" value={form.price_outcall} onChange={e=>setForm(f=>({...f,price_outcall:e.target.value}))} placeholder="e.g. 5000" className={priceCls}/>
-              </div>
-              <div>
-                <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Hourly Rate</label>
-                <input type="number" value={form.price_hourly} onChange={e=>setForm(f=>({...f,price_hourly:e.target.value}))} placeholder="e.g. 3000" className={priceCls}/>
-              </div>
-              <div>
-                <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Overnight</label>
-                <input type="number" value={form.price_overnight} onChange={e=>setForm(f=>({...f,price_overnight:e.target.value}))} placeholder="e.g. 20000" className={priceCls}/>
-              </div>
-              <div>
-                <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Video Call</label>
-                <input type="number" value={form.price_video} onChange={e=>setForm(f=>({...f,price_video:e.target.value}))} placeholder="e.g. 1500" className={priceCls}/>
-              </div>
+            {/* Header row */}
+            <div className="grid grid-cols-2 gap-3 mb-1">
+              <p className="text-[10px] font-bold text-[#8B0000] uppercase tracking-widest text-center">Incall</p>
+              <p className="text-[10px] font-bold text-[#FFD700] uppercase tracking-widest text-center">Outcall</p>
             </div>
+            {/* Short 1hr */}
+            <p className="text-[9px] text-text-muted uppercase tracking-widest mb-1 mt-2">Short (1hr)</p>
+            <div className="grid grid-cols-2 gap-3">
+              <input type="number" value={form.price_incall} onChange={e=>setForm(f=>({...f,price_incall:e.target.value}))} placeholder="e.g. 3000" className={priceCls}/>
+              <input type="number" value={form.price_outcall} onChange={e=>setForm(f=>({...f,price_outcall:e.target.value}))} placeholder="e.g. 5000" className={priceCls}/>
+            </div>
+            {/* Overnight */}
+            <p className="text-[9px] text-text-muted uppercase tracking-widest mb-1 mt-3">Overnight</p>
+            <div className="grid grid-cols-2 gap-3">
+              <input type="number" value={form.price_incall_overnight} onChange={e=>setForm(f=>({...f,price_incall_overnight:e.target.value}))} placeholder="e.g. 20000" className={priceCls}/>
+              <input type="number" value={form.price_outcall_overnight} onChange={e=>setForm(f=>({...f,price_outcall_overnight:e.target.value}))} placeholder="e.g. 25000" className={priceCls}/>
+            </div>
+            {/* Video Call */}
+            <p className="text-[9px] text-text-muted uppercase tracking-widest mb-1 mt-3">Video Call</p>
+            <input type="number" value={form.price_video} onChange={e=>setForm(f=>({...f,price_video:e.target.value}))} placeholder="e.g. 1500" className={priceCls}/>
           </div>
 
           <div className="flex gap-3 pt-2">

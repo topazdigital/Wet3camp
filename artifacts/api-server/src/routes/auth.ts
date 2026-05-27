@@ -40,8 +40,8 @@ router.post('/auth/login', async (req, res) => {
         // Orphaned escort — auto-create a minimal profile so the user can log in
         try {
           await pool.query(
-            `INSERT INTO escorts (user_id, name, city, tier, available, is_active, verified, price_hourly, price_overnight, price_video, price_incall, price_outcall)
-             VALUES (?,?,?,?,0,0,0,3000,25000,1500,0,0)`,
+            `INSERT INTO escorts (user_id, name, city, tier, available, is_active, verified, price_incall, price_outcall, price_incall_overnight, price_outcall_overnight, price_video)
+             VALUES (?,?,?,?,0,0,0,3000,5000,20000,25000,1500)`,
             [user.id, user.display_name ?? user.username, 'Nairobi', 'standard']
           )
         } catch { /* migration might not have run yet — admin must run wet3camp-migration.sql */ }
@@ -75,7 +75,9 @@ router.post('/auth/register', async (req, res) => {
       role: rawRole,
       city, area, bio, whatsapp, telegram,
       bodyType, ethnicity, height, hairColor, gender,
-      rateHourly, rateOvernight, rateVideo, rateIncall, rateOutcall,
+      rateIncall, rateOutcall,
+      rateIncallOvernight, rateOutcallOvernight,
+      rateVideo,
       languages, services,
     } = req.body as Record<string, any>
 
@@ -124,7 +126,9 @@ router.post('/auth/register', async (req, res) => {
         `INSERT INTO escorts
            (user_id, name, age, city, area, bio, tier, whatsapp, telegram,
             height, body_type, ethnicity, hair_color, gender,
-            price_hourly, price_overnight, price_video, price_incall, price_outcall,
+            price_incall, price_outcall,
+            price_incall_overnight, price_outcall_overnight,
+            price_video,
             available, verified, is_active)
          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?)`,
         [
@@ -136,11 +140,11 @@ router.post('/auth/register', async (req, res) => {
           height ?? null,  bodyType ?? null,
           ethnicity ?? null, hairColor ?? null,
           gender ?? 'Female',
-          rateHourly    ? parseInt(rateHourly)    : 3000,
-          rateOvernight ? parseInt(rateOvernight) : 25000,
-          rateVideo     ? parseInt(rateVideo)     : 1500,
-          rateIncall    ? parseInt(rateIncall)    : 0,
-          rateOutcall   ? parseInt(rateOutcall)   : 0,
+          rateIncall         ? parseInt(rateIncall)         : 3000,
+          rateOutcall        ? parseInt(rateOutcall)        : 5000,
+          rateIncallOvernight  ? parseInt(rateIncallOvernight)  : 25000,
+          rateOutcallOvernight ? parseInt(rateOutcallOvernight) : 30000,
+          rateVideo          ? parseInt(rateVideo)          : 1500,
           autoActive, autoActive,
         ]
       )
@@ -398,7 +402,9 @@ router.post('/auth/setup-escort', requireAuth, async (req: AuthRequest, res) => 
     const {
       name, city, area, bio, whatsapp, telegram, phone,
       bodyType, ethnicity, height, hairColor, gender,
-      rateHourly, rateOvernight, rateVideo, rateIncall, rateOutcall,
+      rateIncall, rateOutcall,
+      rateIncallOvernight, rateOutcallOvernight,
+      rateVideo,
       languages, services,
     } = req.body as Record<string, any>
 
@@ -433,14 +439,17 @@ router.post('/auth/setup-escort', requireAuth, async (req: AuthRequest, res) => 
       await pool.query(
         `UPDATE escorts SET name=?, city=?, area=?, bio=?, whatsapp=?, telegram=?,
          height=?, body_type=?, ethnicity=?, hair_color=?, gender=?,
-         price_hourly=?, price_overnight=?, price_video=?, price_incall=?, price_outcall=?,
+         price_incall=?, price_outcall=?,
+         price_incall_overnight=?, price_outcall_overnight=?,
+         price_video=?,
          is_active=?, verified=? WHERE id=?`,
         [
           displayName, city ?? null, area ?? null, bio ?? null,
           whatsapp ?? null, telegram ?? null,
           height ?? null, bodyType ?? null, ethnicity ?? null, hairColor ?? null, gender ?? 'Female',
-          parseInt(rateHourly) || 3000, parseInt(rateOvernight) || 25000,
-          parseInt(rateVideo) || 1500, parseInt(rateIncall) || 0, parseInt(rateOutcall) || 0,
+          parseInt(rateIncall) || 3000, parseInt(rateOutcall) || 5000,
+          parseInt(rateIncallOvernight) || 20000, parseInt(rateOutcallOvernight) || 25000,
+          parseInt(rateVideo) || 1500,
           autoActive, autoActive,
           escortId,
         ]
@@ -450,7 +459,9 @@ router.post('/auth/setup-escort', requireAuth, async (req: AuthRequest, res) => 
         `INSERT INTO escorts
            (user_id, name, city, area, bio, tier, whatsapp, telegram,
             height, body_type, ethnicity, hair_color, gender,
-            price_hourly, price_overnight, price_video, price_incall, price_outcall,
+            price_incall, price_outcall,
+            price_incall_overnight, price_outcall_overnight,
+            price_video,
             available, verified, is_active)
          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?)`,
         [
@@ -458,8 +469,9 @@ router.post('/auth/setup-escort', requireAuth, async (req: AuthRequest, res) => 
           city ?? null, area ?? null, bio ?? null, 'standard',
           whatsapp ?? null, telegram ?? null,
           height ?? null, bodyType ?? null, ethnicity ?? null, hairColor ?? null, gender ?? 'Female',
-          parseInt(rateHourly) || 3000, parseInt(rateOvernight) || 25000,
-          parseInt(rateVideo) || 1500, parseInt(rateIncall) || 0, parseInt(rateOutcall) || 0,
+          parseInt(rateIncall) || 3000, parseInt(rateOutcall) || 5000,
+          parseInt(rateIncallOvernight) || 20000, parseInt(rateOutcallOvernight) || 25000,
+          parseInt(rateVideo) || 1500,
           autoActive, autoActive,
         ]
       )

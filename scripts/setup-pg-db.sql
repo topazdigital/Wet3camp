@@ -51,11 +51,13 @@ CREATE TABLE IF NOT EXISTS escorts (
   verified         SMALLINT      NOT NULL DEFAULT 0,
   online           SMALLINT      NOT NULL DEFAULT 0,
   is_active        SMALLINT      NOT NULL DEFAULT 1,
-  featured         SMALLINT      NOT NULL DEFAULT 0,
-  instagram        VARCHAR(100)  DEFAULT NULL,
-  facebook         VARCHAR(100)  DEFAULT NULL,
-  created_at       TIMESTAMP     NOT NULL DEFAULT current_timestamp,
-  updated_at       TIMESTAMP     NOT NULL DEFAULT current_timestamp
+  featured                SMALLINT      NOT NULL DEFAULT 0,
+  instagram               VARCHAR(100)  DEFAULT NULL,
+  facebook                VARCHAR(100)  DEFAULT NULL,
+  price_incall_overnight  INTEGER       NOT NULL DEFAULT 0,
+  price_outcall_overnight INTEGER       NOT NULL DEFAULT 0,
+  created_at              TIMESTAMP     NOT NULL DEFAULT current_timestamp,
+  updated_at              TIMESTAMP     NOT NULL DEFAULT current_timestamp
 );
 
 CREATE INDEX IF NOT EXISTS idx_escorts_user_id ON escorts(user_id);

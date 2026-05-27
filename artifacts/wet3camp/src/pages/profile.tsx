@@ -332,19 +332,34 @@ export default function ProfilePage() {
                 </div>
               </div>
 
-              {/* Pricing (informational only) */}
-              <div className="grid grid-cols-3 gap-2">
-                {[
-                  { label: 'Per Hour',   val: `KES ${escort.pricing.hourly.toLocaleString()}`,    icon: Clock,    color: '#8B0000' },
-                  { label: 'Overnight',  val: `KES ${escort.pricing.overnight.toLocaleString()}`,  icon: Calendar, color: '#FFD700' },
-                  { label: 'Video Call', val: `KES ${escort.pricing.video.toLocaleString()}`,      icon: Flame,    color: '#E91E63' },
-                ].map(({ label, val, icon: Icon, color }) => (
-                  <div key={label} className="bg-card-bg border border-color rounded-2xl p-4 text-center hover:border-[#8B0000]/40 transition-all">
-                    <Icon size={18} className="mx-auto mb-2" style={{ color }} />
-                    <p className="font-black text-text-light text-sm">{val}</p>
-                    <p className="text-[10px] text-text-muted mt-0.5">{label}</p>
+              {/* Pricing — 2-column incall/outcall grid */}
+              <div className="bg-card-bg border border-color rounded-2xl p-4">
+                <p className="text-[10px] text-text-muted uppercase tracking-widest mb-3">Rates (KES)</p>
+                {/* Header */}
+                <div className="grid grid-cols-3 gap-2 mb-2">
+                  <div/>
+                  <p className="text-[10px] font-bold text-[#8B0000] uppercase tracking-widest text-center">Incall</p>
+                  <p className="text-[10px] font-bold text-[#FFD700] uppercase tracking-widest text-center">Outcall</p>
+                </div>
+                {/* Short 1hr */}
+                <div className="grid grid-cols-3 gap-2 py-2 border-t border-color/50 items-center">
+                  <p className="text-[11px] text-text-muted">Short (1hr)</p>
+                  <p className="text-center text-sm font-black text-text-light">{escort.pricing?.incall ? `KES ${escort.pricing.incall.toLocaleString()}` : '—'}</p>
+                  <p className="text-center text-sm font-black text-text-light">{escort.pricing?.outcall ? `KES ${escort.pricing.outcall.toLocaleString()}` : '—'}</p>
+                </div>
+                {/* Overnight */}
+                <div className="grid grid-cols-3 gap-2 py-2 border-t border-color/50 items-center">
+                  <p className="text-[11px] text-text-muted">Overnight</p>
+                  <p className="text-center text-sm font-black text-text-light">{escort.pricing?.incallOvernight ? `KES ${escort.pricing.incallOvernight.toLocaleString()}` : '—'}</p>
+                  <p className="text-center text-sm font-black text-text-light">{escort.pricing?.outcallOvernight ? `KES ${escort.pricing.outcallOvernight.toLocaleString()}` : '—'}</p>
+                </div>
+                {/* Video Call */}
+                {!!escort.pricing?.video && (
+                  <div className="grid grid-cols-3 gap-2 py-2 border-t border-color/50 items-center">
+                    <p className="text-[11px] text-text-muted">Video Call</p>
+                    <p className="col-span-2 text-center text-sm font-black text-[#E91E63]">KES {escort.pricing.video.toLocaleString()}</p>
                   </div>
-                ))}
+                )}
               </div>
 
               {/* Tabs */}
@@ -456,14 +471,14 @@ export default function ProfilePage() {
 
                   <div className="mb-4 pb-4 border-b border-color">
                     <p className="text-[10px] text-text-muted uppercase tracking-widest mb-1">Starting Rate</p>
-                    <p className="text-2xl font-black text-[#FFD700]">KES {escort.pricing.hourly.toLocaleString()}<span className="text-sm font-normal text-text-muted">/hr</span></p>
+                    <p className="text-2xl font-black text-[#FFD700]">KES {(escort.pricing?.incall || escort.pricing?.hourly || 0).toLocaleString()}<span className="text-sm font-normal text-text-muted">/hr</span></p>
                     <p className="text-[10px] text-text-muted mt-1">Contact her directly to arrange</p>
                   </div>
 
                   <div className="space-y-2.5">
                       {/* WhatsApp — visible to everyone */}
                       <a
-                        href={waLink(escort.phone, escort.name, escort.pricing?.hourly)}
+                        href={waLink(escort.phone, escort.name, escort.pricing?.incall || escort.pricing?.hourly)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="w-full py-3.5 bg-[#25D366] hover:bg-[#20ba5a] text-white font-black rounded-xl transition-all shadow-lg shadow-[#25D366]/20 flex items-center justify-center gap-2 text-sm"
@@ -577,7 +592,7 @@ export default function ProfilePage() {
             avatar: escort.image,
             tier: escort.tier,
             city: escort.city,
-            pricing: { hourly: escort.pricing.hourly, overnight: escort.pricing.overnight },
+            pricing: { hourly: escort.pricing?.incall || escort.pricing?.hourly || 0, overnight: escort.pricing?.incallOvernight || escort.pricing?.overnight || 0 },
           }}
         />
       )}

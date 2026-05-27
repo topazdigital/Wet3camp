@@ -5,7 +5,7 @@ export interface Escort {
   lat: number; lng: number; tier: 'elite'|'vip'|'premium'|'standard'|'free'
   rating: number; reviews: number; image: string; gallery: string[]
   bio: string; services: Service[]
-  pricing: { hourly: number; overnight: number; video: number }
+  pricing: { hourly: number; overnight: number; video: number; incall?: number; outcall?: number; incallOvernight?: number; outcallOvernight?: number }
   languages: string[]; height: string; bodyType: string
   ethnicity: string; hairColor: string
   available: boolean; verified: boolean; online: boolean; phone?: string

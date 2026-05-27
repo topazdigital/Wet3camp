@@ -32,6 +32,8 @@ export interface ApiEscort {
   bio: string; image: string; height: string; body_type: string
   ethnicity: string; hair_color: string
   price_hourly: number; price_overnight: number; price_video: number
+  price_incall: number; price_outcall: number
+  price_incall_overnight: number; price_outcall_overnight: number
   whatsapp: string; telegram: string
   available: boolean; verified: boolean; online: boolean
   languages: string[]
@@ -75,7 +77,9 @@ export const api = {
       role?: string; city?: string; area?: string
       bio?: string; whatsapp?: string; telegram?: string
       bodyType?: string; ethnicity?: string; height?: string; hairColor?: string
-      rateHourly?: number; rateOvernight?: number; rateVideo?: number
+      rateIncall?: number; rateOutcall?: number
+      rateIncallOvernight?: number; rateOutcallOvernight?: number
+      rateVideo?: number
       languages?: string[]; services?: string[]
     }) =>
       req<{ token: string; user: ApiUser; escortId?: string }>('/auth/register', { method: 'POST', body: JSON.stringify(d) }),
@@ -148,8 +152,9 @@ export const api = {
       bio?: string; city?: string; area?: string
       whatsapp?: string; telegram?: string
       bodyType?: string; ethnicity?: string; height?: string; hairColor?: string
-      rateHourly?: number; rateOvernight?: number; rateVideo?: number
       rateIncall?: number; rateOutcall?: number
+      rateIncallOvernight?: number; rateOutcallOvernight?: number
+      rateVideo?: number
       available?: boolean; languages?: string[]; services?: string[]
     }) =>
       req<any>('/profile/escort', { method: 'PATCH', body: JSON.stringify(d) }),

@@ -150,11 +150,11 @@ export default function RegisterPage() {
 
   // Services & rates (escort)
   const [selServices, setSelServices] = useState<string[]>([])
-  const [rateHourly, setRateHourly]       = useState('3000')
-  const [rateOvernight, setRateOvernight] = useState('25000')
-  const [rateVideo, setRateVideo]         = useState('1500')
-  const [rateIncall, setRateIncall]       = useState('5000')
-  const [rateOutcall, setRateOutcall]     = useState('8000')
+  const [rateIncall, setRateIncall]               = useState('3000')
+  const [rateOutcall, setRateOutcall]             = useState('5000')
+  const [rateIncallOvernight, setRateIncallOvernight] = useState('20000')
+  const [rateOutcallOvernight, setRateOutcallOvernight] = useState('25000')
+  const [rateVideo, setRateVideo]                 = useState('1500')
 
   // Photos & pose (escort)
   const [photos, setPhotos]         = useState<string[]>([])
@@ -428,11 +428,11 @@ export default function RegisterPage() {
             city, area, bio, whatsapp, telegram, phone,
             bodyType, ethnicity, height, hairColor, gender,
             languages: selLangs, services: selServices,
-            rateHourly:    parseInt(rateHourly)    || 3000,
-            rateOvernight: parseInt(rateOvernight) || 25000,
-            rateVideo:     parseInt(rateVideo)     || 1500,
-            rateIncall:    parseInt(rateIncall)    || 0,
-            rateOutcall:   parseInt(rateOutcall)   || 0,
+            rateIncall:          parseInt(rateIncall)          || 3000,
+            rateOutcall:         parseInt(rateOutcall)         || 5000,
+            rateIncallOvernight: parseInt(rateIncallOvernight) || 20000,
+            rateOutcallOvernight:parseInt(rateOutcallOvernight)|| 25000,
+            rateVideo:           parseInt(rateVideo)           || 1500,
           }),
         })
         const data = await res.json()
@@ -462,11 +462,11 @@ export default function RegisterPage() {
           bodyType, ethnicity, height, hairColor, gender,
           languages: selLangs,
           services: selServices,
-          rateHourly:    parseInt(rateHourly)    || 3000,
-          rateOvernight: parseInt(rateOvernight) || 25000,
-          rateVideo:     parseInt(rateVideo)     || 1500,
-          rateIncall:    parseInt(rateIncall)    || 0,
-          rateOutcall:   parseInt(rateOutcall)   || 0,
+          rateIncall:          parseInt(rateIncall)          || 3000,
+          rateOutcall:         parseInt(rateOutcall)         || 5000,
+          rateIncallOvernight: parseInt(rateIncallOvernight) || 20000,
+          rateOutcallOvernight:parseInt(rateOutcallOvernight)|| 25000,
+          rateVideo:           parseInt(rateVideo)           || 1500,
         })
       }
       const res = await api.auth.register(payload as any)
@@ -894,25 +894,47 @@ export default function RegisterPage() {
           <div>
             <h2 className="text-xl font-black text-text-light mb-1">Your Rates (KES)</h2>
             <p className="text-sm text-text-muted mb-5">Set competitive rates — you can always change these later</p>
-            <div className="space-y-4">
-              {[
-                { label:'Per Hour *', key:'hourly', val:rateHourly, set:setRateHourly, hint:'Recommended: KES 2,000 – 15,000' },
-                { label:'Overnight *', key:'overnight', val:rateOvernight, set:setRateOvernight, hint:'Recommended: KES 15,000 – 60,000' },
-                { label:'In-Call', key:'incall', val:rateIncall, set:setRateIncall, hint:'Client comes to you — Recommended: KES 3,000 – 10,000' },
-                { label:'Out-Call', key:'outcall', val:rateOutcall, set:setRateOutcall, hint:'You go to client — Recommended: KES 5,000 – 15,000' },
-                { label:'Video Call', key:'video', val:rateVideo, set:setRateVideo, hint:'Recommended: KES 500 – 3,000' },
-              ].map(({ label, key, val, set, hint }) => (
-                <div key={key}>
-                  <label className={labelCls}>{label}</label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted font-bold text-xs">KES</span>
-                    <input type="number" value={val} onChange={e=>set(e.target.value)} className={inputCls} style={{paddingLeft:'3.2rem'}} />
-                  </div>
-                  <p className="text-[10px] text-text-muted mt-1">{hint}</p>
-                </div>
-              ))}
+
+            {/* Column headers */}
+            <div className="grid grid-cols-2 gap-3 mb-2">
+              <p className="text-[10px] font-bold text-[#8B0000] uppercase tracking-widest text-center">Incall</p>
+              <p className="text-[10px] font-bold text-[#FFD700] uppercase tracking-widest text-center">Outcall</p>
             </div>
-            <div className="mt-5 p-4 bg-[#FFD700]/10 border border-[#FFD700]/20 rounded-2xl">
+
+            {/* Short 1hr */}
+            <p className="text-[10px] text-text-muted uppercase tracking-widest mb-1">Short (1hr)</p>
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted font-bold text-xs">KES</span>
+                <input type="number" value={rateIncall} onChange={e=>setRateIncall(e.target.value)} className={inputCls} style={{paddingLeft:'3.2rem'}} placeholder="3000"/>
+              </div>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted font-bold text-xs">KES</span>
+                <input type="number" value={rateOutcall} onChange={e=>setRateOutcall(e.target.value)} className={inputCls} style={{paddingLeft:'3.2rem'}} placeholder="5000"/>
+              </div>
+            </div>
+
+            {/* Overnight */}
+            <p className="text-[10px] text-text-muted uppercase tracking-widest mb-1">Overnight</p>
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted font-bold text-xs">KES</span>
+                <input type="number" value={rateIncallOvernight} onChange={e=>setRateIncallOvernight(e.target.value)} className={inputCls} style={{paddingLeft:'3.2rem'}} placeholder="20000"/>
+              </div>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted font-bold text-xs">KES</span>
+                <input type="number" value={rateOutcallOvernight} onChange={e=>setRateOutcallOvernight(e.target.value)} className={inputCls} style={{paddingLeft:'3.2rem'}} placeholder="25000"/>
+              </div>
+            </div>
+
+            {/* Video Call */}
+            <p className="text-[10px] text-text-muted uppercase tracking-widest mb-1">Video Call</p>
+            <div className="relative mb-5">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted font-bold text-xs">KES</span>
+              <input type="number" value={rateVideo} onChange={e=>setRateVideo(e.target.value)} className={inputCls} style={{paddingLeft:'3.2rem'}} placeholder="1500"/>
+            </div>
+
+            <div className="p-4 bg-[#FFD700]/10 border border-[#FFD700]/20 rounded-2xl">
               <p className="text-xs font-bold text-[#FFD700] mb-2">💡 Pricing Tips</p>
               <ul className="space-y-1">
                 {['Start competitively to build reviews quickly','Elite escorts charge KES 8,000–20,000/hr','Verified escorts earn 3× more bookings'].map(t => (
@@ -1024,7 +1046,7 @@ export default function RegisterPage() {
                   ['Languages',  selLangs.length ? selLangs.join(', ') : '—'],
                   ['WhatsApp',   whatsapp  || '—'],
                   ['Services',   selServices.length ? `${selServices.length} selected` : '—'],
-                  ['Rate/hr',    rateHourly ? `KES ${parseInt(rateHourly).toLocaleString()}` : '—'],
+                  ['Incall 1hr', rateIncall ? `KES ${parseInt(rateIncall).toLocaleString()}` : '—'],
                   ['Photos',     `${photos.length} uploaded`],
                 ] : [])
               ] as [string,string][]).map(([l,v]) => (

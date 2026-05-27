@@ -82,11 +82,13 @@ ALTER TABLE escorts
   ADD COLUMN IF NOT EXISTS `price_video`     int(10) UNSIGNED NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS `price_incall`    int(10) UNSIGNED NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS `price_outcall`   int(10) UNSIGNED NOT NULL DEFAULT 0,
-  ADD COLUMN IF NOT EXISTS `whatsapp`        varchar(20)      DEFAULT NULL,
-  ADD COLUMN IF NOT EXISTS `telegram`        varchar(100)     DEFAULT NULL,
-  ADD COLUMN IF NOT EXISTS `featured`        tinyint(1)       NOT NULL DEFAULT 0,
-  ADD COLUMN IF NOT EXISTS `instagram`       varchar(100)     DEFAULT NULL,
-  ADD COLUMN IF NOT EXISTS `facebook`        varchar(100)     DEFAULT NULL;
+  ADD COLUMN IF NOT EXISTS `whatsapp`               varchar(20)      DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS `telegram`               varchar(100)     DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS `featured`               tinyint(1)       NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS `instagram`              varchar(100)     DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS `facebook`               varchar(100)     DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS `price_incall_overnight` int(10) UNSIGNED NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS `price_outcall_overnight` int(10) UNSIGNED NOT NULL DEFAULT 0;
 
 -- =============================================================================
 -- 3. Create platform_settings table (Admin → Settings & API Keys tabs)

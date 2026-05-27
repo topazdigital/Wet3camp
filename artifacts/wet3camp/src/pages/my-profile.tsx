@@ -41,11 +41,11 @@ export default function MyProfile() {
         setEditCity(data.city || '')
         setEditArea(data.area || '')
         setEditHeight(data.height || '')
-        setEditHourly(data.price_hourly ? String(data.price_hourly) : '')
-        setEditOvernight(data.price_overnight ? String(data.price_overnight) : '')
-        setEditVideo(data.price_video ? String(data.price_video) : '')
         setEditIncall(data.price_incall ? String(data.price_incall) : '')
         setEditOutcall(data.price_outcall ? String(data.price_outcall) : '')
+        setEditIncallOvernight(data.price_incall_overnight ? String(data.price_incall_overnight) : '')
+        setEditOutcallOvernight(data.price_outcall_overnight ? String(data.price_outcall_overnight) : '')
+        setEditVideo(data.price_video ? String(data.price_video) : '')
       })
       .catch(() => {})
       .finally(() => setProfileLoading(false))
@@ -97,11 +97,11 @@ export default function MyProfile() {
   const [editCity, setEditCity] = useState('')
   const [editArea, setEditArea] = useState('')
   const [editHeight, setEditHeight] = useState('')
-  const [editHourly, setEditHourly] = useState('')
-  const [editOvernight, setEditOvernight] = useState('')
-  const [editVideo, setEditVideo] = useState('')
   const [editIncall, setEditIncall] = useState('')
   const [editOutcall, setEditOutcall] = useState('')
+  const [editIncallOvernight, setEditIncallOvernight] = useState('')
+  const [editOutcallOvernight, setEditOutcallOvernight] = useState('')
+  const [editVideo, setEditVideo] = useState('')
   const [editSaveError, setEditSaveError] = useState('')
   const [editSaving, setEditSaving] = useState(false)
 
@@ -301,11 +301,11 @@ export default function MyProfile() {
         hairColor:    editHair,
         height:       editHeight,
         languages:    editLangs,
-        rateHourly:   editHourly   ? parseInt(editHourly)   : undefined,
-        rateOvernight:editOvernight ? parseInt(editOvernight) : undefined,
-        rateVideo:    editVideo    ? parseInt(editVideo)    : undefined,
-        rateIncall:   editIncall   ? parseInt(editIncall)   : undefined,
-        rateOutcall:  editOutcall  ? parseInt(editOutcall)  : undefined,
+        rateIncall:          editIncall          ? parseInt(editIncall)          : undefined,
+        rateOutcall:         editOutcall         ? parseInt(editOutcall)         : undefined,
+        rateIncallOvernight: editIncallOvernight ? parseInt(editIncallOvernight) : undefined,
+        rateOutcallOvernight:editOutcallOvernight? parseInt(editOutcallOvernight): undefined,
+        rateVideo:           editVideo           ? parseInt(editVideo)           : undefined,
       })
       setEditSaved(true); setTimeout(() => setEditSaved(false), 3000)
     } catch (err: any) {
@@ -797,14 +797,27 @@ export default function MyProfile() {
               </div>
               <div className="bg-card-bg border border-color rounded-2xl p-5">
                 <h3 className="text-sm font-bold text-text-light mb-4">Pricing (KES)</h3>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  <div><label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Per Hour</label><input type="number" value={editHourly}    onChange={e => setEditHourly(e.target.value)}    className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#FFD700] transition-all"/></div>
-                  <div><label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Overnight</label><input type="number" value={editOvernight} onChange={e => setEditOvernight(e.target.value)} className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#FFD700] transition-all"/></div>
-                  <div><label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Video Call</label><input type="number" value={editVideo}    onChange={e => setEditVideo(e.target.value)}    className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#FFD700] transition-all"/></div>
-                  <div><label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Incall Rate</label><input type="number" value={editIncall}   onChange={e => setEditIncall(e.target.value)}   placeholder="e.g. 4000" className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#FFD700] transition-all"/></div>
-                  <div><label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Outcall Rate</label><input type="number" value={editOutcall}  onChange={e => setEditOutcall(e.target.value)}  placeholder="e.g. 5000" className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#FFD700] transition-all"/></div>
+                {/* Column headers */}
+                <div className="grid grid-cols-2 gap-3 mb-1">
+                  <p className="text-[10px] font-bold text-[#8B0000] uppercase tracking-widest text-center">Incall</p>
+                  <p className="text-[10px] font-bold text-[#FFD700] uppercase tracking-widest text-center">Outcall</p>
                 </div>
-                <p className="text-[10px] text-text-muted mt-2">Incall = client comes to you. Outcall = you go to client.</p>
+                {/* Short 1hr */}
+                <p className="text-[9px] text-text-muted uppercase tracking-widest mb-1 mt-1">Short (1hr)</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <input type="number" value={editIncall} onChange={e => setEditIncall(e.target.value)} placeholder="e.g. 3000" className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#8B0000] transition-all"/>
+                  <input type="number" value={editOutcall} onChange={e => setEditOutcall(e.target.value)} placeholder="e.g. 5000" className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#FFD700] transition-all"/>
+                </div>
+                {/* Overnight */}
+                <p className="text-[9px] text-text-muted uppercase tracking-widest mb-1 mt-3">Overnight</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <input type="number" value={editIncallOvernight} onChange={e => setEditIncallOvernight(e.target.value)} placeholder="e.g. 20000" className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#8B0000] transition-all"/>
+                  <input type="number" value={editOutcallOvernight} onChange={e => setEditOutcallOvernight(e.target.value)} placeholder="e.g. 25000" className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#FFD700] transition-all"/>
+                </div>
+                {/* Video Call */}
+                <p className="text-[9px] text-text-muted uppercase tracking-widest mb-1 mt-3">Video Call</p>
+                <input type="number" value={editVideo} onChange={e => setEditVideo(e.target.value)} placeholder="e.g. 1500" className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#FFD700] transition-all"/>
+                <p className="text-[10px] text-text-muted mt-3">Incall = client comes to you · Outcall = you go to client</p>
               </div>
               {editSaveError && <p className="text-xs text-[#EF4444] text-center">{editSaveError}</p>}
               <button onClick={handleSave} disabled={editSaving} className={`w-full py-3 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${editSaved?'bg-[#28a745] text-white':editSaving?'bg-gray-600 text-white cursor-wait':'bg-gradient-to-r from-[#8B0000] to-[#a00000] text-white hover:from-[#a00000] hover:to-[#8B0000]'}`}>
