@@ -1,7 +1,10 @@
 import { Router } from 'express'
+import { createHash } from 'crypto'
 import { getPool } from '../lib/db.js'
 import { requireAuth, type AuthRequest } from '../middlewares/requireAuth.js'
 import { setEscortOnline } from '../lib/online-store.js'
+
+function hashPassword(p: string) { return createHash('sha256').update(p).digest('hex') }
 
 const router = Router()
 
@@ -130,6 +133,37 @@ router.patch('/profile/escort', requireAuth, async (req: AuthRequest, res) => {
     res.json({ ...row, id: String(row.id), available: !!row.available })
   } catch {
     res.status(500).json({ message: 'Failed to update escort profile' })
+  }
+})
+
+router.patch('/profile/password', requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const pool = getPool()
+    if (!pool) { res.status(503).json({ message: 'Database not configured' }); return }
+
+    const { currentPassword, newPassword } = req.body as Record<string, string>
+    if (!newPassword || newPassword.length < 8) {
+      res.status(400).json({ message: 'New password must be at least 8 characters.' }); return
+    }
+
+    const [[user]] = await pool.query<any[]>('SELECT id, password FROM users WHERE id = ?', [req.userId])
+    if (!user) { res.status(404).json({ message: 'User not found' }); return }
+
+    // If the user has an existing password, verify it first
+    if (user.password) {
+      if (!currentPassword) {
+        res.status(400).json({ message: 'Current password is required.' }); return
+      }
+      const hashed = hashPassword(currentPassword)
+      if (hashed !== user.password) {
+        res.status(400).json({ message: 'Current password is incorrect.' }); return
+      }
+    }
+
+    await pool.query('UPDATE users SET password = ? WHERE id = ?', [hashPassword(newPassword), req.userId])
+    res.json({ message: 'Password updated successfully.' })
+  } catch {
+    res.status(500).json({ message: 'Failed to update password' })
   }
 })
 
