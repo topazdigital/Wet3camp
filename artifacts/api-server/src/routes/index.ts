@@ -16,6 +16,7 @@ import aiRouter            from "./ai.js";
 import uploadRouter        from "./upload.js";
 import notificationsRouter from "./notifications.js";
 import webrtcRouter        from "./webrtc.js";
+import claimsRouter        from "./claims.js";
 
 const router: IRouter = Router();
 
@@ -36,5 +37,6 @@ router.use(roomsRouter);
 router.use(aiRouter);
 router.use(uploadRouter);
 router.use(notificationsRouter);
+router.use(claimsRouter);
 
 export default router;

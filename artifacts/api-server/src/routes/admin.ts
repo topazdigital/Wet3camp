@@ -469,6 +469,57 @@ router.post('/admin/seed-escorts', requireAuth, requireAdmin, async (_req: AuthR
   }
 })
 
+router.post('/admin/escorts', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  const pool = getPool()
+  if (!pool) { res.status(503).json({ message: 'Database not configured' }); return }
+  try {
+    const {
+      name, age, city, area, tier, bio, whatsapp, telegram, phone, gender,
+      price_hourly, price_overnight, price_video,
+    } = req.body as Record<string, any>
+
+    if (!name || !city) {
+      res.status(400).json({ message: 'name and city are required' }); return
+    }
+
+    const [result] = await pool.query<any>(
+      `INSERT INTO escorts (name, age, city, area, tier, bio, whatsapp, telegram, phone, gender,
+        price_hourly, price_overnight, price_video, price_incall, price_outcall,
+        available, verified, is_active, lat, lng, rating, reviews_count)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      [
+        name.trim(),
+        age ? parseInt(age) : 0,
+        city,
+        area || '',
+        tier || 'standard',
+        bio || null,
+        whatsapp || null,
+        telegram || null,
+        phone || null,
+        gender || 'Female',
+        price_hourly ? parseInt(price_hourly) : 0,
+        price_overnight ? parseInt(price_overnight) : 0,
+        price_video ? parseInt(price_video) : 0,
+        0, 0, 0, 0, 1, 0, 0, 0, 0,
+      ]
+    )
+
+    res.status(201).json({
+      id: String((result as any).insertId),
+      name: name.trim(),
+      city,
+      tier: tier || 'standard',
+      is_active: true,
+      verified: false,
+      online: false,
+    })
+  } catch (err: any) {
+    console.error('[admin/escorts POST]', err?.message ?? err)
+    res.status(500).json({ message: 'Failed to create escort', detail: err?.message ?? '' })
+  }
+})
+
 router.get('/admin/health', requireAuth, requireAdmin, async (_req: AuthRequest, res) => {
   const pool = getPool()
   const status: Record<string, { ok: boolean; detail: string }> = {}

@@ -264,3 +264,16 @@ INSERT INTO platform_settings ("key", value) VALUES
   ('sub_quarterly',         '1200'),
   ('sub_annual',            '4000')
 ON CONFLICT ("key") DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS profile_claims (
+  id         SERIAL PRIMARY KEY,
+  escort_id  INTEGER      NOT NULL,
+  user_id    INTEGER      NOT NULL,
+  message    TEXT         DEFAULT NULL,
+  status     VARCHAR(20)  NOT NULL DEFAULT 'pending',
+  created_at TIMESTAMP    NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP    NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_profile_claims_escort_id ON profile_claims (escort_id);
+CREATE INDEX IF NOT EXISTS idx_profile_claims_user_id ON profile_claims (user_id);
+CREATE INDEX IF NOT EXISTS idx_profile_claims_status ON profile_claims (status);

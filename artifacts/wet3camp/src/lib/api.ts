@@ -58,6 +58,13 @@ export const api = {
       return req<{ data: ApiEscort[]; total: number }>(`/escorts${qs ? '?' + qs : ''}`)
     },
     get: (id: string) => req<ApiEscort>(`/escorts/${id}`),
+    claim: (id: string, message?: string) =>
+      req<{ success: boolean; message: string }>(`/escorts/${id}/claim`, {
+        method: 'POST',
+        body: JSON.stringify({ message: message || '' }),
+      }),
+    claimStatus: (id: string) =>
+      req<{ status: string | null }>(`/escorts/${id}/claim-status`),
   },
 
   auth: {
@@ -157,7 +164,7 @@ export const api = {
   },
 
   upload: {
-    photo: (data: string, type: 'avatar' | 'gallery', filename?: string) =>
+    photo: (data: string, type: 'avatar' | 'gallery' | 'room', filename?: string) =>
       req<{ success: boolean; url: string }>('/upload', {
         method: 'POST',
         body: JSON.stringify({ data, filename, type }),

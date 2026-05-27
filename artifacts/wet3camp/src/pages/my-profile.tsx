@@ -137,6 +137,8 @@ export default function MyProfile() {
   const [roomSaving, setRoomSaving] = useState(false)
   const [roomSaved, setRoomSaved] = useState(false)
   const [roomError, setRoomError] = useState('')
+  const [roomPhotoUrl, setRoomPhotoUrl] = useState<string | null>(null)
+  const [roomPhotoUploading, setRoomPhotoUploading] = useState(false)
 
   const ROOM_AMENITIES = ['WiFi', 'AC', 'TV', 'En-suite', 'Room Service', 'Parking', 'Hot Shower', 'CCTV', 'Private Entrance', 'Mini Bar']
   const toggleRoomAmenity = (a: string) => setRoomForm(f => ({ ...f, amenities: f.amenities.includes(a) ? f.amenities.filter(x => x !== a) : [...f.amenities, a] }))
@@ -149,14 +151,32 @@ export default function MyProfile() {
         name: roomForm.name, hotel: roomForm.hotel, city: roomForm.city, area: roomForm.area,
         type: roomForm.type, price_night: Number(roomForm.price_night), price_hourly: roomForm.price_hourly ? Number(roomForm.price_hourly) : undefined,
         amenities: roomForm.amenities,
+        image: roomPhotoUrl ?? undefined,
       })
       setRoomSaved(true)
       setRoomForm({ name: '', hotel: '', city: 'Nairobi', area: '', type: 'Standard', price_night: '', price_hourly: '', amenities: [] })
+      setRoomPhotoUrl(null)
       setTimeout(() => setRoomSaved(false), 4000)
     } catch (err: any) {
       setRoomError(err?.message ?? 'Failed to add room. Please try again.')
     }
     setRoomSaving(false)
+  }
+
+  const handleRoomPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setRoomPhotoUploading(true)
+    try {
+      const data = await compressImage(file, 1200, 0.85)
+      const res = await api.upload.photo(data, 'room', file.name)
+      if (res?.url) setRoomPhotoUrl(res.url)
+    } catch (err: any) {
+      console.error('[room photo upload]', err?.message ?? err)
+    } finally {
+      setRoomPhotoUploading(false)
+      e.target.value = ''
+    }
   }
 
   // Photo upload state
@@ -650,7 +670,32 @@ export default function MyProfile() {
                       <input type="number" value={roomForm.price_hourly} onChange={e => setRoomForm(f => ({...f, price_hourly: e.target.value}))} placeholder="e.g. 800" className="w-full px-3 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted/50 focus:outline-none focus:border-[#FFD700] transition-all"/>
                     </div>
                   </div>
-                  <div>
+                  <div className="col-span-2">
+                    <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-2">Room Photo</label>
+                    <div className="flex items-center gap-3">
+                      {roomPhotoUrl ? (
+                        <div className="relative w-24 h-20 rounded-xl overflow-hidden border border-[#28a745]/40 flex-shrink-0">
+                          <img src={roomPhotoUrl} alt="Room preview" className="w-full h-full object-cover"/>
+                          <button type="button" onClick={() => setRoomPhotoUrl(null)} className="absolute top-1 right-1 w-5 h-5 bg-black/70 rounded-full flex items-center justify-center text-white hover:bg-red-600 transition-colors">
+                            <XCircle size={10}/>
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="w-24 h-20 rounded-xl border border-dashed border-color flex items-center justify-center bg-dark-bg text-text-muted flex-shrink-0">
+                          <Camera size={18}/>
+                        </div>
+                      )}
+                      <label className={`flex-1 flex items-center justify-center gap-2 py-2.5 border border-dashed rounded-xl text-xs font-semibold cursor-pointer transition-all ${roomPhotoUploading ? 'border-color text-text-muted opacity-60' : 'border-[#8B0000]/40 text-text-muted hover:border-[#8B0000] hover:text-text-light'}`}>
+                        <input type="file" accept="image/*" className="hidden" disabled={roomPhotoUploading} onChange={handleRoomPhotoUpload}/>
+                        {roomPhotoUploading ? (
+                          <><Loader2 size={13} className="animate-spin"/> Uploading…</>
+                        ) : (
+                          <><Camera size={13}/> {roomPhotoUrl ? 'Change Photo' : 'Add Photo'}</>
+                        )}
+                      </label>
+                    </div>
+                  </div>
+                  <div className="col-span-2">
                     <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-2">Amenities</label>
                     <div className="flex flex-wrap gap-2">
                       {ROOM_AMENITIES.map(a => (

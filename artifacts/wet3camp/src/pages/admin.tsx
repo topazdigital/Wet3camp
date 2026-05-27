@@ -25,7 +25,7 @@ interface AdminEscort {
   featured?: boolean | number; price_hourly?: number; bookings_count?: number
 }
 
-const TABS = ['Overview','Escorts','Clients','Bookings','Moderators','Featured','Blog','API Keys','Settings']
+const TABS = ['Overview','Escorts','Claims','Clients','Bookings','Moderators','Featured','Blog','API Keys','Settings']
 
 interface Moderator { id: number; name: string; email: string; role: string; level: 1|2|3; status: 'active'|'inactive'; createdAt: string }
 
@@ -715,6 +715,233 @@ function BulkOnlinePanel({ escorts, onBulkToggle }: { escorts: AdminEscort[]; on
   )
 }
 
+function AddEscortModal({ onClose, onCreated }: { onClose: () => void; onCreated: (e: any) => void }) {
+  const [form, setForm] = useState({
+    name: '', city: 'Nairobi', area: '', age: '', tier: 'standard',
+    bio: '', whatsapp: '', telegram: '', gender: 'Female',
+    price_hourly: '', price_overnight: '', price_video: '',
+  })
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!form.name.trim() || !form.city) { setError('Name and city are required.'); return }
+    setSaving(true); setError('')
+    try {
+      const data = await adminFetch('/admin/escorts', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...form,
+          age: form.age ? parseInt(form.age) : 0,
+          price_hourly: form.price_hourly ? parseInt(form.price_hourly) : 0,
+          price_overnight: form.price_overnight ? parseInt(form.price_overnight) : 0,
+          price_video: form.price_video ? parseInt(form.price_video) : 0,
+        }),
+      })
+      onCreated(data)
+      onClose()
+    } catch (err: any) {
+      setError(err?.message ?? 'Failed to create escort.')
+    }
+    setSaving(false)
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="bg-card-bg border border-color rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-5 border-b border-color">
+          <h3 className="text-sm font-bold text-text-light flex items-center gap-2"><Plus size={14} className="text-[#8B0000]"/>Add Escort Profile</h3>
+          <button onClick={onClose} className="p-1.5 text-text-muted hover:text-text-light rounded-lg"><XCircle size={16}/></button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          {error && <p className="text-xs text-[#EF4444] bg-[#EF4444]/10 px-3 py-2 rounded-lg">{error}</p>}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Name *</label>
+              <input value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="e.g. Amara K." className="w-full px-3 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted/50 focus:outline-none focus:border-[#8B0000] transition-all"/>
+            </div>
+            <div>
+              <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">City *</label>
+              <select value={form.city} onChange={e=>setForm(f=>({...f,city:e.target.value}))} className="w-full px-3 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#8B0000] transition-all">
+                {['Nairobi','Mombasa','Kisumu','Nakuru','Eldoret','Malindi','Thika','Nyeri'].map(c=><option key={c}>{c}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Area</label>
+              <input value={form.area} onChange={e=>setForm(f=>({...f,area:e.target.value}))} placeholder="e.g. Westlands" className="w-full px-3 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted/50 focus:outline-none focus:border-[#8B0000] transition-all"/>
+            </div>
+            <div>
+              <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Age</label>
+              <input type="number" min="18" max="70" value={form.age} onChange={e=>setForm(f=>({...f,age:e.target.value}))} placeholder="e.g. 24" className="w-full px-3 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted/50 focus:outline-none focus:border-[#8B0000] transition-all"/>
+            </div>
+            <div>
+              <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Tier</label>
+              <select value={form.tier} onChange={e=>setForm(f=>({...f,tier:e.target.value}))} className="w-full px-3 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#8B0000] transition-all">
+                {['standard','premium','vip','elite'].map(t=><option key={t} value={t}>{t.charAt(0).toUpperCase()+t.slice(1)}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Gender</label>
+              <select value={form.gender} onChange={e=>setForm(f=>({...f,gender:e.target.value}))} className="w-full px-3 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#8B0000] transition-all">
+                {['Female','Male','Trans Woman','Trans Man','Non-Binary'].map(g=><option key={g}>{g}</option>)}
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Bio</label>
+            <textarea value={form.bio} onChange={e=>setForm(f=>({...f,bio:e.target.value}))} rows={3} placeholder="Short profile description…" className="w-full px-3 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted/50 focus:outline-none focus:border-[#8B0000] transition-all resize-none"/>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">WhatsApp</label>
+              <input value={form.whatsapp} onChange={e=>setForm(f=>({...f,whatsapp:e.target.value}))} placeholder="254712345678" className="w-full px-3 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted/50 focus:outline-none focus:border-[#8B0000] transition-all"/>
+            </div>
+            <div>
+              <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Telegram</label>
+              <input value={form.telegram} onChange={e=>setForm(f=>({...f,telegram:e.target.value}))} placeholder="@username" className="w-full px-3 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted/50 focus:outline-none focus:border-[#8B0000] transition-all"/>
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Hourly (KES)</label>
+              <input type="number" value={form.price_hourly} onChange={e=>setForm(f=>({...f,price_hourly:e.target.value}))} placeholder="3000" className="w-full px-3 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted/50 focus:outline-none focus:border-[#FFD700] transition-all"/>
+            </div>
+            <div>
+              <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Overnight (KES)</label>
+              <input type="number" value={form.price_overnight} onChange={e=>setForm(f=>({...f,price_overnight:e.target.value}))} placeholder="20000" className="w-full px-3 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted/50 focus:outline-none focus:border-[#FFD700] transition-all"/>
+            </div>
+            <div>
+              <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Video (KES)</label>
+              <input type="number" value={form.price_video} onChange={e=>setForm(f=>({...f,price_video:e.target.value}))} placeholder="1500" className="w-full px-3 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted/50 focus:outline-none focus:border-[#FFD700] transition-all"/>
+            </div>
+          </div>
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={onClose} className="flex-1 py-2.5 border border-color text-text-muted text-sm rounded-xl hover:bg-dark-bg transition-all">Cancel</button>
+            <button type="submit" disabled={saving} className="flex-1 py-2.5 bg-[#8B0000] text-white text-sm font-bold rounded-xl hover:bg-[#a00000] disabled:opacity-60 transition-all flex items-center justify-center gap-2">
+              {saving && <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"/>}
+              {saving ? 'Creating…' : 'Create Profile'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+function ClaimsTab() {
+  const [claims, setClaims] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [feedback, setFeedback] = useState<{ ok: boolean; msg: string } | null>(null)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const data = await adminFetch('/admin/claims')
+      setClaims(Array.isArray(data) ? data : [])
+    } catch {
+      setClaims([])
+    }
+    setLoading(false)
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  const handleAction = async (id: string, action: 'approve' | 'reject') => {
+    setActionLoading(id + '_' + action)
+    try {
+      await adminFetch(`/admin/claims/${id}/${action}`, { method: 'PATCH' })
+      setClaims(prev => prev.map(c => String(c.id) === id ? { ...c, status: action === 'approve' ? 'approved' : 'rejected' } : c))
+      setFeedback({ ok: true, msg: action === 'approve' ? 'Claim approved — profile linked to user.' : 'Claim rejected.' })
+    } catch {
+      setFeedback({ ok: false, msg: 'Action failed. Please try again.' })
+    }
+    setActionLoading(null)
+    setTimeout(() => setFeedback(null), 4000)
+  }
+
+  const pending = claims.filter(c => c.status === 'pending')
+  const resolved = claims.filter(c => c.status !== 'pending')
+
+  return (
+    <div className="space-y-5">
+      {feedback && (
+        <div className={`flex items-center gap-2 p-3 rounded-xl border ${feedback.ok ? 'bg-[#28a745]/10 border-[#28a745]/20 text-[#28a745]' : 'bg-[#EF4444]/10 border-[#EF4444]/20 text-[#EF4444]'}`}>
+          <p className="text-xs font-semibold">{feedback.msg}</p>
+        </div>
+      )}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="bg-card-bg border border-[#FFD700]/20 rounded-2xl p-4">
+          <p className="text-[10px] text-text-muted uppercase tracking-widest mb-1">Pending</p>
+          <p className="text-2xl font-black text-[#FFD700]">{pending.length}</p>
+        </div>
+        <div className="bg-card-bg border border-color rounded-2xl p-4">
+          <p className="text-[10px] text-text-muted uppercase tracking-widest mb-1">Resolved</p>
+          <p className="text-2xl font-black text-text-light">{resolved.length}</p>
+        </div>
+      </div>
+      <div className="bg-card-bg border border-color rounded-2xl overflow-hidden">
+        <div className="px-4 py-3 border-b border-color flex items-center justify-between">
+          <h3 className="text-sm font-bold text-text-light">Profile Claim Requests</h3>
+          <button onClick={load} className="p-1 text-text-muted hover:text-text-light rounded-lg" title="Refresh"><RefreshCw size={12}/></button>
+        </div>
+        {loading ? (
+          <div className="flex items-center justify-center py-12 gap-2 text-text-muted">
+            <div className="w-4 h-4 border-2 border-text-muted/30 border-t-text-muted rounded-full animate-spin"/>
+            <span className="text-sm">Loading…</span>
+          </div>
+        ) : claims.length === 0 ? (
+          <p className="text-center py-12 text-sm text-text-muted">No claim requests yet.</p>
+        ) : (
+          <div className="divide-y divide-color/40">
+            {[...pending, ...resolved].map(c => (
+              <div key={c.id} className="flex items-start gap-4 px-4 py-4 hover:bg-dark-bg transition-colors">
+                <div className="w-8 h-8 rounded-full bg-[#8B0000]/20 flex items-center justify-center text-xs font-bold text-[#8B0000] flex-shrink-0">
+                  {(c.user_name || c.user_email || 'U').charAt(0).toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold text-text-light">{c.user_name || c.user_email}</p>
+                  <p className="text-[10px] text-text-muted">
+                    claiming <span className="text-text-light font-semibold">{c.escort_name}</span>
+                    {c.escort_city && <span> ({c.escort_city})</span>}
+                  </p>
+                  {c.message && <p className="text-[10px] text-text-muted italic mt-0.5">"{c.message}"</p>}
+                  <p className="text-[9px] text-text-muted mt-0.5">{new Date(c.created_at).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                </div>
+                <div className="flex-shrink-0">
+                  {c.status === 'pending' ? (
+                    <div className="flex gap-1.5">
+                      <button
+                        onClick={() => handleAction(String(c.id), 'approve')}
+                        disabled={!!actionLoading}
+                        className="px-2.5 py-1 bg-[#28a745]/20 text-[#28a745] text-[9px] font-bold rounded-lg border border-[#28a745]/30 hover:bg-[#28a745]/30 disabled:opacity-50 flex items-center gap-1"
+                      >
+                        {actionLoading === c.id + '_approve' ? <div className="w-2.5 h-2.5 border border-[#28a745]/40 border-t-[#28a745] rounded-full animate-spin"/> : <CheckCircle2 size={10}/>}
+                        Approve
+                      </button>
+                      <button
+                        onClick={() => handleAction(String(c.id), 'reject')}
+                        disabled={!!actionLoading}
+                        className="px-2.5 py-1 bg-[#EF4444]/20 text-[#EF4444] text-[9px] font-bold rounded-lg border border-[#EF4444]/30 hover:bg-[#EF4444]/30 disabled:opacity-50 flex items-center gap-1"
+                      >
+                        {actionLoading === c.id + '_reject' ? <div className="w-2.5 h-2.5 border border-[#EF4444]/40 border-t-[#EF4444] rounded-full animate-spin"/> : <XCircle size={10}/>}
+                        Reject
+                      </button>
+                    </div>
+                  ) : (
+                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full capitalize ${c.status === 'approved' ? 'bg-[#28a745]/20 text-[#28a745]' : 'bg-[#EF4444]/20 text-[#EF4444]'}`}>{c.status}</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function EscortsTab() {
   const [escorts, setEscorts] = useState<AdminEscort[]>([])
   const [loading, setLoading] = useState(true)
@@ -724,6 +951,7 @@ function EscortsTab() {
   const [actionLoading, setActionLoading] = useState<string|null>(null)
   const [cleanupLoading, setCleanupLoading] = useState(false)
   const [cleanupMsg, setCleanupMsg] = useState('')
+  const [showAddModal, setShowAddModal] = useState(false)
 
   const handleCleanupFake = async () => {
     if (!window.confirm('This will permanently delete all seed/fake escorts (those without a real user account). Continue?')) return
@@ -850,7 +1078,7 @@ function EscortsTab() {
       <div className="bg-card-bg border border-color rounded-2xl overflow-hidden">
         <div className="px-4 py-3 border-b border-color flex items-center justify-between">
           <h3 className="text-sm font-bold text-text-light">All Escorts {!loading && `(${filtered.length})`}</h3>
-          <button className="flex items-center gap-1.5 px-3 py-1.5 bg-[#8B0000] text-white text-xs font-bold rounded-xl"><Plus size={12}/>Add Escort</button>
+          <button onClick={() => setShowAddModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-[#8B0000] text-white text-xs font-bold rounded-xl"><Plus size={12}/>Add Escort</button>
         </div>
 
         {loading && (
@@ -950,6 +1178,12 @@ function EscortsTab() {
           </div>
         )}
       </div>
+      {showAddModal && (
+        <AddEscortModal
+          onClose={() => setShowAddModal(false)}
+          onCreated={e => setEscorts(prev => [{ ...e, online: false, is_active: true, verified: false }, ...prev])}
+        />
+      )}
     </div>
   )
 }
@@ -1053,6 +1287,9 @@ function AdminDashboard() {
 
           {/* ── ESCORTS ── */}
           {activeTab === 'Escorts' && <EscortsTab />}
+
+          {/* ── CLAIMS ── */}
+          {activeTab === 'Claims' && <ClaimsTab />}
 
           {/* ── CLIENTS ── */}
           {activeTab === 'Clients' && <ClientsTab />}
