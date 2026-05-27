@@ -3,26 +3,20 @@ import Header from '@/components/Header'
 import Sidebar from '@/components/Sidebar'
 import { Heart, Star, MapPin, CheckCircle2, Trash2, MessageCircle } from 'lucide-react'
 import { Link } from 'wouter'
-import { ESCORTS } from '@/data/escorts'
 import { useFavorites } from '@/lib/favorites-context'
 import { useAllEscorts } from '@/hooks/useEscorts'
 
 const tierStyle: Record<string,{bg:string,text:string,label:string}> = {
-  Elite:    { bg:'#8B000020', text:'#8B0000', label:'ELITE'    },
-  VIP:      { bg:'#FF450020', text:'#FF4500', label:'VIP'      },
-  Premium:  { bg:'#B8860B20', text:'#B8860B', label:'PREMIUM'  },
-  Standard: { bg:'#55555520', text:'#888',    label:'STANDARD' },
+  elite:    { bg:'#8B000020', text:'#FF6B6B',  label:'ELITE'    },
+  vip:      { bg:'#FF450020', text:'#FF8C00',  label:'VIP'      },
+  premium:  { bg:'#B8860B20', text:'#B8860B',  label:'PREMIUM'  },
+  standard: { bg:'#55555520', text:'#888',     label:'STANDARD' },
 }
 
 export default function FavoritesPage() {
   const { favorites, toggleFavorite } = useFavorites()
-  const { escorts: apiEscorts, fromApi } = useAllEscorts()
-
-  const allEscorts = fromApi
-    ? (apiEscorts as unknown as typeof ESCORTS)
-    : ESCORTS
-
-  const escorts = allEscorts.filter(e => favorites.has(String(e.id)))
+  const { escorts: apiEscorts, isLoading } = useAllEscorts()
+  const escorts = apiEscorts.filter(e => favorites.has(String(e.id)))
 
   return (
     <main className="min-h-screen bg-dark-bg flex flex-col lg:flex-row">
@@ -35,7 +29,7 @@ export default function FavoritesPage() {
             <h1 className="text-2xl font-black text-text-light">My Favourites</h1>
             <p className="text-sm text-text-muted mt-0.5">{escorts.length} saved escort{escorts.length !== 1 ? 's' : ''}</p>
           </div>
-          {favorites.size > 0 && (
+          {escorts.length > 0 && (
             <button
               onClick={() => escorts.forEach(e => toggleFavorite(String(e.id)))}
               className="flex items-center gap-1.5 px-3 py-2 border border-[#EF4444]/30 text-[#EF4444] text-xs rounded-xl hover:bg-[#EF4444]/10 transition-all"
@@ -46,61 +40,80 @@ export default function FavoritesPage() {
         </div>
 
         <div className="px-4 sm:px-6 py-5">
-          {escorts.length > 0 ? (
+          {isLoading ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="bg-card-bg border border-color rounded-2xl overflow-hidden animate-pulse">
+                  <div className="aspect-[3/4] bg-dark-bg" />
+                  <div className="p-2.5 h-10 bg-dark-bg" />
+                </div>
+              ))}
+            </div>
+          ) : escorts.length > 0 ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
               {escorts.map(e => {
-                const ts = tierStyle[e.tier as string] ?? tierStyle['Standard']
+                const ts = tierStyle[e.tier?.toLowerCase() ?? 'standard'] ?? tierStyle['standard']
                 return (
                   <div key={e.id} className="bg-card-bg border border-color rounded-2xl overflow-hidden group hover:border-[#8B0000]/50 hover:shadow-lg hover:shadow-[#8B0000]/10 transition-all">
                     <div className="relative aspect-[3/4] overflow-hidden">
                       <Link href={`/profile/${e.id}`}>
-                        <img src={e.image} alt={e.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"/>
+                        {e.image ? (
+                          <img src={e.image} alt={e.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"/>
+                        ) : (
+                          <div className="w-full h-full bg-dark-bg flex items-center justify-center">
+                            <span className="text-text-muted text-xs">No photo</span>
+                          </div>
+                        )}
                       </Link>
                       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent pointer-events-none"/>
-                      <div className="absolute top-2 left-2 px-1.5 py-0.5 rounded-md text-[9px] font-bold" style={{backgroundColor:ts.bg,color:ts.text}}>{ts.label}</div>
-                      {e.available && <div className="absolute top-2 right-2 w-2 h-2 bg-[#28a745] rounded-full border border-dark-bg"/>}
+                      <div className="absolute top-2 left-2">
+                        <span className="text-[9px] font-black px-1.5 py-0.5 rounded-md" style={{background:ts.bg, color:ts.text}}>{ts.label}</span>
+                      </div>
+                      {e.online && (
+                        <div className="absolute top-2 right-2 w-2 h-2 bg-[#28a745] rounded-full border border-dark-bg animate-pulse"/>
+                      )}
                       <button
                         onClick={() => toggleFavorite(String(e.id))}
-                        className="absolute top-2 right-2 mt-5 p-1.5 bg-[#8B0000] rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-[#a00000]"
+                        className="absolute bottom-2 right-2 w-7 h-7 rounded-full bg-black/40 flex items-center justify-center hover:bg-black/60 transition-colors"
                       >
-                        <Heart size={11} fill="white"/>
+                        <Heart size={12} className="fill-[#E91E63] text-[#E91E63]"/>
                       </button>
-                      <div className="absolute bottom-2 left-2 right-2">
-                        <p className="text-white font-black text-xs">{e.name}, {e.age}</p>
-                        <div className="flex items-center gap-1 mt-0.5">
-                          <MapPin size={9} className="text-white/60"/><span className="text-[9px] text-white/60">{e.area}</span>
-                        </div>
-                      </div>
                     </div>
                     <div className="p-2.5">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-0.5"><Star size={10} className="fill-[#FFD700] text-[#FFD700]"/><span className="text-[10px] font-bold text-text-light ml-0.5">{e.rating}</span></div>
-                        <span className="text-[10px] font-bold text-[#FFD700]">KES {(e.pricing.hourly).toLocaleString()}/hr</span>
+                      <Link href={`/profile/${e.id}`}>
+                        <div className="flex items-center gap-1 mb-0.5">
+                          <span className="font-bold text-text-light text-xs truncate hover:underline">{e.name}</span>
+                          {e.verified && <CheckCircle2 size={9} className="text-[#28a745] flex-shrink-0"/>}
+                        </div>
+                      </Link>
+                      <div className="flex items-center gap-0.5 text-text-muted mb-1">
+                        <MapPin size={8}/>
+                        <span className="text-[9px] truncate">{e.area ? `${e.area}, ${e.city}` : e.city}</span>
                       </div>
-                      <div className="flex gap-1.5">
-                        <Link href={`/profile/${e.id}`} className="flex-1 py-1.5 text-center text-[10px] font-bold border border-color text-text-light rounded-lg hover:border-[#FFD700] transition-all flex items-center justify-center gap-1">
-                          <CheckCircle2 size={9}/> Book
-                        </Link>
-                        <Link href="/messages" className="py-1.5 px-2 bg-[#8B0000]/20 border border-[#8B0000]/30 text-[#8B0000] rounded-lg hover:bg-[#8B0000]/30 transition-all flex items-center justify-center">
-                          <MessageCircle size={11}/>
-                        </Link>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-0.5">
+                          <Star size={9} className="fill-[#FFD700] text-[#FFD700]"/>
+                          <span className="text-[10px] text-text-muted">{Number(e.rating || 0).toFixed(1)}</span>
+                        </div>
+                        {(e.pricing?.hourly ?? 0) > 0 && (
+                          <span className="text-[9px] text-[#FFD700] font-bold">KES {(e.pricing.hourly).toLocaleString()}/hr</span>
+                        )}
                       </div>
+                      <Link href={`/profile/${e.id}`} className="mt-2 flex items-center justify-center gap-1 py-1.5 bg-dark-bg border border-color rounded-lg text-[10px] font-bold text-text-muted hover:text-text-light hover:border-text-muted transition-all">
+                        <MessageCircle size={10}/> Contact
+                      </Link>
                     </div>
                   </div>
                 )
               })}
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center py-20 text-center gap-4">
-              <div className="w-20 h-20 rounded-2xl bg-card-bg border border-color flex items-center justify-center">
-                <Heart size={36} className="text-text-muted"/>
-              </div>
-              <div>
-                <p className="font-bold text-text-light text-base">No favourites yet</p>
-                <p className="text-sm text-text-muted mt-1">Browse profiles and tap the heart icon to save your favourites</p>
-              </div>
-              <Link href="/" className="px-6 py-3 bg-gradient-to-r from-[#8B0000] to-[#a00000] text-white font-bold text-sm rounded-xl hover:from-[#a00000] hover:to-[#8B0000] transition-all">
-                Browse Escorts →
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <Heart size={48} className="text-text-muted/30 mb-4"/>
+              <h2 className="text-lg font-bold text-text-light mb-2">No favourites yet</h2>
+              <p className="text-sm text-text-muted mb-6 max-w-xs">Browse escorts and tap the heart icon to save your favourites here.</p>
+              <Link href="/" className="px-6 py-3 bg-[#8B0000] text-white font-bold text-sm rounded-xl hover:bg-[#a00000] transition-all">
+                Browse Escorts
               </Link>
             </div>
           )}
