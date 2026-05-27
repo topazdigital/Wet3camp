@@ -169,6 +169,20 @@ router.patch('/admin/escorts/:id/verify', requireAuth, requireAdmin, async (req:
   }
 })
 
+router.patch('/admin/escorts/:id/toggle-verified', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const pool = getPool()
+    if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
+    const [[row]] = await pool.query<any[]>('SELECT verified, name FROM escorts WHERE id = ? LIMIT 1', [req.params!.id])
+    if (!row) { res.status(404).json({ message: 'Escort not found' }); return }
+    const newVerified = row.verified ? 0 : 1
+    await pool.query('UPDATE escorts SET verified = ? WHERE id = ?', [newVerified, req.params!.id])
+    res.json({ success: true, verified: !!newVerified })
+  } catch {
+    res.status(500).json({ message: 'Failed to toggle verified' })
+  }
+})
+
 router.patch('/admin/escorts/bulk-online', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
   try {
     const online = req.body.online === true || req.body.online === 1

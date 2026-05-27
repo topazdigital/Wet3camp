@@ -824,7 +824,18 @@ export default function MyProfile() {
               <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2 mb-4">
                 {gallery.map((img: string, i: number) => (
                   <div key={i} className="relative aspect-square rounded-xl overflow-hidden border border-color group">
-                    <img src={img} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform"/>
+                    <img
+                      src={img}
+                      alt=""
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform"
+                      onError={e => {
+                        const t = e.currentTarget
+                        if (!t.dataset.fallback) {
+                          t.dataset.fallback = '1'
+                          t.src = 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=400&h=400&fit=crop&crop=face'
+                        }
+                      }}
+                    />
                     <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                       <button
                         onClick={() => handleRemoveGalleryPhoto(img)}

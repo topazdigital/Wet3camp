@@ -9,7 +9,7 @@ import { getPool } from '../lib/db.js'
 const router = Router()
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const UPLOADS_DIR = process.env.UPLOADS_DIR || path.join(__dirname, '..', '..', 'uploads')
+const UPLOADS_DIR = process.env.UPLOADS_DIR || path.join(__dirname, '..', 'uploads')
 
 async function ensureUploadsDir() {
   if (!existsSync(UPLOADS_DIR)) {

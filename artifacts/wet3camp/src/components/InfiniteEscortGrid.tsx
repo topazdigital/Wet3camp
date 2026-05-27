@@ -126,7 +126,14 @@ export default function InfiniteEscortGrid({
               <div className="bg-card-bg rounded-xl overflow-hidden border border-color hover:border-[#8B0000]/50 hover:shadow-lg hover:shadow-[#8B0000]/10 transition-all duration-200">
                 <div className="relative w-full aspect-[3/4] overflow-hidden">
                   <img
-                    src={escort.image}
+                    src={(() => {
+                      if (!escort.image) {
+                        const n = parseInt(escort.id.replace(/\D/g,'') || '0') % 6
+                        const photos = ['photo-1531123897727-8f129e1688ce','photo-1522529599102-193c0d76b5b6','photo-1509868918748-a554bf5f7e09','photo-1531123414780-f74242c2b052','photo-1583195764036-798f1052af7e','photo-1488716820095-cbe80883c496']
+                        return `https://images.unsplash.com/${photos[n]}?w=600&h=800&fit=crop&crop=face`
+                      }
+                      return escort.image
+                    })()}
                     alt={escort.name}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-400"
                     loading={idx < 12 ? 'eager' : 'lazy'}

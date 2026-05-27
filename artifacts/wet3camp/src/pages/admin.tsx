@@ -989,6 +989,15 @@ function EscortsTab() {
     ))
   }
 
+  const handleToggleVerified = async (id: string, currentlyVerified: boolean) => {
+    setActionLoading(id + '_verified')
+    try {
+      await adminFetch(`/admin/escorts/${id}/toggle-verified`, { method: 'PATCH' })
+      setEscorts(prev => prev.map(e => e.id === id ? { ...e, verified: !currentlyVerified, is_active: !currentlyVerified ? true : e.is_active } : e))
+    } catch {}
+    setActionLoading(null)
+  }
+
   const handleApprove = async (id: string) => {
     setActionLoading(id + '_approve')
     try {
@@ -1125,9 +1134,15 @@ function EscortsTab() {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      {Boolean(e.verified)
-                        ? <span className="flex items-center gap-1 text-[#FFD700]"><CheckCircle2 size={11}/>Verified</span>
-                        : <span className="flex items-center gap-1 text-text-muted"><AlertTriangle size={11}/>Unverified</span>}
+                      <button
+                        onClick={() => handleToggleVerified(e.id, Boolean(e.verified))}
+                        disabled={actionLoading === e.id + '_verified'}
+                        title={Boolean(e.verified) ? 'Click to unverify' : 'Click to verify'}
+                        className={`flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-lg border transition-all disabled:opacity-50 ${Boolean(e.verified) ? 'text-[#FFD700] border-[#FFD700]/30 bg-[#FFD700]/10 hover:bg-[#FFD700]/20' : 'text-text-muted border-color bg-dark-bg hover:border-[#FFD700]/40 hover:text-[#FFD700]'}`}
+                      >
+                        {actionLoading === e.id + '_verified' ? <div className="w-2.5 h-2.5 border border-current/40 border-t-current rounded-full animate-spin" /> : Boolean(e.verified) ? <CheckCircle2 size={11}/> : <AlertTriangle size={11}/>}
+                        {Boolean(e.verified) ? 'Verified' : 'Unverified'}
+                      </button>
                     </td>
                     <td className="px-4 py-3">
                       <button
