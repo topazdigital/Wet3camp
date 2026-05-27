@@ -178,9 +178,14 @@ export default function Header() {
                     </Link>
                   )}
                   {!isEscort && (
-                    <Link href="/favorites" onClick={() => setUserMenuOpen(false)} className="flex items-center gap-3 px-4 py-2.5 hover:bg-dark-bg transition-colors text-xs text-text-light">
-                      <Heart size={14} className="text-text-muted" /> My Favourites
-                    </Link>
+                    <>
+                      <Link href="/account" onClick={() => setUserMenuOpen(false)} className="flex items-center gap-3 px-4 py-2.5 hover:bg-dark-bg transition-colors text-xs text-text-light">
+                        <User size={14} className="text-text-muted" /> My Account
+                      </Link>
+                      <Link href="/favorites" onClick={() => setUserMenuOpen(false)} className="flex items-center gap-3 px-4 py-2.5 hover:bg-dark-bg transition-colors text-xs text-text-light">
+                        <Heart size={14} className="text-text-muted" /> My Favourites
+                      </Link>
+                    </>
                   )}
                   <Link href="/messages" onClick={() => setUserMenuOpen(false)} className="flex items-center gap-3 px-4 py-2.5 hover:bg-dark-bg transition-colors text-xs text-text-light">
                     <BookOpen size={14} className="text-text-muted" /> Messages
