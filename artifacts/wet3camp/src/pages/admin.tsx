@@ -22,7 +22,7 @@ async function adminFetch(path: string, opts?: RequestInit) {
 interface AdminEscort {
   id: string; name: string; city: string; tier: string
   online: boolean | number; is_active: boolean | number; verified: boolean | number
-  price_hourly?: number; bookings_count?: number
+  featured?: boolean | number; price_hourly?: number; bookings_count?: number
 }
 
 const TABS = ['Overview','Escorts','Clients','Bookings','Moderators','Featured','Blog','API Keys','Settings']
@@ -779,6 +779,15 @@ function EscortsTab() {
     setActionLoading(null)
   }
 
+  const handleFeature = async (id: string) => {
+    setActionLoading(id + '_feature')
+    try {
+      const data = await adminFetch(`/admin/escorts/${id}/featured`, { method: 'PATCH' })
+      setEscorts(prev => prev.map(e => e.id === id ? { ...e, featured: data.featured ? 1 : 0 } : e))
+    } catch {}
+    setActionLoading(null)
+  }
+
   const pendingCount = escorts.filter(e => !Boolean(e.is_active) && !Boolean(e.verified)).length
 
   const filtered = escorts.filter(e => {
@@ -859,11 +868,11 @@ function EscortsTab() {
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead className="bg-dark-bg border-b border-color">
-                <tr>{['Name','City','Tier','Active','Online Now','Verified','Actions'].map(h=><th key={h} className="px-4 py-3 text-left font-semibold text-text-muted">{h}</th>)}</tr>
+                <tr>{['Name','City','Tier','Active','Online Now','Verified','Featured','Actions'].map(h=><th key={h} className="px-4 py-3 text-left font-semibold text-text-muted">{h}</th>)}</tr>
               </thead>
               <tbody>
                 {filtered.length === 0 && (
-                  <tr><td colSpan={7} className="px-4 py-10 text-center text-text-muted">No escorts found.</td></tr>
+                  <tr><td colSpan={8} className="px-4 py-10 text-center text-text-muted">No escorts found.</td></tr>
                 )}
                 {filtered.map(e => (
                   <tr key={e.id} className="border-b border-color/40 hover:bg-dark-bg transition-colors">
@@ -891,6 +900,17 @@ function EscortsTab() {
                       {Boolean(e.verified)
                         ? <span className="flex items-center gap-1 text-[#FFD700]"><CheckCircle2 size={11}/>Verified</span>
                         : <span className="flex items-center gap-1 text-text-muted"><AlertTriangle size={11}/>Unverified</span>}
+                    </td>
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={() => handleFeature(e.id)}
+                        disabled={actionLoading === e.id + '_feature'}
+                        title={Boolean(e.featured) ? 'Remove boost' : 'Boost this escort to top'}
+                        className={`px-2.5 py-1 text-[9px] font-bold rounded-lg border transition-all flex items-center gap-1 disabled:opacity-50 ${Boolean(e.featured) ? 'bg-[#FFD700]/20 text-[#FFD700] border-[#FFD700]/40 hover:bg-[#FFD700]/30' : 'bg-dark-bg text-text-muted border-color hover:border-[#FFD700]/50 hover:text-[#FFD700]'}`}
+                      >
+                        {actionLoading === e.id + '_feature' ? <div className="w-2.5 h-2.5 border border-current/40 border-t-current rounded-full animate-spin" /> : <Crown size={10}/>}
+                        {Boolean(e.featured) ? 'Boosted' : 'Boost'}
+                      </button>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex gap-1.5 flex-wrap">
@@ -1158,8 +1178,8 @@ function AdminDashboard() {
 
           {/* ── API KEYS ── */}
           {activeTab === 'API Keys' && (
-            <div className="max-w-2xl space-y-6">
-              <div className="flex items-start gap-3 p-4 bg-[#FFD700]/10 border border-[#FFD700]/20 rounded-2xl">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+              <div className="lg:col-span-2 flex items-start gap-3 p-4 bg-[#FFD700]/10 border border-[#FFD700]/20 rounded-2xl">
                 <AlertTriangle size={14} className="text-[#FFD700] mt-0.5 flex-shrink-0" />
                 <div>
                   <p className="text-xs font-bold text-[#FFD700] mb-0.5">Security Notice</p>
@@ -1279,7 +1299,7 @@ function AdminDashboard() {
 
           {/* ── SETTINGS ── */}
           {activeTab === 'Settings' && (
-            <div className="max-w-xl space-y-5">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
               <div className="bg-card-bg border border-color rounded-2xl p-5">
                 <h3 className="text-sm font-bold text-text-light mb-4 flex items-center gap-2"><Settings size={14}/>Platform Settings</h3>
                 <PlatformSettingsForm />

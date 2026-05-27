@@ -109,6 +109,55 @@ router.post('/rooms/book', async (req, res) => {
   }
 })
 
+// ─── Public: any authenticated user can add a room listing ───────────────────
+router.post('/rooms', requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const pool = getPool()
+    if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
+
+    const { name, hotel, city, area, type, price_night, price_hourly, amenities, image } = req.body as Record<string, any>
+    if (!name || !hotel || !city || !price_night) {
+      res.status(400).json({ message: 'name, hotel, city and price_night are required' }); return
+    }
+
+    const amenitiesStr = Array.isArray(amenities) ? amenities.join(', ') : (amenities ?? '')
+    const [result] = await pool.query<any>(
+      'INSERT INTO rooms (name, hotel, city, area, type, price_night, price_hourly, rating, reviews_count, amenities, image, available) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
+      [name, hotel, city, area ?? '', type ?? 'Standard', Number(price_night), Number(price_hourly ?? 0), 0, 0, amenitiesStr, image ?? null, 1]
+    )
+    res.status(201).json({
+      id: (result as any).insertId,
+      name, hotel, city,
+      area: area ?? '',
+      type: type ?? 'Standard',
+      price_night: Number(price_night),
+      price_hourly: Number(price_hourly ?? 0),
+      amenities: Array.isArray(amenities) ? amenities : [],
+      available: true,
+    })
+  } catch (err: any) {
+    console.error('[POST /rooms]', err?.message ?? err)
+    res.status(500).json({ message: 'Failed to add room' })
+  }
+})
+
+// ─── Get single room by ID ────────────────────────────────────────────────────
+router.get('/rooms/:id', async (req, res) => {
+  try {
+    const pool = getPool()
+    if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
+    const [[room]] = await pool.query<any[]>('SELECT * FROM rooms WHERE id = ?', [req.params!.id])
+    if (!room) { res.status(404).json({ message: 'Room not found' }); return }
+    res.json({
+      ...room,
+      amenities: room.amenities ? room.amenities.split(',').map((a: string) => a.trim()) : [],
+      available: !!room.available,
+    })
+  } catch {
+    res.status(500).json({ message: 'Failed to fetch room' })
+  }
+})
+
 router.post('/admin/rooms', requireAuth, async (req: AuthRequest, res) => {
   if (req.userRole !== 'admin') { res.status(403).json({ message: 'Admin access required' }); return }
   try {

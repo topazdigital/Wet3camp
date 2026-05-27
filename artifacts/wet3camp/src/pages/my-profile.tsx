@@ -3,12 +3,12 @@ import Header from '@/components/Header'
 import Sidebar from '@/components/Sidebar'
 import { useAuth } from '@/lib/auth-context'
 import { api } from '@/lib/api'
-import { Eye, Calendar, Star, Edit3, Camera, CheckCircle2, MapPin, DollarSign, Users, Heart, MessageCircle, BarChart2, Zap, Crown, Smartphone, Instagram, Loader2, AlertCircle, UserCheck, Globe } from 'lucide-react'
+import { Eye, Calendar, Star, Edit3, Camera, CheckCircle2, XCircle, MapPin, DollarSign, Users, Heart, MessageCircle, BarChart2, Zap, Crown, Smartphone, Instagram, Loader2, AlertCircle, UserCheck, Globe } from 'lucide-react'
 import { Link } from 'wouter'
 import { useFollow } from '@/lib/follow-context'
 import { useSEO } from '@/lib/useSEO'
 
-const TABS = ['Overview', 'Edit Profile', 'Gallery', 'Followers', 'Get Featured', 'Instagram Import', 'Subscription', 'Earnings']
+const TABS = ['Overview', 'My Bookings', 'My Rooms', 'Edit Profile', 'Gallery', 'Followers', 'Get Featured', 'Instagram Import', 'Subscription', 'Earnings']
 
 const PLACEHOLDER_IMG = 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=600&h=800&fit=crop&crop=face'
 
@@ -111,6 +111,53 @@ export default function MyProfile() {
   const [followersData, setFollowersData] = useState<any>(null)
   // Real subscription from API
   const [subscription, setSubscription] = useState<any>(null)
+
+  // Incoming bookings (escort side)
+  const [incomingBookings, setIncomingBookings]     = useState<any[]>([])
+  const [incomingLoading, setIncomingLoading]       = useState(false)
+  const [bookingStatusLoading, setBookingStatusLoading] = useState<string | null>(null)
+
+  const fetchIncoming = async () => {
+    setIncomingLoading(true)
+    try { const data = await api.bookings.incoming(); setIncomingBookings(data) } catch {}
+    setIncomingLoading(false)
+  }
+
+  const updateBookingStatus = async (id: string | number, status: 'confirmed' | 'cancelled' | 'completed') => {
+    setBookingStatusLoading(String(id))
+    try {
+      await api.bookings.updateStatus(id, status)
+      setIncomingBookings(prev => prev.map(b => String(b.id) === String(id) ? { ...b, status } : b))
+    } catch {}
+    setBookingStatusLoading(null)
+  }
+
+  // Add Room form state
+  const [roomForm, setRoomForm] = useState({ name: '', hotel: '', city: 'Nairobi', area: '', type: 'Standard', price_night: '', price_hourly: '', amenities: [] as string[] })
+  const [roomSaving, setRoomSaving] = useState(false)
+  const [roomSaved, setRoomSaved] = useState(false)
+  const [roomError, setRoomError] = useState('')
+
+  const ROOM_AMENITIES = ['WiFi', 'AC', 'TV', 'En-suite', 'Room Service', 'Parking', 'Hot Shower', 'CCTV', 'Private Entrance', 'Mini Bar']
+  const toggleRoomAmenity = (a: string) => setRoomForm(f => ({ ...f, amenities: f.amenities.includes(a) ? f.amenities.filter(x => x !== a) : [...f.amenities, a] }))
+
+  const handleAddRoom = async () => {
+    if (!roomForm.name || !roomForm.hotel || !roomForm.city || !roomForm.price_night) { setRoomError('Name, hotel, city and price per night are required.'); return }
+    setRoomSaving(true); setRoomError('')
+    try {
+      await api.rooms.add({
+        name: roomForm.name, hotel: roomForm.hotel, city: roomForm.city, area: roomForm.area,
+        type: roomForm.type, price_night: Number(roomForm.price_night), price_hourly: roomForm.price_hourly ? Number(roomForm.price_hourly) : undefined,
+        amenities: roomForm.amenities,
+      })
+      setRoomSaved(true)
+      setRoomForm({ name: '', hotel: '', city: 'Nairobi', area: '', type: 'Standard', price_night: '', price_hourly: '', amenities: [] })
+      setTimeout(() => setRoomSaved(false), 4000)
+    } catch (err: any) {
+      setRoomError(err?.message ?? 'Failed to add room. Please try again.')
+    }
+    setRoomSaving(false)
+  }
 
   // Photo upload state
   const [avatarUploading, setAvatarUploading] = useState(false)
@@ -225,6 +272,10 @@ export default function MyProfile() {
       setEditSaving(false)
     }
   }
+
+  useEffect(() => {
+    if (activeTab === 'My Bookings' && user?.role === 'escort') fetchIncoming()
+  }, [activeTab])
 
   const fetchInstagram = () => {
     setIgError('Instagram import requires the Instagram Basic Display API to be configured. Please contact the admin to enable it.')
@@ -417,6 +468,186 @@ export default function MyProfile() {
                   <div className="flex items-center gap-2 mb-2"><Users size={14} className="text-[#2196F3]"/><span className="text-xs font-bold text-text-light">Followers</span></div>
                   <p className="text-2xl font-black text-text-light">{followersData ? Number(followersData.total).toLocaleString() : followerCount(escortProfile?.id || '').toLocaleString()}</p>
                   {followersData?.thisWeek > 0 && <p className="text-[10px] text-[#28a745] mt-0.5">+{followersData.thisWeek} this week</p>}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── MY BOOKINGS (escort side) ───────────────────────────────── */}
+          {activeTab === 'My Bookings' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-bold text-text-light flex items-center gap-2"><Calendar size={14} className="text-[#8B0000]"/>Incoming Bookings</h2>
+                <button
+                  onClick={fetchIncoming}
+                  disabled={incomingLoading}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-dark-bg border border-color rounded-xl text-xs text-text-muted hover:text-text-light transition-all disabled:opacity-50"
+                >
+                  {incomingLoading ? <Loader2 size={11} className="animate-spin"/> : <MessageCircle size={11}/>}
+                  {incomingLoading ? 'Loading…' : 'Refresh'}
+                </button>
+              </div>
+
+              {incomingLoading && incomingBookings.length === 0 && (
+                <div className="flex items-center justify-center py-16 gap-2 text-text-muted">
+                  <Loader2 size={16} className="animate-spin"/><span className="text-sm">Loading bookings…</span>
+                </div>
+              )}
+
+              {!incomingLoading && incomingBookings.length === 0 && (
+                <div className="text-center py-16">
+                  <Calendar size={36} className="mx-auto text-text-muted mb-3"/>
+                  <p className="text-sm font-semibold text-text-light mb-1">No bookings yet</p>
+                  <p className="text-xs text-text-muted">When clients book you, their requests will appear here.</p>
+                  <button onClick={fetchIncoming} className="mt-4 px-4 py-2 bg-[#8B0000]/20 border border-[#8B0000]/30 text-[#8B0000] text-xs font-bold rounded-xl hover:bg-[#8B0000]/30 transition-colors">
+                    Check Now
+                  </button>
+                </div>
+              )}
+
+              <div className="space-y-3">
+                {incomingBookings.map(b => {
+                  const sc: Record<string, string> = { pending: '#FFD700', confirmed: '#28a745', completed: '#6B7280', cancelled: '#EF4444' }
+                  const sColor = sc[b.status] ?? '#9CA3AF'
+                  const isLoading = bookingStatusLoading === String(b.id)
+                  return (
+                    <div key={b.id} className="bg-card-bg border border-color rounded-xl p-4 hover:border-[#8B0000]/30 transition-colors">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <div className="w-7 h-7 rounded-full bg-[#8B0000]/20 flex items-center justify-center text-xs font-bold text-[#8B0000] flex-shrink-0">
+                              {(b.clientName || 'C').charAt(0).toUpperCase()}
+                            </div>
+                            <p className="text-sm font-semibold text-text-light">{b.clientName || 'Client'}</p>
+                          </div>
+                          <div className="space-y-0.5 pl-9">
+                            <p className="text-xs text-text-muted">
+                              📅 {typeof b.date === 'string' ? b.date.slice(0, 10) : b.date}
+                              {b.time && ` at ${b.time}`}
+                              {b.duration && ` · ${b.duration}hr`}
+                              {b.type && ` · ${b.type}`}
+                            </p>
+                            {b.location && <p className="text-xs text-text-muted">📍 {b.location}</p>}
+                            {b.notes && <p className="text-xs text-text-muted italic">"{b.notes}"</p>}
+                          </div>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <p className="text-sm font-black text-[#FFD700]">KES {Number(b.amount || 0).toLocaleString()}</p>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full capitalize" style={{ color: sColor, background: sColor + '20' }}>{b.status}</span>
+                        </div>
+                      </div>
+
+                      {b.status === 'pending' && (
+                        <div className="flex gap-2 mt-3 pt-3 border-t border-color/40">
+                          <button
+                            onClick={() => updateBookingStatus(b.id, 'confirmed')}
+                            disabled={isLoading}
+                            className="flex-1 py-2 bg-[#28a745]/20 border border-[#28a745]/30 text-[#28a745] text-xs font-bold rounded-xl hover:bg-[#28a745]/30 transition-colors flex items-center justify-center gap-1 disabled:opacity-50"
+                          >
+                            {isLoading ? <Loader2 size={11} className="animate-spin"/> : <CheckCircle2 size={11}/>}
+                            Accept Booking
+                          </button>
+                          <button
+                            onClick={() => updateBookingStatus(b.id, 'cancelled')}
+                            disabled={isLoading}
+                            className="flex-1 py-2 bg-[#EF4444]/10 border border-[#EF4444]/20 text-[#EF4444] text-xs font-bold rounded-xl hover:bg-[#EF4444]/20 transition-colors flex items-center justify-center gap-1 disabled:opacity-50"
+                          >
+                            {isLoading ? <Loader2 size={11} className="animate-spin"/> : <XCircle size={11}/>}
+                            Decline
+                          </button>
+                        </div>
+                      )}
+                      {b.status === 'confirmed' && (
+                        <button
+                          onClick={() => updateBookingStatus(b.id, 'completed')}
+                          disabled={isLoading}
+                          className="mt-3 w-full py-2 bg-[#6B7280]/10 border border-[#6B7280]/20 text-[#9CA3AF] text-xs font-bold rounded-xl hover:bg-[#6B7280]/20 transition-colors flex items-center justify-center gap-1 disabled:opacity-50"
+                        >
+                          {isLoading ? <Loader2 size={11} className="animate-spin"/> : <CheckCircle2 size={11}/>}
+                          Mark as Completed
+                        </button>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ── MY ROOMS ─────────────────────────────────────────────────── */}
+          {activeTab === 'My Rooms' && (
+            <div className="max-w-xl space-y-5">
+              {roomSaved && (
+                <div className="flex items-center gap-2 p-4 bg-[#28a745]/10 border border-[#28a745]/30 rounded-2xl">
+                  <CheckCircle2 size={16} className="text-[#28a745]"/>
+                  <div>
+                    <p className="text-xs font-bold text-[#28a745]">Room listed successfully!</p>
+                    <p className="text-[10px] text-text-muted">Your room is now live on the Rooms page and clients can book it.</p>
+                  </div>
+                </div>
+              )}
+              <div className="bg-card-bg border border-color rounded-2xl p-5">
+                <h3 className="text-sm font-bold text-text-light mb-4 flex items-center gap-2"><MapPin size={14} className="text-[#8B0000]"/>Add a Room Listing</h3>
+                <p className="text-[11px] text-text-muted mb-4">List a hotel room or private space on the Rooms page. Clients can browse and book it directly.</p>
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Room Name *</label>
+                      <input value={roomForm.name} onChange={e => setRoomForm(f => ({...f, name: e.target.value}))} placeholder="e.g. Deluxe Suite 201" className="w-full px-3 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted/50 focus:outline-none focus:border-[#8B0000] transition-all"/>
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Hotel / Building *</label>
+                      <input value={roomForm.hotel} onChange={e => setRoomForm(f => ({...f, hotel: e.target.value}))} placeholder="e.g. Sarova Stanley" className="w-full px-3 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted/50 focus:outline-none focus:border-[#8B0000] transition-all"/>
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">City *</label>
+                      <select value={roomForm.city} onChange={e => setRoomForm(f => ({...f, city: e.target.value}))} className="w-full px-3 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#8B0000] transition-all">
+                        {['Nairobi','Mombasa','Kisumu','Nakuru','Eldoret','Malindi','Thika','Nyeri'].map(c => <option key={c}>{c}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Area / Estate</label>
+                      <input value={roomForm.area} onChange={e => setRoomForm(f => ({...f, area: e.target.value}))} placeholder="e.g. Westlands" className="w-full px-3 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted/50 focus:outline-none focus:border-[#8B0000] transition-all"/>
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Room Type</label>
+                      <select value={roomForm.type} onChange={e => setRoomForm(f => ({...f, type: e.target.value}))} className="w-full px-3 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#8B0000] transition-all">
+                        {['Standard','Deluxe','Suite','Executive','Short-Stay','Hourly'].map(t => <option key={t}>{t}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Price / Night (KES) *</label>
+                      <input type="number" value={roomForm.price_night} onChange={e => setRoomForm(f => ({...f, price_night: e.target.value}))} placeholder="e.g. 3500" className="w-full px-3 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted/50 focus:outline-none focus:border-[#FFD700] transition-all"/>
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Price / Hour (KES)</label>
+                      <input type="number" value={roomForm.price_hourly} onChange={e => setRoomForm(f => ({...f, price_hourly: e.target.value}))} placeholder="e.g. 800" className="w-full px-3 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted/50 focus:outline-none focus:border-[#FFD700] transition-all"/>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-2">Amenities</label>
+                    <div className="flex flex-wrap gap-2">
+                      {ROOM_AMENITIES.map(a => (
+                        <button key={a} type="button" onClick={() => toggleRoomAmenity(a)} className={`px-3 py-1.5 rounded-full text-[10px] font-semibold border transition-all ${roomForm.amenities.includes(a) ? 'bg-[#8B0000] border-[#8B0000] text-white' : 'bg-dark-bg border-color text-text-muted hover:border-text-muted'}`}>{a}</button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                {roomError && <p className="text-[11px] text-[#EF4444] mt-3 bg-[#EF4444]/10 px-3 py-2 rounded-lg">{roomError}</p>}
+                <button
+                  onClick={handleAddRoom}
+                  disabled={roomSaving}
+                  className="mt-4 w-full py-3 bg-gradient-to-r from-[#8B0000] to-[#a00000] text-white font-bold text-sm rounded-xl hover:from-[#a00000] hover:to-[#8B0000] transition-all flex items-center justify-center gap-2 disabled:opacity-60"
+                >
+                  {roomSaving ? <Loader2 size={15} className="animate-spin"/> : <MapPin size={15}/>}
+                  {roomSaving ? 'Listing Room…' : 'List This Room'}
+                </button>
+              </div>
+              <div className="flex items-start gap-3 p-4 bg-[#FFD700]/5 border border-[#FFD700]/20 rounded-2xl">
+                <Star size={14} className="text-[#FFD700] flex-shrink-0 mt-0.5"/>
+                <div>
+                  <p className="text-xs font-bold text-[#FFD700] mb-0.5">How it works</p>
+                  <p className="text-[11px] text-text-muted leading-relaxed">Fill in the details above and click "List This Room". Your room will be immediately visible on the <Link href="/rooms" className="text-[#FFD700] hover:underline">Rooms page</Link> for clients to browse and book. You can list as many rooms as you like.</p>
                 </div>
               </div>
             </div>

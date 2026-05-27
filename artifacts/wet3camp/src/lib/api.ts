@@ -99,8 +99,28 @@ export const api = {
   },
 
   bookings: {
-    list:   ()                  => req<any[]>('/bookings'),
-    create: (d: Record<string, unknown>) => req('/bookings', { method: 'POST', body: JSON.stringify(d) }),
+    list:     ()                        => req<any[]>('/bookings'),
+    incoming: ()                        => req<any[]>('/bookings/incoming'),
+    create:   (d: Record<string, unknown>) => req('/bookings', { method: 'POST', body: JSON.stringify(d) }),
+    updateStatus: (id: string | number, status: 'confirmed' | 'cancelled' | 'completed') =>
+      req<{ success: boolean; status: string }>(`/bookings/${id}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+      }),
+  },
+
+  rooms: {
+    list:   (p?: { city?: string; type?: string }) => {
+      const params = new URLSearchParams()
+      if (p?.city && p.city !== 'All') params.set('city', p.city)
+      if (p?.type && p.type !== 'All') params.set('type', p.type)
+      const qs = params.toString()
+      return fetch(`/api/rooms${qs ? '?' + qs : ''}`).then(r => r.json()) as Promise<any[]>
+    },
+    add: (d: {
+      name: string; hotel: string; city: string; area?: string; type?: string
+      price_night: number; price_hourly?: number; amenities?: string[]; image?: string
+    }) => req<any>('/rooms', { method: 'POST', body: JSON.stringify(d) }),
   },
 
   favorites: {

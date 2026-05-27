@@ -80,4 +80,72 @@ router.post('/bookings', requireAuth, async (req: AuthRequest, res) => {
   }
 })
 
+// ─── Escort-side: incoming bookings ──────────────────────────────────────────
+router.get('/bookings/incoming', requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const pool = getPool()
+    if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
+
+    const [[escort]] = await pool.query<any[]>('SELECT id FROM escorts WHERE user_id = ?', [req.userId])
+    if (!escort) { res.status(404).json({ message: 'No escort profile found for this account' }); return }
+
+    const [rows] = await pool.query<any[]>(
+      `SELECT b.*,
+        COALESCE(u.display_name, u.username, u.name) AS client_name,
+        u.email AS client_email,
+        u.phone AS client_phone
+       FROM bookings b
+       LEFT JOIN users u ON u.id = b.user_id
+       WHERE b.escort_id = ?
+       ORDER BY b.booking_date DESC, b.start_time DESC`,
+      [escort.id]
+    )
+
+    res.json(rows.map((r: any) => ({
+      id:          r.id,
+      clientName:  r.client_name || 'Client',
+      clientEmail: r.client_email || null,
+      clientPhone: r.client_phone || null,
+      date:        r.booking_date,
+      time:        r.start_time,
+      duration:    r.duration_hrs,
+      type:        r.type,
+      amount:      r.amount,
+      location:    r.location,
+      notes:       r.notes,
+      status:      r.status,
+      createdAt:   r.created_at,
+    })))
+  } catch {
+    res.status(500).json({ message: 'Failed to fetch incoming bookings' })
+  }
+})
+
+// ─── Escort-side: update booking status (accept / decline / complete) ─────────
+router.patch('/bookings/:id/status', requireAuth, async (req: AuthRequest, res) => {
+  const { status } = req.body as { status: string }
+  if (!['confirmed', 'cancelled', 'completed'].includes(status)) {
+    res.status(400).json({ message: 'status must be confirmed, cancelled, or completed' }); return
+  }
+
+  try {
+    const pool = getPool()
+    if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
+
+    const [[escort]] = await pool.query<any[]>('SELECT id FROM escorts WHERE user_id = ?', [req.userId])
+    if (!escort) { res.status(403).json({ message: 'No escort profile — access denied' }); return }
+
+    const [[booking]] = await pool.query<any[]>(
+      'SELECT id FROM bookings WHERE id = ? AND escort_id = ?',
+      [req.params!.id, escort.id]
+    )
+    if (!booking) { res.status(404).json({ message: 'Booking not found or not yours' }); return }
+
+    await pool.query('UPDATE bookings SET status = ? WHERE id = ?', [status, req.params!.id])
+    res.json({ success: true, status })
+  } catch {
+    res.status(500).json({ message: 'Failed to update booking status' })
+  }
+})
+
 export default router

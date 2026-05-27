@@ -24,15 +24,29 @@ const TIER_META: Record<string, { label: string; color: string; bg: string; orde
 
 // ─── Card components ────────────────────────────────────────────────────────────
 
+function EscortPlaceholder({ name, size = 'lg' }: { name: string; size?: 'sm' | 'md' | 'lg' }) {
+  const letter = (name || '?').charAt(0).toUpperCase()
+  const sizeClass = size === 'sm' ? 'text-2xl' : size === 'md' ? 'text-3xl' : 'text-5xl'
+  return (
+    <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-[#1a1a1a] to-[#2a1a1a]">
+      <span className={`${sizeClass} font-black text-[#8B0000]/60 select-none`}>{letter}</span>
+    </div>
+  )
+}
+
 function EliteCard({ escort, isFav, onFav }: { escort: ApiEscort; isFav: boolean; onFav: () => void }) {
   return (
     <div className="relative col-span-2 md:col-span-1 rounded-2xl overflow-hidden border-2 border-[#FFD700]/40 shadow-xl shadow-[#FFD700]/10 group hover:border-[#FFD700]/70 transition-all">
       <div className="aspect-[4/5] relative">
-        <img
-          src={escort.image || 'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=600&h=750&fit=crop'}
-          alt={escort.name}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-        />
+        {escort.image ? (
+          <img
+            src={escort.image}
+            alt={escort.name}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          />
+        ) : (
+          <EscortPlaceholder name={escort.name} size="lg" />
+        )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
 
         <div className="absolute top-3 left-3 flex items-center gap-1.5">
@@ -88,11 +102,15 @@ function VIPCard({ escort, isFav, onFav }: { escort: ApiEscort; isFav: boolean; 
   return (
     <div className="relative rounded-xl overflow-hidden border border-[#FF4500]/30 shadow-lg group hover:border-[#FF4500]/60 transition-all">
       <div className="aspect-[3/4] relative">
-        <img
-          src={escort.image || 'https://images.unsplash.com/photo-1522529599102-193c0d76b5b6?w=400&h=530&fit=crop'}
-          alt={escort.name}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-        />
+        {escort.image ? (
+          <img
+            src={escort.image}
+            alt={escort.name}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          />
+        ) : (
+          <EscortPlaceholder name={escort.name} size="md" />
+        )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-transparent" />
 
         <div className="absolute top-2 left-2">
@@ -129,12 +147,12 @@ function VIPCard({ escort, isFav, onFav }: { escort: ApiEscort; isFav: boolean; 
 function StandardCard({ escort, isFav, onFav }: { escort: ApiEscort; isFav: boolean; onFav: () => void }) {
   return (
     <div className="flex gap-3 p-3 bg-card-bg border border-color rounded-xl hover:border-[#8B0000]/40 transition-all group">
-      <div className="relative flex-shrink-0">
-        <img
-          src={escort.image || 'https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?w=120&h=120&fit=crop'}
-          alt={escort.name}
-          className="w-16 h-16 rounded-xl object-cover"
-        />
+      <div className="relative flex-shrink-0 w-16 h-16 rounded-xl overflow-hidden">
+        {escort.image ? (
+          <img src={escort.image} alt={escort.name} className="w-full h-full object-cover" />
+        ) : (
+          <EscortPlaceholder name={escort.name} size="sm" />
+        )}
         {escort.online && <div className="absolute bottom-0.5 right-0.5 w-2.5 h-2.5 rounded-full bg-[#28a745] ring-2 ring-card-bg" />}
       </div>
       <div className="flex-1 min-w-0">

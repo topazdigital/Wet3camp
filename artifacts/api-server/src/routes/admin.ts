@@ -138,6 +138,21 @@ router.get('/admin/room-bookings', requireAuth, requireAdmin, async (req: AuthRe
   }
 })
 
+// ─── Toggle featured status ───────────────────────────────────────────────────
+router.patch('/admin/escorts/:id/featured', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const pool = getPool()
+    if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
+    const [[escort]] = await pool.query<any[]>('SELECT id, featured FROM escorts WHERE id = ?', [req.params!.id])
+    if (!escort) { res.status(404).json({ message: 'Escort not found' }); return }
+    const newFeatured = escort.featured ? 0 : 1
+    await pool.query('UPDATE escorts SET featured = ? WHERE id = ?', [newFeatured, req.params!.id])
+    res.json({ success: true, featured: !!newFeatured })
+  } catch {
+    res.status(500).json({ message: 'Failed to toggle featured status' })
+  }
+})
+
 router.patch('/admin/escorts/:id/verify', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
   try {
     const pool = getPool()
