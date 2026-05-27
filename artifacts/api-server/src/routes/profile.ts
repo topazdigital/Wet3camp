@@ -17,6 +17,11 @@ router.get('/profile/escort', requireAuth, async (req: AuthRequest, res) => {
       [req.userId]
     )
     if (!escort) { res.status(404).json({ message: 'Escort profile not found' }); return }
+    const [galleryRows] = await pool.query<any[]>(
+      'SELECT image_url FROM escort_gallery WHERE escort_id = ? ORDER BY sort_order ASC, id ASC',
+      [escort.id]
+    ).catch(() => [[]])
+    const gallery = Array.isArray(galleryRows) ? galleryRows.map((g: any) => g.image_url) : []
     res.json({
       ...escort,
       id: String(escort.id),
@@ -25,6 +30,7 @@ router.get('/profile/escort', requireAuth, async (req: AuthRequest, res) => {
       is_active: !!escort.is_active,
       languages: escort.languages_csv ? escort.languages_csv.split(',') : [],
       services: escort.services_csv ? escort.services_csv.split(',').map((n: string) => ({ name: n, available: true })) : [],
+      gallery,
     })
   } catch {
     res.status(500).json({ message: 'Failed to fetch escort profile' })

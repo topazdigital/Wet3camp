@@ -87,6 +87,40 @@ router.get('/admin/escorts', requireAuth, requireAdmin, async (req: AuthRequest,
   }
 })
 
+router.post('/admin/escorts', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const pool = getPool()
+    if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
+    const {
+      name, city, area, age, tier, bio, whatsapp, telegram, gender,
+      price_hourly, price_overnight, price_video, price_incall, price_outcall,
+    } = req.body as Record<string, any>
+    if (!name?.trim() || !city) { res.status(400).json({ message: 'Name and city are required' }); return }
+    const [result] = await pool.query<any>(
+      `INSERT INTO escorts
+        (name, city, area, age, tier, bio, whatsapp, telegram, gender,
+         price_hourly, price_overnight, price_video, price_incall, price_outcall,
+         is_active, verified, available, online, created_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,1,0,0,NOW())`,
+      [
+        name.trim(), city, area ?? null, age ? parseInt(age) : null, tier ?? 'standard',
+        bio ?? null, whatsapp ?? null, telegram ?? null, gender ?? 'Female',
+        price_hourly ? parseInt(price_hourly) : 0,
+        price_overnight ? parseInt(price_overnight) : 0,
+        price_video ? parseInt(price_video) : 0,
+        price_incall ? parseInt(price_incall) : 0,
+        price_outcall ? parseInt(price_outcall) : 0,
+      ]
+    )
+    const insertId = (result as any).insertId
+    const [[escort]] = await pool.query<any[]>('SELECT * FROM escorts WHERE id = ?', [insertId])
+    res.status(201).json({ ...escort, id: String(escort.id) })
+  } catch (err: any) {
+    console.error('[POST /admin/escorts]', err?.message ?? err)
+    res.status(500).json({ message: 'Failed to create escort', detail: err?.message ?? '' })
+  }
+})
+
 router.get('/admin/bookings', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
   try {
     const pool = getPool()

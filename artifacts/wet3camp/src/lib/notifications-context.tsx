@@ -29,14 +29,6 @@ const NotificationsContext = createContext<NotificationsCtx>({
   markRead: () => {}, markAllRead: () => {}, addNotification: () => {}, refresh: () => {},
 })
 
-const FALLBACK_NOTIFS: AppNotification[] = [
-  { id: 'n1', type: 'follow',   text: 'John K. started following you',           time: '2m ago',   read: false, link: '/my-profile', dot: '#2196F3' },
-  { id: 'n2', type: 'message',  text: 'New message from Mike O.: "Are you…"',    time: '8m ago',   read: false, link: '/messages',   dot: '#FFD700' },
-  { id: 'n3', type: 'featured', text: 'Your featured request has been approved!', time: '1h ago',   read: false, link: '/my-profile', dot: '#28a745' },
-  { id: 'n4', type: 'follow',   text: 'David L. started following you',           time: '3h ago',   read: true,  link: '/my-profile', dot: '#2196F3' },
-  { id: 'n5', type: 'review',   text: 'Peter M. left you a 5-star review',        time: '5h ago',   read: true,  link: '/my-profile', dot: '#FFD700' },
-]
-
 const BASE = '/api'
 
 async function apiFetch(path: string, opts?: RequestInit) {
@@ -58,20 +50,14 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
     if (!isLoggedIn) return
     try {
       const data = await apiFetch('/notifications')
-      if (Array.isArray(data) && data.length > 0) {
+      if (Array.isArray(data)) {
         setNotifications(data as AppNotification[])
-        setLoaded(true)
-      } else if (!loaded) {
-        setNotifications(FALLBACK_NOTIFS)
-        setLoaded(true)
       }
+      setLoaded(true)
     } catch {
-      if (!loaded) {
-        setNotifications(FALLBACK_NOTIFS)
-        setLoaded(true)
-      }
+      setLoaded(true)
     }
-  }, [isLoggedIn, loaded])
+  }, [isLoggedIn])
 
   useEffect(() => {
     if (!isLoggedIn) {

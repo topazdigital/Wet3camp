@@ -1,7 +1,6 @@
 import { Router } from 'express'
 import { getPool } from '../lib/db.js'
 import { requireAuth, type AuthRequest } from '../middlewares/requireAuth.js'
-import { broadcastToUser } from '../lib/message-store.js'
 import { sendNewMessageEmail } from '../lib/mailer.js'
 
 const router = Router()
@@ -102,42 +101,6 @@ router.post('/messages', requireAuth, async (req: AuthRequest, res) => {
         fromName: sender?.display_name ?? 'A client',
         preview: content.trim().slice(0, 120),
       }).catch(() => {})
-    }
-
-    if (escort && req.userId) {
-      const userId = req.userId
-      const replyDelay = 3000 + Math.floor(Math.random() * 4000)
-
-      setTimeout(async () => {
-        const replies = [
-          "I'd love that! Let me check my schedule 😊",
-          'That sounds perfect 🔥',
-          "Sure! What's your preference for location?",
-          "I'm available — when exactly?",
-          'Looking forward to it! 💕',
-          'Let me know the time and I will confirm.',
-        ]
-        const replyText = replies[Math.floor(Math.random() * replies.length)]
-
-        try {
-          const [r2] = await pool.query<any>(
-            'INSERT INTO messages (sender_id, escort_id, content, is_from_escort) VALUES (?,?,?,1)',
-            [userId, escortId, replyText]
-          )
-          const replyId = (r2 as any).insertId
-          const replyTime = new Date().toISOString()
-
-          broadcastToUser(userId, {
-            id: replyId,
-            escortId,
-            escortName: escort.name,
-            escortImage: escort.image,
-            content: replyText,
-            fromEscort: true,
-            createdAt: replyTime,
-          })
-        } catch {}
-      }, replyDelay)
     }
 
   } catch {
