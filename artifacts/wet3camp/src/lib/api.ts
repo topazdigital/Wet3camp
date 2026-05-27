@@ -35,7 +35,8 @@ export interface ApiEscort {
   price_incall: number; price_outcall: number
   price_incall_overnight: number; price_outcall_overnight: number
   whatsapp: string; telegram: string
-  available: boolean; verified: boolean; online: boolean
+  available: boolean; verified: boolean; online: boolean; featured?: boolean
+  follower_count?: number
   languages: string[]
   services?: Array<{ name: string; available: boolean }>
   gallery?: string[]
@@ -49,11 +50,13 @@ export interface ApiUser {
 
 export const api = {
   escorts: {
-    list: (p?: { city?: string; tier?: string; available?: string; limit?: number; offset?: number }) => {
+    list: (p?: { city?: string; tier?: string; available?: string; featured?: boolean; sort?: string; limit?: number; offset?: number }) => {
       const params = new URLSearchParams()
       if (p?.city)      params.set('city',      p.city)
       if (p?.tier)      params.set('tier',      p.tier)
       if (p?.available) params.set('available', p.available)
+      if (p?.featured)  params.set('featured',  '1')
+      if (p?.sort)      params.set('sort',      p.sort)
       if (p?.limit)     params.set('limit',     String(p.limit))
       if (p?.offset)    params.set('offset',    String(p.offset))
       const qs = params.toString()
