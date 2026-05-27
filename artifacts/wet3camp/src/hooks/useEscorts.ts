@@ -1,7 +1,6 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api, type ApiEscort } from '@/lib/api'
-import { ESCORTS, getSlug } from '@/data/escorts'
 
 const PLACEHOLDER_IMAGE = '/api/placeholder-escort.jpg'
 
@@ -39,6 +38,8 @@ function toAppEscort(e: ApiEscort) {
     available:   e.available,
     verified:    e.verified,
     online:      e.online,
+    featured:    (e as any).featured ?? false,
+    follower_count: (e as any).follower_count ?? 0,
     phone:       e.whatsapp,
     whatsapp:    e.whatsapp,
     telegram:    (e as any).telegram ?? null,
@@ -55,12 +56,11 @@ export function useAllEscorts() {
 
   const escorts = useMemo(() => {
     if (data?.data?.length) return data.data.map(toAppEscort)
-    if (!isLoading && isError) return []
-    return ESCORTS
-  }, [data, isLoading, isError])
+    return []
+  }, [data])
 
   const fromApi = !!(data?.data?.length)
-  const total   = data?.total ?? (fromApi ? 0 : ESCORTS.length)
+  const total   = data?.total ?? 0
 
   return { escorts, total, fromApi, isLoading: isLoading && !isError }
 }
@@ -77,15 +77,11 @@ export function useEscort(slugOrId: string | undefined) {
   const escort = useMemo(() => {
     if (data) return toAppEscort(data)
     if (!slugOrId) return null
-    // While loading, return null (show loading spinner, not 404)
     if (isLoading) return null
-    // API returned nothing — fall back to static ESCORTS for demo profiles
-    const staticEscort = ESCORTS.find(e => getSlug(e.name) === slugOrId) ??
-      ESCORTS.find(e => e.id === slugOrId) ?? null
-    return staticEscort
+    return null
   }, [data, slugOrId, isLoading])
 
   return { escort, isLoading: isLoading && !isError, fromApi: !!data }
 }
 
-export { PLACEHOLDER_IMAGE }
+export { PLACEHOLDER_IMAGE, toAppEscort }
