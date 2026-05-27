@@ -44,11 +44,22 @@ export default function MyProfile() {
         setEditHourly(data.price_hourly ? String(data.price_hourly) : '')
         setEditOvernight(data.price_overnight ? String(data.price_overnight) : '')
         setEditVideo(data.price_video ? String(data.price_video) : '')
+        setEditIncall(data.price_incall ? String(data.price_incall) : '')
+        setEditOutcall(data.price_outcall ? String(data.price_outcall) : '')
       })
       .catch(() => {})
       .finally(() => setProfileLoading(false))
     api.bookings.list()
       .then(data => setRecentBookings(data.slice(0, 5)))
+      .catch(() => {})
+    api.profile.getEarnings()
+      .then(data => setEarnings(data))
+      .catch(() => {})
+    api.profile.getFollowers()
+      .then(data => setFollowersData(data))
+      .catch(() => {})
+    api.profile.getSubscription()
+      .then(data => setSubscription(data))
       .catch(() => {})
   }, [user?.role])
 
@@ -89,8 +100,17 @@ export default function MyProfile() {
   const [editHourly, setEditHourly] = useState('')
   const [editOvernight, setEditOvernight] = useState('')
   const [editVideo, setEditVideo] = useState('')
+  const [editIncall, setEditIncall] = useState('')
+  const [editOutcall, setEditOutcall] = useState('')
   const [editSaveError, setEditSaveError] = useState('')
   const [editSaving, setEditSaving] = useState(false)
+
+  // Real earnings from API
+  const [earnings, setEarnings] = useState<any>(null)
+  // Real followers from API
+  const [followersData, setFollowersData] = useState<any>(null)
+  // Real subscription from API
+  const [subscription, setSubscription] = useState<any>(null)
 
   // Photo upload state
   const [avatarUploading, setAvatarUploading] = useState(false)
@@ -187,6 +207,8 @@ export default function MyProfile() {
         rateHourly:   editHourly   ? parseInt(editHourly)   : undefined,
         rateOvernight:editOvernight ? parseInt(editOvernight) : undefined,
         rateVideo:    editVideo    ? parseInt(editVideo)    : undefined,
+        rateIncall:   editIncall   ? parseInt(editIncall)   : undefined,
+        rateOutcall:  editOutcall  ? parseInt(editOutcall)  : undefined,
       })
       setEditSaved(true); setTimeout(() => setEditSaved(false), 3000)
     } catch (err: any) {
@@ -197,21 +219,7 @@ export default function MyProfile() {
   }
 
   const fetchInstagram = () => {
-    setIgError('')
-    if (!igHandle.trim()) { setIgError('Enter your Instagram username.'); return }
-    setIgLoading(true)
-    // Simulated fetch — replace with real Instagram Basic Display API when key is configured
-    setTimeout(() => {
-      setIgPosts([
-        { id:'ig1', img:'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=200&h=200&fit=crop', selected:false },
-        { id:'ig2', img:'https://images.unsplash.com/photo-1536329583941-14287ec6fc4e?w=200&h=200&fit=crop', selected:false },
-        { id:'ig3', img:'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=200&h=200&fit=crop', selected:false },
-        { id:'ig4', img:'https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?w=200&h=200&fit=crop', selected:false },
-        { id:'ig5', img:'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&h=200&fit=crop', selected:false },
-        { id:'ig6', img:'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=200&h=200&fit=crop', selected:false },
-      ])
-      setIgLoading(false)
-    }, 1800)
+    setIgError('Instagram import requires the Instagram Basic Display API to be configured. Please contact the admin to enable it.')
   }
 
   const toggleIgPost = (id: string) => setIgPosts(p => p.map(post => post.id === id ? { ...post, selected: !post.selected } : post))
@@ -333,15 +341,19 @@ export default function MyProfile() {
                 <div className="bg-card-bg border border-color rounded-2xl p-4">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-sm font-bold text-text-light">Earnings This Week</h3>
-                    <span className="text-xs text-[#28a745] font-semibold">KES 46,000</span>
+                    <span className="text-xs text-[#28a745] font-semibold">{earnings ? `KES ${Number(earnings.weeklyTotal).toLocaleString()}` : '—'}</span>
                   </div>
                   <div className="flex items-end gap-1.5 h-24">
-                    {[35,62,45,80,55,90,70].map((h,i)=>(
-                      <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                        <div className="w-full rounded-t-lg" style={{height:`${h}%`,background:'linear-gradient(to top,#8B0000,#E91E63)',opacity:i===5?1:0.5}}/>
-                        <span className="text-[8px] text-text-muted">{['M','T','W','T','F','S','S'][i]}</span>
-                      </div>
-                    ))}
+                    {(earnings?.weeklyChart ?? [0,0,0,0,0,0,0]).map((v: number, i: number)=>{
+                      const maxVal = Math.max(...(earnings?.weeklyChart ?? [1]), 1)
+                      const pct = Math.max(4, Math.round((v / maxVal) * 100))
+                      return (
+                        <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                          <div className="w-full rounded-t-lg" style={{height:`${pct}%`,background:'linear-gradient(to top,#8B0000,#E91E63)',opacity:v>0?1:0.2}}/>
+                          <span className="text-[8px] text-text-muted">{['M','T','W','T','F','S','S'][i]}</span>
+                        </div>
+                      )
+                    })}
                   </div>
                 </div>
               </div>
@@ -370,13 +382,26 @@ export default function MyProfile() {
                 </div>
                 <div className="bg-gradient-to-br from-[#8B0000]/20 to-[#FFD700]/5 border border-[#8B0000]/30 rounded-2xl p-4">
                   <div className="flex items-center gap-2 mb-2"><Zap size={14} className="text-[#FFD700]"/><span className="text-xs font-bold text-text-light">Profile Completion</span></div>
-                  <div className="w-full h-2 bg-dark-bg rounded-full mb-2"><div className="h-full bg-gradient-to-r from-[#8B0000] to-[#FFD700] rounded-full" style={{width:'78%'}}/></div>
-                  <p className="text-[10px] text-text-muted">78% — Add more photos to reach 100%</p>
+                  {(() => {
+                    const p = escortProfile
+                    let pct = 0
+                    if (p?.bio && p.bio.length > 10) pct += 20
+                    if (p?.city && p?.area) pct += 10
+                    if (gallery.length > 0) pct += 30
+                    if (p?.whatsapp || p?.telegram) pct += 20
+                    if (p?.languages?.length > 0) pct += 10
+                    if (p?.services?.length > 0) pct += 10
+                    const hint = pct < 100 ? (gallery.length === 0 ? 'Add photos to boost visibility' : pct < 70 ? 'Fill in your bio and contacts' : 'Add services to reach 100%') : 'Profile complete!'
+                    return (<>
+                      <div className="w-full h-2 bg-dark-bg rounded-full mb-2"><div className="h-full bg-gradient-to-r from-[#8B0000] to-[#FFD700] rounded-full transition-all" style={{width:`${pct}%`}}/></div>
+                      <p className="text-[10px] text-text-muted">{pct}% — {hint}</p>
+                    </>)
+                  })()}
                 </div>
                 <div className="bg-card-bg border border-color rounded-2xl p-4">
                   <div className="flex items-center gap-2 mb-2"><Users size={14} className="text-[#2196F3]"/><span className="text-xs font-bold text-text-light">Followers</span></div>
-                  <p className="text-2xl font-black text-text-light">{followerCount(escortProfile?.id || '').toLocaleString()}</p>
-                  <p className="text-[10px] text-text-muted mt-0.5">+42 this week</p>
+                  <p className="text-2xl font-black text-text-light">{followersData ? Number(followersData.total).toLocaleString() : followerCount(escortProfile?.id || '').toLocaleString()}</p>
+                  {followersData?.thisWeek > 0 && <p className="text-[10px] text-[#28a745] mt-0.5">+{followersData.thisWeek} this week</p>}
                 </div>
               </div>
             </div>
@@ -455,11 +480,14 @@ export default function MyProfile() {
               </div>
               <div className="bg-card-bg border border-color rounded-2xl p-5">
                 <h3 className="text-sm font-bold text-text-light mb-4">Pricing (KES)</h3>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   <div><label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Per Hour</label><input type="number" value={editHourly}    onChange={e => setEditHourly(e.target.value)}    className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#FFD700] transition-all"/></div>
                   <div><label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Overnight</label><input type="number" value={editOvernight} onChange={e => setEditOvernight(e.target.value)} className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#FFD700] transition-all"/></div>
                   <div><label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Video Call</label><input type="number" value={editVideo}    onChange={e => setEditVideo(e.target.value)}    className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#FFD700] transition-all"/></div>
+                  <div><label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Incall Rate</label><input type="number" value={editIncall}   onChange={e => setEditIncall(e.target.value)}   placeholder="e.g. 4000" className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#FFD700] transition-all"/></div>
+                  <div><label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Outcall Rate</label><input type="number" value={editOutcall}  onChange={e => setEditOutcall(e.target.value)}  placeholder="e.g. 5000" className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#FFD700] transition-all"/></div>
                 </div>
+                <p className="text-[10px] text-text-muted mt-2">Incall = client comes to you. Outcall = you go to client.</p>
               </div>
               {editSaveError && <p className="text-xs text-[#EF4444] text-center">{editSaveError}</p>}
               <button onClick={handleSave} disabled={editSaving} className={`w-full py-3 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${editSaved?'bg-[#28a745] text-white':editSaving?'bg-gray-600 text-white cursor-wait':'bg-gradient-to-r from-[#8B0000] to-[#a00000] text-white hover:from-[#a00000] hover:to-[#8B0000]'}`}>
@@ -503,25 +531,43 @@ export default function MyProfile() {
 
           {activeTab === 'Followers' && (
             <div className="max-w-lg space-y-4">
-              <div className="grid grid-cols-3 gap-3 mb-4">
-                <div className="bg-card-bg border border-color rounded-2xl p-4 text-center"><p className="text-2xl font-black text-text-light">{followerCount(escortProfile?.id || '').toLocaleString()}</p><p className="text-[10px] text-text-muted mt-0.5">Followers</p></div>
-                <div className="bg-card-bg border border-color rounded-2xl p-4 text-center"><p className="text-2xl font-black text-text-light">143</p><p className="text-[10px] text-text-muted mt-0.5">Following</p></div>
-                <div className="bg-card-bg border border-color rounded-2xl p-4 text-center"><p className="text-2xl font-black text-text-light">+42</p><p className="text-[10px] text-text-muted mt-0.5">This week</p></div>
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <div className="bg-card-bg border border-color rounded-2xl p-4 text-center"><p className="text-2xl font-black text-text-light">{followersData ? Number(followersData.total).toLocaleString() : '—'}</p><p className="text-[10px] text-text-muted mt-0.5">Followers</p></div>
+                <div className="bg-card-bg border border-color rounded-2xl p-4 text-center"><p className="text-2xl font-black text-text-light">{followersData?.thisWeek ?? '—'}</p><p className="text-[10px] text-text-muted mt-0.5">This week</p></div>
               </div>
               <div className="bg-card-bg border border-color rounded-2xl p-4">
                 <h3 className="text-sm font-bold text-text-light mb-3">Recent Followers</h3>
-                <div className="space-y-3">
-                  {['John K.','Mike O.','David L.','Sarah W.','Peter M.'].map((name,i) => (
-                    <div key={name} className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-[#8B0000]/20 flex items-center justify-center text-sm font-bold text-[#8B0000] flex-shrink-0">{name.charAt(0)}</div>
-                      <div className="flex-1">
-                        <p className="text-xs font-semibold text-text-light">{name}</p>
-                        <p className="text-[10px] text-text-muted">{['2 min ago','1 hour ago','3 hours ago','Yesterday','2 days ago'][i]}</p>
-                      </div>
-                      <UserCheck size={13} className="text-[#28a745]" />
-                    </div>
-                  ))}
-                </div>
+                {(!followersData || followersData.recent.length === 0) ? (
+                  <p className="text-xs text-text-muted text-center py-4">No followers yet — upgrade your tier for more visibility</p>
+                ) : (
+                  <div className="space-y-3">
+                    {followersData.recent.map((f: any, i: number) => {
+                      const timeAgo = (() => {
+                        if (!f.followedAt) return ''
+                        const diff = Date.now() - new Date(f.followedAt).getTime()
+                        const mins = Math.floor(diff / 60000)
+                        if (mins < 60) return `${mins}m ago`
+                        const hrs = Math.floor(mins / 60)
+                        if (hrs < 24) return `${hrs}h ago`
+                        return `${Math.floor(hrs / 24)}d ago`
+                      })()
+                      return (
+                        <div key={i} className="flex items-center gap-3">
+                          {f.avatar ? (
+                            <img src={f.avatar} className="w-9 h-9 rounded-full object-cover flex-shrink-0" alt={f.name} />
+                          ) : (
+                            <div className="w-9 h-9 rounded-full bg-[#8B0000]/20 flex items-center justify-center text-sm font-bold text-[#8B0000] flex-shrink-0">{f.name.charAt(0).toUpperCase()}</div>
+                          )}
+                          <div className="flex-1">
+                            <p className="text-xs font-semibold text-text-light">{f.name}</p>
+                            {timeAgo && <p className="text-[10px] text-text-muted">{timeAgo}</p>}
+                          </div>
+                          <UserCheck size={13} className="text-[#28a745]" />
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -566,57 +612,22 @@ export default function MyProfile() {
                 </div>
               </div>
 
-              {!igPosts.length ? (
-                <div className="space-y-4">
+              <div className="p-5 bg-card-bg border border-[#E91E63]/30 rounded-2xl space-y-4">
+                <div className="flex items-start gap-3">
+                  <AlertCircle size={18} className="text-[#E91E63] flex-shrink-0 mt-0.5" />
                   <div>
-                    <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Instagram Username</label>
-                    <div className="flex gap-2">
-                      <div className="relative flex-1">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-sm">@</span>
-                        <input value={igHandle} onChange={e=>setIgHandle(e.target.value)} placeholder="yourhandle" className="w-full pl-7 pr-3 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted focus:outline-none focus:border-[#E91E63] transition-all"/>
-                      </div>
-                      <button onClick={fetchInstagram} disabled={igLoading} className="px-4 py-2.5 bg-gradient-to-r from-[#f09433] to-[#bc1888] text-white text-xs font-bold rounded-xl disabled:opacity-60 flex items-center gap-1.5">
-                        {igLoading ? <Loader2 size={13} className="animate-spin"/> : <Instagram size={13}/>}
-                        {igLoading ? 'Fetching…' : 'Fetch Posts'}
-                      </button>
-                    </div>
-                    {igError && <p className="text-xs text-[#EF4444] mt-1.5 flex items-center gap-1"><AlertCircle size={11}/>{igError}</p>}
-                  </div>
-                  <div className="p-4 bg-card-bg border border-color rounded-2xl">
-                    <p className="text-xs font-bold text-text-light mb-2">How it works</p>
-                    <div className="space-y-2">
-                      {['Enter your public Instagram @handle','We fetch your most recent 12 posts','Select which photos to import','They appear in your gallery immediately'].map((s,i)=>(
-                        <div key={s} className="flex items-start gap-2.5">
-                          <div className="w-5 h-5 rounded-full bg-[#E91E63]/20 flex items-center justify-center text-[9px] font-black text-[#E91E63] flex-shrink-0 mt-0.5">{i+1}</div>
-                          <p className="text-xs text-text-muted">{s}</p>
-                        </div>
-                      ))}
-                    </div>
-                    <p className="text-[10px] text-text-muted mt-3 border-t border-color pt-2">Note: Instagram API key must be configured in Admin Panel → API Keys before this feature works live.</p>
+                    <p className="text-sm font-bold text-text-light mb-1">Instagram API Not Configured</p>
+                    <p className="text-xs text-text-muted leading-relaxed">The Instagram Basic Display API requires app registration and approval from Meta. This feature is not yet active on this platform.</p>
                   </div>
                 </div>
-              ) : (
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <p className="text-xs font-bold text-text-light">Posts from @{igHandle}</p>
-                    <p className="text-[10px] text-text-muted">{igPosts.filter(p=>p.selected).length} selected</p>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2 mb-4">
-                    {igPosts.map(post => (
-                      <button key={post.id} onClick={() => toggleIgPost(post.id)} className={`aspect-square rounded-xl overflow-hidden border-2 transition-all relative ${post.selected?'border-[#28a745]':'border-transparent hover:border-color'}`}>
-                        <img src={post.img} alt="" className="w-full h-full object-cover"/>
-                        {post.selected && <div className="absolute inset-0 bg-[#28a745]/20 flex items-center justify-center"><CheckCircle2 size={20} className="text-[#28a745]" fill="#28a745"/></div>}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="flex gap-2">
-                    <button onClick={importSelected} disabled={!igPosts.filter(p=>p.selected).length} className={`flex-1 py-3 font-bold text-sm rounded-xl transition-all disabled:opacity-40 ${igImported?'bg-[#28a745] text-white':'bg-[#8B0000] text-white hover:bg-[#a00000]'}`}>
-                      {igImported?'✓ Imported to Gallery!':'Import Selected Photos'}
-                    </button>
-                    <button onClick={()=>{setIgPosts([]);setIgHandle('')}} className="px-4 py-3 border border-color text-text-muted text-sm rounded-xl hover:border-text-muted transition-all">Reset</button>
-                  </div>
+                <div className="border-t border-color pt-4">
+                  <p className="text-xs font-bold text-text-light mb-2">In the meantime, add photos directly:</p>
+                  <button onClick={() => setActiveTab('Gallery')} className="w-full py-3 bg-gradient-to-r from-[#8B0000] to-[#a00000] text-white font-bold text-sm rounded-xl flex items-center justify-center gap-2 hover:from-[#a00000] hover:to-[#8B0000] transition-all">
+                    <Camera size={14} /> Go to Gallery Tab → Add Photos
+                  </button>
                 </div>
-              )}
+                <p className="text-[10px] text-text-muted border-t border-color pt-3">Once the admin configures an Instagram API key, this feature will allow you to import photos directly from your public Instagram profile.</p>
+              </div>
             </div>
           )}
 
@@ -673,27 +684,74 @@ export default function MyProfile() {
 
               <div className="mt-4 p-4 bg-card-bg border border-color rounded-2xl">
                 <p className="text-[10px] text-text-muted font-bold mb-1.5">Current Status</p>
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-[#28a745] rounded-full animate-pulse"/>
-                  <span className="text-xs font-bold text-[#28a745]">Active — expires 30 June 2026</span>
-                </div>
+                {subscription === null ? (
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-gray-500 rounded-full"/>
+                    <span className="text-xs text-text-muted">Loading…</span>
+                  </div>
+                ) : subscription.active ? (
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-[#28a745] rounded-full animate-pulse"/>
+                    <span className="text-xs font-bold text-[#28a745]">
+                      Active{subscription.plan ? ` — ${subscription.plan}` : ''}{subscription.expiresAt ? ` — expires ${new Date(subscription.expiresAt).toLocaleDateString('en-KE', { day: 'numeric', month: 'long', year: 'numeric' })}` : ''}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-[#EF4444] rounded-full"/>
+                    <span className="text-xs font-bold text-[#EF4444]">No active subscription</span>
+                  </div>
+                )}
               </div>
             </div>
           )}
 
           {activeTab === 'Earnings' && (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {[
-                { label: 'This Month', amount: 184000, contacts: 23 },
-                { label: 'Last Month', amount: 152000, contacts: 19 },
-                { label: 'Total',      amount: 1284000, contacts: 187 },
-              ].map(e => (
-                <div key={e.label} className="bg-card-bg border border-color rounded-2xl p-5">
-                  <p className="text-xs text-text-muted mb-2">{e.label}</p>
-                  <p className="text-2xl font-black text-[#FFD700]">KES {e.amount.toLocaleString()}</p>
-                  <p className="text-xs text-text-muted mt-1">{e.contacts} contacts made</p>
+            <div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
+                {[
+                  { label: 'This Month', key: 'thisMonth' },
+                  { label: 'Last Month', key: 'lastMonth' },
+                  { label: 'All Time',   key: 'total' },
+                ].map(({ label, key }) => {
+                  const d = earnings?.[key]
+                  return (
+                    <div key={label} className="bg-card-bg border border-color rounded-2xl p-5">
+                      <p className="text-xs text-text-muted mb-2">{label}</p>
+                      <p className="text-2xl font-black text-[#FFD700]">
+                        {d ? `KES ${Number(d.amount).toLocaleString()}` : '—'}
+                      </p>
+                      <p className="text-xs text-text-muted mt-1">{d ? `${d.contacts} confirmed booking${d.contacts !== 1 ? 's' : ''}` : 'Loading…'}</p>
+                    </div>
+                  )
+                })}
+              </div>
+              {earnings && earnings.total.contacts === 0 && (
+                <div className="text-center py-8 text-text-muted">
+                  <BarChart2 size={32} className="mx-auto mb-2 opacity-30" />
+                  <p className="text-sm">No confirmed bookings yet. Earnings will appear here once clients book and confirm.</p>
                 </div>
-              ))}
+              )}
+              {earnings && earnings.total.contacts > 0 && (
+                <div className="bg-card-bg border border-color rounded-2xl p-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-sm font-bold text-text-light">This Week by Day</h3>
+                    <span className="text-xs text-[#28a745] font-semibold">KES {Number(earnings.weeklyTotal).toLocaleString()}</span>
+                  </div>
+                  <div className="flex items-end gap-1.5 h-24">
+                    {(earnings.weeklyChart ?? []).map((v: number, i: number) => {
+                      const maxVal = Math.max(...earnings.weeklyChart, 1)
+                      const pct = Math.max(4, Math.round((v / maxVal) * 100))
+                      return (
+                        <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                          <div className="w-full rounded-t-lg" style={{height:`${pct}%`,background:'linear-gradient(to top,#8B0000,#E91E63)',opacity:v>0?1:0.2}}/>
+                          <span className="text-[8px] text-text-muted">{['M','T','W','T','F','S','S'][i]}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

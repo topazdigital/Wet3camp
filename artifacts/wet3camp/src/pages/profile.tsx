@@ -33,7 +33,7 @@ function tgLink(name: string) {
 
 export default function ProfilePage() {
   const [, params] = useRoute('/profile/:slug')
-  const { isLoggedIn } = useAuth()
+  const { isLoggedIn, user } = useAuth()
   const { isFollowing, toggleFollow, followerCount } = useFollow()
 
   const slug = params?.slug
@@ -57,6 +57,9 @@ export default function ProfilePage() {
   const [mainImg, setMainImg] = useState(escort.image)
   const tier = TIER_STYLE[escort.tier] ?? TIER_STYLE.Elite
   const following = isFollowing(escort.id)
+
+  // Detect if viewer is looking at their own profile
+  const isOwnProfile = !!(user?.id && (escort as any).user_id && String((escort as any).user_id) === user.id)
 
   return (
     <div className="flex min-h-screen bg-dark-bg flex-col lg:flex-row">
@@ -135,19 +138,27 @@ export default function ProfilePage() {
 
           {/* Top-right: actions */}
           <div className="absolute top-4 right-4 flex items-center gap-2">
-            <button
-              onClick={() => {
-                if (!isLoggedIn) { window.location.href = `/login?redirect=/profile/${escort.id}`; return }
-                toggleFollow(escort.id)
-              }}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold backdrop-blur-sm transition-all border ${following ? 'bg-[#8B0000]/40 border-[#8B0000]/60 text-white' : 'bg-black/50 border-white/20 text-white hover:bg-black/70'}`}
-            >
-              {following ? <UserCheck size={13} /> : <UserPlus size={13} />}
-              {following ? 'Following' : 'Follow'}
-            </button>
-            <button onClick={() => setLiked(v => !v)} className={`p-2.5 rounded-full backdrop-blur-sm transition-all border ${liked ? 'bg-[#E91E63]/20 border-[#E91E63]/50' : 'bg-black/50 border-white/10'}`}>
-              <Heart size={18} className={liked ? 'fill-[#E91E63] text-[#E91E63]' : 'text-white'} />
-            </button>
+            {isOwnProfile ? (
+              <Link href="/my-profile" className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold backdrop-blur-sm transition-all border bg-black/50 border-white/20 text-white hover:bg-black/70">
+                Edit My Profile
+              </Link>
+            ) : (
+              <>
+                <button
+                  onClick={() => {
+                    if (!isLoggedIn) { window.location.href = `/login?redirect=/profile/${escort.id}`; return }
+                    toggleFollow(escort.id)
+                  }}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold backdrop-blur-sm transition-all border ${following ? 'bg-[#8B0000]/40 border-[#8B0000]/60 text-white' : 'bg-black/50 border-white/20 text-white hover:bg-black/70'}`}
+                >
+                  {following ? <UserCheck size={13} /> : <UserPlus size={13} />}
+                  {following ? 'Following' : 'Follow'}
+                </button>
+                <button onClick={() => setLiked(v => !v)} className={`p-2.5 rounded-full backdrop-blur-sm transition-all border ${liked ? 'bg-[#E91E63]/20 border-[#E91E63]/50' : 'bg-black/50 border-white/10'}`}>
+                  <Heart size={18} className={liked ? 'fill-[#E91E63] text-[#E91E63]' : 'text-white'} />
+                </button>
+              </>
+            )}
             <button className="p-2.5 rounded-full bg-black/50 backdrop-blur-sm border border-white/10 text-white hover:bg-black/70 transition-all">
               <Share2 size={18} />
             </button>
@@ -210,6 +221,7 @@ export default function ProfilePage() {
                     <p className="text-sm font-black text-text-light">{escort.rating}★</p>
                     <p className="text-[9px] text-text-muted">Rating</p>
                   </div>
+                  {!isOwnProfile && (
                   <div className="ml-auto">
                     <button
                       onClick={() => {
@@ -221,6 +233,7 @@ export default function ProfilePage() {
                       {following ? <><UserCheck size={12} /> Following</> : <><UserPlus size={12} /> Follow</>}
                     </button>
                   </div>
+                  )}
                 </div>
 
                 <div className="flex flex-wrap gap-2">
@@ -393,7 +406,11 @@ export default function ProfilePage() {
                       </a>
 
                       {/* Members-only actions */}
-                      {isLoggedIn ? (
+                      {isOwnProfile ? (
+                        <Link href="/my-profile" className="w-full py-3 bg-gradient-to-r from-[#8B0000] to-[#a00000] text-white font-black rounded-xl transition-all shadow-lg shadow-[#8B0000]/30 flex items-center justify-center gap-2 text-sm hover:shadow-[#8B0000]/50 active:scale-[0.98]">
+                          Edit My Profile
+                        </Link>
+                      ) : isLoggedIn ? (
                         <>
                           <button
                             onClick={() => setBookingOpen(true)}

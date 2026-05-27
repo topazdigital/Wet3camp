@@ -254,11 +254,10 @@ router.post('/auth/send-otp', async (req, res) => {
   } else {
     console.log(`[OTP] Demo mode — code for ${emailKey}: ${code}`)
   }
-  res.json({
-    message: smtpConfigured ? 'Verification code sent to your email.' : 'Verification code sent.',
-    demo: !smtpConfigured,
-    ...(smtpConfigured ? {} : { code }),
-  })
+  if (!smtpConfigured) {
+    res.status(503).json({ message: 'Email service is not configured on this server. Please contact support to enable OTP verification.' }); return
+  }
+  res.json({ message: 'Verification code sent to your email.' })
 })
 
 router.post('/auth/verify-otp', (req, res) => {

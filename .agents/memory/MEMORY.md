@@ -4,3 +4,4 @@
 - [Booking policy decision](booking-policy.md) — platform does NOT process payments; bookings are appointment-requests only; escorts+clients arrange payment offline; STK push intentionally excluded
 - [Tier ordering protocol](tier-protocol.md) — elite > vip > premium > standard > free; search page shows Elite section first (large cards), VIP (medium), Premium, then Standard list cards
 - [Video calls via Jitsi](video-calls.md) — calls use Jitsi Meet iframe modal; room IDs encoded as [vcall]ROOM[/vcall] in message content; no WebRTC signaling server needed
+- [Real-data fixes batch](real-data-fixes.md) — Standard tier is FREE; own-profile detection uses escort.user_id vs user.id; 3 new API endpoints: /profile/escort/earnings /profile/escort/followers /profile/escort/subscription; incall/outcall added to edit profile form; OTP requires real SMTP (no demo code leak); Instagram import shows "not configured"; earnings/followers/subscription all from real DB

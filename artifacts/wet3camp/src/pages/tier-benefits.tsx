@@ -84,7 +84,7 @@ const TIERS = [
     color: '#9E9E9E',
     darkColor: '#757575',
     glowColor: '#9E9E9E',
-    price: 'KES 500 / mo',
+    price: 'FREE',
     popular: false,
     icon: Shield,
     benefits: [

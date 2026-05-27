@@ -118,9 +118,13 @@ export const api = {
       whatsapp?: string; telegram?: string
       bodyType?: string; ethnicity?: string; height?: string; hairColor?: string
       rateHourly?: number; rateOvernight?: number; rateVideo?: number
+      rateIncall?: number; rateOutcall?: number
       available?: boolean; languages?: string[]; services?: string[]
     }) =>
       req<any>('/profile/escort', { method: 'PATCH', body: JSON.stringify(d) }),
+    getEarnings: () => req<any>('/profile/escort/earnings'),
+    getFollowers: () => req<any>('/profile/escort/followers'),
+    getSubscription: () => req<any>('/profile/escort/subscription'),
   },
 
   upload: {
