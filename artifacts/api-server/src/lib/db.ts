@@ -149,14 +149,11 @@ export function getPool(): CompatPool | null {
     connectionString = `mysql://${user}:${pass}@${DB_HOST}:${DB_PORT ?? '3306'}/${DB_NAME}`
   } else if (process.env.DATABASE_URL && isMysqlUrl(process.env.DATABASE_URL)) {
     connectionString = process.env.DATABASE_URL
+  } else if (process.env.DATABASE_URL) {
+    // PostgreSQL or other DATABASE_URL (Replit dev environment)
+    connectionString = process.env.DATABASE_URL
   } else {
-    // PostgreSQL and other non-MySQL databases are not supported.
-    // Set DB_HOST, DB_USER, DB_PASS, DB_NAME to connect to MySQL.
-    if (process.env.DATABASE_URL) {
-      console.warn('[db] DATABASE_URL is not a MySQL URL — MySQL/MariaDB is required. Set DB_HOST/DB_USER/DB_PASS/DB_NAME for MySQL.')
-    } else {
-      console.warn('[db] No MySQL credentials set. Set DB_HOST, DB_USER, DB_PASS, DB_NAME environment variables.')
-    }
+    console.warn('[db] No database credentials set. Set DB_HOST/DB_USER/DB_PASS/DB_NAME for MySQL, or DATABASE_URL for PostgreSQL (Replit).')
     return null
   }
 

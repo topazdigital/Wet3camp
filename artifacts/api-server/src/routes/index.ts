@@ -15,9 +15,11 @@ import roomsRouter         from "./rooms.js";
 import aiRouter            from "./ai.js";
 import uploadRouter        from "./upload.js";
 import notificationsRouter from "./notifications.js";
+import webrtcRouter        from "./webrtc.js";
 
 const router: IRouter = Router();
 
+router.use(webrtcRouter);
 router.use(healthRouter);
 router.use(escortsRouter);
 router.use(authRouter);

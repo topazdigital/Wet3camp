@@ -97,13 +97,24 @@ router.post('/auth/register', async (req, res) => {
     let escortId: string | null = null
 
     if (dbRole === 'escort') {
+      // Check require_approval platform setting — default to requiring approval
+      let requireApproval = true
+      try {
+        const [[setting]] = await pool.query<any[]>(
+          "SELECT value FROM platform_settings WHERE `key` = 'require_approval' LIMIT 1"
+        )
+        requireApproval = !setting || setting.value !== '0'
+      } catch { /* table may not exist yet, default to requiring approval */ }
+
+      const autoActive = requireApproval ? 0 : 1
+
       const [escResult] = await pool.query<any>(
         `INSERT INTO escorts
            (user_id, name, age, city, area, bio, tier, whatsapp, telegram,
             height, body_type, ethnicity, hair_color, gender,
             price_hourly, price_overnight, price_video, price_incall, price_outcall,
             available, verified, is_active)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,0,0)`,
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?)`,
         [
           userId, name,
           parseInt(req.body.age ?? '0') || 0,
@@ -118,6 +129,7 @@ router.post('/auth/register', async (req, res) => {
           rateVideo     ? parseInt(rateVideo)     : 1500,
           rateIncall    ? parseInt(rateIncall)    : 0,
           rateOutcall   ? parseInt(rateOutcall)   : 0,
+          autoActive, autoActive,
         ]
       )
       escortId = String((escResult as any).insertId)
@@ -143,13 +155,24 @@ router.post('/auth/register', async (req, res) => {
       sendWelcomeEmail(name, email.toLowerCase().trim()).catch(() => {})
     }
 
+    // approved = true when not an escort, or when require_approval is off
+    let approved = dbRole !== 'escort'
+    if (dbRole === 'escort' && escortId) {
+      try {
+        const [[setting]] = await pool.query<any[]>(
+          "SELECT value FROM platform_settings WHERE `key` = 'require_approval' LIMIT 1"
+        )
+        approved = !setting || setting.value !== '1'
+      } catch { approved = false }
+    }
+
     res.status(201).json({
       token,
       user: {
         id: String(userId), name,
         email: email.toLowerCase().trim(),
         role: dbRole, avatar: null, phone: phone ?? null,
-        approved: dbRole !== 'escort',
+        approved,
       },
       escortId,
     })
