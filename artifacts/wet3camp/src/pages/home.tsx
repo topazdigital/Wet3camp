@@ -7,13 +7,7 @@ import { Users, MapPin, ShieldCheck, Flame, Video, Hotel, Plane, ShoppingBag, Ca
 import { Link } from 'wouter'
 import { CITIES } from '@/data/escorts'
 import { useSEO } from '@/lib/useSEO'
-
-const STATS = [
-  { icon: Users,       value: '1,200+', label: 'Active Escorts' },
-  { icon: MapPin,      value: '12',     label: 'Cities'         },
-  { icon: ShieldCheck, value: '890+',   label: 'Verified'       },
-  { icon: Flame,       value: '143',    label: 'Online Now',    pulse: true },
-]
+import { api } from '@/lib/api'
 
 const CATEGORIES = [
   { label: 'All',       value: 'all',       icon: '✨' },
@@ -40,13 +34,29 @@ const QUICK_LINKS = [
 export default function Home() {
   useSEO({
     title: "Kenya's #1 Escort & Companion Directory",
-    description: "Browse 1,200+ verified escorts in Nairobi, Mombasa, Kisumu & across Kenya. Elite, VIP & Premium companions. Discreet, safe, real profiles.",
+    description: "Browse verified escorts in Nairobi, Mombasa, Kisumu & across Kenya. Elite, VIP & Premium companions. Discreet, safe, real profiles.",
     keywords: "escorts Kenya, Nairobi escorts, Mombasa escorts, companion booking Kenya, VIP escorts Nairobi, elite companions, verified escorts",
     canonicalPath: '/',
   })
   const [activeCategory, setActiveCategory] = useState('all')
   const [detectedCity, setDetectedCity] = useState<string | null>(null)
   const [geoState, setGeoState] = useState<'idle' | 'loading' | 'done' | 'denied'>('idle')
+  const [stats, setStats] = useState<{ total: number; verified: number; online: number; cities: number } | null>(null)
+
+  useEffect(() => {
+    api.escorts.list({ limit: 1 })
+      .then(res => {
+        if (res.meta) {
+          setStats({
+            total: res.meta.total ?? 0,
+            verified: res.meta.verified ?? 0,
+            online: res.meta.online ?? 0,
+            cities: res.meta.cities ?? 12,
+          })
+        }
+      })
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     if (!navigator.geolocation) return
@@ -71,6 +81,13 @@ export default function Home() {
     ? `Near you in ${detectedCity}`
     : 'Nairobi first'
 
+  const statItems = [
+    { icon: Users,       value: stats ? `${stats.total}+` : '…',        label: 'Active Escorts' },
+    { icon: MapPin,      value: stats ? String(stats.cities) : '…',     label: 'Cities'         },
+    { icon: ShieldCheck, value: stats ? `${stats.verified}+` : '…',     label: 'Verified'       },
+    { icon: Flame,       value: stats ? String(stats.online) : '…',     label: 'Online Now', pulse: true },
+  ]
+
   return (
     <main className="min-h-screen bg-dark-bg flex flex-col lg:flex-row">
       <Sidebar />
@@ -81,7 +98,7 @@ export default function Home() {
         {/* Stats Bar */}
         <div className="w-full px-3 sm:px-5 py-3 border-b border-color bg-card-bg">
           <div className="flex items-center gap-4 sm:gap-8 overflow-x-auto scrollbar-hide">
-            {STATS.map(s => {
+            {statItems.map(s => {
               const Icon = s.icon
               return (
                 <div key={s.label} className="flex items-center gap-2 flex-shrink-0">
@@ -113,7 +130,7 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Quick Links — 6-item grid, no horizontal scroll */}
+        {/* Quick Links */}
         <div className="px-3 sm:px-5 py-4 border-b border-color bg-dark-bg">
           <div className="grid grid-cols-6 gap-2 sm:gap-4 max-w-lg">
             {QUICK_LINKS.map(ql => {
@@ -143,12 +160,12 @@ export default function Home() {
                 {geoState === 'done'
                   ? <><div className="w-1.5 h-1.5 bg-[#28a745] rounded-full animate-pulse inline-block" />{locationLabel}</>
                   : locationLabel}
-                {' · '}1,200+ profiles
+                {stats ? ` · ${stats.total}+ profiles` : ''}
               </p>
             </div>
           </div>
 
-          {/* Category Chips — horizontal scroll with hidden scrollbar */}
+          {/* Category Chips */}
           <div className="px-3 sm:px-5 py-2.5 border-b border-color">
             <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-0.5">
               {CATEGORIES.map(cat => (
