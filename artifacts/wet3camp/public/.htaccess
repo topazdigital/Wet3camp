@@ -1,21 +1,26 @@
 Options -Indexes -MultiViews
 DirectoryIndex index.html
 
-# ── API proxy via RewriteRule [P] ────────────────────────────────────────────
-# ProxyPass is NOT allowed in .htaccess context — use RewriteRule with [P] flag
-# instead (which goes through mod_rewrite but proxies via mod_proxy internally).
-# This works with standard DirectAdmin AllowOverride All settings.
+# ── API proxy ─────────────────────────────────────────────────────────────────
+# Method A: ProxyPass (Apache 2.4+ with mod_proxy enabled in VirtualHost)
+<IfModule mod_proxy.c>
+  ProxyPreserveHost On
+  ProxyPass        /api http://localhost:8080/api
+  ProxyPassReverse /api http://localhost:8080/api
+</IfModule>
+
+# Method B: RewriteRule [P] fallback (same result via mod_rewrite + mod_proxy)
 <IfModule mod_rewrite.c>
   RewriteEngine On
-  RewriteBase /
 
-  # Proxy /api/* and /api to the Node.js server on port 8080
-  RewriteRule ^api(/.*)?$ http://localhost:8080/api$1 [P,L,NE]
+  # Skip /api paths if already handled by ProxyPass above
+  RewriteCond %{REQUEST_URI} ^/api [NC]
+  RewriteRule ^ http://localhost:8080%{REQUEST_URI} [P,L,QSA,NE]
 
-  # SPA fallback — serve index.html for all non-file, non-api routes
-  RewriteRule ^index\.html$ - [L]
-  RewriteCond %{REQUEST_FILENAME} !-f
-  RewriteCond %{REQUEST_FILENAME} !-d
+  # SPA fallback — serve index.html for all non-file, non-directory routes
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
   RewriteRule . /index.html [L]
 </IfModule>
 
