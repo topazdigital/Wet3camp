@@ -377,6 +377,112 @@ router.post('/auth/setup-admin', async (req, res) => {
 })
 
 // ─── OAuth role selection (new social sign-up users) ─────────────────────────
+// OAuth users who chose "escort" role submit their full profile here
+router.post('/auth/setup-escort', requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const pool = getPool()
+    if (!pool) { res.status(503).json({ message: 'Database not configured' }); return }
+
+    const {
+      name, city, area, bio, whatsapp, telegram, phone,
+      bodyType, ethnicity, height, hairColor, gender,
+      rateHourly, rateOvernight, rateVideo, rateIncall, rateOutcall,
+      languages, services,
+    } = req.body as Record<string, any>
+
+    if (!city || !bio || !bodyType) {
+      res.status(400).json({ message: 'City, bio, and physical details are required' }); return
+    }
+
+    // Ensure user role is escort
+    await pool.query('UPDATE users SET role = ?, display_name = COALESCE(NULLIF(?,\'\'), display_name), phone = COALESCE(NULLIF(?,\'\'), phone) WHERE id = ?',
+      ['escort', name ?? null, phone ?? null, req.userId])
+
+    // Check require_approval setting
+    let requireApproval = true
+    try {
+      const [[setting]] = await pool.query<any[]>(
+        "SELECT value FROM platform_settings WHERE `key` = 'require_approval' LIMIT 1"
+      )
+      requireApproval = !setting || setting.value !== '0'
+    } catch { /* default to requiring approval */ }
+    const autoActive = requireApproval ? 0 : 1
+
+    // Fetch display name for escort record
+    const [[user]] = await pool.query<any[]>('SELECT display_name, username, email FROM users WHERE id = ?', [req.userId])
+    const displayName = name || user?.display_name || user?.username || 'Unknown'
+
+    // Check if escort record already exists
+    const [[existing]] = await pool.query<any[]>('SELECT id FROM escorts WHERE user_id = ? LIMIT 1', [req.userId])
+    let escortId: string
+
+    if (existing) {
+      escortId = String(existing.id)
+      await pool.query(
+        `UPDATE escorts SET name=?, city=?, area=?, bio=?, whatsapp=?, telegram=?,
+         height=?, body_type=?, ethnicity=?, hair_color=?, gender=?,
+         price_hourly=?, price_overnight=?, price_video=?, price_incall=?, price_outcall=?,
+         is_active=?, verified=? WHERE id=?`,
+        [
+          displayName, city ?? null, area ?? null, bio ?? null,
+          whatsapp ?? null, telegram ?? null,
+          height ?? null, bodyType ?? null, ethnicity ?? null, hairColor ?? null, gender ?? 'Female',
+          parseInt(rateHourly) || 3000, parseInt(rateOvernight) || 25000,
+          parseInt(rateVideo) || 1500, parseInt(rateIncall) || 0, parseInt(rateOutcall) || 0,
+          autoActive, autoActive,
+          escortId,
+        ]
+      )
+    } else {
+      const [escResult] = await pool.query<any>(
+        `INSERT INTO escorts
+           (user_id, name, city, area, bio, tier, whatsapp, telegram,
+            height, body_type, ethnicity, hair_color, gender,
+            price_hourly, price_overnight, price_video, price_incall, price_outcall,
+            available, verified, is_active)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?)`,
+        [
+          req.userId, displayName,
+          city ?? null, area ?? null, bio ?? null, 'standard',
+          whatsapp ?? null, telegram ?? null,
+          height ?? null, bodyType ?? null, ethnicity ?? null, hairColor ?? null, gender ?? 'Female',
+          parseInt(rateHourly) || 3000, parseInt(rateOvernight) || 25000,
+          parseInt(rateVideo) || 1500, parseInt(rateIncall) || 0, parseInt(rateOutcall) || 0,
+          autoActive, autoActive,
+        ]
+      )
+      escortId = String((escResult as any).insertId)
+    }
+
+    // Replace languages
+    await pool.query('DELETE FROM escort_languages WHERE escort_id = ?', [escortId])
+    if (Array.isArray(languages) && languages.length > 0) {
+      for (const lang of languages) {
+        await pool.query('INSERT IGNORE INTO escort_languages (escort_id, language) VALUES (?,?)', [escortId, lang])
+      }
+    }
+
+    // Replace services
+    await pool.query('DELETE FROM escort_services WHERE escort_id = ?', [escortId])
+    if (Array.isArray(services) && services.length > 0) {
+      for (const svc of services) {
+        await pool.query('INSERT IGNORE INTO escort_services (escort_id, name, available) VALUES (?,?,1)', [escortId, svc])
+      }
+    }
+
+    const token = await signToken({ id: req.userId!, role: 'escort', email: user?.email ?? '' })
+    res.json({
+      token,
+      escortId,
+      approved: !!autoActive,
+      user: { id: String(req.userId), name: displayName, email: user?.email ?? '', role: 'escort', approved: !!autoActive },
+    })
+  } catch (err) {
+    console.error('[setup-escort]', err)
+    res.status(500).json({ message: 'Failed to set up escort profile' })
+  }
+})
+
 router.post('/auth/set-role', requireAuth, async (req: AuthRequest, res) => {
   try {
     const { role } = req.body as { role?: string }

@@ -98,10 +98,14 @@ export default function RegisterPage() {
   const { login } = useAuth()
   const [, navigate] = useLocation()
 
+  // Detect OAuth escort-setup mode (?step=escort in URL)
+  const searchParams = new URLSearchParams(window.location.search)
+  const isOAuthEscortSetup = searchParams.get('step') === 'escort'
+
   // Step management
-  const [role, setRole]             = useState<'client'|'escort'|null>(null)
-  const [authMethod, setAuthMethod] = useState<'manual'|'oauth'|null>(null)
-  const [oauthProvider, setOauthProvider] = useState<string|null>(null)
+  const [role, setRole]             = useState<'client'|'escort'|null>(isOAuthEscortSetup ? 'escort' : null)
+  const [authMethod, setAuthMethod] = useState<'manual'|'oauth'|null>(isOAuthEscortSetup ? 'oauth' : null)
+  const [oauthProvider, setOauthProvider] = useState<string|null>(isOAuthEscortSetup ? 'oauth' : null)
   const [stepIdx, setStepIdx]       = useState(0)
 
   // Basic details
@@ -168,6 +172,10 @@ export default function RegisterPage() {
 
   // Compute steps
   const STEPS: string[] = (() => {
+    if (isOAuthEscortSetup) {
+      // OAuth escort: skip role/method/details/otp — go straight to profile setup
+      return ['physical', 'contact', 'services', 'rates', 'photos', 'pose', 'confirm']
+    }
     const base = ['role', 'method']
     if (!role || !authMethod) return base
     const manual = authMethod === 'manual'
@@ -409,6 +417,39 @@ export default function RegisterPage() {
     setLoading(true)
     setError('')
     try {
+      if (isOAuthEscortSetup) {
+        // OAuth user already has an account — just fill in escort profile details
+        const token = localStorage.getItem('auth_token')
+        if (!token) { navigate('/login'); return }
+        const res = await fetch('/api/auth/setup-escort', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            city, area, bio, whatsapp, telegram, phone,
+            bodyType, ethnicity, height, hairColor, gender,
+            languages: selLangs, services: selServices,
+            rateHourly:    parseInt(rateHourly)    || 3000,
+            rateOvernight: parseInt(rateOvernight) || 25000,
+            rateVideo:     parseInt(rateVideo)     || 1500,
+            rateIncall:    parseInt(rateIncall)    || 0,
+            rateOutcall:   parseInt(rateOutcall)   || 0,
+          }),
+        })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.message)
+        setToken(data.token)
+        login({
+          id: data.user.id,
+          name: data.user.name,
+          email: data.user.email,
+          role: 'escort',
+          profileId: data.escortId ?? undefined,
+          approved: data.approved,
+        })
+        navigate(data.approved ? '/my-profile' : '/pending-approval')
+        return
+      }
+
       const payload: Record<string, any> = {
         name, email, password,
         phone: phone || undefined,

@@ -4,11 +4,12 @@ import Sidebar from '@/components/Sidebar'
 import { useSEO } from '@/lib/useSEO'
 import {
   Send, Search, CheckCheck, Check, MoreVertical, Phone, Video, Paperclip,
-  Smile, ArrowLeft, Calendar, X, Wifi, WifiOff, Image as ImageIcon, ExternalLink
+  Smile, ArrowLeft, Calendar, X, Wifi, WifiOff, Image as ImageIcon
 } from 'lucide-react'
 import { Link } from 'wouter'
 import { api, getToken } from '@/lib/api'
 import { useAuth } from '@/lib/auth-context'
+import InAppCall from '@/components/InAppCall'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -108,32 +109,6 @@ function EmojiPicker({ onSelect, onClose }: { onSelect: (e: string) => void; onC
   )
 }
 
-function JitsiModal({ url, onClose }: { url: string; onClose: () => void }) {
-  return (
-    <div className="fixed inset-0 z-[200] bg-black flex flex-col">
-      <div className="flex items-center justify-between px-4 py-3 bg-card-bg border-b border-color flex-shrink-0">
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-[#28a745] animate-pulse" />
-          <span className="text-sm font-bold text-text-light">Live Call</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <a href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 px-3 py-1.5 border border-color rounded-lg text-xs text-text-muted hover:text-text-light transition-colors">
-            <ExternalLink size={12} /> Open Full Screen
-          </a>
-          <button onClick={onClose} className="p-1.5 text-[#EF4444] hover:bg-[#EF4444]/10 rounded-lg transition-colors">
-            <X size={16} />
-          </button>
-        </div>
-      </div>
-      <iframe
-        src={url}
-        className="flex-1 w-full border-0"
-        allow="camera; microphone; display-capture; autoplay; clipboard-write"
-        title="Video Call"
-      />
-    </div>
-  )
-}
 
 function MsgContent({ msg, onJoinCall }: { msg: Msg; onJoinCall: (roomId: string, type: 'vcall' | 'acall') => void }) {
   const [showTime, setShowTime] = useState(false)
@@ -214,7 +189,7 @@ export default function MessagesPage() {
   const [bookingPrompt, setBookingPrompt] = useState(false)
   const [sseConnected, setSseConnected] = useState(false)
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
-  const [jitsiUrl, setJitsiUrl] = useState<string | null>(null)
+  const [activeCall, setActiveCall] = useState<{ roomId: string; isCaller: boolean; type: 'vcall' | 'acall' } | null>(null)
   const [uploading, setUploading] = useState(false)
 
   const chatEndRef  = useRef<HTMLDivElement>(null)
@@ -409,18 +384,23 @@ export default function MessagesPage() {
   const startCall = (type: 'vcall' | 'acall') => {
     if (!selected) return
     const roomId = `WET3CAMP-${Date.now().toString(36).toUpperCase()}`
-    const jitsiPath = type === 'vcall' ? roomId : `${roomId}#config.startAudioOnly=true`
-    const url = `https://meet.jit.si/${jitsiPath}`
     const msgText = `[${type}]${roomId}[/${type}]`
-
     pushMsg(selected, msgText, true, { status: 'sent' })
     api.messages.send(selected, msgText).catch(() => {})
-    setJitsiUrl(url)
+    if (type === 'acall') {
+      setActiveCall({ roomId, isCaller: true, type })
+    } else {
+      // Video calls still use Jitsi (full video needs more infrastructure)
+      window.open(`https://meet.jit.si/${roomId}`, '_blank')
+    }
   }
 
   const joinCall = (roomId: string, type: 'vcall' | 'acall') => {
-    const jitsiPath = type === 'vcall' ? roomId : `${roomId}#config.startAudioOnly=true`
-    setJitsiUrl(`https://meet.jit.si/${jitsiPath}`)
+    if (type === 'acall') {
+      setActiveCall({ roomId, isCaller: false, type })
+    } else {
+      window.open(`https://meet.jit.si/${roomId}`, '_blank')
+    }
   }
 
   const sendBookingRequest = () => {
@@ -444,7 +424,15 @@ export default function MessagesPage() {
 
   return (
     <div className="flex min-h-screen bg-dark-bg flex-col lg:flex-row">
-      {jitsiUrl && <JitsiModal url={jitsiUrl} onClose={() => setJitsiUrl(null)} />}
+      {activeCall && (
+        <InAppCall
+          roomId={activeCall.roomId}
+          isCaller={activeCall.isCaller}
+          calleeName={activeCon?.name ?? 'Unknown'}
+          calleeAvatar={activeCon?.avatar}
+          onClose={() => setActiveCall(null)}
+        />
+      )}
 
       <input
         ref={fileInputRef}
