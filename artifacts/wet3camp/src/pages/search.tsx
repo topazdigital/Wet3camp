@@ -79,7 +79,7 @@ function EliteCard({ escort, isFav, onFav }: { escort: ApiEscort; isFav: boolean
             </div>
             <div className="text-right">
               <p className="text-[10px] text-[#FFD700]/70">From</p>
-              <p className="text-lg font-black text-[#FFD700]">KES {(escort.price_hourly || 0).toLocaleString()}</p>
+              <p className="text-lg font-black text-[#FFD700]">KES {(escort.price_incall || escort.price_hourly || 0).toLocaleString()}</p>
               <p className="text-[9px] text-white/50">/ hr</p>
             </div>
           </div>
@@ -133,7 +133,7 @@ function VIPCard({ escort, isFav, onFav }: { escort: ApiEscort; isFav: boolean; 
           </div>
           <p className="text-[10px] text-white/60 flex items-center gap-1"><MapPin size={9} />{escort.city}</p>
           <div className="flex items-center justify-between mt-2">
-            <p className="text-sm font-black" style={{ color: tier.color }}>KES {(escort.price_hourly || 0).toLocaleString()}<span className="text-[9px] text-white/40">/hr</span></p>
+            <p className="text-sm font-black" style={{ color: tier.color }}>KES {(escort.price_incall || escort.price_hourly || 0).toLocaleString()}<span className="text-[9px] text-white/40">/hr</span></p>
             <Link href={`/profile/${escort.id}`} className="px-2.5 py-1 text-[10px] font-bold rounded-lg text-black" style={{ background: tier.color }}>
               View
             </Link>
@@ -172,7 +172,7 @@ function StandardCard({ escort, isFav, onFav }: { escort: ApiEscort; isFav: bool
         <button onClick={onFav}>
           <Heart size={14} className={isFav ? 'fill-[#E91E63] text-[#E91E63]' : 'text-text-muted hover:text-[#E91E63] transition-colors'} />
         </button>
-        <p className="text-xs font-bold text-[#8B0000]">KES {(escort.price_hourly || 0).toLocaleString()}</p>
+        <p className="text-xs font-bold text-[#8B0000]">KES {(escort.price_incall || escort.price_hourly || 0).toLocaleString()}</p>
         <Link href={`/profile/${escort.id}`} className="text-[10px] px-2 py-1 bg-[#8B0000]/15 text-[#8B0000] rounded-lg font-semibold hover:bg-[#8B0000]/25 transition-colors">
           View
         </Link>

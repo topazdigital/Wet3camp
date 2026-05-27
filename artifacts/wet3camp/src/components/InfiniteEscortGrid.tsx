@@ -40,7 +40,7 @@ export default function InfiniteEscortGrid({
   priorityCity?: string
 }) {
   const { isFollowing, toggleFollow } = useFollow()
-  const { isLoggedIn } = useAuth()
+  const { user } = useAuth()
   const { isFavorite, toggleFavorite } = useFavorites()
   const { isOnline } = useOnlineStatus()
 
@@ -121,8 +121,10 @@ export default function InfiniteEscortGrid({
           const tier = TIER_STYLE[tierKey] ?? null
           const uniqueKey = `${escort.id}-${idx}`
           const following = isFollowing(escort.id)
+          const isOwnEscort = !!(user?.id && (escort as any).user_id && String((escort as any).user_id) === user.id)
+          const profileHref = /^\d+$/.test(escort.id) ? `/profile/${escort.id}` : `/profile/${getSlug(escort.name)}`
           return (
-            <Link href={`/profile/${getSlug(escort.name)}`} key={uniqueKey} className="group">
+            <Link href={profileHref} key={uniqueKey} className="group">
               <div className="bg-card-bg rounded-xl overflow-hidden border border-color hover:border-[#8B0000]/50 hover:shadow-lg hover:shadow-[#8B0000]/10 transition-all duration-200">
                 <div className="relative w-full aspect-[3/4] overflow-hidden">
                   <img
@@ -155,26 +157,30 @@ export default function InfiniteEscortGrid({
                     </div>
                   )}
 
-                  <div className={`absolute top-2 right-7 w-2 h-2 rounded-full border border-card-bg ${isOnline(escort.id) || escort.available ? 'bg-[#28a745] animate-pulse' : 'bg-gray-500'}`} />
+                  <div className={`absolute top-2 w-2 h-2 rounded-full border border-card-bg ${isOnline(escort.id) || escort.available ? 'bg-[#28a745] animate-pulse' : 'bg-gray-500'} ${isOwnEscort ? 'right-2' : 'right-7'}`} />
 
-                  <button
-                    onClick={e => toggleLike(e, escort.id)}
-                    className="absolute top-1.5 right-1.5 w-6 h-6 flex items-center justify-center bg-black/50 hover:bg-black/70 rounded-full transition-all"
-                  >
-                    <Heart size={11} className={isFavorite(escort.id) ? 'text-[#E91E63] fill-[#E91E63]' : 'text-white'} />
-                  </button>
+                  {!isOwnEscort && (
+                    <button
+                      onClick={e => toggleLike(e, escort.id)}
+                      className="absolute top-1.5 right-1.5 w-6 h-6 flex items-center justify-center bg-black/50 hover:bg-black/70 rounded-full transition-all"
+                    >
+                      <Heart size={11} className={isFavorite(escort.id) ? 'text-[#E91E63] fill-[#E91E63]' : 'text-white'} />
+                    </button>
+                  )}
 
                   {/* Hover actions */}
                   <div className="absolute bottom-2 left-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
                     <div className="flex-1 py-1.5 bg-[#8B0000] text-white text-[9px] font-bold rounded-lg text-center pointer-events-none">
-                      View Profile
+                      {isOwnEscort ? 'My Profile' : 'View Profile'}
                     </div>
-                    <button
-                      onClick={e => handleFollow(e, escort.id)}
-                      className={`py-1.5 px-2 text-[9px] font-bold rounded-lg transition-colors flex items-center gap-0.5 ${following ? 'bg-white/20 text-white' : 'bg-white/90 text-black'}`}
-                    >
-                      {following ? <UserCheck size={10} /> : <UserPlus size={10} />}
-                    </button>
+                    {!isOwnEscort && (
+                      <button
+                        onClick={e => handleFollow(e, escort.id)}
+                        className={`py-1.5 px-2 text-[9px] font-bold rounded-lg transition-colors flex items-center gap-0.5 ${following ? 'bg-white/20 text-white' : 'bg-white/90 text-black'}`}
+                      >
+                        {following ? <UserCheck size={10} /> : <UserPlus size={10} />}
+                      </button>
+                    )}
                   </div>
                 </div>
 

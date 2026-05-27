@@ -28,10 +28,13 @@ const POSTS: Post[] = [
 
 const TIER_COLOR: Record<string, string> = { Elite:'#8B0000', VIP:'#FF4500', Premium:'#B8860B', Standard:'#3a6da8' }
 
-function FollowBtn({ escortId, small = false }: { escortId: string; small?: boolean }) {
+function FollowBtn({ escortId, escortUserId, small = false }: { escortId: string; escortUserId?: string; small?: boolean }) {
   const { isFollowing, toggleFollow } = useFollow()
-  const { isLoggedIn } = useAuth()
+  const { isLoggedIn, user } = useAuth()
   const following = isFollowing(escortId)
+  // Don't show follow button for own escort profile
+  const isOwn = !!(user?.id && escortUserId && user.id === escortUserId)
+  if (isOwn) return null
   return (
     <button
       onClick={e => { e.preventDefault(); e.stopPropagation(); if (isLoggedIn) toggleFollow(escortId) }}

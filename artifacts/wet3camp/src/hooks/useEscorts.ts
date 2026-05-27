@@ -66,12 +66,10 @@ export function useAllEscorts() {
 }
 
 export function useEscort(slugOrId: string | undefined) {
-  const numericId = slugOrId && /^\d+$/.test(slugOrId) ? slugOrId : undefined
-
   const { data, isLoading, isError } = useQuery({
-    queryKey:  ['escort', numericId],
-    queryFn:   () => api.escorts.get(numericId!),
-    enabled:   !!numericId,
+    queryKey:  ['escort', slugOrId],
+    queryFn:   () => api.escorts.get(slugOrId!),
+    enabled:   !!slugOrId,
     staleTime: 5 * 60 * 1000,
     retry:     1,
   })
@@ -79,11 +77,13 @@ export function useEscort(slugOrId: string | undefined) {
   const escort = useMemo(() => {
     if (data) return toAppEscort(data)
     if (!slugOrId) return null
-    if (numericId) return null
+    // While loading, return null (show loading spinner, not 404)
+    if (isLoading) return null
+    // API returned nothing — fall back to static ESCORTS for demo profiles
     const staticEscort = ESCORTS.find(e => getSlug(e.name) === slugOrId) ??
       ESCORTS.find(e => e.id === slugOrId) ?? null
     return staticEscort
-  }, [data, slugOrId, numericId])
+  }, [data, slugOrId, isLoading])
 
   return { escort, isLoading: isLoading && !isError, fromApi: !!data }
 }
