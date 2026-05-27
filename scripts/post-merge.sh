@@ -1,4 +1,9 @@
 #!/bin/bash
 set -e
 pnpm install --frozen-lockfile
-pnpm --filter db push
+
+# Initialize the dev PostgreSQL schema (safe to re-run — uses IF NOT EXISTS)
+if [ -n "$DATABASE_URL" ] && [[ "$DATABASE_URL" != mysql* ]]; then
+  echo "[post-merge] Initializing dev PostgreSQL schema..."
+  psql "$DATABASE_URL" -f scripts/init-pg-dev.sql
+fi
