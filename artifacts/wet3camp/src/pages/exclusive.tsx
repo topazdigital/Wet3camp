@@ -1,13 +1,11 @@
 import React, { useState } from 'react'
 import Header from '@/components/Header'
 import Sidebar from '@/components/Sidebar'
-import { Crown, Lock, Star, Eye, Heart, Zap, CheckCircle2 } from 'lucide-react'
+import { Crown, Lock, Star, CheckCircle2, Loader2 } from 'lucide-react'
 import { Link } from 'wouter'
-import { ESCORTS } from '@/data/escorts'
+import { useAllEscorts } from '@/hooks/useEscorts'
 import { useAuth } from '@/lib/auth-context'
 import { useSEO } from '@/lib/useSEO'
-
-const EXCLUSIVE = ESCORTS.filter(e => e.tier === 'Elite').slice(0, 9)
 
 const PACKAGES = [
   { name:'Silver', price:2500, period:'month', perks:['Exclusive profiles access','Priority messaging','No ads','HD photos'], color:'#9E9E9E' },
@@ -24,6 +22,8 @@ export default function ExclusivePage() {
   })
   const [tab, setTab] = useState<'escorts'|'packages'>('escorts')
   const { isLoggedIn } = useAuth()
+  const { escorts: allEscorts, isLoading } = useAllEscorts({ limit: 50 })
+  const exclusive = allEscorts.filter(e => ['Elite', 'elite'].includes(e.tier)).slice(0, 12)
 
   return (
     <div className="flex min-h-screen bg-dark-bg flex-col lg:flex-row">
@@ -61,31 +61,54 @@ export default function ExclusivePage() {
                   <Link href="/register" className="flex-shrink-0 px-4 py-2 bg-[#FFD700] text-black text-xs font-black rounded-xl hover:bg-[#e6c000] transition-all">Join Free</Link>
                 </div>
               )}
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-                {EXCLUSIVE.map(e=>(
-                  <Link href={isLoggedIn?`/profile/${e.id}`:'/register'} key={e.id} className="block">
-                    <div className="bg-card-bg border border-[#FFD700]/20 rounded-2xl overflow-hidden group hover:border-[#FFD700]/50 hover:shadow-lg hover:shadow-[#FFD700]/10 transition-all">
-                      <div className="relative aspect-[3/4] overflow-hidden">
-                        <img src={e.image} alt={e.name} className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ${!isLoggedIn?'blur-[2px]':''}`}/>
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"/>
-                        <div className="absolute top-2 left-2 px-2 py-0.5 bg-[#FFD700] text-black text-[9px] font-black rounded-md flex items-center gap-0.5"><Crown size={8}/>ELITE</div>
-                        {!isLoggedIn && <div className="absolute inset-0 flex items-center justify-center"><div className="w-10 h-10 rounded-full bg-black/50 flex items-center justify-center"><Lock size={18} className="text-white"/></div></div>}
-                        <div className="absolute bottom-2 left-2 right-2">
-                          <p className="text-white font-black text-xs">{e.name}, {e.age}</p>
-                          <div className="flex items-center justify-between mt-0.5">
-                            <div className="flex items-center gap-0.5"><Star size={9} className="fill-[#FFD700] text-[#FFD700]"/><span className="text-[9px] text-white/80">{e.rating}</span></div>
-                            <span className="text-[9px] text-[#FFD700] font-bold">KES {e.pricing.hourly.toLocaleString()}/hr</span>
+
+              {isLoading ? (
+                <div className="flex items-center justify-center py-20">
+                  <Loader2 size={28} className="animate-spin text-[#FFD700]" />
+                </div>
+              ) : exclusive.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-20 text-center gap-4">
+                  <div className="w-20 h-20 rounded-2xl bg-card-bg border border-[#FFD700]/20 flex items-center justify-center">
+                    <Crown size={36} className="text-[#FFD700]/50"/>
+                  </div>
+                  <div>
+                    <p className="font-bold text-text-light text-base">No Elite escorts yet</p>
+                    <p className="text-sm text-text-muted mt-1">Elite companions will appear here once approved. Check back soon!</p>
+                  </div>
+                  <Link href="/" className="px-6 py-3 bg-gradient-to-r from-[#8B0000] to-[#a00000] text-white font-bold text-sm rounded-xl hover:from-[#a00000] hover:to-[#8B0000] transition-all">
+                    Browse All Escorts →
+                  </Link>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+                  {exclusive.map(e => (
+                    <Link href={isLoggedIn ? `/profile/${e.id}` : '/register'} key={e.id} className="block">
+                      <div className="bg-card-bg border border-[#FFD700]/20 rounded-2xl overflow-hidden group hover:border-[#FFD700]/50 hover:shadow-lg hover:shadow-[#FFD700]/10 transition-all">
+                        <div className="relative aspect-[3/4] overflow-hidden">
+                          {e.image
+                            ? <img src={e.image} alt={e.name} className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ${!isLoggedIn ? 'blur-[2px]' : ''}`}/>
+                            : <div className={`w-full h-full bg-dark-bg flex items-center justify-center text-5xl ${!isLoggedIn ? 'blur-[2px]' : ''}`}>👤</div>
+                          }
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"/>
+                          <div className="absolute top-2 left-2 px-2 py-0.5 bg-[#FFD700] text-black text-[9px] font-black rounded-md flex items-center gap-0.5"><Crown size={8}/>ELITE</div>
+                          {!isLoggedIn && <div className="absolute inset-0 flex items-center justify-center"><div className="w-10 h-10 rounded-full bg-black/50 flex items-center justify-center"><Lock size={18} className="text-white"/></div></div>}
+                          <div className="absolute bottom-2 left-2 right-2">
+                            <p className="text-white font-black text-xs">{e.name}, {e.age}</p>
+                            <div className="flex items-center justify-between mt-0.5">
+                              <div className="flex items-center gap-0.5"><Star size={9} className="fill-[#FFD700] text-[#FFD700]"/><span className="text-[9px] text-white/80">{e.rating}</span></div>
+                              <span className="text-[9px] text-[#FFD700] font-bold">KES {(e.pricing.incall || e.pricing.hourly || 0).toLocaleString()}/hr</span>
+                            </div>
                           </div>
                         </div>
+                        <div className="p-2.5 flex items-center justify-between">
+                          <span className="text-[10px] text-text-muted">{e.area}, {e.city}</span>
+                          {e.verified && <CheckCircle2 size={10} className="text-[#28a745]" fill="#28a745"/>}
+                        </div>
                       </div>
-                      <div className="p-2.5 flex items-center justify-between">
-                        <span className="text-[10px] text-text-muted">{e.area}, {e.city}</span>
-                        <div className="flex items-center gap-1"><Eye size={9} className="text-text-muted"/><span className="text-[9px] text-text-muted">{Math.floor(Math.random()*500+200)}</span></div>
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -102,7 +125,7 @@ export default function ExclusivePage() {
                     <div className="space-y-2.5 mb-6">
                       {p.perks.map(perk=><div key={perk} className="flex items-center gap-2"><CheckCircle2 size={12} style={{color:p.color}}/><span className="text-xs text-text-muted">{perk}</span></div>)}
                     </div>
-                    <Link href="/register" className="block w-full py-3 text-center font-bold text-sm rounded-xl transition-all" style={{background:p.color,color:p.name==='Silver'?'#000':'#000'}}>
+                    <Link href="/register" className="block w-full py-3 text-center font-bold text-sm rounded-xl transition-all" style={{background:p.color,color:'#000'}}>
                       Get {p.name}
                     </Link>
                   </div>

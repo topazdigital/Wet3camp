@@ -3,8 +3,7 @@ import { Heart, Share2, MessageCircle, MapPin, Star, Check, X, Calendar, Clock, 
 import Sidebar from '@/components/Sidebar'
 import Header from '@/components/Header'
 import { Link, useRoute } from 'wouter'
-import { ESCORTS, getSlug } from '@/data/escorts'
-import { useEscort } from '@/hooks/useEscorts'
+import { useEscort, useAllEscorts } from '@/hooks/useEscorts'
 import { useAuth } from '@/lib/auth-context'
 import { useFollow } from '@/lib/follow-context'
 import { useSEO } from '@/lib/useSEO'
@@ -15,6 +14,10 @@ const TIER_STYLE: Record<string, { bg: string; text: string; label: string }> = 
   VIP:      { bg: '#FF4500',  text: '#fff', label: '◆ VIP'     },
   Premium:  { bg: '#B8860B',  text: '#fff', label: '◈ PREMIUM' },
   Standard: { bg: '#3a6da8',  text: '#fff', label: 'STANDARD'  },
+  elite:    { bg: '#8B0000',  text: '#fff', label: '★ ELITE'   },
+  vip:      { bg: '#FF4500',  text: '#fff', label: '◆ VIP'     },
+  premium:  { bg: '#B8860B',  text: '#fff', label: '◈ PREMIUM' },
+  standard: { bg: '#3a6da8',  text: '#fff', label: 'STANDARD'  },
 }
 
 function waLink(phone: string | undefined, name: string, hourlyRate?: number) {
@@ -38,16 +41,10 @@ export default function ProfilePage() {
 
   const slug = params?.slug
   const { escort: apiEscort, isLoading } = useEscort(slug)
+  const escort = apiEscort ?? null
 
-  // Only fall back to static ESCORTS for name-slug URLs; never fall back to ESCORTS[0]
-  const escort = (apiEscort as any) ??
-    (!isLoading && slug ? (
-      ESCORTS.find(e => getSlug(e.name) === slug) ??
-      ESCORTS.find(e => e.id === slug) ??
-      null
-    ) : null)
-
-  const similar = ESCORTS.filter(e => e.id !== escort?.id && e.city === escort?.city).slice(0, 6)
+  const { escorts: allEscorts } = useAllEscorts(escort?.city ? { city: escort.city, limit: 20 } : undefined)
+  const similar = escort ? allEscorts.filter(e => e.id !== escort.id).slice(0, 6) : []
 
   useSEO({
     title: escort ? `${escort.name} — ${escort.tier} Escort in ${escort.city} | Wet3Camp` : 'Verified Escort Profile Kenya | Wet3Camp',
@@ -326,7 +323,7 @@ export default function ProfilePage() {
                     [Star, escort.languages.join(' · ')],
                   ].map(([Icon, val], i) => (
                     <div key={i} className="flex items-center gap-1 px-2.5 py-1 bg-dark-bg border border-color rounded-lg text-[10px] text-text-muted">
-                      {React.createElement(Icon as any, { size: 10, className: 'text-text-muted' })} {val}
+                      {React.createElement(Icon as any, { size: 10, className: 'text-text-muted' })} {val as string}
                     </div>
                   ))}
                 </div>
@@ -404,7 +401,7 @@ export default function ProfilePage() {
                   )}
                   {activeTab === 'reviews' && (
                     <div className="space-y-3">
-                      {(escort.reviews_data ?? []).map((r: any) => (
+                      {((escort as any).reviews_data ?? []).map((r: any) => (
                         <div key={r.id} className="p-4 bg-dark-bg rounded-xl border border-color/50">
                           <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-2">
@@ -445,7 +442,7 @@ export default function ProfilePage() {
                       <Link key={s.id} href={`/profile/${s.id}`} className="group">
                         <div className="bg-card-bg border border-color rounded-xl overflow-hidden hover:border-[#8B0000]/40 transition-all">
                           <div className="relative aspect-[3/4] overflow-hidden">
-                            <img src={s.image} alt={s.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                            {s.image && <img src={s.image} alt={s.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />}
                             <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
                             <div className="absolute bottom-1.5 left-1.5 right-1.5">
                               <p className="text-white text-[9px] font-bold truncate">{s.name}</p>
@@ -589,7 +586,7 @@ export default function ProfilePage() {
           escort={{
             id: escort.id,
             name: escort.name,
-            avatar: escort.image,
+            avatar: escort.image ?? '',
             tier: escort.tier,
             city: escort.city,
             pricing: { hourly: escort.pricing?.incall || escort.pricing?.hourly || 0, overnight: escort.pricing?.incallOvernight || escort.pricing?.overnight || 0 },

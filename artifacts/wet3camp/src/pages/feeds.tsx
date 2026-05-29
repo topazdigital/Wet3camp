@@ -1,38 +1,37 @@
 import React, { useState } from 'react'
 import Header from '@/components/Header'
 import Sidebar from '@/components/Sidebar'
-import { Heart, MessageCircle, Share2, Eye, Bookmark, MoreHorizontal, TrendingUp, Crown, Flame } from 'lucide-react'
+import { Heart, MessageCircle, Share2, Eye, Bookmark, MoreHorizontal, TrendingUp, Crown, Flame, Rss } from 'lucide-react'
 import { Link } from 'wouter'
-import { ESCORTS } from '@/data/escorts'
+import { useQuery } from '@tanstack/react-query'
+import { api, type ApiPost } from '@/lib/api'
+import { useAllEscorts } from '@/hooks/useEscorts'
 import { useFollow } from '@/lib/follow-context'
 import { useAuth } from '@/lib/auth-context'
 import { useSEO } from '@/lib/useSEO'
 
-interface Post {
-  id: string; escortId: string; name: string; handle: string; avatar: string
-  timestamp: string; text: string; image?: string
-  likes: number; comments: number; shares: number; views: number
-  trending: boolean; verified: boolean; tier: string; tipEnabled: boolean
+const TIER_COLOR: Record<string, string> = {
+  elite: '#8B0000', Elite: '#8B0000',
+  vip: '#FF4500',   VIP: '#FF4500',
+  premium: '#B8860B', Premium: '#B8860B',
+  standard: '#3a6da8', Standard: '#3a6da8',
 }
 
-const POSTS: Post[] = [
-  { id:'p1', escortId:'1', name:'Amara K.', handle:'@amaraK', avatar:'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=80&h=80&fit=crop&crop=face', timestamp:'2 hours ago', text:"Good evening, Nairobi 🌙\n\nAvailable for dinner dates tonight — Westlands, Kilimani, or I can come to you. Let's make this Friday unforgettable. Contact via WhatsApp or Telegram on my profile 💋", image:'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=600&h=400&fit=crop', likes:284, comments:18, shares:5, views:1420, trending:true, verified:true, tier:'Elite', tipEnabled:true },
-  { id:'p2', escortId:'2', name:'Zara M.', handle:'@zara_west', avatar:'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80&h=80&fit=crop&crop=face', timestamp:'4 hours ago', text:"Just wrapped up a beautiful dinner date at Radisson 🥂 Thank you to my amazing client. Bookings open for this weekend — limited slots. Message me now!", image:'https://images.unsplash.com/photo-1551632811-561732d1e306?w=600&h=400&fit=crop', likes:193, comments:12, shares:3, views:980, trending:false, verified:true, tier:'VIP', tipEnabled:true },
-  { id:'p3', escortId:'5', name:'Priya S.', handle:'@priya_nrb', avatar:'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=80&h=80&fit=crop&crop=face', timestamp:'5 hours ago', text:"New week, new look ✨ Now available for video calls from anywhere in the world. KES 3,000 for 30 mins — perfect for getting to know each other before we meet. DM me on my profile 💕", image:'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=600&h=400&fit=crop', likes:412, comments:34, shares:11, views:2310, trending:true, verified:true, tier:'Elite', tipEnabled:true },
-  { id:'p4', escortId:'3', name:'Wanjiku G.', handle:'@wanjiku_msa', avatar:'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=80&h=80&fit=crop&crop=face', timestamp:'Yesterday', text:"Coast life 🌊 Available in Mombasa — Nyali, Bamburi and Diani this weekend. Overnight packages available. Message me via WhatsApp for rates. Already 8 of 10 slots taken for this month 🔥", image:'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600&h=400&fit=crop', likes:356, comments:27, shares:8, views:1870, trending:true, verified:true, tier:'Elite', tipEnabled:false },
-  { id:'p5', escortId:'7', name:'Adhiambo O.', handle:'@adhiambo_k', avatar:'https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?w=80&h=80&fit=crop&crop=face', timestamp:'Yesterday', text:"Kisumu darlings! 🦁 Now taking bookings for June. Lakeside dates, hotel visits, and travel companion packages. Rates starting KES 2,500/hr. Verified profile — check my gallery 📸", likes:128, comments:9, shares:2, views:633, trending:false, verified:true, tier:'Premium', tipEnabled:true },
-  { id:'p6', escortId:'6', name:'Diana V.', handle:'@diana_vip', avatar:'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=80&h=80&fit=crop&crop=face', timestamp:'2 days ago', text:"Nairobi CBD available NOW 🔴 Short notice welcome. Outcalls preferred. Rates negotiable for regulars. Message me on Telegram — faster response! 💌", image:'https://images.unsplash.com/photo-1549451371-64aa98a6f660?w=600&h=400&fit=crop', likes:89, comments:6, shares:1, views:445, trending:false, verified:true, tier:'VIP', tipEnabled:true },
-  { id:'p7', escortId:'8', name:'Fatuma H.', handle:'@fatuma_coast', avatar:'https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?w=80&h=80&fit=crop&crop=face', timestamp:'2 days ago', text:"Alhamdulillah for another week 🙏\n\nFor those asking — yes I'm back and taking bookings for Coast and Nairobi trips. Very discreet, professional service. Let me know your requirements 💎", likes:234, comments:19, shares:7, views:1230, trending:false, verified:true, tier:'Premium', tipEnabled:false },
-  { id:'p8', escortId:'4', name:'Luna K.', handle:'@luna_karen', avatar:'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=80&h=80&fit=crop&crop=face', timestamp:'3 days ago', text:"Karen and Lavington ladies — I'm your girl 💅 Corporate dinner companion, hotel dates, travel. Very upscale, very discreet. References available. New gallery photos just uploaded!", image:'https://images.unsplash.com/photo-1460661419201-fd4cecdf8a8b?w=600&h=400&fit=crop', likes:178, comments:14, shares:4, views:890, trending:false, verified:true, tier:'VIP', tipEnabled:true },
-]
-
-const TIER_COLOR: Record<string, string> = { Elite:'#8B0000', VIP:'#FF4500', Premium:'#B8860B', Standard:'#3a6da8' }
+function timeAgo(dateStr: string): string {
+  const d = new Date(dateStr)
+  const now = Date.now()
+  const diff = Math.floor((now - d.getTime()) / 1000)
+  if (diff < 60)       return 'just now'
+  if (diff < 3600)     return `${Math.floor(diff / 60)}m ago`
+  if (diff < 86400)    return `${Math.floor(diff / 3600)}h ago`
+  if (diff < 604800)   return `${Math.floor(diff / 86400)}d ago`
+  return d.toLocaleDateString('en-KE', { day: 'numeric', month: 'short' })
+}
 
 function FollowBtn({ escortId, escortUserId, small = false }: { escortId: string; escortUserId?: string; small?: boolean }) {
   const { isFollowing, toggleFollow } = useFollow()
   const { isLoggedIn, user } = useAuth()
   const following = isFollowing(escortId)
-  // Don't show follow button for own escort profile
   const isOwn = !!(user?.id && escortUserId && user.id === escortUserId)
   if (isOwn) return null
   return (
@@ -51,6 +50,28 @@ function FollowBtn({ escortId, escortUserId, small = false }: { escortId: string
   )
 }
 
+function PostSkeleton() {
+  return (
+    <div className="bg-card-bg border border-color rounded-2xl overflow-hidden animate-pulse">
+      <div className="flex items-center gap-3 px-4 pt-4 pb-3">
+        <div className="w-10 h-10 rounded-full bg-dark-bg flex-shrink-0" />
+        <div className="flex-1 space-y-1.5">
+          <div className="h-3 bg-dark-bg rounded w-32" />
+          <div className="h-2.5 bg-dark-bg rounded w-20" />
+        </div>
+      </div>
+      <div className="px-4 pb-3 space-y-2">
+        <div className="h-3 bg-dark-bg rounded w-full" />
+        <div className="h-3 bg-dark-bg rounded w-3/4" />
+      </div>
+      <div className="w-full aspect-video bg-dark-bg" />
+      <div className="px-4 py-3 border-t border-color/50 flex gap-6">
+        {[...Array(3)].map((_, i) => <div key={i} className="h-3 bg-dark-bg rounded w-12" />)}
+      </div>
+    </div>
+  )
+}
+
 export default function FeedsPage() {
   useSEO({
     title: 'Escort Feeds — Social Updates',
@@ -58,15 +79,30 @@ export default function FeedsPage() {
     keywords: 'escort feeds Kenya, escort social media, companion updates Nairobi',
     canonicalPath: '/feeds',
   })
-  const [liked, setLiked] = useState<Set<string>>(new Set())
-  const [saved, setSaved] = useState<Set<string>>(new Set())
+
+  const [liked, setLiked]   = useState<Set<string>>(new Set())
+  const [saved, setSaved]   = useState<Set<string>>(new Set())
   const [tipOpen, setTipOpen] = useState<string | null>(null)
+
+  const { data: postsData, isLoading: postsLoading } = useQuery({
+    queryKey: ['posts', 'feed'],
+    queryFn:  () => api.posts.list({ limit: 20 }),
+    staleTime: 60 * 1000,
+    retry: 1,
+  })
+
+  const { escorts: recommended, isLoading: escortsLoading } = useAllEscorts({ limit: 7 })
   const { followerCount } = useFollow()
 
-  const toggleLike = (id: string) => setLiked(p => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n })
+  const posts: ApiPost[] = postsData?.data ?? []
+
+  const toggleLike = async (id: string) => {
+    setLiked(p => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n })
+    try { await api.posts.like(id) } catch {}
+  }
   const toggleSave = (id: string) => setSaved(p => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n })
 
-  const recommended = ESCORTS.filter(e => ['Elite', 'VIP'].includes(e.tier)).slice(0, 7)
+  const eliteVip = recommended.filter(e => ['Elite', 'VIP', 'elite', 'vip'].includes(e.tier)).slice(0, 7)
 
   return (
     <main className="min-h-screen bg-dark-bg flex flex-col lg:flex-row">
@@ -88,119 +124,136 @@ export default function FeedsPage() {
                     <span className="text-[9px] text-[#EF4444] font-bold">LIVE</span>
                   </div>
                 </div>
-                <div className="flex gap-1.5">
-                  {['All', 'Following', 'Trending'].map((f, i) => (
-                    <button key={f} className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${i === 0 ? 'bg-[#8B0000] text-white' : 'bg-card-bg border border-color text-text-muted hover:border-text-muted'}`}>{f}</button>
-                  ))}
-                </div>
               </div>
 
-              <div className="space-y-4">
-                {POSTS.map(post => {
-                  const isLiked = liked.has(post.id)
-                  const isSaved = saved.has(post.id)
-                  return (
-                    <div key={post.id} className="bg-card-bg border border-color rounded-2xl overflow-hidden hover:border-[#8B0000]/30 transition-all">
-                      {/* Header */}
-                      <div className="flex items-center gap-3 px-4 pt-4 pb-3">
-                        <Link href={`/profile/${post.escortId}`}>
-                          <img src={post.avatar} alt={post.name} className="w-10 h-10 rounded-full object-cover border-2 flex-shrink-0 cursor-pointer" style={{ borderColor: TIER_COLOR[post.tier] }} />
-                        </Link>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <Link href={`/profile/${post.escortId}`} className="font-bold text-text-light text-sm hover:underline">{post.name}</Link>
-                            {post.verified && (
-                              <span className="w-3.5 h-3.5 bg-[#28a745] rounded-full flex items-center justify-center flex-shrink-0">
-                                <span className="text-white text-[7px] font-black">✓</span>
-                              </span>
-                            )}
-                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: TIER_COLOR[post.tier] + '25', color: TIER_COLOR[post.tier] }}>{post.tier}</span>
-                            {post.trending && (
-                              <span className="flex items-center gap-0.5 px-2 py-0.5 bg-[#FF4500]/10 border border-[#FF4500]/20 rounded-full text-[9px] font-black text-[#FF4500]">
-                                <TrendingUp size={8} /> TRENDING
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[10px] text-text-muted">{post.handle}</span>
-                            <span className="text-[10px] text-text-muted">·</span>
-                            <span className="text-[10px] text-text-muted">{post.timestamp}</span>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <FollowBtn escortId={post.escortId} />
-                          <button className="p-1.5 text-text-muted hover:text-text-light rounded-lg hover:bg-dark-bg transition-colors">
-                            <MoreHorizontal size={15} />
-                          </button>
-                        </div>
-                      </div>
+              {postsLoading && (
+                <div className="space-y-4">
+                  {[...Array(3)].map((_, i) => <PostSkeleton key={i} />)}
+                </div>
+              )}
 
-                      {/* Text */}
-                      <div className="px-4 pb-3">
-                        <p className="text-sm text-text-light leading-relaxed whitespace-pre-line">{post.text}</p>
-                      </div>
-
-                      {/* Media */}
-                      {post.image && (
-                        <div className="w-full aspect-video overflow-hidden">
-                          <img src={post.image} alt="Post" className="w-full h-full object-cover hover:scale-[1.01] transition-transform duration-500 cursor-pointer" />
-                        </div>
-                      )}
-
-                      {/* Engagement */}
-                      <div className="px-4 py-3 border-t border-color/50">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-4">
-                            <button onClick={() => toggleLike(post.id)} className={`flex items-center gap-1.5 text-xs transition-all ${isLiked ? 'text-[#E91E63]' : 'text-text-muted hover:text-text-light'}`}>
-                              <Heart size={15} className={isLiked ? 'fill-[#E91E63]' : ''} />
-                              <span className="font-semibold">{post.likes + (isLiked ? 1 : 0)}</span>
-                            </button>
-                            <button className="flex items-center gap-1.5 text-xs text-text-muted hover:text-text-light transition-colors">
-                              <MessageCircle size={15} />
-                              <span className="font-semibold">{post.comments}</span>
-                            </button>
-                            <button className="flex items-center gap-1.5 text-xs text-text-muted hover:text-text-light transition-colors">
-                              <Share2 size={15} />
-                              <span className="font-semibold">{post.shares}</span>
-                            </button>
-                            <div className="flex items-center gap-1.5 text-xs text-text-muted">
-                              <Eye size={14} />
-                              <span>{post.views.toLocaleString()}</span>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {post.tipEnabled && (
-                              <button
-                                onClick={() => setTipOpen(tipOpen === post.id ? null : post.id)}
-                                className="px-3 py-1.5 bg-[#FFD700]/10 border border-[#FFD700]/20 text-[#FFD700] text-[10px] font-black rounded-full hover:bg-[#FFD700]/20 transition-all"
-                              >
-                                💰 Tip
-                              </button>
-                            )}
-                            <button onClick={() => toggleSave(post.id)} className={`p-1.5 rounded-lg transition-colors ${isSaved ? 'text-[#FFD700]' : 'text-text-muted hover:text-text-light'}`}>
-                              <Bookmark size={14} className={isSaved ? 'fill-[#FFD700]' : ''} />
-                            </button>
-                          </div>
-                        </div>
-                        {tipOpen === post.id && (
-                          <div className="mt-3 p-3 bg-dark-bg border border-[#FFD700]/20 rounded-xl">
-                            <p className="text-[10px] text-text-muted mb-1">Want to tip {post.name.split(' ')[0]}?</p>
-                            <Link href={`/profile/${post.escortId}`} className="text-xs text-[#FFD700] font-bold hover:underline">
-                              Contact her directly via WhatsApp or Telegram on her profile →
-                            </Link>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
-
-                <div className="text-center py-6">
-                  <Link href="/register" className="inline-flex items-center gap-2 px-6 py-3 bg-[#8B0000] text-white font-bold text-sm rounded-xl hover:bg-[#a00000] transition-all">
-                    <Crown size={14} /> Join to see more posts
+              {!postsLoading && posts.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-20 text-center gap-4">
+                  <div className="w-20 h-20 rounded-2xl bg-card-bg border border-color flex items-center justify-center">
+                    <Rss size={36} className="text-text-muted" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-text-light text-base">No posts yet</p>
+                    <p className="text-sm text-text-muted mt-1">Escorts will post updates here once they join. Check back soon!</p>
+                  </div>
+                  <Link href="/" className="px-6 py-3 bg-gradient-to-r from-[#8B0000] to-[#a00000] text-white font-bold text-sm rounded-xl hover:from-[#a00000] hover:to-[#8B0000] transition-all">
+                    Browse Escorts →
                   </Link>
                 </div>
-              </div>
+              )}
+
+              {posts.length > 0 && (
+                <div className="space-y-4">
+                  {posts.map(post => {
+                    const isLiked = liked.has(post.id)
+                    const isSaved = saved.has(post.id)
+                    const tierColor = TIER_COLOR[post.tier] ?? '#555'
+                    const tierLabel = (post.tier ?? '').charAt(0).toUpperCase() + (post.tier ?? '').slice(1).toLowerCase()
+                    const handle = '@' + post.name.replace(/[\s.]/g, '').toLowerCase()
+                    return (
+                      <div key={post.id} className="bg-card-bg border border-color rounded-2xl overflow-hidden hover:border-[#8B0000]/30 transition-all">
+                        {/* Header */}
+                        <div className="flex items-center gap-3 px-4 pt-4 pb-3">
+                          <Link href={`/profile/${post.escortId}`}>
+                            {post.avatar
+                              ? <img src={post.avatar} alt={post.name} className="w-10 h-10 rounded-full object-cover border-2 flex-shrink-0 cursor-pointer" style={{ borderColor: tierColor }} />
+                              : <div className="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-white font-black text-sm cursor-pointer border-2" style={{ backgroundColor: tierColor + '40', borderColor: tierColor }}>{post.name.charAt(0)}</div>
+                            }
+                          </Link>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <Link href={`/profile/${post.escortId}`} className="font-bold text-text-light text-sm hover:underline">{post.name}</Link>
+                              {post.verified && (
+                                <span className="w-3.5 h-3.5 bg-[#28a745] rounded-full flex items-center justify-center flex-shrink-0">
+                                  <span className="text-white text-[7px] font-black">✓</span>
+                                </span>
+                              )}
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: tierColor + '25', color: tierColor }}>{tierLabel}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] text-text-muted">{handle}</span>
+                              <span className="text-[10px] text-text-muted">·</span>
+                              <span className="text-[10px] text-text-muted">{timeAgo(post.createdAt)}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <FollowBtn escortId={post.escortId} />
+                            <button className="p-1.5 text-text-muted hover:text-text-light rounded-lg hover:bg-dark-bg transition-colors">
+                              <MoreHorizontal size={15} />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Text */}
+                        <div className="px-4 pb-3">
+                          <p className="text-sm text-text-light leading-relaxed whitespace-pre-line">{post.text}</p>
+                        </div>
+
+                        {/* Media */}
+                        {post.image && (
+                          <div className="w-full aspect-video overflow-hidden">
+                            <img src={post.image} alt="Post" className="w-full h-full object-cover hover:scale-[1.01] transition-transform duration-500 cursor-pointer" />
+                          </div>
+                        )}
+
+                        {/* Engagement */}
+                        <div className="px-4 py-3 border-t border-color/50">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                              <button onClick={() => toggleLike(post.id)} className={`flex items-center gap-1.5 text-xs transition-all ${isLiked ? 'text-[#E91E63]' : 'text-text-muted hover:text-text-light'}`}>
+                                <Heart size={15} className={isLiked ? 'fill-[#E91E63]' : ''} />
+                                <span className="font-semibold">{post.likes + (isLiked ? 1 : 0)}</span>
+                              </button>
+                              <button className="flex items-center gap-1.5 text-xs text-text-muted hover:text-text-light transition-colors">
+                                <MessageCircle size={15} />
+                              </button>
+                              <button className="flex items-center gap-1.5 text-xs text-text-muted hover:text-text-light transition-colors">
+                                <Share2 size={15} />
+                              </button>
+                              <div className="flex items-center gap-1.5 text-xs text-text-muted">
+                                <Eye size={14} />
+                                <span>{post.views.toLocaleString()}</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {post.tipEnabled && (
+                                <button
+                                  onClick={() => setTipOpen(tipOpen === post.id ? null : post.id)}
+                                  className="px-3 py-1.5 bg-[#FFD700]/10 border border-[#FFD700]/20 text-[#FFD700] text-[10px] font-black rounded-full hover:bg-[#FFD700]/20 transition-all"
+                                >
+                                  💰 Tip
+                                </button>
+                              )}
+                              <button onClick={() => toggleSave(post.id)} className={`p-1.5 rounded-lg transition-colors ${isSaved ? 'text-[#FFD700]' : 'text-text-muted hover:text-text-light'}`}>
+                                <Bookmark size={14} className={isSaved ? 'fill-[#FFD700]' : ''} />
+                              </button>
+                            </div>
+                          </div>
+                          {tipOpen === post.id && (
+                            <div className="mt-3 p-3 bg-dark-bg border border-[#FFD700]/20 rounded-xl">
+                              <p className="text-[10px] text-text-muted mb-1">Want to tip {post.name.split(' ')[0]}?</p>
+                              <Link href={`/profile/${post.escortId}`} className="text-xs text-[#FFD700] font-bold hover:underline">
+                                Contact her directly via WhatsApp or Telegram on her profile →
+                              </Link>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+
+                  <div className="text-center py-6">
+                    <Link href="/register" className="inline-flex items-center gap-2 px-6 py-3 bg-[#8B0000] text-white font-bold text-sm rounded-xl hover:bg-[#a00000] transition-all">
+                      <Crown size={14} /> Join to see more posts
+                    </Link>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* RIGHT SIDEBAR */}
@@ -219,48 +272,44 @@ export default function FeedsPage() {
                 <Link href="/adverts" className="w-full flex items-center justify-center gap-1 py-2 bg-[#FFD700] text-black text-xs font-black rounded-xl hover:bg-[#e6c000] transition-all">
                   Advertise Here →
                 </Link>
-                <div className="flex items-center justify-center gap-3 mt-2">
-                  {['👁 Visibility', '🎯 Targeting', '📈 Results'].map(t => (
-                    <span key={t} className="text-[8px] text-text-muted">{t}</span>
-                  ))}
-                </div>
               </div>
 
               {/* Recommended */}
               <div className="bg-card-bg border border-color rounded-2xl p-4">
                 <h3 className="text-sm font-bold text-text-light mb-4">Recommended for You</h3>
-                <div className="space-y-3">
-                  {recommended.map(e => (
-                    <div key={e.id} className="flex items-center gap-2.5">
-                      <Link href={`/profile/${e.id}`} className="flex-shrink-0">
-                        <img src={e.image} alt={e.name} className="w-9 h-9 rounded-full object-cover border border-color" />
-                      </Link>
-                      <div className="flex-1 min-w-0">
-                        <Link href={`/profile/${e.id}`} className="font-bold text-text-light text-xs hover:underline block truncate">{e.name}</Link>
-                        <p className="text-[10px] text-text-muted truncate">@{e.name.replace(/[\s.]/g, '').toLowerCase()} · {followerCount(e.id).toLocaleString()} followers</p>
+                {escortsLoading ? (
+                  <div className="space-y-3">
+                    {[...Array(4)].map((_, i) => (
+                      <div key={i} className="flex items-center gap-2.5 animate-pulse">
+                        <div className="w-9 h-9 rounded-full bg-dark-bg flex-shrink-0" />
+                        <div className="flex-1 space-y-1.5">
+                          <div className="h-2.5 bg-dark-bg rounded w-24" />
+                          <div className="h-2 bg-dark-bg rounded w-16" />
+                        </div>
                       </div>
-                      <FollowBtn escortId={e.id} small />
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Trending */}
-              <div className="bg-card-bg border border-color rounded-2xl p-4">
-                <h3 className="text-sm font-bold text-text-light mb-3 flex items-center gap-2">
-                  <TrendingUp size={14} className="text-[#FF4500]" /> Trending
-                </h3>
-                <div className="space-y-2.5">
-                  {['#NairobiBabes', '#MombasaEscorts', '#EliteCompanion', '#KisumuLadies', '#Wet3Camp'].map((tag, i) => (
-                    <div key={tag} className="flex items-center justify-between">
-                      <div>
-                        <p className="text-xs font-bold text-text-light">{tag}</p>
-                        <p className="text-[9px] text-text-muted">{[892, 674, 523, 341, 289][i]} posts</p>
+                    ))}
+                  </div>
+                ) : eliteVip.length > 0 ? (
+                  <div className="space-y-3">
+                    {eliteVip.map(e => (
+                      <div key={e.id} className="flex items-center gap-2.5">
+                        <Link href={`/profile/${e.id}`} className="flex-shrink-0">
+                          {e.image
+                            ? <img src={e.image} alt={e.name} className="w-9 h-9 rounded-full object-cover border border-color" />
+                            : <div className="w-9 h-9 rounded-full bg-[#8B0000]/20 flex items-center justify-center text-[#8B0000] font-black text-sm border border-color">{e.name.charAt(0)}</div>
+                          }
+                        </Link>
+                        <div className="flex-1 min-w-0">
+                          <Link href={`/profile/${e.id}`} className="font-bold text-text-light text-xs hover:underline block truncate">{e.name}</Link>
+                          <p className="text-[10px] text-text-muted truncate">{e.area} · {followerCount(e.id).toLocaleString()} followers</p>
+                        </div>
+                        <FollowBtn escortId={e.id} small />
                       </div>
-                      <span className="text-[9px] text-[#FF4500] font-bold">#{i + 1}</span>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-text-muted text-center py-4">No escorts yet</p>
+                )}
               </div>
 
               <p className="text-[9px] text-text-muted text-center leading-relaxed">

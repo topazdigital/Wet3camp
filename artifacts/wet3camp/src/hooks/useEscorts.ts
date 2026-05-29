@@ -1,11 +1,10 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api, type ApiEscort } from '@/lib/api'
-import { ESCORTS, getSlug } from '@/data/escorts'
 
 const PLACEHOLDER_IMAGE = '/api/placeholder-escort.jpg'
 
-function toAppEscort(e: ApiEscort) {
+export function toAppEscort(e: ApiEscort) {
   return {
     id:          e.id,
     user_id:     (e as any).user_id ?? null,
@@ -45,24 +44,23 @@ function toAppEscort(e: ApiEscort) {
   }
 }
 
-export function useAllEscorts() {
+export function useAllEscorts(params?: { city?: string; tier?: string; limit?: number; sort?: string }) {
   const { data, isLoading, isError } = useQuery({
-    queryKey:  ['escorts', 'all'],
-    queryFn:   () => api.escorts.list({ limit: 200 }),
+    queryKey:  ['escorts', 'all', params],
+    queryFn:   () => api.escorts.list({ limit: params?.limit ?? 200, ...params }),
     staleTime: 5 * 60 * 1000,
     retry:     1,
   })
 
   const escorts = useMemo(() => {
     if (data?.data?.length) return data.data.map(toAppEscort)
-    if (!isLoading && isError) return []
-    return ESCORTS
-  }, [data, isLoading, isError])
+    return []
+  }, [data])
 
   const fromApi = !!(data?.data?.length)
-  const total   = data?.total ?? (fromApi ? 0 : ESCORTS.length)
+  const total   = data?.total ?? 0
 
-  return { escorts, total, fromApi, isLoading: isLoading && !isError }
+  return { escorts, total, fromApi, isLoading: isLoading && !isError, isError }
 }
 
 export function useEscort(slugOrId: string | undefined) {
@@ -76,14 +74,8 @@ export function useEscort(slugOrId: string | undefined) {
 
   const escort = useMemo(() => {
     if (data) return toAppEscort(data)
-    if (!slugOrId) return null
-    // While loading, return null (show loading spinner, not 404)
-    if (isLoading) return null
-    // API returned nothing — fall back to static ESCORTS for demo profiles
-    const staticEscort = ESCORTS.find(e => getSlug(e.name) === slugOrId) ??
-      ESCORTS.find(e => e.id === slugOrId) ?? null
-    return staticEscort
-  }, [data, slugOrId, isLoading])
+    return null
+  }, [data])
 
   return { escort, isLoading: isLoading && !isError, fromApi: !!data }
 }

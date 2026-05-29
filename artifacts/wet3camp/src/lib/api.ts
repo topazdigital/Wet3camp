@@ -47,15 +47,24 @@ export interface ApiUser {
   approved?: boolean
 }
 
+export interface ApiPost {
+  id: string; escortId: string; name: string; avatar: string | null
+  tier: string; verified: boolean; city: string
+  text: string; image: string | null
+  likes: number; views: number; tipEnabled: boolean
+  createdAt: string
+}
+
 export const api = {
   escorts: {
-    list: (p?: { city?: string; tier?: string; available?: string; limit?: number; offset?: number }) => {
+    list: (p?: { city?: string; tier?: string; available?: string; limit?: number; offset?: number; sort?: string }) => {
       const params = new URLSearchParams()
       if (p?.city)      params.set('city',      p.city)
       if (p?.tier)      params.set('tier',      p.tier)
       if (p?.available) params.set('available', p.available)
       if (p?.limit)     params.set('limit',     String(p.limit))
       if (p?.offset)    params.set('offset',    String(p.offset))
+      if (p?.sort)      params.set('sort',      p.sort)
       const qs = params.toString()
       return req<{ data: ApiEscort[]; total: number }>(`/escorts${qs ? '?' + qs : ''}`)
     },
@@ -86,6 +95,24 @@ export const api = {
     forgotPassword: (email: string) =>
       req<{ message: string }>('/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email }) }),
     me: () => req<ApiUser>('/auth/me'),
+  },
+
+  posts: {
+    list: (p?: { limit?: number; offset?: number; escortId?: string }) => {
+      const params = new URLSearchParams()
+      if (p?.limit)    params.set('limit',    String(p.limit))
+      if (p?.offset)   params.set('offset',   String(p.offset))
+      if (p?.escortId) params.set('escortId', p.escortId)
+      const qs = params.toString()
+      return req<{ data: ApiPost[]; total: number }>(`/posts${qs ? '?' + qs : ''}`)
+    },
+    create: (text: string, image?: string, tipEnabled?: boolean) =>
+      req<{ success: boolean; id: string }>('/posts', {
+        method: 'POST',
+        body: JSON.stringify({ text, image, tipEnabled }),
+      }),
+    like: (id: string) =>
+      req<{ liked: boolean }>(`/posts/${id}/like`, { method: 'POST' }),
   },
 
   reviews: {

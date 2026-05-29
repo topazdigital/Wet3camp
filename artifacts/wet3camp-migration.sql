@@ -430,3 +430,28 @@ CREATE TABLE IF NOT EXISTS `profile_claims` (
 -- To diagnose issues on the live server, visit:
 --   GET https://wet3.camp/api/admin/health  (requires admin login token)
 -- =============================================================================
+
+-- =============================================================================
+-- Posts & Likes (escort social feed)
+-- Run this section if you haven't added the posts feature yet
+-- =============================================================================
+
+CREATE TABLE IF NOT EXISTS `posts` (
+  `id`          INT UNSIGNED   NOT NULL AUTO_INCREMENT,
+  `escort_id`   INT UNSIGNED   NOT NULL,
+  `text`        TEXT           NOT NULL,
+  `image`       VARCHAR(500)   DEFAULT NULL,
+  `tip_enabled` TINYINT(1)     NOT NULL DEFAULT 0,
+  `likes`       INT UNSIGNED   NOT NULL DEFAULT 0,
+  `created_at`  DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_posts_escort` (`escort_id`),
+  KEY `idx_posts_created` (`created_at` DESC)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `post_likes` (
+  `post_id`    INT UNSIGNED NOT NULL,
+  `user_id`    INT UNSIGNED NOT NULL,
+  `created_at` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`post_id`, `user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
