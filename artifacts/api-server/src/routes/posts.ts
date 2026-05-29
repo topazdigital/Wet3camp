@@ -112,4 +112,94 @@ router.post('/posts/:id/like', requireAuth, async (req: AuthRequest, res) => {
   }
 })
 
+router.post('/posts/:id/tip', async (req, res) => {
+  const pool = getPool()
+  if (!pool) { res.status(503).json({ message: 'Database not configured' }); return }
+
+  const postId = parseInt(String(req.params.id), 10)
+  const { phone, amount } = req.body as { phone?: string; amount?: number }
+
+  if (!phone || !amount) {
+    res.status(400).json({ message: 'Phone number and amount are required' })
+    return
+  }
+  const amt = Math.round(Number(amount))
+  if (isNaN(amt) || amt < 10 || amt > 70000) {
+    res.status(400).json({ message: 'Amount must be between KES 10 and KES 70,000' })
+    return
+  }
+  const normalised = String(phone).replace(/\D/g, '').replace(/^0/, '254').replace(/^\+/, '')
+  if (!/^2547\d{8}$/.test(normalised)) {
+    res.status(400).json({ message: 'Enter a valid Kenyan mobile number (07XXXXXXXX or 2547XXXXXXXX)' })
+    return
+  }
+
+  try {
+    const [settingRows] = await pool.query<any[]>(
+      "SELECT `key`, `value` FROM platform_settings WHERE `key` IN ('payhero_api_key','payhero_secret','payhero_channel_id')"
+    )
+    const cfg: Record<string, string> = {}
+    for (const r of settingRows as any[]) cfg[r.key] = r.value
+
+    if (!cfg.payhero_api_key || !cfg.payhero_secret || !cfg.payhero_channel_id) {
+      res.status(503).json({ message: 'M-Pesa tipping is not configured yet. Contact the platform admin.' })
+      return
+    }
+
+    const [[post]] = await pool.query<any[]>(
+      `SELECT p.id, e.id AS escort_id, e.name AS escort_name
+       FROM posts p JOIN escorts e ON e.id = p.escort_id
+       WHERE p.id = ? AND p.tip_enabled = 1 LIMIT 1`,
+      [postId]
+    )
+    if (!post) {
+      res.status(404).json({ message: 'Post not found or tipping not enabled' })
+      return
+    }
+
+    const extRef = `TIP-${postId}-${Date.now()}`
+    const authB64 = Buffer.from(`${cfg.payhero_api_key}:${cfg.payhero_secret}`).toString('base64')
+
+    const payheroRes = await fetch('https://backend.payhero.co.ke/api/v2/payments', {
+      method:  'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': `Basic ${authB64}`,
+      },
+      body: JSON.stringify({
+        amount:             amt,
+        phone_number:       normalised,
+        channel_id:         parseInt(cfg.payhero_channel_id, 10),
+        provider:           'm-pesa',
+        external_reference: extRef,
+        callback_url:       'https://wet3.camp/api/payments/payhero/callback',
+        description:        `Tip for ${post.escort_name}`,
+      }),
+    })
+
+    const payheroData: any = await payheroRes.json().catch(() => ({}))
+
+    if (!payheroRes.ok) {
+      const msg = payheroData?.message ?? payheroData?.error ?? 'PayHero request failed'
+      console.error('[posts] tip PayHero error:', payheroData)
+      res.status(502).json({ message: `Payment gateway error: ${msg}` })
+      return
+    }
+
+    await pool.query(
+      'INSERT INTO tips (post_id, escort_id, from_phone, amount, status, external_ref) VALUES (?, ?, ?, ?, ?, ?)',
+      [postId, post.escort_id, normalised, amt, 'pending', extRef]
+    ).catch(() => {})
+
+    res.json({
+      success: true,
+      message: `STK Push sent to ${normalised.replace(/^254/, '0')} — enter your M-Pesa PIN to complete the tip.`,
+    })
+  } catch (err) {
+    console.error('[posts] tip error:', err)
+    res.status(500).json({ message: 'Failed to initiate payment. Please try again.' })
+  }
+})
+
 export default router
+

@@ -18,6 +18,7 @@ import notificationsRouter from "./notifications.js";
 import webrtcRouter        from "./webrtc.js";
 import claimsRouter        from "./claims.js";
 import postsRouter         from "./posts.js";
+import paymentsRouter      from "./payments.js";
 
 const router: IRouter = Router();
 
@@ -40,5 +41,6 @@ router.use(uploadRouter);
 router.use(notificationsRouter);
 router.use(claimsRouter);
 router.use(postsRouter);
+router.use(paymentsRouter);
 
 export default router;

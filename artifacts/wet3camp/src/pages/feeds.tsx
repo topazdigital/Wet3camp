@@ -1,7 +1,7 @@
-import React, { useState } from 'react'
+import React, { useState, useRef } from 'react'
 import Header from '@/components/Header'
 import Sidebar from '@/components/Sidebar'
-import { Heart, MessageCircle, Share2, Eye, Bookmark, MoreHorizontal, TrendingUp, Crown, Flame, Rss } from 'lucide-react'
+import { Heart, MessageCircle, Share2, Eye, Bookmark, MoreHorizontal, TrendingUp, Crown, Flame, Rss, Send, X, CheckCircle2, AlertCircle } from 'lucide-react'
 import { Link } from 'wouter'
 import { useQuery } from '@tanstack/react-query'
 import { api, type ApiPost } from '@/lib/api'
@@ -15,6 +15,112 @@ const TIER_COLOR: Record<string, string> = {
   vip: '#FF4500',   VIP: '#FF4500',
   premium: '#B8860B', Premium: '#B8860B',
   standard: '#3a6da8', Standard: '#3a6da8',
+}
+
+const QUICK_AMOUNTS = [50, 100, 200, 500]
+
+function TipPanel({ postId, escortFirstName, onClose }: { postId: string; escortFirstName: string; onClose: () => void }) {
+  const [phone,    setPhone]    = useState('')
+  const [amount,   setAmount]   = useState<number | null>(null)
+  const [custom,   setCustom]   = useState('')
+  const [status,   setStatus]   = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
+  const [msg,      setMsg]      = useState('')
+
+  const finalAmount = amount ?? (custom ? parseInt(custom, 10) : null)
+
+  const send = async () => {
+    if (!phone.trim()) { setStatus('error'); setMsg('Enter your M-Pesa phone number'); return }
+    if (!finalAmount || finalAmount < 10) { setStatus('error'); setMsg('Select or enter an amount (min KES 10)'); return }
+    setStatus('loading'); setMsg('')
+    try {
+      const res = await api.posts.tip(postId, { phone: phone.trim(), amount: finalAmount })
+      setStatus('success')
+      setMsg(res.message)
+    } catch (err: any) {
+      setStatus('error')
+      setMsg(err.message ?? 'Failed to send tip. Please try again.')
+    }
+  }
+
+  return (
+    <div className="mt-3 p-4 bg-dark-bg border border-[#FFD700]/25 rounded-2xl space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-bold text-text-light">💰 Tip {escortFirstName} via M-Pesa</p>
+        <button onClick={onClose} className="text-text-muted hover:text-text-light transition-colors"><X size={14} /></button>
+      </div>
+
+      {status === 'success' ? (
+        <div className="flex flex-col items-center gap-2 py-3 text-center">
+          <CheckCircle2 size={28} className="text-[#28a745]" />
+          <p className="text-sm font-bold text-text-light">Check your phone!</p>
+          <p className="text-[11px] text-text-muted">{msg}</p>
+          <button onClick={onClose} className="mt-1 text-xs text-[#FFD700] hover:underline">Close</button>
+        </div>
+      ) : (
+        <>
+          {/* Amount picker */}
+          <div>
+            <p className="text-[10px] text-text-muted mb-2 uppercase tracking-widest">Amount (KES)</p>
+            <div className="flex flex-wrap gap-2 mb-2">
+              {QUICK_AMOUNTS.map(a => (
+                <button
+                  key={a}
+                  onClick={() => { setAmount(a); setCustom('') }}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all
+                    ${amount === a && !custom
+                      ? 'bg-[#FFD700] text-black border-[#FFD700]'
+                      : 'bg-dark-bg border-color text-text-muted hover:border-[#FFD700]/40'}`}
+                >
+                  {a}
+                </button>
+              ))}
+              <input
+                type="number"
+                min="10"
+                max="70000"
+                placeholder="Other"
+                value={custom}
+                onChange={e => { setCustom(e.target.value); setAmount(null) }}
+                className="w-20 px-2.5 py-1.5 bg-dark-bg border border-color rounded-lg text-xs text-text-light placeholder-text-muted/40 focus:outline-none focus:border-[#FFD700]/60"
+              />
+            </div>
+          </div>
+
+          {/* Phone input */}
+          <div>
+            <p className="text-[10px] text-text-muted mb-1.5 uppercase tracking-widest">M-Pesa Phone</p>
+            <input
+              type="tel"
+              placeholder="07XX XXX XXX"
+              value={phone}
+              onChange={e => setPhone(e.target.value)}
+              className="w-full px-3.5 py-2.5 bg-card-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted/40 focus:outline-none focus:border-[#28a745]/60 transition-all"
+            />
+          </div>
+
+          {status === 'error' && (
+            <div className="flex items-center gap-1.5 text-[11px] text-[#EF4444]">
+              <AlertCircle size={13} />
+              {msg}
+            </div>
+          )}
+
+          <button
+            onClick={send}
+            disabled={status === 'loading'}
+            className="w-full py-2.5 bg-[#28a745] hover:bg-[#218838] disabled:opacity-60 text-white text-xs font-black rounded-xl transition-all flex items-center justify-center gap-2"
+          >
+            {status === 'loading' ? (
+              <><div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Sending STK Push…</>
+            ) : (
+              <><Send size={12} /> Send KES {finalAmount ?? '—'} Tip</>
+            )}
+          </button>
+          <p className="text-[9px] text-text-muted text-center">M-Pesa STK Push — you'll get a prompt on your phone to confirm</p>
+        </>
+      )}
+    </div>
+  )
 }
 
 function timeAgo(dateStr: string): string {
@@ -235,12 +341,11 @@ export default function FeedsPage() {
                             </div>
                           </div>
                           {tipOpen === post.id && (
-                            <div className="mt-3 p-3 bg-dark-bg border border-[#FFD700]/20 rounded-xl">
-                              <p className="text-[10px] text-text-muted mb-1">Want to tip {post.name.split(' ')[0]}?</p>
-                              <Link href={`/profile/${post.escortId}`} className="text-xs text-[#FFD700] font-bold hover:underline">
-                                Contact her directly via WhatsApp or Telegram on her profile →
-                              </Link>
-                            </div>
+                            <TipPanel
+                              postId={post.id}
+                              escortFirstName={post.name.split(' ')[0]}
+                              onClose={() => setTipOpen(null)}
+                            />
                           )}
                         </div>
                       </div>

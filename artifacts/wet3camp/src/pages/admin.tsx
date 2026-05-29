@@ -1561,16 +1561,13 @@ function AdminDashboard() {
                   <a href="https://payhero.co.ke" target="_blank" rel="noopener noreferrer" className="ml-auto text-[10px] text-[#FFD700] hover:underline">payhero.co.ke ↗</a>
                 </div>
                 <div className="space-y-4">
-                  <ApiKeyField label="PayHero API Key" placeholder="Enter your PayHero API key" icon={Key} hint="Get this from your PayHero dashboard → Settings → API Keys" />
-                  <ApiKeyField label="PayHero Secret" placeholder="Enter your PayHero secret" icon={Lock} />
-                  <div>
-                    <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Paybill / Till Number</label>
-                    <input defaultValue="" placeholder="e.g. 400200" className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted/40 focus:outline-none focus:border-[#28a745] transition-all"/>
-                  </div>
+                  <ApiKeyField label="PayHero API Key" placeholder="Enter your PayHero API key" icon={Key} hint="Get this from your PayHero dashboard → Settings → API Keys" settingKey="payhero_api_key" />
+                  <ApiKeyField label="PayHero Secret" placeholder="Enter your PayHero secret" icon={Lock} settingKey="payhero_secret" />
+                  <TextSettingField label="PayHero Channel ID" placeholder="e.g. 123" settingKey="payhero_channel_id" hint="The numeric Channel ID from your PayHero dashboard (links to your M-Pesa paybill/till)" />
                   <div>
                     <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Callback URL</label>
-                    <input defaultValue="https://wet3camp.com/api/payments/payhero/callback" className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#28a745] transition-all font-mono text-xs"/>
-                    <p className="text-[10px] text-text-muted mt-1">Set this URL in your PayHero dashboard as the payment callback.</p>
+                    <input readOnly value="https://wet3.camp/api/payments/payhero/callback" className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#28a745] transition-all font-mono text-xs cursor-text select-all"/>
+                    <p className="text-[10px] text-text-muted mt-1">Copy this URL into your PayHero dashboard → Channel → Callback URL.</p>
                   </div>
                 </div>
               </div>

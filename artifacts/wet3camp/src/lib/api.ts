@@ -98,6 +98,11 @@ export const api = {
   },
 
   posts: {
+    tip: (id: string, body: { phone: string; amount: number }) =>
+      req<{ success: boolean; message: string }>(`/posts/${id}/tip`, {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
     list: (p?: { limit?: number; offset?: number; escortId?: string }) => {
       const params = new URLSearchParams()
       if (p?.limit)    params.set('limit',    String(p.limit))

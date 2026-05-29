@@ -455,3 +455,24 @@ CREATE TABLE IF NOT EXISTS `post_likes` (
   `created_at` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`post_id`, `user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =============================================================================
+-- Tips table (M-Pesa tipping via PayHero)
+-- =============================================================================
+
+CREATE TABLE IF NOT EXISTS `tips` (
+  `id`           INT UNSIGNED                             NOT NULL AUTO_INCREMENT,
+  `post_id`      INT UNSIGNED                             NOT NULL,
+  `escort_id`    INT UNSIGNED                             NOT NULL,
+  `from_phone`   VARCHAR(20)                              NOT NULL,
+  `amount`       DECIMAL(10,2)                            NOT NULL,
+  `status`       ENUM('pending','success','failed')       NOT NULL DEFAULT 'pending',
+  `payhero_ref`  VARCHAR(100)                             DEFAULT NULL,
+  `external_ref` VARCHAR(100)                             DEFAULT NULL,
+  `created_at`   DATETIME                                 NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at`   DATETIME                                 NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_tips_post`    (`post_id`),
+  KEY `idx_tips_escort`  (`escort_id`),
+  KEY `idx_tips_ext_ref` (`external_ref`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
