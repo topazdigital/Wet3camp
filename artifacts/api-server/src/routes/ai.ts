@@ -3,15 +3,12 @@ import OpenAI from 'openai'
 
 const router = Router()
 
-let _openai: OpenAI | null = null
 function getOpenAI(): OpenAI | null {
-  if (_openai) return _openai
   const apiKey  = process.env.AI_INTEGRATIONS_OPENAI_API_KEY
              || process.env.OPENAI_API_KEY
   const baseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL
   if (!apiKey) return null
-  _openai = new OpenAI({ apiKey, ...(baseURL ? { baseURL } : {}) })
-  return _openai
+  return new OpenAI({ apiKey, ...(baseURL ? { baseURL } : {}) })
 }
 
 router.post('/ai/generate-bio', async (req, res) => {
