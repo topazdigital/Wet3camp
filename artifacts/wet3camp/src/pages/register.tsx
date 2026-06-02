@@ -16,7 +16,7 @@ const HEIGHTS      = ["4'10\"","4'11\"","5'0\"","5'1\"","5'2\"","5'3\"","5'4\"",
 const HAIR_COLORS  = ['Black', 'Dark Brown', 'Brown', 'Auburn', 'Blonde', 'Red', 'Natural', 'Braids', 'Locs', 'Coloured / Dyed']
 const LANGUAGES    = ['English','Swahili','French','Arabic','Hindi','Luo','Kikuyu','Kalenjin','Kamba','German','Spanish','Italian','Somali','Oromo','Luganda']
 const SERVICE_CATEGORIES: Record<string, string[]> = {
-  'Companion':   ['Dinner Dates', 'Travel Companion', 'Events & Functions', 'Hotel Visits', 'Weekend Trips', 'Dancing Partner', 'Virtual Companion', 'Video Calls'],
+  'Escort Services': ['Dinner Dates', 'Travel Escort', 'Events & Functions', 'Hotel Visits', 'Weekend Trips', 'Dancing Partner', 'Virtual Escort', 'Video Calls'],
   'Physical':    ['In-Call', 'Out-Call', 'Overnight', 'Erotic Massage', 'Body Rub', 'Tantric Massage', 'Body Slide', 'Strip Tease', 'Lap Dance'],
   'Experience':  ['GFE (Girlfriend Experience)', 'PSE (Porn Star Experience)', 'Role Play', 'Fantasy / Cosplay', 'Couples Welcome', 'Threesome (FFM)', 'Threesome (MMF)', 'Group / Orgy'],
   'BDSM & Kink': ['BDSM', 'Dominatrix', 'Submissive', 'Bondage', 'Foot Fetish', 'Spanking', 'Fetish Services', 'Golden Shower', 'Pegging'],

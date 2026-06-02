@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { Star, Heart, MapPin, CheckCircle2, UserPlus, UserCheck } from 'lucide-react'
 import { Link } from 'wouter'
-import { Escort, generateMoreEscorts, getSlug } from '@/data/escorts'
+import { getSlug } from '@/data/escorts'
 import { useAllEscorts } from '@/hooks/useEscorts'
 import { useFollow } from '@/lib/follow-context'
 import { useAuth } from '@/lib/auth-context'
@@ -18,19 +18,33 @@ const TIER_RANK: Record<string, number> = {
   elite: 1, vip: 2, premium: 3, standard: 99, free: 99,
 }
 
-function sortEscorts(escorts: Escort[]): Escort[] {
+function sortEscorts(escorts: any[]): any[] {
   return [...escorts].sort((a, b) => {
-    const ra = TIER_RANK[a.tier] ?? 99
-    const rb = TIER_RANK[b.tier] ?? 99
+    const ra = TIER_RANK[a.tier?.toLowerCase()] ?? 99
+    const rb = TIER_RANK[b.tier?.toLowerCase()] ?? 99
     if (ra !== rb) return ra - rb
-    if (ra <= 3) return b.rating - a.rating
-    const aNum = parseInt(a.id.replace(/\D/g, '')) || 0
-    const bNum = parseInt(b.id.replace(/\D/g, '')) || 0
+    if (ra <= 3) return (b.rating ?? 0) - (a.rating ?? 0)
+    const aNum = parseInt(String(a.id).replace(/\D/g, '')) || 0
+    const bNum = parseInt(String(b.id).replace(/\D/g, '')) || 0
     return bNum - aNum
   })
 }
 
 const PER_PAGE = 24
+const SKELETON_COUNT = 24
+
+function SkeletonCard() {
+  return (
+    <div className="bg-card-bg rounded-xl overflow-hidden border border-color animate-pulse">
+      <div className="aspect-[3/4] bg-dark-bg/60" />
+      <div className="p-2.5 space-y-2">
+        <div className="h-3 bg-dark-bg/60 rounded w-3/4" />
+        <div className="h-2.5 bg-dark-bg/60 rounded w-1/2" />
+        <div className="h-2.5 bg-dark-bg/60 rounded w-2/3" />
+      </div>
+    </div>
+  )
+}
 
 export default function InfiniteEscortGrid({
   activeCategory = 'all',
@@ -44,34 +58,27 @@ export default function InfiniteEscortGrid({
   const { isFavorite, toggleFavorite } = useFavorites()
   const { isOnline } = useOnlineStatus()
 
-  const { escorts: apiEscorts, fromApi } = useAllEscorts()
+  const { escorts: apiEscorts, fromApi, isLoading } = useAllEscorts()
 
   const allEscorts = React.useMemo(() => {
-    let base: Escort[]
-    if (fromApi) {
-      base = apiEscorts as unknown as Escort[]
-    } else {
-      const staticBase = [...apiEscorts] as unknown as Escort[]
-      const extra = generateMoreEscorts(76)
-      base = [...staticBase, ...extra]
-    }
-    const withCity = base.filter(e => e.city === priorityCity)
-    const others   = base.filter(e => e.city !== priorityCity)
+    if (!fromApi) return []
+    const withCity = apiEscorts.filter((e: any) => e.city === priorityCity)
+    const others   = apiEscorts.filter((e: any) => e.city !== priorityCity)
     return sortEscorts([...withCity, ...others])
   }, [apiEscorts, fromApi, priorityCity])
 
   const filtered = React.useMemo(() => {
     if (activeCategory === 'all')       return allEscorts
-    if (activeCategory === 'available') return allEscorts.filter(e => e.available)
+    if (activeCategory === 'available') return allEscorts.filter((e: any) => e.available)
     const cat = activeCategory.toLowerCase()
-    if (['elite','vip','premium'].includes(cat)) return allEscorts.filter(e => e.tier === cat)
-    return allEscorts.filter(e => e.city === activeCategory)
+    if (['elite','vip','premium'].includes(cat)) return allEscorts.filter((e: any) => (e.tier ?? '').toLowerCase() === cat)
+    return allEscorts.filter((e: any) => e.city === activeCategory)
   }, [activeCategory, allEscorts])
 
   const [page, setPage] = useState(0)
   const [shown, setShown] = useState<typeof filtered>([])
   const [hasMore, setHasMore] = useState(true)
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
   const observerTarget = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -82,8 +89,8 @@ export default function InfiniteEscortGrid({
   }, [filtered])
 
   const fetchMore = useCallback(() => {
-    if (isLoading || !hasMore) return
-    setIsLoading(true)
+    if (isLoadingMore || !hasMore) return
+    setIsLoadingMore(true)
     setTimeout(() => {
       setShown(prev => {
         const next = filtered.slice(prev.length, prev.length + PER_PAGE)
@@ -91,17 +98,17 @@ export default function InfiniteEscortGrid({
         if (prev.length + next.length >= filtered.length) setHasMore(false)
         return [...prev, ...next]
       })
-      setIsLoading(false)
+      setIsLoadingMore(false)
     }, 400)
-  }, [isLoading, hasMore, filtered])
+  }, [isLoadingMore, hasMore, filtered])
 
   useEffect(() => {
     const obs = new IntersectionObserver(entries => {
-      if (entries[0].isIntersecting && hasMore && !isLoading) fetchMore()
+      if (entries[0].isIntersecting && hasMore && !isLoadingMore) fetchMore()
     }, { threshold: 0.1 })
     if (observerTarget.current) obs.observe(observerTarget.current)
     return () => obs.disconnect()
-  }, [hasMore, isLoading, fetchMore])
+  }, [hasMore, isLoadingMore, fetchMore])
 
   const toggleLike = (e: React.MouseEvent, id: string) => {
     e.preventDefault(); e.stopPropagation()
@@ -113,29 +120,45 @@ export default function InfiniteEscortGrid({
     toggleFollow(id)
   }
 
+  // Show skeleton while loading
+  if (isLoading || (!fromApi && shown.length === 0)) {
+    return (
+      <div className="w-full">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2.5 px-3 sm:px-5 py-3">
+          {Array.from({ length: SKELETON_COUNT }).map((_, i) => (
+            <SkeletonCard key={i} />
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  if (fromApi && filtered.length === 0) {
+    return (
+      <div className="w-full flex flex-col items-center justify-center py-20 text-center">
+        <div className="text-4xl mb-3">🔍</div>
+        <p className="text-text-muted text-sm">No escorts found for this filter.</p>
+        <p className="text-text-muted text-xs mt-1">Try a different city or category.</p>
+      </div>
+    )
+  }
+
   return (
     <div className="w-full">
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2.5 px-3 sm:px-5 py-3">
-        {shown.map((escort, idx) => {
-          const tierKey = escort.tier.charAt(0).toUpperCase() + escort.tier.slice(1)
+        {shown.map((escort: any, idx: number) => {
+          const tierKey = (escort.tier ?? '').charAt(0).toUpperCase() + (escort.tier ?? '').slice(1)
           const tier = TIER_STYLE[tierKey] ?? null
           const uniqueKey = `${escort.id}-${idx}`
           const following = isFollowing(escort.id)
-          const isOwnEscort = !!(user?.id && (escort as any).user_id && String((escort as any).user_id) === user.id)
+          const isOwnEscort = !!(user?.id && escort.user_id && String(escort.user_id) === user.id)
           const profileHref = /^\d+$/.test(escort.id) ? `/profile/${escort.id}` : `/profile/${getSlug(escort.name)}`
           return (
             <Link href={profileHref} key={uniqueKey} className="group">
               <div className="bg-card-bg rounded-xl overflow-hidden border border-color hover:border-[#8B0000]/50 hover:shadow-lg hover:shadow-[#8B0000]/10 transition-all duration-200">
                 <div className="relative w-full aspect-[3/4] overflow-hidden">
                   <img
-                    src={(() => {
-                      if (!escort.image) {
-                        const n = parseInt(escort.id.replace(/\D/g,'') || '0') % 6
-                        const photos = ['photo-1531123897727-8f129e1688ce','photo-1522529599102-193c0d76b5b6','photo-1509868918748-a554bf5f7e09','photo-1531123414780-f74242c2b052','photo-1583195764036-798f1052af7e','photo-1488716820095-cbe80883c496']
-                        return `https://images.unsplash.com/${photos[n]}?w=600&h=800&fit=crop&crop=face`
-                      }
-                      return escort.image
-                    })()}
+                    src={escort.image || `https://images.unsplash.com/${['photo-1531123897727-8f129e1688ce','photo-1522529599102-193c0d76b5b6','photo-1509868918748-a554bf5f7e09','photo-1531123414780-f74242c2b052','photo-1583195764036-798f1052af7e','photo-1488716820095-cbe80883c496'][parseInt(String(escort.id).replace(/\D/g,'') || '0') % 6]}?w=600&h=800&fit=crop&crop=face`}
                     alt={escort.name}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-400"
                     loading={idx < 12 ? 'eager' : 'lazy'}
@@ -143,7 +166,7 @@ export default function InfiniteEscortGrid({
                       const t = e.currentTarget
                       if (!t.dataset.fallback) {
                         t.dataset.fallback = '1'
-                        const n = parseInt(escort.id.replace(/\D/g,'') || '0') % 6
+                        const n = parseInt(String(escort.id).replace(/\D/g,'') || '0') % 6
                         const photos = ['photo-1531123897727-8f129e1688ce','photo-1522529599102-193c0d76b5b6','photo-1509868918748-a554bf5f7e09','photo-1531123414780-f74242c2b052','photo-1583195764036-798f1052af7e','photo-1488716820095-cbe80883c496']
                         t.src = `https://images.unsplash.com/${photos[n]}?w=600&h=800&fit=crop&crop=face`
                       }
@@ -168,7 +191,6 @@ export default function InfiniteEscortGrid({
                     </button>
                   )}
 
-                  {/* Hover actions */}
                   <div className="absolute bottom-2 left-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
                     <div className="flex-1 py-1.5 bg-[#8B0000] text-white text-[9px] font-bold rounded-lg text-center pointer-events-none">
                       {isOwnEscort ? 'My Profile' : 'View Profile'}
@@ -187,7 +209,7 @@ export default function InfiniteEscortGrid({
                 <div className="p-2.5">
                   <div className="flex items-center justify-between mb-0.5">
                     <h3 className="font-bold text-text-light text-sm truncate">{escort.name}, {escort.age}</h3>
-                    <CheckCircle2 size={12} className="text-[#28a745] flex-shrink-0" fill="#28a745" />
+                    {escort.verified && <CheckCircle2 size={12} className="text-[#28a745] flex-shrink-0" fill="#28a745" />}
                   </div>
                   <div className="flex items-center gap-1 mb-1">
                     <MapPin size={10} className="text-text-muted flex-shrink-0" />
@@ -196,10 +218,14 @@ export default function InfiniteEscortGrid({
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-0.5">
                       <Star size={10} className="fill-[#FFD700] text-[#FFD700]" />
-                      <span className="text-[10px] font-bold text-text-light">{escort.rating}</span>
-                      <span className="text-[9px] text-text-muted">({escort.reviews})</span>
+                      <span className="text-[10px] font-bold text-text-light">{Number(escort.rating || 0).toFixed(1)}</span>
+                      <span className="text-[9px] text-text-muted">({escort.reviews ?? 0})</span>
                     </div>
-                    <span className="text-[10px] font-bold text-[#FFD700]">KES {((escort.pricing?.incall || escort.pricing?.hourly || 0) / 1000).toFixed(0)}k/hr</span>
+                    {(escort.pricing?.incall || escort.pricing?.hourly || 0) > 0 && (
+                      <span className="text-[10px] font-bold text-[#FFD700]">
+                        KES {(((escort.pricing?.incall || escort.pricing?.hourly || 0)) / 1000).toFixed(0)}k/hr
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -210,7 +236,7 @@ export default function InfiniteEscortGrid({
 
       {hasMore && (
         <div ref={observerTarget} className="flex justify-center py-6">
-          {isLoading && (
+          {isLoadingMore && (
             <div className="flex items-center gap-2 text-text-muted text-xs">
               <div className="w-4 h-4 border-2 border-[#8B0000]/30 border-t-[#8B0000] rounded-full animate-spin" />
               Loading more…
@@ -221,7 +247,7 @@ export default function InfiniteEscortGrid({
 
       {!hasMore && shown.length > 0 && (
         <div className="text-center py-6 text-text-muted text-xs">
-          — All {shown.length} profiles shown —
+          — All {shown.length} escorts shown —
         </div>
       )}
     </div>

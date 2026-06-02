@@ -46,7 +46,7 @@ const STD_SERVICES: Service[] = [
   { name: 'Video Calls',        available: true  },
   { name: 'Overnight',          available: true  },
   { name: 'Out-Call',           available: true  },
-  { name: 'Travel Companion',   available: false },
+  { name: 'Travel Escort',   available: false },
   { name: 'Events & Functions', available: false },
 ]
 const VIP_SERVICES: Service[] = [
@@ -54,7 +54,7 @@ const VIP_SERVICES: Service[] = [
   { name: 'Video Calls',        available: true },
   { name: 'Overnight',          available: true },
   { name: 'Out-Call',           available: true },
-  { name: 'Travel Companion',   available: true },
+  { name: 'Travel Escort',   available: true },
   { name: 'Events & Functions', available: true },
   { name: 'Hotel Visits',       available: true },
 ]

@@ -34,7 +34,7 @@ router.post('/ai/generate-bio', async (req, res) => {
     const location = [area, city].filter(Boolean).join(', ') || 'Kenya'
     const topServices = Array.isArray(services) ? services.slice(0, 5).join(', ') : ''
 
-    const prompt = `Write a professional, alluring, and elegant escort bio for a companion named ${name} based in ${location}. 
+    const prompt = `Write a professional, alluring, and elegant escort bio for a escort named ${name} based in ${location}. 
 Physical attributes: ${traits || 'attractive and well-presented'}.
 ${topServices ? `Specialises in: ${topServices}.` : ''}
 The bio should be 80-120 words, written in first person, confident but tasteful, and highlight her personality, discretion, and the quality of experience she offers. 
