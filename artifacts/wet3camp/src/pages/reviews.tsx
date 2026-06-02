@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react'
 import Header from '@/components/Header'
 import Sidebar from '@/components/Sidebar'
 import { Star, CheckCircle2, MapPin, ThumbsUp, Filter, Search } from 'lucide-react'
-import { ESCORTS } from '@/data/escorts'
 import { api } from '@/lib/api'
 import { useSEO } from '@/lib/useSEO'
 
@@ -11,14 +10,6 @@ interface Review {
   rating: number; text: string; date: string; city: string
   likes: number; verified: boolean
 }
-
-const FALLBACK: Review[] = [
-  { id:1, client:'John K.',    escort:'Amara K.',   escortId:'1', rating:5, text:'Absolutely stunning — exceeded every expectation. Professional, punctual and wonderful company for my business dinner.', date:'3 days ago',   city:'Nairobi', likes:24, verified:true },
-  { id:2, client:'Mike O.',    escort:'Zara M.',    escortId:'2', rating:5, text:'Zara is everything her profile says and more. Our evening was memorable in every way. Already planning a second booking.', date:'1 week ago',  city:'Nairobi', likes:18, verified:true },
-  { id:3, client:'David L.',   escort:'Wanjiku G.', escortId:'3', rating:5, text:'Best escort in Mombasa, no question. Wanjiku knows how to make a client feel special without rushing anything.', date:'2 weeks ago', city:'Mombasa', likes:31, verified:true },
-  { id:4, client:'Alex R.',    escort:'Luna K.',    escortId:'4', rating:4, text:'Luna was great for the overnight I booked. Very chill and easy to talk to. Would book again.', date:'3 weeks ago', city:'Nairobi', likes:11, verified:true },
-  { id:5, client:'James K.',   escort:'Priya S.',   escortId:'5', rating:5, text:'Priya S. is simply extraordinary. We spent the weekend at a resort and every moment was magical.', date:'1 month ago', city:'Nairobi', likes:44, verified:true },
-]
 
 const CITIES = ['All','Nairobi','Mombasa','Kisumu','Nakuru']
 
@@ -46,7 +37,7 @@ export default function ReviewsPage() {
     keywords: 'escort reviews Kenya, escort ratings Nairobi, client reviews escorts',
     canonicalPath: '/reviews',
   })
-  const [reviews, setReviews] = useState<Review[]>(FALLBACK)
+  const [reviews, setReviews] = useState<Review[]>([])
   const [search, setSearch] = useState('')
   const [city, setCity]     = useState('All')
   const [sort, setSort]     = useState<'recent'|'top'>('recent')
@@ -111,17 +102,19 @@ export default function ReviewsPage() {
 
         <div className="px-4 sm:px-6 py-5">
           <p className="text-xs text-text-muted mb-4">{filtered.length} review{filtered.length !== 1 ? 's' : ''}</p>
+          {filtered.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <div className="text-4xl mb-3">⭐</div>
+              <p className="text-text-muted text-sm font-semibold">No reviews yet</p>
+              <p className="text-text-muted text-xs mt-1">Verified client reviews will appear here after bookings.</p>
+            </div>
+          )}
           <div className="space-y-4">
             {filtered.map(r => (
               <div key={r.id} className="bg-card-bg border border-color rounded-2xl p-5 hover:border-[#FFD700]/30 transition-all">
                 <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 border border-color bg-dark-bg">
-                    {(() => {
-                      const escort = ESCORTS.find(e => e.id === r.escortId)
-                      return escort
-                        ? <img src={escort.image} alt={escort.name} className="w-full h-full object-cover"/>
-                        : <div className="w-full h-full flex items-center justify-center text-text-muted text-lg font-bold">{r.escort.charAt(0)}</div>
-                    })()}
+                  <div className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 border border-color bg-dark-bg flex items-center justify-center text-text-muted text-lg font-bold">
+                    {r.escort.charAt(0).toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap mb-0.5">

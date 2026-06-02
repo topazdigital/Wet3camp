@@ -123,6 +123,60 @@ rm -rf "${WEB_ROOT:?}"/*
 # Vite outputs to dist/public — copy that subfolder to web root
 cp -r "$REPO_DIR/artifacts/wet3camp/dist/public/." "$WEB_ROOT/"
 chmod -R 755 "$WEB_ROOT"
+
+# Write .htaccess with cache-busting headers
+# - Hashed assets (JS/CSS/fonts) get 1 year immutable cache
+# - index.html and all HTML get no-cache so browsers always fetch latest
+# - Images get 30 days
+cat > "$WEB_ROOT/.htaccess" << 'HTACCESS'
+Options -Indexes
+
+# Serve pre-compressed files
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css application/javascript application/json
+</IfModule>
+
+# --- Cache rules ---
+
+# HTML: never cache (always revalidate so new deploys are picked up immediately)
+<FilesMatch "\.(html)$">
+  Header set Cache-Control "no-cache, no-store, must-revalidate"
+  Header set Pragma "no-cache"
+  Header set Expires "0"
+</FilesMatch>
+
+# Hashed JS/CSS assets (Vite adds content hash to filenames): cache 1 year
+<FilesMatch "\.(js|css|mjs)$">
+  Header set Cache-Control "public, max-age=31536000, immutable"
+</FilesMatch>
+
+# Fonts: cache 1 year
+<FilesMatch "\.(woff2?|ttf|eot|otf)$">
+  Header set Cache-Control "public, max-age=31536000, immutable"
+</FilesMatch>
+
+# Images: cache 30 days
+<FilesMatch "\.(jpg|jpeg|png|gif|webp|svg|ico)$">
+  Header set Cache-Control "public, max-age=2592000"
+</FilesMatch>
+
+# JSON/XML manifests: 1 hour
+<FilesMatch "\.(json|xml|webmanifest)$">
+  Header set Cache-Control "public, max-age=3600"
+</FilesMatch>
+
+# SPA fallback — redirect all non-file requests to index.html
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule ^ index.html [L]
+</IfModule>
+HTACCESS
+
+echo "    .htaccess written with cache-busting headers."
+
 # ALSO copy frontend to api-server/public so Express can serve it as a fallback
 # if the Apache mod_rewrite [P] proxy doesn't work on this server
 mkdir -p "$API_DIR/public"

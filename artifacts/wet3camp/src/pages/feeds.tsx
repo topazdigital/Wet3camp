@@ -3,9 +3,9 @@ import Header from '@/components/Header'
 import Sidebar from '@/components/Sidebar'
 import { Heart, MessageCircle, Share2, Eye, Bookmark, MoreHorizontal, TrendingUp, Crown, Flame } from 'lucide-react'
 import { Link } from 'wouter'
-import { ESCORTS } from '@/data/escorts'
 import { useFollow } from '@/lib/follow-context'
 import { useAuth } from '@/lib/auth-context'
+import { useAllEscorts } from '@/hooks/useEscorts'
 import { useSEO } from '@/lib/useSEO'
 
 interface Post {
@@ -62,11 +62,12 @@ export default function FeedsPage() {
   const [saved, setSaved] = useState<Set<string>>(new Set())
   const [tipOpen, setTipOpen] = useState<string | null>(null)
   const { followerCount } = useFollow()
+  const { escorts: apiEscorts } = useAllEscorts()
 
   const toggleLike = (id: string) => setLiked(p => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n })
   const toggleSave = (id: string) => setSaved(p => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n })
 
-  const recommended = ESCORTS.filter(e => ['Elite', 'VIP'].includes(e.tier)).slice(0, 7)
+  const recommended = apiEscorts.filter((e: any) => ['elite', 'vip'].includes((e.tier ?? '').toLowerCase())).slice(0, 7)
 
   return (
     <main className="min-h-screen bg-dark-bg flex flex-col lg:flex-row">
@@ -232,14 +233,17 @@ export default function FeedsPage() {
                 <div className="space-y-3">
                   {recommended.map(e => (
                     <div key={e.id} className="flex items-center gap-2.5">
-                      <Link href={`/profile/${e.id}`} className="flex-shrink-0">
-                        <img src={e.image} alt={e.name} className="w-9 h-9 rounded-full object-cover border border-color" />
+                      <Link href={`/profile/${(e as any).id}`} className="flex-shrink-0">
+                        {(e as any).image
+                          ? <img src={(e as any).image} alt={(e as any).name} className="w-9 h-9 rounded-full object-cover border border-color" />
+                          : <div className="w-9 h-9 rounded-full border border-color bg-gradient-to-br from-[#1a1a1a] to-[#2a1a1a] flex items-center justify-center text-[#8B0000]/60 text-sm font-black">{((e as any).name || '?').charAt(0).toUpperCase()}</div>
+                        }
                       </Link>
                       <div className="flex-1 min-w-0">
-                        <Link href={`/profile/${e.id}`} className="font-bold text-text-light text-xs hover:underline block truncate">{e.name}</Link>
-                        <p className="text-[10px] text-text-muted truncate">@{e.name.replace(/[\s.]/g, '').toLowerCase()} · {followerCount(e.id).toLocaleString()} followers</p>
+                        <Link href={`/profile/${(e as any).id}`} className="font-bold text-text-light text-xs hover:underline block truncate">{(e as any).name}</Link>
+                        <p className="text-[10px] text-text-muted truncate">@{((e as any).name || '').replace(/[\s.]/g, '').toLowerCase()} · {followerCount((e as any).id).toLocaleString()} followers</p>
                       </div>
-                      <FollowBtn escortId={e.id} small />
+                      <FollowBtn escortId={(e as any).id} small />
                     </div>
                   ))}
                 </div>
