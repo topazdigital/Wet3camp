@@ -20,8 +20,8 @@ const TESTIMONIALS = [
 export default function TestimonialsPage() {
   useSEO({
     title: 'Client Testimonials — Wet3 Camp Reviews',
-    description: 'Read real testimonials from clients and escorts on Wet3 Camp. Discover why Kenya trusts us for premium companion bookings.',
-    keywords: 'Wet3 Camp reviews, escort platform testimonials Kenya, companion booking reviews',
+    description: 'Read real testimonials from clients and escorts on Wet3 Camp. Discover why Kenya trusts us for premium escort bookings.',
+    keywords: 'Wet3 Camp reviews, escort platform testimonials Kenya, escort booking reviews',
     canonicalPath: '/testimonials',
   })
   const [filter, setFilter] = useState('All')

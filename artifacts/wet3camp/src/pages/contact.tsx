@@ -10,7 +10,7 @@ export default function ContactPage() {
   useSEO({
     title: 'Contact Us — Wet3 Camp Support',
     description: 'Get in touch with the Wet3 Camp team in Kenya. Support for escorts and clients — available 24/7.',
-    keywords: 'contact Wet3 Camp Kenya, escort platform support, companion booking help Kenya',
+    keywords: 'contact Wet3 Camp Kenya, escort platform support, escort booking help Kenya',
     canonicalPath: '/contact',
   })
   const [name, setName] = useState('')

@@ -16,9 +16,9 @@ const PACKAGES = [
 
 export default function ExclusivePage() {
   useSEO({
-    title: 'Exclusive VIP Companions Kenya',
-    description: 'Browse exclusive VIP and Elite escorts in Kenya. Premium companion packages in Nairobi, Mombasa & beyond. Verified, discreet, and top-tier.',
-    keywords: 'exclusive escorts Kenya, VIP companions Nairobi, elite escort Kenya, premium escort packages',
+    title: 'Exclusive VIP Escorts Kenya',
+    description: 'Browse exclusive VIP and Elite escorts in Kenya. Premium escort packages in Nairobi, Mombasa & beyond. Verified, discreet, and top-tier.',
+    keywords: 'exclusive escorts Kenya, VIP escorts Nairobi, elite escort Kenya, premium escort packages',
     canonicalPath: '/exclusive',
   })
   const [tab, setTab] = useState<'escorts'|'packages'>('escorts')
@@ -41,8 +41,8 @@ export default function ExclusivePage() {
           <div className="absolute inset-0 opacity-5" style={{backgroundImage:'radial-gradient(circle at 30% 50%,#FFD700,transparent 60%),radial-gradient(circle at 70% 50%,#8B0000,transparent 60%)'}}/>
           <div className="relative">
             <div className="flex items-center justify-center gap-2 mb-3"><Crown size={18} className="text-[#FFD700]"/><span className="text-xs text-[#FFD700] font-bold uppercase tracking-widest">Exclusive Members</span></div>
-            <h1 className="text-3xl font-black text-text-light mb-2">Elite Companion Access</h1>
-            <p className="text-sm text-text-muted max-w-md mx-auto">A curated collection of Kenya's most sought-after companions, accessible only to exclusive members.</p>
+            <h1 className="text-3xl font-black text-text-light mb-2">Elite Escort Access</h1>
+            <p className="text-sm text-text-muted max-w-md mx-auto">A curated collection of Kenya's most sought-after escorts, accessible only to exclusive members.</p>
           </div>
         </div>
 

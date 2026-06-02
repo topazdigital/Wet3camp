@@ -18,7 +18,7 @@ export interface BlogPost {
 
 export const BLOG_CATEGORIES = [
   'Safety Tips', 'Kenya Escorts Guide', 'Nairobi Nightlife', 'Mombasa Escorts',
-  'Booking Tips', 'Platform News', 'Escort Reviews', 'Travel Companions'
+  'Booking Tips', 'Platform News', 'Escort Reviews', 'Travel Escorts'
 ]
 
 export const INITIAL_POSTS: BlogPost[] = [
@@ -43,7 +43,7 @@ Only verified profiles earn the ✓ Verified badge. Always look for this before 
 ### Understanding the Tier System
 
 **Elite Escorts (KES 8,000–15,000/hr)**
-Top-tier companions with extensive experience. Ideal for high-profile events, business dinners, and overnight bookings.
+Top-tier escorts with extensive experience. Ideal for high-profile events, business dinners, and overnight bookings.
 
 **VIP Escorts (KES 5,000–8,000/hr)**
 Premium service with a wide range of offerings. Most popular choice for discerning clients.
@@ -96,7 +96,7 @@ Stay safe. Browse verified. Book with confidence on Wet3Camp.`,
     excerpt: 'Mombasa is Kenya\'s premier coastal city and home to some of the most sought-after escorts in East Africa. Here\'s everything you need to know about the Mombasa escort scene.',
     content: `## Mombasa Escorts — Kenya's Coastal Capital
 
-Mombasa attracts thousands of visitors every year — tourists, business travellers, and expats — all looking for premium companionship in one of Africa's most beautiful coastal cities.
+Mombasa attracts thousands of visitors every year — tourists, business travellers, and expats — all looking for premium escortship in one of Africa's most beautiful coastal cities.
 
 ### Why Mombasa Escorts Stand Out
 
@@ -111,7 +111,7 @@ The Mombasa escort scene is unique for several reasons:
 
 **Bamburi** — Beach town with a relaxed atmosphere. Popular for overnight and multi-day bookings.
 
-**Diani** — South of Mombasa, Kenya's most famous beach destination. Perfect for travel companion bookings.
+**Diani** — South of Mombasa, Kenya's most famous beach destination. Perfect for travel escort bookings.
 
 **Mombasa CBD** — Central access for hotel meetups and business visitors at port-side hotels.
 

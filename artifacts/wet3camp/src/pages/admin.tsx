@@ -302,7 +302,7 @@ function BookingsTab() {
 function PlatformSettingsForm() {
   const keys = [
     { label: 'Platform Name',              key: 'platform_name',      def: 'Wet3 Camp',                              section: 'general' },
-    { label: 'Tagline',                    key: 'tagline',            def: "Kenya's #1 Premium Companion Platform",  section: 'general' },
+    { label: 'Tagline',                    key: 'tagline',            def: "Kenya's #1 Premium Escort Platform",  section: 'general' },
     { label: 'Support Email',              key: 'support_email',      def: 'support@wet3camp.com',                   section: 'general' },
     { label: 'Min Escort Rate (KES)',      key: 'min_rate',           def: '1500',                                   section: 'general' },
     { label: 'Commission %',              key: 'commission_pct',     def: '10',                                     section: 'general' },

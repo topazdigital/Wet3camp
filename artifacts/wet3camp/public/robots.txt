@@ -1,14 +1,49 @@
 User-agent: *
 Allow: /
-Crawl-delay: 10
+Crawl-delay: 5
 
-# Private areas
+# Private/account areas — do not index
 Disallow: /admin
 Disallow: /my-profile
 Disallow: /messages
 Disallow: /bookings
 Disallow: /booking
-Disallow: /favorites
+Disallow: /account
+Disallow: /auth/
 Disallow: /api/
+Disallow: /pending-approval
 
+# Allow important public pages explicitly
+Allow: /profile/
+Allow: /blog/
+Allow: /search
+Allow: /reviews
+Allow: /faqs
+Allow: /contact
+Allow: /blacklist
+Allow: /testimonials
+Allow: /events
+Allow: /rooms
+Allow: /tours
+Allow: /shop
+Allow: /live
+Allow: /feeds
+Allow: /exclusive
+
+# Search engine specific settings
+User-agent: Googlebot
+Allow: /
+Crawl-delay: 2
+
+User-agent: Bingbot
+Allow: /
+Crawl-delay: 5
+
+User-agent: Slurp
+Allow: /
+Crawl-delay: 10
+
+# Sitemaps
 Sitemap: https://wet3.camp/sitemap.xml
+Sitemap: https://wet3.camp/sitemap-escorts.xml
+Sitemap: https://wet3.camp/sitemap-blog.xml

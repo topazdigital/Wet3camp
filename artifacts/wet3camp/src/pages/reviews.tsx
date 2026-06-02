@@ -42,8 +42,8 @@ const CITIES_SET = new Set(['Nairobi','Mombasa','Kisumu','Nakuru','Eldoret'])
 export default function ReviewsPage() {
   useSEO({
     title: 'Escort Reviews Kenya — Real Client Feedback',
-    description: 'Read verified client reviews for escorts in Kenya. Honest ratings and feedback for companions in Nairobi, Mombasa and more.',
-    keywords: 'escort reviews Kenya, companion ratings Nairobi, client reviews escorts',
+    description: 'Read verified client reviews for escorts in Kenya. Honest ratings and feedback for escorts in Nairobi, Mombasa and more.',
+    keywords: 'escort reviews Kenya, escort ratings Nairobi, client reviews escorts',
     canonicalPath: '/reviews',
   })
   const [reviews, setReviews] = useState<Review[]>(FALLBACK)

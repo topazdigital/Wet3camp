@@ -5,11 +5,11 @@ import { MapPin, Clock, Star, Plane, Users, ChevronRight } from 'lucide-react'
 import { useSEO } from '@/lib/useSEO'
 
 const TOURS = [
-  { id:1, title:'Nairobi Weekend Getaway', dest:'Nairobi → Nakuru', duration:'2 days', price:45000, rating:4.8, reviews:67, escorts:3, image:'https://images.unsplash.com/photo-1516026672322-bc52d61a55d5?w=400&h=250&fit=crop', includes:['Hotel 2 nights','Transport','Escort companion','Meals'], category:'Weekend' },
-  { id:2, title:'Mombasa Beach Escape', dest:'Nairobi → Mombasa', duration:'3 days', price:75000, rating:4.9, reviews:89, escorts:5, image:'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=400&h=250&fit=crop', includes:['Flight','Beachfront hotel','Escort companion','All meals','Activities'], category:'Beach' },
-  { id:3, title:'Maasai Mara Safari', dest:'Nairobi → Mara', duration:'4 days', price:120000, rating:5.0, reviews:134, escorts:2, image:'https://images.unsplash.com/photo-1547471080-7cc2caa01a7e?w=400&h=250&fit=crop', includes:['4×4 game drives','Lodge','Escort companion','All inclusive'], category:'Safari' },
+  { id:1, title:'Nairobi Weekend Getaway', dest:'Nairobi → Nakuru', duration:'2 days', price:45000, rating:4.8, reviews:67, escorts:3, image:'https://images.unsplash.com/photo-1516026672322-bc52d61a55d5?w=400&h=250&fit=crop', includes:['Hotel 2 nights','Transport','Escort service','Meals'], category:'Weekend' },
+  { id:2, title:'Mombasa Beach Escape', dest:'Nairobi → Mombasa', duration:'3 days', price:75000, rating:4.9, reviews:89, escorts:5, image:'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=400&h=250&fit=crop', includes:['Flight','Beachfront hotel','Escort service','All meals','Activities'], category:'Beach' },
+  { id:3, title:'Maasai Mara Safari', dest:'Nairobi → Mara', duration:'4 days', price:120000, rating:5.0, reviews:134, escorts:2, image:'https://images.unsplash.com/photo-1547471080-7cc2caa01a7e?w=400&h=250&fit=crop', includes:['4×4 game drives','Lodge','Escort service','All inclusive'], category:'Safari' },
   { id:4, title:'Zanzibar Island Tour', dest:'Nairobi → Zanzibar', duration:'5 days', price:180000, rating:4.9, reviews:112, escorts:4, image:'https://images.unsplash.com/photo-1590523741831-ab7e8b8f9c7f?w=400&h=250&fit=crop', includes:['Flights','Luxury resort','Escort','Boat trips','Spice tour'], category:'International' },
-  { id:5, title:'Diani Romantic Weekend', dest:'Mombasa → Diani', duration:'2 days', price:55000, rating:4.7, reviews:45, escorts:3, image:'https://images.unsplash.com/photo-1602002418082-a4443e081dd1?w=400&h=250&fit=crop', includes:['Beach cottage','Transport','Escort companion','Dinner'], category:'Beach' },
+  { id:5, title:'Diani Romantic Weekend', dest:'Mombasa → Diani', duration:'2 days', price:55000, rating:4.7, reviews:45, escorts:3, image:'https://images.unsplash.com/photo-1602002418082-a4443e081dd1?w=400&h=250&fit=crop', includes:['Beach cottage','Transport','Escort service','Dinner'], category:'Beach' },
   { id:6, title:'Mount Kenya Trek', dest:'Nairobi → Mt Kenya', duration:'3 days', price:65000, rating:4.6, reviews:38, escorts:2, image:'https://images.unsplash.com/photo-1503614472-8c93d56e92ce?w=400&h=250&fit=crop', includes:['Guide','Camp accommodation','Escort','Meals','Gear'], category:'Adventure' },
 ]
 
@@ -17,9 +17,9 @@ const CATS = ['All','Weekend','Beach','Safari','International','Adventure']
 
 export default function ToursPage() {
   useSEO({
-    title: 'Escort Tours Kenya — Travel Companions',
-    description: 'Book travel companions and escort tours across Kenya and East Africa. Nairobi, Mombasa, Zanzibar and beyond.',
-    keywords: 'escort tours Kenya, travel companion Nairobi, companion tours East Africa',
+    title: 'Escort Tours Kenya — Travel Escorts',
+    description: 'Book travel escorts and escort tours across Kenya and East Africa. Nairobi, Mombasa, Zanzibar and beyond.',
+    keywords: 'escort tours Kenya, travel escort Nairobi, escort tours East Africa',
     canonicalPath: '/tours',
   })
   const [cat, setCat] = useState('All')
@@ -35,7 +35,7 @@ export default function ToursPage() {
           <div className="relative px-5 sm:px-8 pb-5 w-full">
             <div className="flex items-center gap-2 mb-2"><Plane size={13} className="text-[#9C27B0]"/><span className="text-xs text-[#9C27B0] font-bold uppercase tracking-widest">Travel & Tours</span></div>
             <h1 className="text-3xl font-black text-text-light">Escorted Tours</h1>
-            <p className="text-sm text-text-muted mt-1">Travel Kenya and beyond with a premium verified companion by your side</p>
+            <p className="text-sm text-text-muted mt-1">Travel Kenya and beyond with a premium verified escort by your side</p>
           </div>
         </div>
 

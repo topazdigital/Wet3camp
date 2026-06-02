@@ -50,7 +50,7 @@ export default function ChooseRole() {
       id: 'client' as const,
       icon: UserCircle2,
       label: 'I\'m a Client',
-      description: 'Browse companions, make bookings, and enjoy premium experiences across Kenya.',
+      description: 'Browse escorts, make bookings, and enjoy premium experiences across Kenya.',
       gradient: 'from-[#8B0000]/30 to-[#8B0000]/5',
       border: 'border-[#8B0000]',
       iconColor: 'text-[#8B0000]',

@@ -266,7 +266,7 @@ export default function Account() {
                 <div className="bg-card-bg border border-color rounded-2xl p-10 text-center">
                   <Calendar size={32} className="mx-auto mb-3 text-text-muted opacity-50" />
                   <p className="text-text-muted text-sm">No bookings yet.</p>
-                  <Link href="/" className="mt-4 inline-block text-xs text-[#FFD700] hover:underline">Browse companions →</Link>
+                  <Link href="/" className="mt-4 inline-block text-xs text-[#FFD700] hover:underline">Browse escorts →</Link>
                 </div>
               )}
               {bookings.map((b: any) => (

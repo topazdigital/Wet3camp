@@ -267,7 +267,7 @@ export default function BookingsPage() {
           <div className="flex items-center justify-between mb-6">
             <div>
               <h1 className="text-2xl font-black text-text-light">My Bookings</h1>
-              <p className="text-sm text-text-muted mt-0.5">Manage your companion appointments</p>
+              <p className="text-sm text-text-muted mt-0.5">Manage your escort appointments</p>
             </div>
             <Link href="/" className="px-4 py-2 bg-[#8B0000] text-white text-xs font-bold rounded-xl hover:bg-[#a00000] transition-all">
               + New Booking

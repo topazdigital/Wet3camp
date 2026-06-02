@@ -19,9 +19,9 @@ const CITIES = ['All','Nairobi','Mombasa','Kisumu']
 
 export default function EventsPage() {
   useSEO({
-    title: 'Companion Events Kenya',
-    description: 'Find exclusive adult events, social mixers and companion gatherings in Nairobi, Mombasa and across Kenya.',
-    keywords: 'escort events Kenya, adult events Nairobi, companion gatherings Kenya',
+    title: 'Escort Events Kenya',
+    description: 'Find exclusive adult events, social mixers and escort events in Nairobi, Mombasa and across Kenya.',
+    keywords: 'escort events Kenya, adult events Nairobi, escort events Kenya',
     canonicalPath: '/events',
   })
   const [cat, setCat] = useState('All')

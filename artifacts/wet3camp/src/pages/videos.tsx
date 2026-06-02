@@ -28,8 +28,8 @@ const tierStyle: Record<string,{bg:string,label:string}> = {
 export default function VideosPage() {
   useSEO({
     title: 'Escort Videos Kenya',
-    description: 'Watch premium escort and companion videos in Kenya. Exclusive content from verified escorts in Nairobi and Mombasa.',
-    keywords: 'escort videos Kenya, companion video content Nairobi, adult videos Kenya',
+    description: 'Watch premium escort and escort videos in Kenya. Exclusive content from verified escorts in Nairobi and Mombasa.',
+    keywords: 'escort videos Kenya, escort video content Nairobi, adult videos Kenya',
     canonicalPath: '/videos',
   })
   const [cat, setCat] = useState('All')

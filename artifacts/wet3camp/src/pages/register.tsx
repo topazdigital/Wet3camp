@@ -92,7 +92,7 @@ export default function RegisterPage() {
   useSEO({
     title: 'Join Wet3 Camp — Register Free',
     description: 'Create your free account on Wet3 Camp. Register as a client to browse escorts, or as an escort to list your profile and earn in Kenya.',
-    keywords: 'register escort Kenya, join escort platform Kenya, escort account Nairobi, companion sign up',
+    keywords: 'register escort Kenya, join escort platform Kenya, escort account Nairobi, escort sign up',
     canonicalPath: '/register',
   })
   const { login } = useAuth()
@@ -536,7 +536,7 @@ export default function RegisterPage() {
             <p className="text-sm text-text-muted mb-6">Choose how you'd like to use the platform</p>
             <div className="grid grid-cols-2 gap-4">
               {[
-                { r:'client', icon:'👤', title:"I'm a Client", desc:'Browse and connect with companions', perks:['Access all profiles','Private messaging','Discreet billing','Rate escorts'], color:'#2196F3' },
+                { r:'client', icon:'👤', title:"I'm a Client", desc:'Browse and connect with escorts', perks:['Access all profiles','Private messaging','Discreet billing','Rate escorts'], color:'#2196F3' },
                 { r:'escort', icon:'⭐', title:"I'm an Escort", desc:'List your profile and earn', perks:['Get verified badge','More bookings','Manage schedule','Secure payments'], color:'#8B0000' },
               ].map(({ r, icon, title, desc, perks, color }) => (
                 <button key={r} onClick={() => setRole(r as 'client'|'escort')} className={`p-5 rounded-2xl border-2 text-left transition-all ${role === r ? 'border-[#8B0000] bg-[#8B0000]/10' : 'border-color bg-card-bg hover:border-[#8B0000]/40'}`}>

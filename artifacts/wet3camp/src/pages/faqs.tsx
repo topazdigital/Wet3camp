@@ -41,7 +41,7 @@ export default function FAQsPage() {
   useSEO({
     title: 'FAQs — Frequently Asked Questions',
     description: 'Get answers to common questions about booking escorts, safety, payments and how Wet3 Camp works in Kenya.',
-    keywords: 'escort FAQ Kenya, how to book escort Kenya, escort payment Kenya, companion booking help',
+    keywords: 'escort FAQ Kenya, how to book escort Kenya, escort payment Kenya, escort booking help',
     canonicalPath: '/faqs',
   })
   const [search, setSearch] = useState('')

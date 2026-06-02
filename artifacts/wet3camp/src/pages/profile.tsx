@@ -52,10 +52,50 @@ export default function ProfilePage() {
       .catch(() => {})
   }, [escort?.city, escort?.id])
 
+  const escortSeoSchema = escort ? [
+    {
+      "@context": "https://schema.org",
+      "@type": "Person",
+      "name": escort.name,
+      "jobTitle": `${escort.tier ?? 'Premium'} Escort`,
+      "description": escort.bio?.slice(0, 200),
+      "image": escort.image,
+      "url": `https://wet3.camp/profile/${escort.id}`,
+      "address": {
+        "@type": "PostalAddress",
+        "addressLocality": escort.city,
+        "addressRegion": escort.city,
+        "addressCountry": "KE"
+      },
+      "knowsAbout": escort.services?.filter((s: any) => s.available).map((s: any) => s.name) ?? [],
+      "memberOf": {
+        "@type": "Organization",
+        "name": "Wet3 Camp",
+        "url": "https://wet3.camp"
+      }
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://wet3.camp/" },
+        { "@type": "ListItem", "position": 2, "name": `${escort.city} Escorts`, "item": `https://wet3.camp/?city=${escort.city}` },
+        { "@type": "ListItem", "position": 3, "name": escort.name, "item": `https://wet3.camp/profile/${escort.id}` }
+      ]
+    }
+  ] : undefined
+
   useSEO({
-    title: escort ? `${escort.name} — ${escort.tier} Escort in ${escort.city} | Wet3Camp` : 'Verified Escort Profile Kenya | Wet3Camp',
-    description: escort ? `Book ${escort.name}, verified ${escort.tier} escort in ${escort.area}, ${escort.city}. ${escort.bio?.slice(0, 130)}` : "Verified escort profiles on Wet3Camp — Kenya's #1 escort directory.",
-    keywords: escort ? `${escort.name}, ${escort.city} escort, ${escort.area} escort Kenya, ${escort.tier} escort ${escort.city}, book escort ${escort.city}, female escort ${escort.area}` : undefined,
+    title: escort ? `${escort.name} — ${escort.tier} Escort in ${escort.city}` : 'Verified Escort Profile Kenya | Wet3Camp',
+    description: escort
+      ? `Book ${escort.name}, verified ${escort.tier ?? 'premium'} escort in ${escort.area}, ${escort.city}, Kenya. ${escort.bio?.slice(0, 120) ?? ''} Incall from KES ${(escort.pricing?.incall || 0).toLocaleString()}.`
+      : "Verified escort profiles on Wet3Camp — Kenya's #1 escort directory.",
+    escort: escort ? { name: escort.name, city: escort.city, area: escort.area, tier: escort.tier, ethnicity: escort.ethnicity, gender: escort.gender } : undefined,
+    ogImage: escort?.image,
+    canonicalPath: `/profile/${escort?.id ?? slug}`,
+    type: 'profile',
+    schema: escortSeoSchema,
+    city: escort?.city,
   })
 
   const [liked, setLiked] = useState(false)

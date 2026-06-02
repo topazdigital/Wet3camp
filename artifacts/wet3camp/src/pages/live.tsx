@@ -18,9 +18,9 @@ const totalViewers = LIVE_STREAMS.reduce((s, l) => s + l.viewers, 0)
 
 export default function LivePage() {
   useSEO({
-    title: 'Live Streams — Watch Companions Live',
-    description: 'Watch live streams from verified escorts and companions in Kenya. Real-time entertainment from elite, VIP, and premium escorts.',
-    keywords: 'live escort streams Kenya, companion live video Nairobi, escort webcam Kenya',
+    title: 'Live Streams — Watch Escorts Live',
+    description: 'Watch live streams from verified escorts in Kenya. Real-time entertainment from elite, VIP, and premium escorts.',
+    keywords: 'live escort streams Kenya, escort live video Nairobi, escort webcam Kenya',
     canonicalPath: '/live',
   })
   const [filter, setFilter] = useState('all')

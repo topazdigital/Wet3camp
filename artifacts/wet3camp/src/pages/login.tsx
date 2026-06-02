@@ -146,7 +146,7 @@ export default function LoginPage() {
         <div className="relative z-10 space-y-8">
           <div>
             <h1 className="text-4xl font-black text-text-light leading-tight">
-              Kenya's #1<br /><span className="text-[#FFD700]">Premium</span><br />Companion Platform
+              Kenya's #1<br /><span className="text-[#FFD700]">Premium</span><br />Escort Platform
             </h1>
             <p className="mt-4 text-text-muted text-sm leading-relaxed">
               Verified escorts, discreet connections, and an unmatched experience. Join thousands across Nairobi, Mombasa, and beyond.

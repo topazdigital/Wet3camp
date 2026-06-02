@@ -9,7 +9,7 @@
 // Future agents: preserve MySQL. Do NOT migrate to Drizzle/PostgreSQL.
 // =============================================================================
 
-import express, { type Express } from "express";
+import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
 import path from "path";
@@ -29,35 +29,89 @@ app.use(
     logger,
     serializers: {
       req(req) {
-        return {
-          id: req.id,
-          method: req.method,
-          url: req.url?.split("?")[0],
-        };
+        return { id: req.id, method: req.method, url: req.url?.split("?")[0] };
       },
       res(res) {
-        return {
-          statusCode: res.statusCode,
-        };
+        return { statusCode: res.statusCode };
       },
     },
   }),
 );
-app.use(cors());
+
+// ── Security & CORS ──────────────────────────────────────────────────────────
+app.use(cors({
+  origin: true,
+  credentials: true,
+  methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
+}));
+
+// ── Body parsers ─────────────────────────────────────────────────────────────
 app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 
-// Serve uploaded photos at /api/uploads/ (proxied by Vite in dev, direct in production)
-app.use("/api/uploads", express.static(UPLOADS_DIR, { maxAge: '7d' }));
+// ── Global caching & Expires headers ─────────────────────────────────────────
+// This fixes the Pingdom "Add Expires headers" B-grade issue
+app.use((req: Request, res: Response, next: NextFunction) => {
+  const url = req.url || ''
 
+  // API responses: short cache (60s for public listing data), no-store for auth
+  if (url.startsWith('/api/')) {
+    const isPublic = /^\/api\/(escorts|sitemap|health|stats|reviews|blog)/.test(url)
+    if (isPublic) {
+      res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300')
+      const expires = new Date(Date.now() + 60 * 1000)
+      res.setHeader('Expires', expires.toUTCString())
+    } else {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
+      res.setHeader('Expires', '0')
+      res.setHeader('Pragma', 'no-cache')
+    }
+    res.setHeader('Vary', 'Accept-Encoding, Accept')
+  }
+
+  // Security headers
+  res.setHeader('X-Content-Type-Options', 'nosniff')
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN')
+  res.setHeader('X-XSS-Protection', '1; mode=block')
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
+
+  next()
+})
+
+// ── Static uploads ────────────────────────────────────────────────────────────
+app.use("/api/uploads", express.static(UPLOADS_DIR, {
+  maxAge: '30d',
+  setHeaders(res) {
+    const d = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+    res.setHeader('Expires', d.toUTCString())
+    res.setHeader('Cache-Control', 'public, max-age=2592000, immutable')
+  }
+}));
+
+// ── API routes ────────────────────────────────────────────────────────────────
 app.use("/api", router);
 
-// Production static file serving — set STATIC_DIR env var to the built React app folder.
-// This is a fallback in case the Apache/nginx reverse proxy is not configured.
+// ── Production static file serving ───────────────────────────────────────────
 const STATIC_DIR = process.env["STATIC_DIR"];
 if (STATIC_DIR && existsSync(STATIC_DIR)) {
-  app.use(express.static(STATIC_DIR, { maxAge: "1h", index: false }));
+  // Static assets (JS/CSS/images) get long-term caching
+  app.use(express.static(STATIC_DIR, {
+    maxAge: "1y",
+    index: false,
+    setHeaders(res, filePath) {
+      if (/\.(html)$/.test(filePath)) {
+        res.setHeader('Cache-Control', 'no-cache, must-revalidate')
+        res.setHeader('Expires', '0')
+      } else if (/\.(js|css|woff2?|ttf|eot|svg|png|jpg|webp|ico)$/.test(filePath)) {
+        const d = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
+        res.setHeader('Expires', d.toUTCString())
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable')
+      }
+    }
+  }));
   app.get(/(.*)/, (_req, res) => {
+    res.setHeader('Cache-Control', 'no-cache, must-revalidate')
+    res.setHeader('Expires', '0')
     res.sendFile(path.join(STATIC_DIR, "index.html"));
   });
 }

@@ -172,9 +172,9 @@ function BookingModal({ room, onClose }: { room: Room; onClose: () => void }) {
 
 export default function RoomsPage() {
   useSEO({
-    title: 'Discreet Rooms Kenya — Companion Accommodation',
-    description: 'Book discreet rooms and private accommodation for companion meetings in Nairobi, Mombasa and across Kenya.',
-    keywords: 'discreet rooms Kenya, companion accommodation Nairobi, escort rooms Kenya',
+    title: 'Discreet Rooms Kenya — Escort Accommodation',
+    description: 'Book discreet rooms and private accommodation for escort meetups in Nairobi, Mombasa and across Kenya.',
+    keywords: 'discreet rooms Kenya, escort accommodation Nairobi, escort rooms Kenya',
     canonicalPath: '/rooms',
   })
 

@@ -33,9 +33,9 @@ const QUICK_LINKS = [
 
 export default function Home() {
   useSEO({
-    title: "Kenya's #1 Escort & Companion Directory",
-    description: "Browse verified escorts in Nairobi, Mombasa, Kisumu & across Kenya. Elite, VIP & Premium companions. Discreet, safe, real profiles.",
-    keywords: "escorts Kenya, Nairobi escorts, Mombasa escorts, companion booking Kenya, VIP escorts Nairobi, elite companions, verified escorts",
+    title: "Kenya's #1 Escort Directory",
+    description: "Browse verified escorts in Nairobi, Mombasa, Kisumu & across Kenya. Elite, VIP Elite, VIP & Premium escorts Premium escorts. Discreet, safe, real profiles.",
+    keywords: "escorts Kenya, Nairobi escorts, Mombasa escorts, escort booking Kenya, VIP escorts Nairobi, elite escorts, verified escorts",
     canonicalPath: '/',
   })
   const [activeCategory, setActiveCategory] = useState('all')
