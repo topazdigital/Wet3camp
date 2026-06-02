@@ -1,8 +1,7 @@
 #!/bin/bash
 # ============================================================
 # wet3.camp Server-Side Deploy Script
-# Run this ON your server:
-#   cd /home/admin/wet3camp-build && git pull origin main
+# Run this ON your server (single command):
 #   bash /home/admin/wet3camp-build/deploy-on-server.sh
 # ============================================================
 
@@ -12,6 +11,13 @@ REPO_DIR="/home/admin/wet3camp-build"
 
 # Fix git "dubious ownership" error when running as root via SSH
 git config --global --add safe.directory "$REPO_DIR" 2>/dev/null || true
+
+echo ""
+echo "==> [0/7] Pulling latest code from GitHub..."
+cd "$REPO_DIR"
+git fetch origin main
+git reset --hard origin/main
+echo "    Code is now up to date with GitHub."
 
 WEB_ROOT="/home/admin/domains/wet3.camp/public_html"
 API_DIR="/home/admin/api-server"
