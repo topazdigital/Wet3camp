@@ -3,7 +3,7 @@ import Header from '@/components/Header'
 import Sidebar from '@/components/Sidebar'
 import { useSEO } from '@/lib/useSEO'
 import { useAuth } from '@/lib/auth-context'
-import { api } from '@/lib/api'
+import { getToken } from '@/lib/api'
 import { CreditCard, CheckCircle, XCircle, Clock, RefreshCw } from 'lucide-react'
 
 interface Payment {
@@ -69,7 +69,7 @@ export default function PaymentHistory() {
     setError('')
     try {
       const res = await fetch('/api/payments/history', {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token') ?? ''}` },
+        headers: { 'Authorization': `Bearer ${getToken() ?? ''}` },
       })
       if (!res.ok) throw new Error('Could not load payment history')
       const data = await res.json()

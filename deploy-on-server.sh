@@ -190,8 +190,10 @@ Options -Indexes +FollowSymLinks
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]
 
-  # Step 2: Proxy remaining /api/* calls to Node.js on port 8080 (JSON endpoints)
-  RewriteCond %{REQUEST_URI} ^/api [NC]
+  # Step 2: Proxy /api/* and sitemap routes to Node.js on port 8080
+  RewriteCond %{REQUEST_URI} ^/api [NC,OR]
+  RewriteCond %{REQUEST_URI} ^/sitemap [NC,OR]
+  RewriteCond %{REQUEST_URI} ^/google [NC]
   RewriteRule ^ http://localhost:8080%{REQUEST_URI} [P,L,QSA]
 
   # Step 3: SPA fallback — all other routes serve index.html
