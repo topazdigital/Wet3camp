@@ -1,7 +1,8 @@
 import React, { useState } from 'react'
-import { X, Calendar, Clock, MapPin, CheckCircle2, Smartphone, Loader2 } from 'lucide-react'
+import { X, Calendar, Clock, MapPin, CheckCircle2, Smartphone, Loader2, AlertCircle, RefreshCw } from 'lucide-react'
 import { useBookings } from '@/lib/bookings-context'
 import { useLocation } from 'wouter'
+import { useMpesaPayment } from '@/lib/mpesa'
 
 const DURATIONS = [
   { label: '1 Hour',    hrs: 1  },
@@ -45,9 +46,9 @@ export default function BookingModal({ open, onClose, escort }: Props) {
   const [location, setLocation] = useState('')
   const [notes, setNotes] = useState('')
   const [phone, setPhone] = useState('+254')
-  const [mpesaState, setMpesaState] = useState<'idle' | 'pending' | 'checking' | 'success'>('idle')
-  const [txRef, setTxRef] = useState('')
+  const [phoneError, setPhoneError] = useState('')
   const [bookingId, setBookingId] = useState('')
+  const mpesa = useMpesaPayment()
 
   const amount = duration.hrs === 12
     ? escort.pricing.overnight
@@ -75,26 +76,32 @@ export default function BookingModal({ open, onClose, escort }: Props) {
     setStep(4)
   }
 
-  const handleMpesaPay = () => {
-    if (phone.length < 10) return
-    setMpesaState('pending')
-    setTimeout(() => {
-      setMpesaState('checking')
-      setTimeout(() => {
-        const ref = 'MPE' + Date.now().toString().slice(-9)
-        setTxRef(ref)
-        payBooking(bookingId, ref)
-        setMpesaState('success')
-      }, 3000)
-    }, 2000)
+  const handleMpesaPay = async () => {
+    const clean = phone.replace(/\D/g, '')
+    if (clean.length < 10) { setPhoneError('Enter a valid M-Pesa number (e.g. +254712345678)'); return }
+    setPhoneError('')
+    const result = await mpesa.initiate({
+      phone: clean.startsWith('254') ? clean : '254' + (clean.startsWith('0') ? clean.slice(1) : clean),
+      amount,
+      type: `booking_${bookingId}`,
+    })
+    // Mark booking as paid when confirmed (done via polling callback)
+  }
+
+  // When mpesa succeeds, record the payment on the booking
+  if (mpesa.stage === 'success' && mpesa.txRef && bookingId) {
+    try { payBooking(bookingId, mpesa.txRef) } catch {}
   }
 
   const handleClose = () => {
     setStep(1); setType('incall'); setDuration(DURATIONS[0])
     setDate(''); setTime(''); setLocation(''); setNotes('')
-    setPhone('+254'); setMpesaState('idle'); setTxRef(''); setBookingId('')
+    setPhone('+254'); setPhoneError(''); setBookingId('')
+    mpesa.reset()
     onClose()
   }
+
+  const busy = mpesa.stage === 'sending' || mpesa.stage === 'waiting'
 
   if (!open) return null
 
@@ -119,9 +126,11 @@ export default function BookingModal({ open, onClose, escort }: Props) {
                 ))}
               </div>
             )}
-            <button onClick={handleClose} className="p-1.5 text-text-muted hover:text-text-light rounded-lg hover:bg-dark-bg transition-colors">
-              <X size={18} />
-            </button>
+            {!busy && (
+              <button onClick={handleClose} className="p-1.5 text-text-muted hover:text-text-light rounded-lg hover:bg-dark-bg transition-colors">
+                <X size={18} />
+              </button>
+            )}
           </div>
         </div>
 
@@ -262,7 +271,8 @@ export default function BookingModal({ open, onClose, escort }: Props) {
             {/* ── STEP 4: M-Pesa Payment ── */}
             {step === 4 && (
               <>
-                {mpesaState === 'success' ? (
+                {/* Success */}
+                {mpesa.stage === 'success' && (
                   <div className="text-center py-4 space-y-4">
                     <div className="w-20 h-20 bg-[#28a745]/15 rounded-full flex items-center justify-center mx-auto">
                       <CheckCircle2 size={36} className="text-[#28a745]" />
@@ -273,7 +283,7 @@ export default function BookingModal({ open, onClose, escort }: Props) {
                     </div>
                     <div className="bg-[#28a745]/10 border border-[#28a745]/30 rounded-xl p-4 space-y-1">
                       <p className="text-[10px] text-text-muted uppercase tracking-widest">Transaction Reference</p>
-                      <p className="text-lg font-black text-[#28a745] tracking-widest">{txRef}</p>
+                      <p className="text-lg font-black text-[#28a745] tracking-widest">{mpesa.txRef}</p>
                       <p className="text-xs text-text-muted">KES {amount.toLocaleString()} paid · {duration.label} with {escort.name.split(' ')[0]}</p>
                     </div>
                     <p className="text-xs text-text-muted">{escort.name} has been notified and will confirm shortly.</p>
@@ -281,7 +291,53 @@ export default function BookingModal({ open, onClose, escort }: Props) {
                       View My Bookings →
                     </button>
                   </div>
-                ) : (
+                )}
+
+                {/* Failed */}
+                {mpesa.stage === 'failed' && (
+                  <div className="text-center py-4 space-y-4">
+                    <div className="w-20 h-20 bg-[#EF4444]/10 rounded-full flex items-center justify-center mx-auto">
+                      <X size={36} className="text-[#EF4444]" />
+                    </div>
+                    <div>
+                      <p className="text-xl font-black text-text-light">Payment Failed</p>
+                      <p className="text-sm text-text-muted mt-1">{mpesa.error || 'The payment was cancelled or declined.'}</p>
+                    </div>
+                    <button onClick={() => { mpesa.reset(); setPhone('+254') }} className="w-full py-3.5 bg-[#28a745] text-white font-black rounded-xl flex items-center justify-center gap-2">
+                      <RefreshCw size={14} /> Try Again
+                    </button>
+                    <button onClick={() => setStep(3)} className="w-full py-2 text-text-muted text-xs hover:text-text-light transition-colors">← Change Booking Details</button>
+                  </div>
+                )}
+
+                {/* Sending / waiting */}
+                {(mpesa.stage === 'sending' || mpesa.stage === 'waiting') && (
+                  <div className="space-y-4">
+                    <div className="text-center">
+                      <div className="w-16 h-16 bg-[#28a745]/15 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                        <Loader2 size={28} className="text-[#28a745] animate-spin" />
+                      </div>
+                      <p className="font-black text-text-light text-lg">
+                        {mpesa.stage === 'sending' ? 'Sending STK Push…' : 'Check Your Phone'}
+                      </p>
+                      <p className="text-sm text-text-muted mt-1">
+                        {mpesa.stage === 'sending'
+                          ? 'Contacting M-Pesa…'
+                          : <><span className="text-[#FFD700] font-bold">KES {amount.toLocaleString()}</span> prompt sent to {phone}</>}
+                      </p>
+                    </div>
+                    {mpesa.stage === 'waiting' && (
+                      <div className={`rounded-xl p-3 text-center border bg-[#28a745]/10 border-[#28a745]/30`}>
+                        <p className="text-xs text-[#28a745] font-bold">Enter your M-Pesa PIN on your phone…</p>
+                        <p className="text-[10px] text-text-muted mt-0.5">This screen updates automatically when paid</p>
+                      </div>
+                    )}
+                    <p className="text-[10px] text-text-muted text-center">Waiting up to 2 minutes for M-Pesa confirmation</p>
+                  </div>
+                )}
+
+                {/* Idle — phone input */}
+                {mpesa.stage === 'idle' && (
                   <div className="space-y-4">
                     <div className="text-center">
                       <div className="w-16 h-16 bg-[#28a745]/15 rounded-2xl flex items-center justify-center mx-auto mb-3">
@@ -299,41 +355,36 @@ export default function BookingModal({ open, onClose, escort }: Props) {
                         <Smartphone size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#28a745]" />
                         <input
                           value={phone}
-                          onChange={e => setPhone(e.target.value)}
+                          onChange={e => { setPhone(e.target.value); setPhoneError('') }}
                           placeholder="+254712345678"
                           className="w-full pl-9 pr-4 py-3 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted focus:outline-none focus:border-[#28a745] transition-all"
-                          disabled={mpesaState !== 'idle'}
                         />
                       </div>
                     </div>
 
-                    {(mpesaState === 'pending' || mpesaState === 'checking') && (
-                      <div className={`rounded-xl p-3 text-center border ${mpesaState === 'pending' ? 'bg-[#28a745]/10 border-[#28a745]/30' : 'bg-[#FFD700]/10 border-[#FFD700]/30'}`}>
-                        <Loader2 size={18} className={`animate-spin mx-auto mb-1.5 ${mpesaState === 'pending' ? 'text-[#28a745]' : 'text-[#FFD700]'}`} />
-                        {mpesaState === 'pending' ? (
-                          <>
-                            <p className="text-xs text-[#28a745] font-bold">STK Push sent to {phone}</p>
-                            <p className="text-[10px] text-text-muted mt-0.5">Enter your M-Pesa PIN on your phone…</p>
-                          </>
-                        ) : (
-                          <p className="text-xs text-[#FFD700] font-bold">Confirming payment with M-Pesa…</p>
-                        )}
+                    {(phoneError || mpesa.error) && (
+                      <div className="flex items-center gap-2 p-3 bg-[#EF4444]/10 border border-[#EF4444]/20 rounded-xl">
+                        <AlertCircle size={13} className="text-[#EF4444] flex-shrink-0" />
+                        <p className="text-xs text-[#EF4444]">{phoneError || mpesa.error}</p>
                       </div>
                     )}
 
+                    <div className="p-3 bg-dark-bg border border-color rounded-xl text-[10px] text-text-muted">
+                      You are only charged after entering your M-Pesa PIN. Cancelling or declining the prompt will not charge you.
+                    </div>
+
                     <button
                       onClick={handleMpesaPay}
-                      disabled={mpesaState !== 'idle' || phone.length < 10}
+                      disabled={phone.length < 10}
                       className="w-full py-3.5 bg-[#28a745] hover:bg-[#20ba5a] text-white font-black rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
-                      {mpesaState !== 'idle' ? <Loader2 size={16} className="animate-spin" /> : <Smartphone size={16} />}
-                      {mpesaState === 'idle' ? 'Send STK Push' : 'Processing…'}
+                      <Smartphone size={16} />
+                      Send STK Push
                     </button>
 
                     <button
                       onClick={() => setStep(3)}
-                      disabled={mpesaState !== 'idle'}
-                      className="w-full py-2.5 bg-dark-bg border border-color text-text-muted text-sm font-semibold rounded-xl hover:border-text-muted transition-all disabled:opacity-40"
+                      className="w-full py-2.5 bg-dark-bg border border-color text-text-muted text-sm font-semibold rounded-xl hover:border-text-muted transition-all"
                     >
                       ← Change Booking Details
                     </button>

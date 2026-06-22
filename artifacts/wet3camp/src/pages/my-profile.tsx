@@ -3,10 +3,11 @@ import Header from '@/components/Header'
 import Sidebar from '@/components/Sidebar'
 import { useAuth } from '@/lib/auth-context'
 import { api } from '@/lib/api'
-import { Eye, Calendar, Star, Edit3, Camera, CheckCircle2, XCircle, MapPin, DollarSign, Users, Heart, MessageCircle, BarChart2, Zap, Crown, Smartphone, Instagram, Loader2, AlertCircle, UserCheck, Globe, Radio } from 'lucide-react'
+import { Eye, Calendar, Star, Edit3, Camera, CheckCircle2, XCircle, MapPin, DollarSign, Users, Heart, MessageCircle, BarChart2, Zap, Crown, Smartphone, Instagram, Loader2, AlertCircle, UserCheck, Globe, Radio, RefreshCw, X } from 'lucide-react'
 import { Link } from 'wouter'
 import { useFollow } from '@/lib/follow-context'
 import { useSEO } from '@/lib/useSEO'
+import { useMpesaPayment } from '@/lib/mpesa'
 
 const TABS = ['Overview', 'My Bookings', 'My Rooms', 'Edit Profile', 'Gallery', 'Followers', 'Get Featured', 'Instagram Import', 'Subscription', 'Earnings']
 
@@ -80,8 +81,7 @@ export default function MyProfile() {
   // M-Pesa subscription state
   const [subPhone, setSubPhone] = useState('')
   const [subPlan, setSubPlan] = useState<'monthly'|'quarterly'|'annual'>('monthly')
-  const [subLoading, setSubLoading] = useState(false)
-  const [subTxRef, setSubTxRef] = useState('')
+  const subMpesa = useMpesaPayment()
 
   const { followerCount } = useFollow()
 
@@ -330,21 +330,15 @@ export default function MyProfile() {
     setTimeout(() => setIgImported(false), 3000)
   }
 
-  const [subError, setSubError] = useState('')
-
   const handleSubscribe = async () => {
     const cleaned = subPhone.replace(/\s/g, '').replace(/^\+/, '')
-    if (!cleaned || cleaned.length < 9) { setSubError('Enter a valid M-Pesa phone number.'); return }
-    setSubError(''); setSubLoading(true)
-    try {
-      const res = await api.profile.subscribe(subPlan, cleaned)
-      setSubTxRef(res.txRef)
-      setSubscription({ active: false, plan: res.plan, expiresAt: res.expiresAt, status: 'pending' })
-    } catch (err: any) {
-      setSubError(err?.message ?? 'Failed to initiate subscription. Please try again.')
-    } finally {
-      setSubLoading(false)
-    }
+    if (!cleaned || cleaned.length < 9) return
+    const planAmounts: Record<string, number> = { monthly: 500, quarterly: 1200, annual: 4000 }
+    await subMpesa.initiate({
+      phone: cleaned.startsWith('254') ? cleaned : '254' + (cleaned.startsWith('0') ? cleaned.slice(1) : cleaned),
+      amount: planAmounts[subPlan],
+      type: subPlan,
+    })
   }
 
   return (
@@ -1006,7 +1000,55 @@ export default function MyProfile() {
                 <p className="text-xs text-text-muted">Keep your profile active on Wet3 Camp. Pay monthly via M-Pesa.</p>
               </div>
 
-              {!subTxRef ? (
+              {/* ── Success ── */}
+              {subMpesa.stage === 'success' && (
+                <div className="bg-card-bg border border-[#28a745]/40 rounded-2xl p-6 text-center">
+                  <CheckCircle2 size={40} className="text-[#28a745] mx-auto mb-3" />
+                  <h3 className="font-black text-text-light text-base mb-1">Payment Confirmed!</h3>
+                  <p className="text-xs text-text-muted mb-4">Your subscription is now active. Your profile will be updated shortly.</p>
+                  <div className="bg-dark-bg border border-color rounded-xl p-3 text-left space-y-1.5 mb-4">
+                    <div className="flex justify-between"><span className="text-[10px] text-text-muted">Reference</span><span className="text-[10px] font-mono text-[#FFD700]">{subMpesa.txRef}</span></div>
+                    <div className="flex justify-between"><span className="text-[10px] text-text-muted">Plan</span><span className="text-[10px] font-bold text-text-light capitalize">{subPlan}</span></div>
+                    <div className="flex justify-between"><span className="text-[10px] text-text-muted">Status</span><span className="text-[10px] font-bold text-[#28a745]">✓ Paid</span></div>
+                  </div>
+                  <button onClick={() => subMpesa.reset()} className="text-xs text-text-muted hover:text-text-light transition-colors">Renew again</button>
+                </div>
+              )}
+
+              {/* ── Failed ── */}
+              {subMpesa.stage === 'failed' && (
+                <div className="bg-card-bg border border-[#EF4444]/30 rounded-2xl p-6 text-center">
+                  <X size={32} className="text-[#EF4444] mx-auto mb-3" />
+                  <h3 className="font-black text-text-light text-base mb-1">Payment Failed</h3>
+                  <p className="text-xs text-text-muted mb-4">{subMpesa.error || 'The payment was cancelled or not completed.'}</p>
+                  <button onClick={() => { subMpesa.reset(); setSubPhone('') }} className="w-full py-3 bg-[#28a745] text-white font-bold rounded-xl flex items-center justify-center gap-2 mb-2">
+                    <RefreshCw size={13} /> Try Again
+                  </button>
+                </div>
+              )}
+
+              {/* ── Sending / waiting ── */}
+              {(subMpesa.stage === 'sending' || subMpesa.stage === 'waiting') && (
+                <div className="bg-card-bg border border-[#28a745]/30 rounded-2xl p-6 text-center">
+                  <Loader2 size={36} className="text-[#28a745] mx-auto mb-3 animate-spin" />
+                  <h3 className="font-black text-text-light text-base mb-1">
+                    {subMpesa.stage === 'sending' ? 'Sending STK Push…' : 'Check Your Phone'}
+                  </h3>
+                  <p className="text-xs text-text-muted mb-4">
+                    {subMpesa.stage === 'sending'
+                      ? 'Contacting M-Pesa…'
+                      : `Enter your M-Pesa PIN to complete. This screen updates automatically.`}
+                  </p>
+                  <div className="bg-dark-bg border border-color rounded-xl p-3 text-left space-y-1.5">
+                    <div className="flex justify-between"><span className="text-[10px] text-text-muted">Plan</span><span className="text-[10px] font-bold text-text-light capitalize">{subPlan}</span></div>
+                    <div className="flex justify-between"><span className="text-[10px] text-text-muted">Status</span><span className="text-[10px] font-bold text-[#FFD700]">⏳ Awaiting PIN…</span></div>
+                  </div>
+                  <p className="text-[10px] text-text-muted mt-3">Waiting up to 2 minutes for M-Pesa confirmation</p>
+                </div>
+              )}
+
+              {/* ── Idle — phone + plan input ── */}
+              {subMpesa.stage === 'idle' && (
                 <div className="bg-card-bg border border-color rounded-2xl p-5 space-y-4">
                   <div>
                     <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-2">Choose Plan</label>
@@ -1030,23 +1072,13 @@ export default function MyProfile() {
                       <input value={subPhone} onChange={e=>setSubPhone(e.target.value)} placeholder="0712 345 678" className="w-full pl-9 pr-3 py-3 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted focus:outline-none focus:border-[#28a745] transition-all"/>
                     </div>
                   </div>
-                  {subError && <p className="text-[11px] text-[#EF4444] bg-[#EF4444]/10 px-3 py-2 rounded-lg">{subError}</p>}
-                  <button onClick={handleSubscribe} disabled={subLoading||!subPhone} className="w-full py-3.5 bg-[#28a745] hover:bg-[#218838] text-white font-black text-sm rounded-xl disabled:opacity-50 transition-all flex items-center justify-center gap-2">
-                    {subLoading?<Loader2 size={15} className="animate-spin"/>:<Smartphone size={15}/>}
-                    {subLoading?'Initiating subscription…':'Pay via M-Pesa'}
-                  </button>
-                </div>
-              ) : (
-                <div className="bg-card-bg border border-[#28a745]/30 rounded-2xl p-6 text-center">
-                  <CheckCircle2 size={40} className="text-[#28a745] mx-auto mb-3" fill="#28a745"/>
-                  <h3 className="font-black text-text-light text-base mb-1">Payment Sent!</h3>
-                  <p className="text-xs text-text-muted mb-4">Check your phone for the M-Pesa prompt and complete payment.</p>
-                  <div className="bg-dark-bg border border-color rounded-xl p-3 text-left space-y-1.5 mb-4">
-                    <div className="flex justify-between"><span className="text-[10px] text-text-muted">Reference</span><span className="text-[10px] font-mono text-[#FFD700]">{subTxRef}</span></div>
-                    <div className="flex justify-between"><span className="text-[10px] text-text-muted">Plan</span><span className="text-[10px] font-bold text-text-light capitalize">{subPlan}</span></div>
-                    <div className="flex justify-between"><span className="text-[10px] text-text-muted">Status</span><span className="text-[10px] font-bold text-[#FFD700]">⏳ Awaiting payment</span></div>
+                  {subMpesa.error && <p className="text-[11px] text-[#EF4444] bg-[#EF4444]/10 px-3 py-2 rounded-lg">{subMpesa.error}</p>}
+                  <div className="p-3 bg-dark-bg border border-color rounded-xl text-[10px] text-text-muted">
+                    Only charged after you enter your M-Pesa PIN. Cancelling the prompt will not charge you.
                   </div>
-                  <button onClick={()=>setSubTxRef('')} className="text-xs text-text-muted hover:text-text-light transition-colors">← Try again</button>
+                  <button onClick={handleSubscribe} disabled={!subPhone || subPhone.replace(/\D/g,'').length < 9} className="w-full py-3.5 bg-[#28a745] hover:bg-[#218838] text-white font-black text-sm rounded-xl disabled:opacity-50 transition-all flex items-center justify-center gap-2">
+                    <Smartphone size={15}/> Pay via M-Pesa
+                  </button>
                 </div>
               )}
 

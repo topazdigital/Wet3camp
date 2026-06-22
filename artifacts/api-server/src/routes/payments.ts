@@ -142,7 +142,91 @@ router.post('/admin/payments/payhero/test', requireAuth, async (req: AuthRequest
   }
 })
 
-// ─── Poll subscription payment status ─────────────────────────────────────────
+// ─── Universal payment initiation ─────────────────────────────────────────────
+// Used by: adverts, featured-upgrade, bookings, my-profile
+router.post('/payments/initiate', requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const pool = getPool()
+    if (!pool) { res.status(503).json({ message: 'Database not configured' }); return }
+
+    const { phone, amount, type, description } = req.body as {
+      phone?: string; amount?: number; type?: string; description?: string
+    }
+
+    if (!phone || !amount || !type) {
+      res.status(400).json({ message: 'phone, amount, and type are required' }); return
+    }
+
+    const cleanPhone = phone.replace(/\s/g, '').replace(/^\+/, '')
+    if (cleanPhone.length < 9) { res.status(400).json({ message: 'Enter a valid M-Pesa number' }); return }
+
+    const txRef = `${type.toUpperCase().slice(0, 4)}-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`
+
+    // Get escort id if the user is an escort
+    const [[escort]] = await pool.query<any[]>(
+      'SELECT id FROM escorts WHERE user_id = ?', [req.userId]
+    ).catch(() => [[undefined]])
+
+    const expiresAt = new Date()
+    expiresAt.setDate(expiresAt.getDate() + 90) // generous window; real expiry set on confirmation
+
+    await pool.query(
+      `INSERT INTO subscriptions (user_id, escort_id, plan, amount, phone, tx_ref, status, expires_at)
+       VALUES (?, ?, ?, ?, ?, ?, 'pending', ?)`,
+      [req.userId, escort?.id ?? null, type, amount, cleanPhone, txRef, expiresAt]
+    )
+
+    const siteUrl = process.env.SITE_URL
+      ?? (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : 'https://wet3.camp')
+
+    const stkResult = await triggerStkPush(pool, {
+      phone:       cleanPhone,
+      amount,
+      txRef,
+      callbackUrl: `${siteUrl}/api/payments/payhero/callback`,
+    })
+
+    if (!stkResult.success) {
+      // Mark as failed so polling doesn't hang
+      await pool.query(
+        "UPDATE subscriptions SET status = 'failed' WHERE tx_ref = ?", [txRef]
+      ).catch(() => {})
+      res.status(400).json({ success: false, message: stkResult.message }); return
+    }
+
+    res.json({ success: true, txRef, message: 'M-Pesa prompt sent — enter your PIN to complete payment.' })
+  } catch (err: any) {
+    res.status(500).json({ message: err?.message ?? 'Failed to initiate payment' })
+  }
+})
+
+// ─── Universal payment status poll ────────────────────────────────────────────
+router.get('/payments/status/:txRef', requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const pool = getPool()
+    if (!pool) { res.status(503).json({ message: 'Database not configured' }); return }
+
+    const [rows] = await pool.query<any[]>(
+      'SELECT status, amount, plan FROM subscriptions WHERE tx_ref = ? AND user_id = ?',
+      [req.params!.txRef, req.userId]
+    ).catch(() => [[]])
+
+    const sub = (rows as any[])[0]
+    if (!sub) { res.status(404).json({ message: 'Transaction not found' }); return }
+
+    res.json({
+      status: sub.status,
+      amount: sub.amount,
+      plan:   sub.plan,
+      paid:   sub.status === 'paid',
+      failed: sub.status === 'failed' || sub.status === 'cancelled',
+    })
+  } catch (err: any) {
+    res.status(500).json({ message: 'Failed to check status' })
+  }
+})
+
+// ─── Poll subscription payment status (kept for backwards compat) ─────────────
 router.get('/payments/subscription/status/:txRef', requireAuth, async (req: AuthRequest, res) => {
   try {
     const pool = getPool()
@@ -162,6 +246,7 @@ router.get('/payments/subscription/status/:txRef', requireAuth, async (req: Auth
       plan:      sub.plan,
       expiresAt: sub.expires_at,
       paid:      sub.status === 'paid',
+      failed:    sub.status === 'failed' || sub.status === 'cancelled',
     })
   } catch (err: any) {
     res.status(500).json({ message: 'Failed to check status' })

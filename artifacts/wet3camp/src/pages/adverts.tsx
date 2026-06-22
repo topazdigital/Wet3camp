@@ -1,8 +1,9 @@
 import React, { useState } from 'react'
 import Header from '@/components/Header'
 import Sidebar from '@/components/Sidebar'
-import { TrendingUp, Eye, Star, CheckCircle2, Zap, Crown, BarChart2, Mail, Phone, X, CreditCard, Loader2, AlertCircle, Smartphone } from 'lucide-react'
+import { TrendingUp, Eye, Star, CheckCircle2, Zap, Crown, BarChart2, Mail, X, CreditCard, Loader2, AlertCircle, Smartphone, RefreshCw } from 'lucide-react'
 import { useSEO } from '@/lib/useSEO'
+import { useMpesaPayment } from '@/lib/mpesa'
 
 const PACKAGES = [
   {
@@ -26,52 +27,35 @@ const STATS = [
   { icon: Star,       label: 'Avg Advertiser Rating',  value: '4.9',   desc: 'from satisfied promotions' },
 ]
 
-type PayStage = 'choose' | 'mpesa-phone' | 'mpesa-waiting' | 'card-form' | 'processing' | 'success' | 'failed'
-type PayMethod = 'mpesa' | 'card' | null
-
 interface PaymentModalProps {
   pkg: typeof PACKAGES[0]
   onClose: () => void
 }
 
 function PaymentModal({ pkg, onClose }: PaymentModalProps) {
-  const [stage, setStage] = useState<PayStage>('choose')
-  const [method, setMethod] = useState<PayMethod>(null)
   const [phone, setPhone] = useState('')
-  const [cardNum, setCardNum] = useState('')
-  const [expiry, setExpiry] = useState('')
-  const [cvv, setCvv] = useState('')
-  const [cardName, setCardName] = useState('')
-  const [error, setError] = useState('')
-  const [txRef] = useState(`WET3-${Date.now().toString(36).toUpperCase()}`)
+  const [phoneError, setPhoneError] = useState('')
+  const mpesa = useMpesaPayment()
 
-  const formatCard = (v: string) => v.replace(/\D/g, '').slice(0, 16).replace(/(.{4})/g, '$1 ').trim()
-  const formatExpiry = (v: string) => {
-    const d = v.replace(/\D/g, '').slice(0, 4)
-    return d.length > 2 ? d.slice(0, 2) + '/' + d.slice(2) : d
-  }
-
-  const handleMpesa = async () => {
+  const handleSend = async () => {
     const clean = phone.replace(/\D/g, '')
-    if (clean.length < 9) { setError('Enter a valid Safaricom number.'); return }
-    setError('')
-    setStage('mpesa-waiting')
-    // Simulate STK push — replace with real PayHero API call when credentials are configured
-    setTimeout(() => setStage('success'), 12000)
+    if (clean.length < 9) { setPhoneError('Enter a valid Safaricom number.'); return }
+    setPhoneError('')
+    await mpesa.initiate({
+      phone: clean.startsWith('254') ? clean : '254' + (clean.startsWith('0') ? clean.slice(1) : clean),
+      amount: pkg.price,
+      type: `advert_${pkg.name.toLowerCase()}`,
+    })
   }
 
-  const handleCard = async () => {
-    if (!cardNum || !expiry || !cvv || !cardName) { setError('Fill in all card details.'); return }
-    setError('')
-    setStage('processing')
-    // Simulate card processing — replace with real Pesapal/Flutterwave call
-    setTimeout(() => setStage('success'), 4000)
-  }
+  const handleRetry = () => { mpesa.reset(); setPhone('') }
+
+  const busy = mpesa.stage === 'sending' || mpesa.stage === 'waiting'
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
       style={{ background: 'rgba(0,0,0,0.85)' }}
-      onClick={stage === 'success' ? onClose : undefined}
+      onClick={mpesa.stage === 'success' ? onClose : undefined}
     >
       <div className="w-full sm:max-w-md bg-card-bg border border-color rounded-t-3xl sm:rounded-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-color">
@@ -79,23 +63,26 @@ function PaymentModal({ pkg, onClose }: PaymentModalProps) {
             <h2 className="font-black text-text-light">{pkg.name} Package</h2>
             <p className="text-xs text-text-muted">KES {pkg.price.toLocaleString()} · {pkg.duration}</p>
           </div>
-          <button onClick={onClose} className="p-1.5 text-text-muted hover:text-text-light rounded-lg transition-colors">
-            <X size={18} />
-          </button>
+          {!busy && (
+            <button onClick={onClose} className="p-1.5 text-text-muted hover:text-text-light rounded-lg transition-colors">
+              <X size={18} />
+            </button>
+          )}
         </div>
 
         <div className="p-5">
-          {/* Success */}
-          {stage === 'success' && (
+
+          {/* ── Success ── */}
+          {mpesa.stage === 'success' && (
             <div className="flex flex-col items-center justify-center py-8 gap-4 text-center">
               <div className="w-16 h-16 rounded-full bg-[#28a745]/15 border-2 border-[#28a745]/40 flex items-center justify-center">
                 <CheckCircle2 size={32} className="text-[#28a745]" />
               </div>
               <div>
-                <p className="text-xl font-black text-text-light">Payment Successful!</p>
+                <p className="text-xl font-black text-text-light">Payment Confirmed!</p>
                 <p className="text-sm text-text-muted mt-1">Your {pkg.name} package is now active.</p>
                 <p className="text-[10px] text-text-muted font-mono mt-2 bg-dark-bg px-3 py-1.5 rounded-lg border border-color">
-                  Ref: {txRef}
+                  Ref: {mpesa.txRef}
                 </p>
               </div>
               <button onClick={onClose} className="px-8 py-2.5 bg-[#8B0000] text-white font-bold rounded-xl hover:bg-[#a00000] transition-all">
@@ -104,197 +91,100 @@ function PaymentModal({ pkg, onClose }: PaymentModalProps) {
             </div>
           )}
 
-          {/* Choose payment method */}
-          {stage === 'choose' && (
-            <div className="space-y-4">
-              <p className="text-sm text-text-muted text-center mb-5">Choose your payment method</p>
-              <button
-                onClick={() => { setMethod('mpesa'); setStage('mpesa-phone') }}
-                className="w-full p-4 bg-dark-bg border-2 border-[#28a745]/40 hover:border-[#28a745] rounded-2xl transition-all flex items-center gap-4 group"
-              >
-                <div className="w-12 h-12 rounded-xl bg-[#28a745]/10 flex items-center justify-center flex-shrink-0">
-                  <Smartphone size={22} className="text-[#28a745]" />
-                </div>
-                <div className="text-left">
-                  <p className="font-black text-text-light">M-Pesa</p>
-                  <p className="text-xs text-text-muted mt-0.5">Lipa na M-Pesa STK Push · Instant</p>
-                  <div className="flex items-center gap-1 mt-1">
-                    <span className="text-[9px] px-1.5 py-0.5 bg-[#28a745]/20 text-[#28a745] rounded font-bold">RECOMMENDED</span>
-                    <span className="text-[9px] text-text-muted">Safaricom, Airtel, T-Cash</span>
-                  </div>
-                </div>
-              </button>
-
-              <button
-                onClick={() => { setMethod('card'); setStage('card-form') }}
-                className="w-full p-4 bg-dark-bg border-2 border-color hover:border-[#B8860B]/60 rounded-2xl transition-all flex items-center gap-4"
-              >
-                <div className="w-12 h-12 rounded-xl bg-[#B8860B]/10 flex items-center justify-center flex-shrink-0">
-                  <CreditCard size={22} className="text-[#B8860B]" />
-                </div>
-                <div className="text-left">
-                  <p className="font-black text-text-light">Debit / Credit Card</p>
-                  <p className="text-xs text-text-muted mt-0.5">Visa, Mastercard · Pesapal / Flutterwave</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    {['VISA', 'MC'].map(b => (
-                      <span key={b} className="text-[9px] px-1.5 py-0.5 bg-dark-bg border border-color text-text-muted rounded font-bold">{b}</span>
-                    ))}
-                  </div>
-                </div>
-              </button>
-
-              <div className="flex items-center gap-2 p-3 bg-dark-bg border border-color rounded-xl">
-                <CheckCircle2 size={13} className="text-[#28a745] flex-shrink-0" />
-                <p className="text-[10px] text-text-muted">Secure payment · Your data is encrypted · No data stored on our servers</p>
+          {/* ── Failed / cancelled ── */}
+          {mpesa.stage === 'failed' && (
+            <div className="flex flex-col items-center justify-center py-8 gap-4 text-center">
+              <div className="w-16 h-16 rounded-full bg-[#EF4444]/10 border-2 border-[#EF4444]/30 flex items-center justify-center">
+                <X size={28} className="text-[#EF4444]" />
               </div>
+              <div>
+                <p className="text-lg font-black text-text-light">Payment Failed</p>
+                <p className="text-sm text-text-muted mt-1">{mpesa.error || 'The payment was not completed.'}</p>
+              </div>
+              <button onClick={handleRetry} className="w-full py-3 bg-[#28a745] text-white font-bold rounded-xl flex items-center justify-center gap-2">
+                <RefreshCw size={14} /> Try Again
+              </button>
+              <button onClick={onClose} className="text-xs text-text-muted hover:text-text-light">Cancel</button>
             </div>
           )}
 
-          {/* M-Pesa phone input */}
-          {stage === 'mpesa-phone' && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 mb-2">
-                <button onClick={() => setStage('choose')} className="text-xs text-text-muted hover:text-text-light">← Back</button>
+          {/* ── Sending / waiting ── */}
+          {(mpesa.stage === 'sending' || mpesa.stage === 'waiting') && (
+            <div className="flex flex-col items-center justify-center py-8 gap-4 text-center">
+              <div className="w-16 h-16 rounded-full bg-[#28a745]/10 border-2 border-[#28a745]/30 flex items-center justify-center">
+                <Loader2 size={28} className="text-[#28a745] animate-spin" />
               </div>
+              <div>
+                <p className="font-black text-text-light text-lg">
+                  {mpesa.stage === 'sending' ? 'Sending STK Push…' : 'Check Your Phone'}
+                </p>
+                <p className="text-sm text-text-muted mt-1">
+                  {mpesa.stage === 'sending'
+                    ? 'Contacting M-Pesa…'
+                    : `An M-Pesa PIN prompt has been sent to +254 ${phone.replace(/^254/, '')}`}
+                </p>
+              </div>
+              {mpesa.stage === 'waiting' && (
+                <>
+                  <div className="w-full p-4 bg-dark-bg border border-[#28a745]/20 rounded-2xl text-left space-y-2">
+                    {['Open the M-Pesa prompt on your phone', 'Enter your 4-digit M-Pesa PIN', 'Confirm the payment', 'This screen updates automatically'].map((s, i) => (
+                      <div key={i} className="flex items-start gap-2">
+                        <span className="w-4 h-4 rounded-full bg-[#28a745]/20 text-[#28a745] text-[9px] font-black flex items-center justify-center flex-shrink-0 mt-0.5">{i + 1}</span>
+                        <span className="text-xs text-text-muted">{s}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-text-muted">Waiting for M-Pesa confirmation (up to 2 min)…</p>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* ── Phone input (idle) ── */}
+          {mpesa.stage === 'idle' && (
+            <div className="space-y-4">
               <div className="text-center pb-2">
                 <div className="w-12 h-12 rounded-2xl bg-[#28a745]/10 mx-auto mb-3 flex items-center justify-center">
                   <Smartphone size={24} className="text-[#28a745]" />
                 </div>
-                <p className="font-black text-text-light">Enter Your M-Pesa Number</p>
-                <p className="text-xs text-text-muted mt-1">You'll receive a PIN prompt on your phone</p>
+                <p className="font-black text-text-light">Pay via M-Pesa</p>
+                <p className="text-xs text-text-muted mt-1">Enter your Safaricom number to receive an STK push</p>
               </div>
               <div>
-                <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Phone Number</label>
+                <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">M-Pesa Phone Number</label>
                 <div className="flex items-center gap-2">
                   <span className="px-3 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-muted">+254</span>
                   <input
                     value={phone}
-                    onChange={e => setPhone(e.target.value.replace(/\D/g, ''))}
+                    onChange={e => { setPhone(e.target.value.replace(/\D/g, '')); setPhoneError('') }}
                     placeholder="7XX XXX XXX"
                     maxLength={9}
                     className="flex-1 px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted focus:outline-none focus:border-[#28a745] transition-all"
                   />
                 </div>
               </div>
+              {(phoneError || mpesa.error) && (
+                <div className="flex items-center gap-2 text-[#EF4444] text-xs bg-[#EF4444]/10 border border-[#EF4444]/20 rounded-xl px-3 py-2">
+                  <AlertCircle size={13} /><span>{phoneError || mpesa.error}</span>
+                </div>
+              )}
               <div className="p-3 bg-[#28a745]/10 border border-[#28a745]/20 rounded-xl text-xs text-text-muted">
                 <p className="font-bold text-[#28a745] mb-1">How it works:</p>
                 <p>1. Enter your Safaricom number above</p>
-                <p>2. We'll send an STK push to your phone</p>
-                <p>3. Enter your M-Pesa PIN when prompted</p>
-                <p>4. Payment confirmed instantly!</p>
+                <p>2. We send an M-Pesa STK push to your phone</p>
+                <p>3. Enter your PIN — this screen confirms automatically</p>
               </div>
-              {error && (
-                <div className="flex items-center gap-2 text-[#EF4444] text-xs bg-[#EF4444]/10 border border-[#EF4444]/20 rounded-xl px-3 py-2">
-                  <AlertCircle size={13} /><span>{error}</span>
-                </div>
-              )}
-              <button onClick={handleMpesa} className="w-full py-3.5 bg-[#28a745] hover:bg-[#20ba5a] text-white font-black rounded-xl transition-all flex items-center justify-center gap-2">
+              <button onClick={handleSend} className="w-full py-3.5 bg-[#28a745] hover:bg-[#20ba5a] text-white font-black rounded-xl transition-all flex items-center justify-center gap-2">
                 <Smartphone size={16} />
-                Send STK Push — KES {pkg.price.toLocaleString()}
+                Pay KES {pkg.price.toLocaleString()} via M-Pesa
               </button>
+              <div className="flex items-center gap-2 p-3 bg-dark-bg border border-color rounded-xl">
+                <CheckCircle2 size={13} className="text-[#28a745] flex-shrink-0" />
+                <p className="text-[10px] text-text-muted">Payment processed securely via PayHero · You are only credited after M-Pesa confirms</p>
+              </div>
             </div>
           )}
 
-          {/* M-Pesa waiting */}
-          {stage === 'mpesa-waiting' && (
-            <div className="flex flex-col items-center justify-center py-8 gap-4 text-center">
-              <div className="w-16 h-16 rounded-full bg-[#28a745]/10 border-2 border-[#28a745]/30 flex items-center justify-center">
-                <Loader2 size={28} className="text-[#28a745] animate-spin" />
-              </div>
-              <div>
-                <p className="font-black text-text-light text-lg">Check Your Phone</p>
-                <p className="text-sm text-text-muted mt-1">An M-Pesa PIN prompt has been sent to</p>
-                <p className="text-sm font-bold text-[#28a745] mt-0.5">+254 {phone}</p>
-              </div>
-              <div className="w-full p-4 bg-dark-bg border border-[#28a745]/20 rounded-2xl text-left space-y-2">
-                {[
-                  '1. Open the M-Pesa prompt on your phone',
-                  '2. Enter your 4-digit M-Pesa PIN',
-                  '3. Confirm the payment',
-                  '4. Wait for confirmation on this screen',
-                ].map((s, i) => (
-                  <div key={i} className="flex items-start gap-2">
-                    <span className="w-4 h-4 rounded-full bg-[#28a745]/20 text-[#28a745] text-[9px] font-black flex items-center justify-center flex-shrink-0 mt-0.5">{i + 1}</span>
-                    <span className="text-xs text-text-muted">{s.slice(3)}</span>
-                  </div>
-                ))}
-              </div>
-              <p className="text-[10px] text-text-muted">Timeout in ~2 minutes. Haven't received it? <button onClick={() => setStage('mpesa-phone')} className="text-[#28a745] hover:underline">Try again</button></p>
-            </div>
-          )}
-
-          {/* Card form */}
-          {stage === 'card-form' && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 mb-2">
-                <button onClick={() => setStage('choose')} className="text-xs text-text-muted hover:text-text-light">← Back</button>
-              </div>
-              <p className="text-sm font-bold text-text-light">Card Details</p>
-              <div>
-                <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Card Number</label>
-                <input
-                  value={cardNum}
-                  onChange={e => setCardNum(formatCard(e.target.value))}
-                  placeholder="1234 5678 9012 3456"
-                  className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted focus:outline-none focus:border-[#B8860B] transition-all font-mono"
-                />
-              </div>
-              <div>
-                <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Cardholder Name</label>
-                <input
-                  value={cardName}
-                  onChange={e => setCardName(e.target.value)}
-                  placeholder="Name as on card"
-                  className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted focus:outline-none focus:border-[#B8860B] transition-all"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Expiry</label>
-                  <input
-                    value={expiry}
-                    onChange={e => setExpiry(formatExpiry(e.target.value))}
-                    placeholder="MM/YY"
-                    maxLength={5}
-                    className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted focus:outline-none focus:border-[#B8860B] transition-all font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">CVV</label>
-                  <input
-                    value={cvv}
-                    onChange={e => setCvv(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                    placeholder="123"
-                    type="password"
-                    maxLength={4}
-                    className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted focus:outline-none focus:border-[#B8860B] transition-all font-mono"
-                  />
-                </div>
-              </div>
-              {error && (
-                <div className="flex items-center gap-2 text-[#EF4444] text-xs bg-[#EF4444]/10 border border-[#EF4444]/20 rounded-xl px-3 py-2">
-                  <AlertCircle size={13} /><span>{error}</span>
-                </div>
-              )}
-              <div className="flex items-center gap-2 text-[10px] text-text-muted">
-                <CheckCircle2 size={11} className="text-[#28a745]" />
-                <span>256-bit SSL encryption. Powered by Pesapal.</span>
-              </div>
-              <button onClick={handleCard} className="w-full py-3.5 bg-gradient-to-r from-[#B8860B] to-[#FFD700] text-black font-black rounded-xl transition-all flex items-center justify-center gap-2">
-                <CreditCard size={16} />
-                Pay KES {pkg.price.toLocaleString()}
-              </button>
-            </div>
-          )}
-
-          {/* Processing */}
-          {stage === 'processing' && (
-            <div className="flex flex-col items-center justify-center py-10 gap-4 text-center">
-              <div className="w-16 h-16 rounded-full border-4 border-[#B8860B]/30 border-t-[#B8860B] animate-spin" />
-              <p className="font-black text-text-light">Processing Payment…</p>
-              <p className="text-sm text-text-muted">Please don't close this window</p>
-            </div>
-          )}
         </div>
       </div>
     </div>
