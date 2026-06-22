@@ -3,7 +3,7 @@ import Header from '@/components/Header'
 import Sidebar from '@/components/Sidebar'
 import { useAuth } from '@/lib/auth-context'
 import { api } from '@/lib/api'
-import { Eye, Calendar, Star, Edit3, Camera, CheckCircle2, XCircle, MapPin, DollarSign, Users, Heart, MessageCircle, BarChart2, Zap, Crown, Smartphone, Instagram, Loader2, AlertCircle, UserCheck, Globe } from 'lucide-react'
+import { Eye, Calendar, Star, Edit3, Camera, CheckCircle2, XCircle, MapPin, DollarSign, Users, Heart, MessageCircle, BarChart2, Zap, Crown, Smartphone, Instagram, Loader2, AlertCircle, UserCheck, Globe, Radio } from 'lucide-react'
 import { Link } from 'wouter'
 import { useFollow } from '@/lib/follow-context'
 import { useSEO } from '@/lib/useSEO'
@@ -473,6 +473,32 @@ export default function MyProfile() {
                 <div className="bg-card-bg border border-color rounded-2xl p-4">
                   <h3 className="text-sm font-bold text-text-light mb-3">Quick Actions</h3>
                   <div className="space-y-2">
+                    {/* Go Live button — top of quick actions for escorts */}
+                    {user?.role === 'escort' && (
+                      <button
+                        onClick={async () => {
+                          const token = localStorage.getItem('auth_token') ?? ''
+                          const res = await fetch('/api/live/start', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                            body: JSON.stringify({ title: '' }),
+                          })
+                          const data = await res.json()
+                          if (res.ok) window.location.href = `/live/${data.escortId}?broadcast=true`
+                          else alert(data.message || 'Failed to start stream')
+                        }}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 bg-gradient-to-r from-[#E91E63]/20 to-[#8B0000]/10 hover:from-[#E91E63]/30 border border-[#E91E63]/30 hover:border-[#E91E63]/50 rounded-xl transition-all text-left"
+                      >
+                        <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-[#E91E63]/20 relative">
+                          <Radio size={13} className="text-[#E91E63]" />
+                          <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-[#E91E63] animate-pulse" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-[#E91E63]">Go Live Now</p>
+                          <p className="text-[9px] text-text-muted">Stream to thousands of clients</p>
+                        </div>
+                      </button>
+                    )}
                     {[
                       { icon: Edit3,     label: 'Edit Bio',         tab: 'Edit Profile',     color: '#8B0000' },
                       { icon: Camera,    label: 'Add Photos',       tab: 'Gallery',          color: '#9C27B0' },

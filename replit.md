@@ -2,14 +2,16 @@
 
 Kenya escort marketplace and booking platform — discover, book, and manage companion services.
 
-## ⚠️ DATABASE RULE — READ THIS FIRST
+## ⚠️ DATABASE RULE — READ THIS FIRST — DO NOT SKIP
 
-**MySQL is the ONLY supported production database. NEVER convert any SQL, schema, or code to PostgreSQL.**
+**MySQL / MariaDB is the ONLY production database. NEVER add PostgreSQL-specific code to the application.**
 
 - The live server at wet3.camp uses MySQL (`admin_wet3camp` on MariaDB 10.6).
-- The Replit dev environment may use the built-in PostgreSQL only as a temporary dev convenience — the CompatPool in `db.ts` handles the syntax translation automatically.
-- Future agents: do NOT migrate the schema to Drizzle/PostgreSQL, do NOT rewrite MySQL SQL to pg syntax, do NOT replace mysql2 with pg. MySQL is permanent and intentional.
+- Replit provides a built-in PostgreSQL database. It is used **ONLY** as a dev-environment fallback so the app runs on Replit. It is NOT a migration target and does NOT affect production.
+- The `CompatPool` in `artifacts/api-server/src/lib/db.ts` auto-detects `mysql://` vs `postgres://` and translates SQL on the fly. **Never bypass this — all app SQL must be written in MySQL syntax.**
+- Future agents: do NOT migrate the schema to Drizzle/PostgreSQL, do NOT rewrite MySQL SQL to pg syntax, do NOT replace mysql2 with pg, do NOT add `RETURNING`, `::cast`, or other pg-only syntax to application SQL. MySQL is permanent and intentional.
 - All SQL files (`wet3camp-migration.sql`, `wet3camp_database.sql`) are written in MySQL/MariaDB syntax and must stay that way.
+- `scripts/setup-pg-schema.sql` and `scripts/init-pg-dev.sql` are dev-only schema files for Replit PostgreSQL — they exist only to make the app runnable in Replit and have no production relevance. Do not modify the application to depend on them.
 
 ## Run & Operate
 

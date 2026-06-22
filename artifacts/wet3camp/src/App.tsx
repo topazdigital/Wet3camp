@@ -44,6 +44,7 @@ import ChooseRole from "@/pages/choose-role";
 import SearchPage from "@/pages/search";
 import TierBenefits from "@/pages/tier-benefits";
 import ClaimProfile from "@/pages/claim-profile";
+import LiveStream from "@/pages/live-stream";
 
 const queryClient = new QueryClient();
 
@@ -95,6 +96,7 @@ function Router() {
       <Route path="/search" component={SearchPage} />
       <Route path="/tier-benefits" component={TierBenefits} />
       <Route path="/claim/:id" component={ClaimProfile} />
+      <Route path="/live/:escortId" component={LiveStream} />
       <Route component={NotFound} />
     </Switch>
   );
