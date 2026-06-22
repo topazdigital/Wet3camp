@@ -1,4 +1,4 @@
-import { Flame, Home, Radio, Newspaper, Star, ShoppingBag, Megaphone, Calendar, Video, Hotel, Plane, MessageSquare, Heart, Ban, MessageCircle, HelpCircle, Mail, Shield, Smartphone, CalendarCheck, X, Menu, BookOpen } from 'lucide-react'
+import { Home, Radio, Newspaper, Star, ShoppingBag, Megaphone, Calendar, Video, Hotel, Plane, MessageSquare, Heart, Ban, MessageCircle, HelpCircle, Mail, Shield, Smartphone, CalendarCheck, X, Menu, BookOpen } from 'lucide-react'
 import { Link, useLocation } from 'wouter'
 import { useState, useEffect } from 'react'
 import { useSidebar } from '@/lib/sidebar-context'
@@ -89,8 +89,8 @@ export default function Sidebar() {
         <div className={`flex items-center h-14 border-b border-color sticky top-0 bg-card-bg z-10 flex-shrink-0 ${isOpen ? 'px-4 gap-3' : 'px-0 justify-center'}`}>
           {isOpen && (
             <Link href="/" className="flex items-center gap-2.5 flex-1 min-w-0">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#8B0000] to-[#FFD700] flex items-center justify-center shadow-lg flex-shrink-0">
-                <Flame size={16} className="text-white" />
+              <div className="w-8 h-8 rounded-lg overflow-hidden shadow-lg flex-shrink-0">
+                <img src="/favicon.svg" alt="Wet3Camp" className="w-full h-full object-cover" />
               </div>
               <div className="min-w-0">
                 <p className="text-sm font-bold text-text-light leading-none">

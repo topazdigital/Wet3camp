@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { Link, useLocation } from 'wouter'
-import { Bell, Heart, Search, X, Flame, ShieldCheck, ChevronDown, LogOut, User, Settings, BookOpen, MapPin, Star } from 'lucide-react'
+import { Bell, Heart, Search, X, ShieldCheck, ChevronDown, LogOut, User, Settings, BookOpen, MapPin, Star } from 'lucide-react'
 import { useSidebar } from '@/lib/sidebar-context'
 import { useAuth } from '@/lib/auth-context'
 import { useNotifications } from '@/lib/notifications-context'
@@ -167,8 +167,8 @@ export default function Header() {
       <div className="w-full px-3 sm:px-5 h-14 flex items-center gap-2">
         {/* Logo (mobile) */}
         <Link href="/" className="flex lg:hidden items-center gap-2 flex-shrink-0 group">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#8B0000] to-[#FFD700] flex items-center justify-center shadow-md">
-            <Flame size={16} className="text-white" />
+          <div className="w-8 h-8 rounded-lg overflow-hidden shadow-md flex-shrink-0">
+            <img src="/favicon.svg" alt="Wet3Camp" className="w-full h-full object-cover" />
           </div>
           <span className="text-text-light font-bold text-sm tracking-tight group-hover:text-secondary-color transition-colors">
             Wet3<span className="text-secondary-color">Camp</span>

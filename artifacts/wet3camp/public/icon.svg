@@ -1,26 +1,43 @@
-<svg width="180" height="180" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <style>
-    @media (prefers-color-scheme: light) {
-      .background { fill: black; }
-      .foreground { fill: white; }
-    }
-    @media (prefers-color-scheme: dark) {
-      .background { fill: white; }
-      .foreground { fill: black; }
-    }
-  </style>
-  <g clip-path="url(#clip0_7960_43945)">
-    <rect class="background" width="180" height="180" rx="37" />
-    <g style="transform: scale(95%); transform-origin: center">
-      <path class="foreground"
-        d="M101.141 53H136.632C151.023 53 162.689 64.6662 162.689 79.0573V112.904H148.112V79.0573C148.112 78.7105 148.098 78.3662 148.072 78.0251L112.581 112.898C112.701 112.902 112.821 112.904 112.941 112.904H148.112V126.672H112.941C98.5504 126.672 86.5638 114.891 86.5638 100.5V66.7434H101.141V100.5C101.141 101.15 101.191 101.792 101.289 102.422L137.56 66.7816C137.255 66.7563 136.945 66.7434 136.632 66.7434H101.141V53Z" />
-      <path class="foreground"
-        d="M65.2926 124.136L14 66.7372H34.6355L64.7495 100.436V66.7372H80.1365V118.47C80.1365 126.278 70.4953 129.958 65.2926 124.136Z" />
-    </g>
-  </g>
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <clipPath id="clip0_7960_43945">
-      <rect width="180" height="180" fill="white" />
-    </clipPath>
+    <linearGradient id="bg" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1a0000"/>
+      <stop offset="1" stop-color="#080000"/>
+    </linearGradient>
+    <linearGradient id="gld" x1="256" y1="20" x2="256" y2="460" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFE066"/>
+      <stop offset="0.5" stop-color="#FFD700"/>
+      <stop offset="1" stop-color="#FF8C00"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="256" cy="290" r="200" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#8B0000" stop-opacity="0.50"/>
+      <stop offset="1" stop-color="#8B0000" stop-opacity="0"/>
+    </radialGradient>
   </defs>
+  <rect width="512" height="512" rx="108" fill="url(#bg)"/>
+  <ellipse cx="256" cy="296" rx="194" ry="194" fill="url(#glow)"/>
+  <!-- Crown sparkles -->
+  <path d="M256 22 L262 38 L279 38 L266 48 L271 64 L256 54 L241 64 L246 48 L233 38 L250 38 Z" fill="#FFD700"/>
+  <path d="M218 34 L221.5 43 L231 43 L223.5 48.5 L226.5 58 L218 52.5 L209.5 58 L212.5 48.5 L205 43 L214.5 43 Z" fill="#FFD700" opacity="0.6"/>
+  <path d="M294 34 L297.5 43 L307 43 L299.5 48.5 L302.5 58 L294 52.5 L285.5 58 L288.5 48.5 L281 43 L290.5 43 Z" fill="#FFD700" opacity="0.6"/>
+  <!-- Hair: wavy body -->
+  <path d="M194 130 C188 77 205 40 256 50 C307 40 324 77 318 130 C332 108 335 160 322 194 C308 170 294 228 286 228 L226 228 C218 228 204 170 190 194 C177 160 180 108 194 130 Z" fill="url(#gld)"/>
+  <!-- Hair flowing right -->
+  <path d="M318 148 C340 178 340 232 326 278 C336 250 346 210 336 164 Z" fill="url(#gld)" opacity="0.5"/>
+  <!-- Hair flowing left -->
+  <path d="M194 148 C172 178 172 232 186 278 C176 250 166 210 176 164 Z" fill="url(#gld)" opacity="0.28"/>
+  <!-- Head -->
+  <ellipse cx="256" cy="157" rx="60" ry="65" fill="url(#gld)"/>
+  <!-- Face sheen -->
+  <ellipse cx="236" cy="136" rx="17" ry="20" fill="#fff" opacity="0.10" transform="rotate(-15 236 136)"/>
+  <!-- Neck -->
+  <path d="M234 220 L238 262 L274 262 L278 220 Q266 228 256 228 Q246 228 234 220 Z" fill="url(#gld)"/>
+  <!-- Shoulders + bust -->
+  <path d="M74 434 C96 320 158 276 222 258 C234 254 245 252 256 252 C267 252 278 254 290 258 C354 276 416 320 438 434 Z" fill="url(#gld)"/>
+  <!-- Lower dress -->
+  <path d="M90 434 C132 386 188 362 256 362 C324 362 380 386 422 434 L432 512 L80 512 Z" fill="url(#gld)" opacity="0.36"/>
+  <!-- Heart detail -->
+  <path d="M256 304 C256 304 232 288 232 272 C232 260 241 254 248 258 C252 260 256 266 256 266 C256 266 260 260 264 258 C271 254 280 260 280 272 C280 288 256 304 256 304 Z" fill="#8B0000" opacity="0.55"/>
+  <!-- Lip hint -->
+  <path d="M242 182 Q248 187 256 187 Q264 187 270 182 Q264 190 256 190 Q248 190 242 182 Z" fill="#8B0000" opacity="0.45"/>
 </svg>
