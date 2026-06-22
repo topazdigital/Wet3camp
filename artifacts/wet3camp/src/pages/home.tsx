@@ -78,8 +78,10 @@ export default function Home() {
   }, [])
 
   const locationLabel = geoState === 'done' && detectedCity
-    ? `Near you in ${detectedCity}`
-    : 'Nairobi first'
+    ? `Near you · ${detectedCity}`
+    : geoState === 'denied'
+    ? 'All cities · Kenya'
+    : 'All cities · Nairobi shown first'
 
   const statItems = [
     { icon: Users,       value: stats ? `${stats.total}+` : '…',        label: 'Active Escorts' },

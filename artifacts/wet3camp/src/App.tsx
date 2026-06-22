@@ -43,6 +43,7 @@ import Account from "@/pages/account";
 import ChooseRole from "@/pages/choose-role";
 import SearchPage from "@/pages/search";
 import TierBenefits from "@/pages/tier-benefits";
+import ClaimProfile from "@/pages/claim-profile";
 
 const queryClient = new QueryClient();
 
@@ -93,6 +94,7 @@ function Router() {
       <Route path="/auth/callback" component={AuthCallback} />
       <Route path="/search" component={SearchPage} />
       <Route path="/tier-benefits" component={TierBenefits} />
+      <Route path="/claim/:id" component={ClaimProfile} />
       <Route component={NotFound} />
     </Switch>
   );

@@ -111,22 +111,12 @@ export default function ProfilePage() {
   const [mainImg, setMainImg] = useState<string | null>(escort?.image ?? null)
   const tier = TIER_STYLE[(escort?.tier as string)] ?? TIER_STYLE.Standard
   const following = isFollowing(escort?.id ?? '')
-  const [claimSent, setClaimSent] = useState(false)
-  const [claimLoading, setClaimLoading] = useState(false)
+  const [claimSent] = useState(false)
+  const [claimLoading] = useState(false)
 
-  const handleClaim = async () => {
-    if (!isLoggedIn) { window.location.href = `/login?redirect=/profile/${escort?.id}`; return }
-    setClaimLoading(true)
-    try {
-      const token = localStorage.getItem('w3c_token') ?? ''
-      const resp = await fetch(`/api/escorts/${escort?.id}/claim`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({}),
-      })
-      if (resp.ok) setClaimSent(true)
-    } catch {}
-    setClaimLoading(false)
+  const handleClaim = () => {
+    if (!isLoggedIn) { window.location.href = `/login?redirect=/claim/${escort?.id}`; return }
+    window.location.href = `/claim/${escort?.id}`
   }
 
   React.useEffect(() => {

@@ -16,6 +16,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { mkdirSync, existsSync } from "fs";
 import router from "./routes";
+import sitemapRouter from "./routes/sitemap.js";
 import { logger } from "./lib/logger";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -77,6 +78,16 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 
   next()
 })
+
+// ── Root-level SEO files (served before /api and before static files) ─────────
+// Google Search Console verification
+app.get('/google76ed499fbdba9e86.html', (_req, res) => {
+  res.setHeader('Content-Type', 'text/html; charset=utf-8')
+  res.setHeader('Cache-Control', 'public, max-age=86400')
+  res.send('google-site-verification: google76ed499fbdba9e86.html')
+})
+// Dynamic sitemaps at domain root (not /api/*)
+app.use(sitemapRouter)
 
 // ── Static uploads ────────────────────────────────────────────────────────────
 app.use("/api/uploads", express.static(UPLOADS_DIR, {

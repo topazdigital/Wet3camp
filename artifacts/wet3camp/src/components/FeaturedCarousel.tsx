@@ -8,10 +8,9 @@ const GAP    = 12
 const SPEED  = 0.6
 
 const TIER_BADGE: Record<string, { bg: string; text: string }> = {
-  elite:    { bg: '#8B000030', text: '#FF6B6B' },
-  vip:      { bg: '#FF450030', text: '#FF8C00' },
-  premium:  { bg: '#B8860B30', text: '#FFD700' },
-  standard: { bg: '#55555530', text: '#999'    },
+  elite:   { bg: '#8B000060', text: '#FF6B6B' },
+  vip:     { bg: '#FF450060', text: '#FF8C00' },
+  premium: { bg: '#B8860B60', text: '#FFD700' },
 }
 
 export default function FeaturedCarousel() {
@@ -77,7 +76,7 @@ export default function FeaturedCarousel() {
     >
       <div ref={trackRef} className="flex" style={{ gap: GAP, willChange: 'transform' }}>
         {allCards.map((e, i) => {
-          const badge = TIER_BADGE[e.tier?.toLowerCase() ?? 'standard'] ?? TIER_BADGE.standard
+          const badge = TIER_BADGE[e.tier?.toLowerCase() ?? ''] ?? null
           return (
             <Link
               key={`${e.id}-${i}`}
@@ -114,12 +113,14 @@ export default function FeaturedCarousel() {
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-transparent" />
                 <div className="absolute top-2 left-2 flex gap-1 flex-wrap">
-                  <span
-                    className="text-[9px] font-black px-2 py-0.5 rounded-md"
-                    style={{ background: badge.bg, color: badge.text, backdropFilter: 'blur(4px)' }}
-                  >
-                    {(e.tier ?? 'standard').toUpperCase()}
-                  </span>
+                  {badge && (
+                    <span
+                      className="text-[9px] font-black px-2 py-0.5 rounded-md"
+                      style={{ background: badge.bg, color: badge.text, backdropFilter: 'blur(4px)' }}
+                    >
+                      {(e.tier ?? '').toUpperCase()}
+                    </span>
+                  )}
                   {e.online && (
                     <span className="text-[9px] font-black px-2 py-0.5 rounded-md bg-[#28a74530] text-[#28a745]">
                       LIVE

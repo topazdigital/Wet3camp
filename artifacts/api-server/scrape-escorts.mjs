@@ -36,8 +36,16 @@ const IS_MYSQL = DATABASE_URL?.startsWith('mysql://')
 const SOURCES = [
   { listingUrl: 'https://nairobiraha.com/escorts/' },
   { listingUrl: 'https://nairobiraha.com/escorts/page/2/' },
+  { listingUrl: 'https://nairobiraha.com/escorts/page/3/' },
+  { listingUrl: 'https://nairobiraha.com/escorts/page/4/' },
+  { listingUrl: 'https://nairobiraha.com/escorts/page/5/' },
   { listingUrl: 'https://nairobiraha.com/african-escorts/' },
   { listingUrl: 'https://nairobiraha.com/call-girls/' },
+  { listingUrl: 'https://nairobiraha.com/nairobi-escorts/' },
+  { listingUrl: 'https://nairobiraha.com/mombasa-escorts/' },
+  { listingUrl: 'https://nairobiraha.com/vip-escorts/' },
+  { listingUrl: 'https://nairobiraha.com/massage/' },
+  { listingUrl: 'https://nairobiraha.com/indian-escorts/' },
 ]
 
 // ── Dual-DB adapter ──────────────────────────────────────────────────────────
