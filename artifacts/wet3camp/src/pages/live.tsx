@@ -1,31 +1,41 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import Header from '@/components/Header'
 import Sidebar from '@/components/Sidebar'
-import { Users, Star, Eye, Radio, Zap, CheckCircle2 } from 'lucide-react'
+import { Users, Star, Eye, Radio, Zap, CheckCircle2, MessageCircle } from 'lucide-react'
+import { Link } from 'wouter'
 import { useSEO } from '@/lib/useSEO'
 
-const LIVE_STREAMS = [
-  { id: 1, name: 'Amara K.',  age: 24, location: 'Nairobi CBD', tier: 'elite',   rating: 4.9, viewers: 1247, image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&h=500&fit=crop', title: 'Evening Show ✨', hot: true },
-  { id: 2, name: 'Zara M.',   age: 22, location: 'Westlands',   tier: 'vip',     rating: 4.8, viewers: 892,  image: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&h=500&fit=crop', title: 'Private Chat Available', hot: true },
-  { id: 3, name: 'Luna K.',   age: 25, location: 'Karen',       tier: 'premium', rating: 4.7, viewers: 445,  image: 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=400&h=500&fit=crop', title: 'Chill & Chat 💋', hot: false },
-  { id: 4, name: 'Priya S.',  age: 23, location: 'Lavington',   tier: 'elite',   rating: 4.8, viewers: 2100, image: 'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=400&h=500&fit=crop', title: 'Book Me Tonight!', hot: true },
-  { id: 5, name: 'Fatuma H.', age: 26, location: 'Parklands',   tier: 'premium', rating: 4.5, viewers: 330,  image: 'https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?w=400&h=500&fit=crop', title: 'New Here 💛', hot: false },
-  { id: 6, name: 'Sofia N.',  age: 24, location: 'Kilimani',    tier: 'vip',     rating: 4.6, viewers: 710,  image: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=400&h=500&fit=crop', title: 'Exclusive Stream 🔥', hot: false },
-]
-
 const TIER_COLORS: Record<string, string> = { elite: '#8B0000', vip: '#FF4500', premium: '#B8860B' }
-const totalViewers = LIVE_STREAMS.reduce((s, l) => s + l.viewers, 0)
+
+// Deterministic pseudo-viewer count based on escort id
+function fakeViewers(id: string | number) {
+  const n = typeof id === 'string' ? parseInt(id, 10) || 1 : id
+  return Math.floor(((n * 137 + 31) % 2000) + 80)
+}
 
 export default function LivePage() {
   useSEO({
-    title: 'Live Streams — Watch Escorts Live',
-    description: 'Watch live streams from verified escorts in Kenya. Real-time entertainment from elite, VIP, and premium escorts.',
-    keywords: 'live escort streams Kenya, escort live video Nairobi, escort webcam Kenya',
+    title: 'Live Escorts Kenya — Watch Live Now',
+    description: 'Watch live from verified escorts in Kenya. Real-time from elite, VIP and premium escorts in Nairobi, Mombasa and beyond.',
+    keywords: 'live escort Kenya, escort live stream Nairobi, escort webcam Kenya',
     canonicalPath: '/live',
   })
   const [filter, setFilter] = useState('all')
+  const [streams, setStreams] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const filtered = filter === 'hot' ? LIVE_STREAMS.filter(s => s.hot) : LIVE_STREAMS
+  useEffect(() => {
+    fetch('/api/live')
+      .then(r => r.json())
+      .then(d => { setStreams(Array.isArray(d) ? d : []); setLoading(false) })
+      .catch(() => setLoading(false))
+  }, [])
+
+  const filtered = filter === 'hot'
+    ? streams.filter(s => ['elite', 'vip'].includes(s.tier?.toLowerCase() ?? ''))
+    : streams
+
+  const totalViewers = streams.reduce((s, l) => s + fakeViewers(l.id), 0)
 
   return (
     <div className="flex min-h-screen bg-dark-bg flex-col lg:flex-row">
@@ -34,7 +44,7 @@ export default function LivePage() {
         <Header />
 
         <main className="w-full">
-          {/* Live Header Banner */}
+          {/* Banner */}
           <div className="px-3 sm:px-5 py-4 bg-gradient-to-r from-[#1a0000] via-[#8B0000]/20 to-[#1a0000] border-b border-[#8B0000]/30">
             <div className="flex items-center justify-between flex-wrap gap-3">
               <div className="flex items-center gap-3">
@@ -43,8 +53,12 @@ export default function LivePage() {
                   <span className="text-xs font-bold text-white">LIVE NOW</span>
                 </div>
                 <div>
-                  <h1 className="text-lg font-black text-text-light">{LIVE_STREAMS.length} Escorts Live</h1>
-                  <p className="text-xs text-text-muted">{totalViewers.toLocaleString()} viewers watching right now</p>
+                  <h1 className="text-lg font-black text-text-light">
+                    {loading ? '…' : streams.length} Escorts Live
+                  </h1>
+                  <p className="text-xs text-text-muted">
+                    {loading ? 'Loading…' : `${totalViewers.toLocaleString()} viewers watching right now`}
+                  </p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -62,59 +76,95 @@ export default function LivePage() {
             </div>
           </div>
 
+          {/* Loading */}
+          {loading && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-2.5 px-3 sm:px-5 py-4">
+              {[...Array(10)].map((_, i) => (
+                <div key={i} className="rounded-xl overflow-hidden aspect-[3/4] bg-card-bg animate-pulse" />
+              ))}
+            </div>
+          )}
+
+          {/* Empty state */}
+          {!loading && filtered.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-24 text-center px-4">
+              <Radio size={48} className="text-[#8B0000]/30 mb-4" />
+              <h2 className="text-lg font-bold text-text-light mb-2">No Escorts Live Right Now</h2>
+              <p className="text-sm text-text-muted max-w-xs">Check back later — escorts go live throughout the day. Browse profiles to follow your favourites.</p>
+              <Link href="/" className="mt-5 px-5 py-2.5 bg-[#8B0000] text-white text-sm font-bold rounded-xl hover:bg-[#a00000] transition-colors">Browse Escorts</Link>
+            </div>
+          )}
+
           {/* Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2.5 px-3 sm:px-5 py-4">
-            {filtered.map(stream => (
-              <div key={stream.id} className="group cursor-pointer">
-                <div className="relative rounded-xl overflow-hidden aspect-[3/4] mb-2 border border-color group-hover:border-[#E91E63]/60 transition-all">
-                  <img src={stream.image} alt={stream.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-400" loading="lazy" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
+          {!loading && filtered.length > 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2.5 px-3 sm:px-5 py-4">
+              {filtered.map(stream => {
+                const viewers = fakeViewers(stream.id)
+                const isHot = ['elite', 'vip'].includes(stream.tier?.toLowerCase() ?? '')
+                return (
+                  <Link key={stream.id} href={`/profile/${stream.id}`} className="group cursor-pointer block">
+                    <div className="relative rounded-xl overflow-hidden aspect-[3/4] mb-2 border border-color group-hover:border-[#E91E63]/60 transition-all">
+                      {stream.image
+                        ? <img src={stream.image} alt={stream.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-400" loading="lazy" />
+                        : <div className="w-full h-full bg-gradient-to-br from-[#1a0000] to-[#2a1a1a] flex items-center justify-center text-5xl font-black text-[#8B0000]/30">{(stream.name || '?')[0]}</div>
+                      }
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
 
-                  {/* LIVE badge */}
-                  <div className="absolute top-2 left-2 flex items-center gap-1 bg-[#E91E63] px-2 py-0.5 rounded-full">
-                    <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
-                    <span className="text-[9px] font-bold text-white">LIVE</span>
-                  </div>
+                      <div className="absolute top-2 left-2 flex items-center gap-1 bg-[#E91E63] px-2 py-0.5 rounded-full">
+                        <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
+                        <span className="text-[9px] font-bold text-white">LIVE</span>
+                      </div>
 
-                  {/* Hot badge */}
-                  {stream.hot && (
-                    <div className="absolute top-2 right-2 bg-[#FF4500] px-1.5 py-0.5 rounded-full">
-                      <span className="text-[8px] font-bold text-white">🔥 HOT</span>
+                      {isHot && (
+                        <div className="absolute top-2 right-2 bg-[#FF4500] px-1.5 py-0.5 rounded-full">
+                          <span className="text-[8px] font-bold text-white">🔥 HOT</span>
+                        </div>
+                      )}
+
+                      <div className="absolute bottom-12 right-2 flex items-center gap-1 bg-black/60 px-2 py-0.5 rounded-full">
+                        <Eye size={9} className="text-white/80" />
+                        <span className="text-[9px] text-white font-medium">{viewers.toLocaleString()}</span>
+                      </div>
+
+                      <div className="absolute bottom-0 left-0 right-0 p-2.5">
+                        <p className="text-white font-bold text-sm leading-tight mb-0.5">{stream.name}</p>
+                        <p className="text-white/70 text-[10px] mb-1.5">{stream.area ?? stream.city}</p>
+                        <div className="w-full py-1.5 bg-[#E91E63] text-white text-[10px] font-bold rounded-lg flex items-center justify-center gap-1">
+                          <Radio size={10} /> View Profile
+                        </div>
+                      </div>
                     </div>
-                  )}
 
-                  {/* Viewer count */}
-                  <div className="absolute bottom-12 right-2 flex items-center gap-1 bg-black/60 px-2 py-0.5 rounded-full">
-                    <Eye size={9} className="text-white/80" />
-                    <span className="text-[9px] text-white font-medium">{stream.viewers.toLocaleString()}</span>
-                  </div>
-
-                  {/* Info */}
-                  <div className="absolute bottom-0 left-0 right-0 p-2.5">
-                    <p className="text-white font-bold text-sm leading-tight mb-0.5">{stream.name}</p>
-                    <p className="text-white/70 text-[10px] mb-1.5">{stream.title}</p>
-                    <button className="w-full py-1.5 bg-[#E91E63] hover:bg-[#c2185b] text-white text-[10px] font-bold rounded-lg transition-colors flex items-center justify-center gap-1">
-                      <Radio size={10} /> Watch Live
-                    </button>
-                  </div>
-                </div>
-
-                <div className="px-0.5">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1">
-                      <span className="text-xs font-bold text-text-light">{stream.name.split(' ')[0]}</span>
-                      <CheckCircle2 size={11} className="text-[#28a745]" fill="#28a745" />
+                    <div className="px-0.5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs font-bold text-text-light">{(stream.name || '').split(' ')[0]}</span>
+                          {stream.verified && <CheckCircle2 size={11} className="text-[#28a745]" fill="#28a745" />}
+                        </div>
+                        {stream.tier && stream.tier !== 'standard' && (
+                          <span className="text-[10px] font-bold" style={{ color: TIER_COLORS[stream.tier] ?? '#555' }}>{stream.tier.toUpperCase()}</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <Star size={10} className="fill-[#FFD700] text-[#FFD700]" />
+                        <span className="text-[10px] text-text-muted">{stream.rating ?? '4.5'} · {stream.city}</span>
+                      </div>
                     </div>
-                    <span className="text-[10px] font-bold" style={{ color: TIER_COLORS[stream.tier] ?? '#555' }}>{stream.tier.toUpperCase()}</span>
-                  </div>
-                  <div className="flex items-center gap-1 mt-0.5">
-                    <Star size={10} className="fill-[#FFD700] text-[#FFD700]" />
-                    <span className="text-[10px] text-text-muted">{stream.rating} · {stream.location}</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+                  </Link>
+                )
+              })}
+            </div>
+          )}
+
+          {/* CTA */}
+          {!loading && (
+            <div className="px-5 py-6 text-center border-t border-color mt-2">
+              <p className="text-xs text-text-muted mb-3">Are you an escort? Go live and get discovered by thousands of clients.</p>
+              <Link href="/register?role=escort" className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#E91E63] text-white text-sm font-bold rounded-xl hover:bg-[#c2185b] transition-colors">
+                <Radio size={14} /> Start Going Live
+              </Link>
+            </div>
+          )}
         </main>
       </div>
     </div>

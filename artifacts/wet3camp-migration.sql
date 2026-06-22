@@ -433,3 +433,94 @@ CREATE TABLE IF NOT EXISTS `profile_claims` (
 -- To diagnose issues on the live server, visit:
 --   GET https://wet3.camp/api/admin/health  (requires admin login token)
 -- =============================================================================
+
+-- ──────────────────────────────────────────────────────────────────────────────
+-- Content tables (events, escort_videos, shop_products, testimonials,
+--                 blacklist_reports)
+-- Added 2026-06-22 — run in phpMyAdmin before deploying
+-- ──────────────────────────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS `events` (
+  `id`          INT UNSIGNED     NOT NULL AUTO_INCREMENT,
+  `title`       VARCHAR(200)     NOT NULL,
+  `description` TEXT,
+  `event_date`  DATE             NOT NULL,
+  `event_time`  VARCHAR(20)      DEFAULT '',
+  `venue`       VARCHAR(200)     DEFAULT '',
+  `city`        VARCHAR(100)     DEFAULT 'Nairobi',
+  `price`       INT UNSIGNED     DEFAULT 0,
+  `capacity`    INT UNSIGNED     DEFAULT 50,
+  `attending`   INT UNSIGNED     DEFAULT 0,
+  `escorts`     INT UNSIGNED     DEFAULT 0,
+  `category`    VARCHAR(50)      DEFAULT 'Mixer',
+  `image_url`   TEXT,
+  `featured`    TINYINT(1)       DEFAULT 0,
+  `is_active`   TINYINT(1)       DEFAULT 1,
+  `created_at`  DATETIME         DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `escort_videos` (
+  `id`          INT UNSIGNED     NOT NULL AUTO_INCREMENT,
+  `escort_id`   INT UNSIGNED,
+  `title`       VARCHAR(200)     NOT NULL,
+  `thumbnail`   TEXT,
+  `video_url`   TEXT,
+  `tier`        ENUM('free','premium','vip','elite') DEFAULT 'free',
+  `is_locked`   TINYINT(1)       DEFAULT 0,
+  `price_kes`   INT UNSIGNED     DEFAULT 0,
+  `duration`    VARCHAR(20)      DEFAULT '',
+  `view_count`  INT UNSIGNED     DEFAULT 0,
+  `is_active`   TINYINT(1)       DEFAULT 1,
+  `created_at`  DATETIME         DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `escort_id` (`escort_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `shop_products` (
+  `id`           INT UNSIGNED     NOT NULL AUTO_INCREMENT,
+  `name`         VARCHAR(200)     NOT NULL,
+  `description`  TEXT,
+  `price_kes`    INT UNSIGNED     DEFAULT 0,
+  `image_url`    TEXT,
+  `category`     VARCHAR(80)      DEFAULT 'General',
+  `rating`       DECIMAL(2,1)     DEFAULT 0.0,
+  `review_count` INT UNSIGNED     DEFAULT 0,
+  `tag`          VARCHAR(50)      DEFAULT NULL,
+  `features`     TEXT,
+  `is_active`    TINYINT(1)       DEFAULT 1,
+  `created_at`   DATETIME         DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `testimonials` (
+  `id`         INT UNSIGNED     NOT NULL AUTO_INCREMENT,
+  `user_id`    INT UNSIGNED,
+  `name`       VARCHAR(100)     NOT NULL,
+  `role`       ENUM('Client','Escort') DEFAULT 'Client',
+  `city`       VARCHAR(100)     DEFAULT '',
+  `rating`     TINYINT UNSIGNED DEFAULT 5,
+  `text`       TEXT             NOT NULL,
+  `avatar`     VARCHAR(10)      DEFAULT '',
+  `verified`   TINYINT(1)       DEFAULT 0,
+  `is_active`  TINYINT(1)       DEFAULT 0,
+  `created_at` DATETIME         DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `blacklist_reports` (
+  `id`           INT UNSIGNED     NOT NULL AUTO_INCREMENT,
+  `name`         VARCHAR(200)     NOT NULL,
+  `type`         ENUM('client','escort','agency') DEFAULT 'client',
+  `reason`       TEXT             NOT NULL,
+  `city`         VARCHAR(100)     DEFAULT 'Nairobi',
+  `severity`     ENUM('medium','high','critical') DEFAULT 'medium',
+  `report_count` INT UNSIGNED     DEFAULT 1,
+  `reported_by`  INT UNSIGNED,
+  `is_active`    TINYINT(1)       DEFAULT 0,
+  `created_at`   DATETIME         DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Rename old `blacklist` table column if it exists (backward compat)
+-- The old table had different column names; leave it as-is and use blacklist_reports going forward.

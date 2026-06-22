@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Heart, Share2, MessageCircle, MapPin, Star, Check, X, Calendar, Clock, CheckCircle2, ChevronLeft, Flame, Shield, Eye, Ruler, UserPlus, UserCheck, Users } from 'lucide-react'
+import { Heart, Share2, MessageCircle, MessageSquare, MapPin, Star, Check, X, Calendar, Clock, CheckCircle2, ChevronLeft, Flame, Shield, Eye, Ruler, UserPlus, UserCheck, Users } from 'lucide-react'
 import Sidebar from '@/components/Sidebar'
 import Header from '@/components/Header'
 import { Link, useRoute } from 'wouter'
@@ -275,17 +275,25 @@ export default function ProfilePage() {
                   )}
                 </div>
 
+                {/* Claimed & managed by owner */}
+                {!!(escort as any).user_id && !isOwnProfile && (
+                  <div className="mt-1 mb-3 flex items-center gap-2 px-3 py-2.5 rounded-xl border bg-[#28a745]/5 border-[#28a745]/20">
+                    <CheckCircle2 size={13} className="text-[#28a745] flex-shrink-0" />
+                    <p className="text-xs text-[#28a745] font-semibold flex-1">Verified — this escort manages her own profile</p>
+                    <Link href={`/messages?to=${(escort as any).user_id}`} className="px-3 py-1.5 bg-[#28a745] text-white text-[10px] font-black rounded-lg hover:bg-[#22913c] transition-all flex items-center gap-1.5 flex-shrink-0">
+                      <MessageSquare size={10} /> Message
+                    </Link>
+                  </div>
+                )}
+
+                {/* Unclaimed profile — invite to claim */}
                 {!(escort as any).user_id && !isOwnProfile && (
-                  <div className={`mt-1 mb-3 flex items-center gap-3 px-3 py-2.5 rounded-xl border ${claimSent ? 'bg-[#28a745]/10 border-[#28a745]/20' : 'bg-[#FFD700]/5 border-[#FFD700]/20'}`}>
-                    {claimSent ? (
-                      <><CheckCircle2 size={13} className="text-[#28a745] flex-shrink-0"/><p className="text-xs text-[#28a745] font-semibold flex-1">Claim submitted — pending admin review.</p></>
-                    ) : (
-                      <><Shield size={13} className="text-[#FFD700] flex-shrink-0"/><p className="text-xs text-text-muted flex-1">Is this your profile?</p>
-                      <button onClick={handleClaim} disabled={claimLoading} className="px-3 py-1.5 bg-[#FFD700] text-black text-[10px] font-black rounded-lg hover:bg-[#e6c000] disabled:opacity-60 transition-all flex items-center gap-1.5 flex-shrink-0">
-                        {claimLoading && <div className="w-3 h-3 border-2 border-black/30 border-t-black rounded-full animate-spin"/>}
-                        Claim Profile
-                      </button></>
-                    )}
+                  <div className="mt-1 mb-3 flex items-center gap-3 px-3 py-2.5 rounded-xl border bg-[#FFD700]/5 border-[#FFD700]/20">
+                    <Shield size={13} className="text-[#FFD700] flex-shrink-0"/>
+                    <p className="text-xs text-text-muted flex-1">Is this your profile?</p>
+                    <button onClick={handleClaim} className="px-3 py-1.5 bg-[#FFD700] text-black text-[10px] font-black rounded-lg hover:bg-[#e6c000] transition-all flex-shrink-0">
+                      Claim Profile
+                    </button>
                   </div>
                 )}
 
