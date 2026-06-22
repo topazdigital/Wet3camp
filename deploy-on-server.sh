@@ -124,12 +124,25 @@ rm -rf "${WEB_ROOT:?}"/*
 cp -r "$REPO_DIR/artifacts/wet3camp/dist/public/." "$WEB_ROOT/"
 chmod -R 755 "$WEB_ROOT"
 
-# Write .htaccess with cache-busting headers
-# - Hashed assets (JS/CSS/fonts) get 1 year immutable cache
-# - index.html and all HTML get no-cache so browsers always fetch latest
-# - Images get 30 days
+# ── Symlink uploads so Apache serves photos DIRECTLY (no proxy needed) ────────
+# This avoids relying on mod_proxy [P] which may be disabled on shared hosts.
+# /api/uploads/* → /home/admin/api-server/uploads/* served as plain static files
+mkdir -p "${WEB_ROOT}/api"
+rm -f  "${WEB_ROOT}/api/uploads"
+ln -sfn "${API_DIR}/uploads" "${WEB_ROOT}/api/uploads"
+echo "    Uploads symlinked: $WEB_ROOT/api/uploads -> $API_DIR/uploads"
+
+# Also ensure the uploads directory actually exists on the server
+mkdir -p "${API_DIR}/uploads"
+
+# Write .htaccess
+# Strategy:
+#   1. Enable FollowSymLinks so Apache can serve the uploads symlink
+#   2. Serve existing files/dirs FIRST (handles /api/uploads/* via symlink)
+#   3. Proxy remaining /api/* requests to Node.js (JSON endpoints)
+#   4. SPA fallback for all other routes
 cat > "$WEB_ROOT/.htaccess" << 'HTACCESS'
-Options -Indexes
+Options -Indexes +FollowSymLinks
 
 # Serve pre-compressed files
 <IfModule mod_deflate.c>
@@ -138,14 +151,14 @@ Options -Indexes
 
 # --- Cache rules ---
 
-# HTML: never cache (always revalidate so new deploys are picked up immediately)
+# HTML: never cache
 <FilesMatch "\.(html)$">
   Header set Cache-Control "no-cache, no-store, must-revalidate"
   Header set Pragma "no-cache"
   Header set Expires "0"
 </FilesMatch>
 
-# Hashed JS/CSS assets (Vite adds content hash to filenames): cache 1 year
+# Hashed JS/CSS assets (Vite adds content hash): cache 1 year
 <FilesMatch "\.(js|css|mjs)$">
   Header set Cache-Control "public, max-age=31536000, immutable"
 </FilesMatch>
@@ -165,24 +178,26 @@ Options -Indexes
   Header set Cache-Control "public, max-age=3600"
 </FilesMatch>
 
-# --- API proxy + SPA fallback ---
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
 
-  # Proxy ALL /api/* requests (including /api/uploads/*) to Node.js on port 8080
-  # This MUST come before the SPA fallback so image/API requests reach the server
+  # Step 1: Serve real files and directories directly
+  # This handles /api/uploads/* images via the symlink — NO PROXY needed
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # Step 2: Proxy remaining /api/* calls to Node.js on port 8080 (JSON endpoints)
   RewriteCond %{REQUEST_URI} ^/api [NC]
   RewriteRule ^ http://localhost:8080%{REQUEST_URI} [P,L,QSA]
 
-  # SPA fallback — serve index.html for all non-file, non-directory routes
-  RewriteCond %{REQUEST_FILENAME} !-f
-  RewriteCond %{REQUEST_FILENAME} !-d
+  # Step 3: SPA fallback — all other routes serve index.html
   RewriteRule ^ index.html [L]
 </IfModule>
 HTACCESS
 
-echo "    .htaccess written with cache-busting headers."
+echo "    .htaccess written (uploads via symlink, API via proxy, SPA fallback)."
 
 # ALSO copy frontend to api-server/public so Express can serve it as a fallback
 # if the Apache mod_rewrite [P] proxy doesn't work on this server

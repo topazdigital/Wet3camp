@@ -1,4 +1,4 @@
-Options -Indexes
+Options -Indexes +FollowSymLinks
 
 # Serve pre-compressed files
 <IfModule mod_deflate.c>
@@ -34,18 +34,19 @@ Options -Indexes
   Header set Cache-Control "public, max-age=3600"
 </FilesMatch>
 
-# --- API proxy + SPA fallback ---
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
 
-  # Proxy ALL /api/* requests (including /api/uploads/*) to Node.js on port 8080
-  # This MUST come before the SPA fallback so image/API requests reach the server
+  # Step 1: Serve real files/directories directly (handles /api/uploads/* via symlink)
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # Step 2: Proxy remaining /api/* calls to Node.js on port 8080
   RewriteCond %{REQUEST_URI} ^/api [NC]
   RewriteRule ^ http://localhost:8080%{REQUEST_URI} [P,L,QSA]
 
-  # SPA fallback — serve index.html for all non-file, non-directory routes
-  RewriteCond %{REQUEST_FILENAME} !-f
-  RewriteCond %{REQUEST_FILENAME} !-d
+  # Step 3: SPA fallback
   RewriteRule ^ index.html [L]
 </IfModule>
