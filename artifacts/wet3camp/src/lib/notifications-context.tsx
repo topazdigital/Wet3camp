@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useCallback, useEffect, use
 import { useAuth } from './auth-context'
 import { getToken } from './api'
 
-export type NotifType = 'follow' | 'message' | 'featured' | 'booking' | 'system' | 'review'
+export type NotifType = 'follow' | 'message' | 'featured' | 'booking' | 'system' | 'review' | 'live'
 
 export interface AppNotification {
   id: string
@@ -70,6 +70,26 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
     return () => {
       if (timerRef.current) clearInterval(timerRef.current)
     }
+  }, [isLoggedIn])
+
+  // Real-time push via SSE — instant alerts when escort goes live, etc.
+  useEffect(() => {
+    if (!isLoggedIn) return
+    const token = getToken()
+    if (!token) return
+    const es = new EventSource(`/api/events/notifications?token=${encodeURIComponent(token)}`)
+    es.onmessage = (e) => {
+      try {
+        const notif = JSON.parse(e.data) as AppNotification
+        if (!notif?.id) return
+        setNotifications(prev => {
+          if (prev.find(n => n.id === notif.id)) return prev
+          return [{ ...notif, read: false }, ...prev]
+        })
+      } catch {}
+    }
+    es.onerror = () => {}
+    return () => es.close()
   }, [isLoggedIn])
 
   const unreadCount = notifications.filter(n => !n.read).length

@@ -2,7 +2,7 @@ import { createRoot } from "react-dom/client";
 import App from "./App";
 import "./index.css";
 
-const clarityId = import.meta.env.VITE_CLARITY_PROJECT_ID
+const clarityId = import.meta.env.VITE_CLARITY_PROJECT_ID || 'xb0ksturqv'
 if (clarityId) {
   import('@microsoft/clarity').then(({ default: Clarity }) => {
     Clarity.init(clarityId)

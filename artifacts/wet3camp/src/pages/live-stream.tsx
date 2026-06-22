@@ -59,7 +59,7 @@ export default function LiveStreamPage() {
   const chatRef = useRef<HTMLDivElement>(null)
   const jitsiRef = useRef<HTMLDivElement>(null)
   const jitsiApiRef = useRef<any>(null)
-  const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') ?? '' : ''
+  const token = (typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null) ?? ''
 
   useSEO({
     title: session ? `${session.name} Live — Wet3Camp` : 'Live Stream',
@@ -97,7 +97,7 @@ export default function LiveStreamPage() {
         parentNode: jitsiRef.current,
         width: '100%',
         height: '100%',
-        userInfo: { displayName: user?.username ?? 'Viewer' },
+        userInfo: { displayName: user?.name ?? 'Viewer' },
         configOverwrite: {
           startWithAudioMuted: !isBroadcaster,
           startWithVideoMuted: !isBroadcaster,

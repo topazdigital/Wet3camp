@@ -6,6 +6,7 @@ import {
 } from '../lib/live-store.js'
 import { verifyToken } from '../lib/jwt.js'
 import { getPool } from '../lib/db.js'
+import { pushNotification } from '../lib/notif-store.js'
 
 const router = Router()
 
@@ -95,6 +96,37 @@ router.post('/live/start', async (req, res) => {
     area: escort.area,
     title: title || `${escort.name} is Live`,
   })
+
+  // Notify all followers immediately — insert DB record + push SSE
+  try {
+    const [followers] = await pool.query<any[]>(
+      'SELECT user_id FROM user_follows WHERE escort_id = ?',
+      [escort.id]
+    )
+    const notifText = `🔴 ${escort.name} just went live! Tap to watch now`
+    const notifLink = `/live/${escort.id}`
+    const notifDot  = '#E91E63'
+    for (const f of followers) {
+      // Persist to DB so it shows in notification list
+      try {
+        await pool.query(
+          'INSERT INTO notifications (user_id, type, text, link, dot, avatar) VALUES (?,?,?,?,?,?)',
+          [f.user_id, 'live', notifText, notifLink, notifDot, escort.image ?? null]
+        )
+      } catch { /* non-fatal */ }
+      // Push instant SSE event to connected browser
+      pushNotification(f.user_id, {
+        id: `live-${escort.id}-${Date.now()}`,
+        type: 'live',
+        text: notifText,
+        link: notifLink,
+        dot:  notifDot,
+        avatar: escort.image ?? null,
+        read: false,
+        time: 'just now',
+      })
+    }
+  } catch { /* non-fatal — stream still starts */ }
 
   res.json({
     escortId: escort.id,
