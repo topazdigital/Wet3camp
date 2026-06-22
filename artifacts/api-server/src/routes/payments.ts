@@ -226,6 +226,29 @@ router.get('/payments/status/:txRef', requireAuth, async (req: AuthRequest, res)
   }
 })
 
+// ─── Payment history for logged-in user ───────────────────────────────────────
+router.get('/payments/history', requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const pool = getPool()
+    if (!pool) { res.status(503).json({ payments: [] }); return }
+
+    const [rows] = await pool.query<any[]>(
+      `SELECT s.id, s.plan, s.amount, s.phone, s.status, s.tx_ref,
+              s.expires_at, s.created_at, e.name AS escort_name
+         FROM subscriptions s
+         LEFT JOIN escorts e ON e.id = s.escort_id
+        WHERE s.user_id = ?
+        ORDER BY s.created_at DESC
+        LIMIT 100`,
+      [req.userId]
+    ).catch(() => [[]])
+
+    res.json({ payments: rows as any[] })
+  } catch (err: any) {
+    res.status(500).json({ payments: [], message: 'Failed to load history' })
+  }
+})
+
 // ─── Poll subscription payment status (kept for backwards compat) ─────────────
 router.get('/payments/subscription/status/:txRef', requireAuth, async (req: AuthRequest, res) => {
   try {

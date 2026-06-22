@@ -33,11 +33,12 @@ function tgLink(name: string) {
 }
 
 export default function ProfilePage() {
-  const [, params] = useRoute('/profile/:slug')
+  const [, params]    = useRoute('/profile/:slug')
+  const [, paramsAt]  = useRoute('/@:slug')
   const { isLoggedIn, user } = useAuth()
   const { isFollowing, toggleFollow, followerCount } = useFollow()
 
-  const slug = params?.slug
+  const slug = params?.slug ?? paramsAt?.slug
   const { escort: apiEscort, isLoading } = useEscort(slug)
   const escort = (apiEscort as any) ?? null
 

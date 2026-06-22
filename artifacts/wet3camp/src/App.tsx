@@ -45,6 +45,7 @@ import SearchPage from "@/pages/search";
 import TierBenefits from "@/pages/tier-benefits";
 import ClaimProfile from "@/pages/claim-profile";
 import LiveStream from "@/pages/live-stream";
+import PaymentHistory from "@/pages/payment-history";
 
 const queryClient = new QueryClient();
 
@@ -80,6 +81,7 @@ function Router() {
       <Route path="/my-profile">{() => <ProtectedRoute component={MyProfile} />}</Route>
       <Route path="/profile" component={Profile} />
       <Route path="/profile/:slug" component={Profile} />
+      <Route path="/@:slug" component={Profile} />
       <Route path="/register" component={Register} />
       <Route path="/reviews" component={Reviews} />
       <Route path="/rooms" component={Rooms} />
@@ -97,6 +99,7 @@ function Router() {
       <Route path="/tier-benefits" component={TierBenefits} />
       <Route path="/claim/:id" component={ClaimProfile} />
       <Route path="/live/:escortId" component={LiveStream} />
+      <Route path="/payment-history">{() => <ProtectedRoute component={PaymentHistory} />}</Route>
       <Route component={NotFound} />
     </Switch>
   );

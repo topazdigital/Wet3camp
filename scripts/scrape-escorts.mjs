@@ -34,11 +34,23 @@ const IS_MYSQL = DATABASE_URL?.startsWith('mysql://')
 
 // Listing pages to scrape — add more as needed
 const SOURCES = [
+  // Main escort listings — paginate deep
   { listingUrl: 'https://nairobiraha.com/escorts/' },
   { listingUrl: 'https://nairobiraha.com/escorts/page/2/' },
   { listingUrl: 'https://nairobiraha.com/escorts/page/3/' },
   { listingUrl: 'https://nairobiraha.com/escorts/page/4/' },
   { listingUrl: 'https://nairobiraha.com/escorts/page/5/' },
+  { listingUrl: 'https://nairobiraha.com/escorts/page/6/' },
+  { listingUrl: 'https://nairobiraha.com/escorts/page/7/' },
+  { listingUrl: 'https://nairobiraha.com/escorts/page/8/' },
+  { listingUrl: 'https://nairobiraha.com/escorts/page/9/' },
+  { listingUrl: 'https://nairobiraha.com/escorts/page/10/' },
+  { listingUrl: 'https://nairobiraha.com/escorts/page/11/' },
+  { listingUrl: 'https://nairobiraha.com/escorts/page/12/' },
+  { listingUrl: 'https://nairobiraha.com/escorts/page/13/' },
+  { listingUrl: 'https://nairobiraha.com/escorts/page/14/' },
+  { listingUrl: 'https://nairobiraha.com/escorts/page/15/' },
+  // Category-specific listings
   { listingUrl: 'https://nairobiraha.com/african-escorts/' },
   { listingUrl: 'https://nairobiraha.com/call-girls/' },
   { listingUrl: 'https://nairobiraha.com/nairobi-escorts/' },
@@ -46,6 +58,12 @@ const SOURCES = [
   { listingUrl: 'https://nairobiraha.com/vip-escorts/' },
   { listingUrl: 'https://nairobiraha.com/massage/' },
   { listingUrl: 'https://nairobiraha.com/indian-escorts/' },
+  { listingUrl: 'https://nairobiraha.com/kisumu-escorts/' },
+  { listingUrl: 'https://nairobiraha.com/nakuru-escorts/' },
+  { listingUrl: 'https://nairobiraha.com/westlands-escorts/' },
+  { listingUrl: 'https://nairobiraha.com/karen-escorts/' },
+  { listingUrl: 'https://nairobiraha.com/kilimani-escorts/' },
+  { listingUrl: 'https://nairobiraha.com/nairobi-cbd-escorts/' },
 ]
 
 // ── Dual-DB adapter ──────────────────────────────────────────────────────────
@@ -117,14 +135,26 @@ async function createDb() {
 async function ensureColumns(db) {
   const stmts = db.isMysql
     ? [
-        'ALTER TABLE escorts ADD COLUMN IF NOT EXISTS incall     TINYINT  NOT NULL DEFAULT 0',
-        'ALTER TABLE escorts ADD COLUMN IF NOT EXISTS outcall    TINYINT  NOT NULL DEFAULT 0',
-        'ALTER TABLE escorts ADD COLUMN IF NOT EXISTS source_site VARCHAR(100) DEFAULT NULL',
+        'ALTER TABLE escorts ADD COLUMN IF NOT EXISTS incall         TINYINT  NOT NULL DEFAULT 0',
+        'ALTER TABLE escorts ADD COLUMN IF NOT EXISTS outcall        TINYINT  NOT NULL DEFAULT 0',
+        'ALTER TABLE escorts ADD COLUMN IF NOT EXISTS source_site    VARCHAR(100) DEFAULT NULL',
+        'ALTER TABLE escorts ADD COLUMN IF NOT EXISTS price_incall   INT DEFAULT 0',
+        'ALTER TABLE escorts ADD COLUMN IF NOT EXISTS price_outcall  INT DEFAULT 0',
+        'ALTER TABLE escorts ADD COLUMN IF NOT EXISTS price_overnight INT DEFAULT 0',
+        'ALTER TABLE escorts ADD COLUMN IF NOT EXISTS hobbies        VARCHAR(255) DEFAULT NULL',
+        'ALTER TABLE escorts ADD COLUMN IF NOT EXISTS sexual_orientation VARCHAR(100) DEFAULT NULL',
+        'ALTER TABLE escorts ADD COLUMN IF NOT EXISTS looks          VARCHAR(100) DEFAULT NULL',
       ]
     : [
-        'ALTER TABLE escorts ADD COLUMN IF NOT EXISTS incall     SMALLINT NOT NULL DEFAULT 0',
-        'ALTER TABLE escorts ADD COLUMN IF NOT EXISTS outcall    SMALLINT NOT NULL DEFAULT 0',
-        'ALTER TABLE escorts ADD COLUMN IF NOT EXISTS source_site VARCHAR(100) DEFAULT NULL',
+        'ALTER TABLE escorts ADD COLUMN IF NOT EXISTS incall          SMALLINT NOT NULL DEFAULT 0',
+        'ALTER TABLE escorts ADD COLUMN IF NOT EXISTS outcall         SMALLINT NOT NULL DEFAULT 0',
+        'ALTER TABLE escorts ADD COLUMN IF NOT EXISTS source_site     VARCHAR(100) DEFAULT NULL',
+        'ALTER TABLE escorts ADD COLUMN IF NOT EXISTS price_incall    INT DEFAULT 0',
+        'ALTER TABLE escorts ADD COLUMN IF NOT EXISTS price_outcall   INT DEFAULT 0',
+        'ALTER TABLE escorts ADD COLUMN IF NOT EXISTS price_overnight  INT DEFAULT 0',
+        'ALTER TABLE escorts ADD COLUMN IF NOT EXISTS hobbies         VARCHAR(255) DEFAULT NULL',
+        'ALTER TABLE escorts ADD COLUMN IF NOT EXISTS sexual_orientation VARCHAR(100) DEFAULT NULL',
+        'ALTER TABLE escorts ADD COLUMN IF NOT EXISTS looks           VARCHAR(100) DEFAULT NULL',
       ]
   for (const sql of stmts) {
     try { await db.run(sql) } catch { /* already exists — fine */ }
@@ -257,23 +287,57 @@ function parseProfilePage(html) {
   const incall       = availability.toLowerCase().includes('incall')  ? 1 : 0
   const outcall      = availability.toLowerCase().includes('outcall') ? 1 : 0
 
-  // ── Services ──────────────────────────────────────────────────────────────
-  // Nairobiraha shows services as checkmarks/items inside a services section
-  const services = []
-  // Try structured services list: <li class="service-item ...">ServiceName</li>
-  const svcListRe = /<li[^>]*class="[^"]*service[^"]*"[^>]*>\s*([^<]{2,40}?)\s*<\/li>/gi
-  let slm
-  while ((slm = svcListRe.exec(html)) !== null) {
-    const svc = decodeHtml(slm[1]).replace(/[✓✗✔×]/g, '').trim()
-    if (svc && svc.length > 1 && svc.length < 40 && !services.includes(svc)) services.push(svc)
+  // ── Extra profile fields from section-boxes ───────────────────────────────
+  const hobbies           = boxes['Hobbies'] || null
+  const sexualOrientation = boxes['Sexual Orientation'] || boxes['Orientation'] || null
+  const looks             = boxes['Looks'] || null
+
+  // ── Languages ─────────────────────────────────────────────────────────────
+  const languages = []
+  const langBoxRe = /<b[^>]*>([A-Z][A-Z]+):<\/b>\s*<span[^>]*>([^<]+)<\/span>/gi
+  let lbm
+  while ((lbm = langBoxRe.exec(html)) !== null) {
+    const lang = decodeHtml(lbm[1]).trim()
+    const lvl  = decodeHtml(lbm[2]).trim()
+    if (['ENGLISH','SWAHILI','FRENCH','ARABIC','SPANISH','GERMAN','CHINESE','PORTUGUESE'].includes(lang.toUpperCase()) && lvl.toLowerCase() !== 'no') {
+      languages.push(lang.charAt(0).toUpperCase() + lang.slice(1).toLowerCase())
+    }
   }
-  // Fallback: service checkboxes with yes/no or icon indicators
-  if (services.length === 0) {
-    const checkRe = /<span[^>]*class="[^"]*check[^"]*"[^>]*>\s*([^<]{2,40}?)\s*<\/span>/gi
+
+  // ── Services ──────────────────────────────────────────────────────────────
+  // Nairobiraha marks available services with ✓ (green check) in a SERVICES section
+  const services = []
+
+  // Strategy 1: Look for the services block — items preceded by ✓ or check icons
+  // Common pattern: <span class="yes">✓ OWO (Oral without condom)</span>
+  const svcBlockM = html.match(/SERVICES?:?([\s\S]{0,4000}?)(?:<div class="section-box"|<h\d|RATES?:|CONTACT|<\/div>\s*<div class="col)/i)
+  if (svcBlockM) {
+    const block = svcBlockM[1]
+    // Extract items with checkmarks or "yes" class
+    const checkRe = /(?:✓|✔|fa-check|class="yes"|icon-check)[^>]*>?\s*([A-Za-z0-9][^<✗✘×]{2,60}?)(?=<|✓|✔|✗|✘|$)/gi
     let cm
-    while ((cm = checkRe.exec(html)) !== null) {
-      const svc = decodeHtml(cm[1]).replace(/[✓✗✔×]/g, '').trim()
-      if (svc && svc.length > 1 && svc.length < 40 && !services.includes(svc)) services.push(svc)
+    while ((cm = checkRe.exec(block)) !== null) {
+      const raw = decodeHtml(cm[1]).replace(/^\s*>?\s*/, '').replace(/[✓✔✗✘×✗]/g, '').trim()
+      if (raw && raw.length > 2 && raw.length < 60 && !services.includes(raw)) services.push(raw)
+    }
+    // Fallback within block: any span/li text that looks like a service
+    if (services.length === 0) {
+      const liRe = /<(?:li|span)[^>]*>\s*(?:<[^>]+>)*\s*([A-Z][A-Za-z0-9\s()/-]{2,50}?)\s*(?:<\/[^>]+>)*\s*<\/(?:li|span)>/g
+      let lm
+      while ((lm = liRe.exec(block)) !== null) {
+        const raw = decodeHtml(lm[1]).replace(/[✓✔✗✘×]/g, '').trim()
+        if (raw && raw.length > 2 && raw.length < 60 && !services.includes(raw)) services.push(raw)
+      }
+    }
+  }
+
+  // Strategy 2: Global scan for lines adjacent to check icons
+  if (services.length === 0) {
+    const globalRe = /(?:✓|✔|class="yes"|fa-check[^>]*>)\s*(?:<[^>]*>)*\s*([A-Za-z][^<✗✘]{3,60}?)(?=\s*<|\s*✓|\s*✔|\s*✗|\s*✘)/gi
+    let gm
+    while ((gm = globalRe.exec(html)) !== null) {
+      const raw = decodeHtml(gm[1]).replace(/[✓✔✗✘×]/g, '').trim()
+      if (raw && raw.length > 2 && raw.length < 60 && !services.includes(raw)) services.push(raw)
     }
   }
 
@@ -294,7 +358,32 @@ function parseProfilePage(html) {
     if (!galleryImgs.includes(u)) galleryImgs.push(u)
   }
 
-  return { name, phone, age, city, area, bio, height, weight, ethnicity, bodyType, incall, outcall, galleryImgs, services }
+  // ── Rates table (EUR → KES, 1 EUR ≈ 145 KES) ────────────────────────────
+  const EUR_TO_KES = 145
+  let price_incall = 0, price_outcall = 0, price_overnight = 0
+  // Look for rates in the HTML: "1 hour" row with EUR prices
+  const ratesBlockM = html.match(/RATES?:?([\s\S]{0,3000}?)(?:SERVICES?:|CONTACT|<\/div>\s*<div class="col|<footer)/i)
+  if (ratesBlockM) {
+    const rb = ratesBlockM[1]
+    // Match "1 hour" or "Short" row — first pair of EUR numbers is incall/outcall
+    const hrM = rb.match(/(?:1\s*hour|short[^<]*)\D+?(\d+)\s*EUR[^<]*?(\d+)\s*EUR/i)
+    if (hrM) {
+      price_incall  = Math.round(parseInt(hrM[1], 10) * EUR_TO_KES / 100) * 100
+      price_outcall = Math.round(parseInt(hrM[2], 10) * EUR_TO_KES / 100) * 100
+    }
+    // Match "12 hours" or "overnight" row for overnight price
+    const ovM = rb.match(/(?:12\s*hours?|overnight[^<]*)\D+?(\d+)\s*EUR/i)
+    if (ovM) {
+      price_overnight = Math.round(parseInt(ovM[1], 10) * EUR_TO_KES / 100) * 100
+    }
+    // If no EUR found, try plain KES/K/Ksh numbers adjacent to 1hr label
+    if (!price_incall) {
+      const kesM = rb.match(/(?:1\s*hour|short[^<]*)\D+?(?:KES|Ksh?)?\s*(\d{4,6})/i)
+      if (kesM) price_incall = parseInt(kesM[1], 10)
+    }
+  }
+
+  return { name, phone, age, city, area, bio, height, weight, ethnicity, bodyType, incall, outcall, galleryImgs, services, languages, hobbies, sexualOrientation, looks, price_incall, price_outcall, price_overnight }
 }
 
 // ── DB operations ────────────────────────────────────────────────────────────
@@ -305,18 +394,26 @@ async function escortExists(db, phone) {
 }
 
 async function insertEscort(db, profile, avatarPath) {
-  const { name, phone, age, city, area, bio, height, ethnicity, bodyType, incall, outcall } = profile
+  const {
+    name, phone, age, city, area, bio, height, ethnicity, bodyType,
+    incall, outcall, price_incall, price_outcall, price_overnight,
+    hobbies, sexualOrientation, looks,
+  } = profile
   return db.insert(
     `INSERT INTO escorts (
        name, phone, whatsapp, age, city, area, bio,
        height, ethnicity, body_type,
        image, tier, is_active, verified, gender,
-       incall, outcall, source_site
+       incall, outcall, source_site,
+       price_incall, price_outcall, price_overnight,
+       hobbies, sexual_orientation, looks
      ) VALUES (
        $1, $2, $3, $4, $5, $6, $7,
        $8, $9, $10,
        $11, $12, $13, $14, $15,
-       $16, $17, $18
+       $16, $17, $18,
+       $19, $20, $21,
+       $22, $23, $24
      )`,
     [
       name, phone, phone, age || 0,
@@ -324,6 +421,8 @@ async function insertEscort(db, profile, avatarPath) {
       height, ethnicity, bodyType,
       avatarPath, 'standard', 1, 0, 'Female',
       incall, outcall, 'nairobiraha',
+      price_incall || 0, price_outcall || 0, price_overnight || 0,
+      hobbies || null, sexualOrientation || null, looks || null,
     ]
   )
 }

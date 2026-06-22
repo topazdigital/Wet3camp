@@ -40,7 +40,7 @@ router.get('/escorts', async (req, res) => {
     const {
       city, tier, available, featured, online,
       limit = '100', offset = '0', sort = 'featured',
-      q,
+      q, service, gender,
     } = req.query as Record<string, string>
 
     const lim = Math.min(parseInt(limit, 10) || 100, 200)
@@ -78,7 +78,12 @@ router.get('/escorts', async (req, res) => {
     if (available) { conditions.push('e.available = 1') }
     if (featured)  { conditions.push('e.featured = 1') }
     if (online)    { conditions.push('e.online = 1') }
-    if (q)         { conditions.push('(e.name LIKE ? OR e.area LIKE ? OR e.bio LIKE ?)'); params.push(`%${q}%`, `%${q}%`, `%${q}%`) }
+    if (gender)    { conditions.push('LOWER(e.gender) = LOWER(?)'); params.push(gender) }
+    if (service)   {
+      conditions.push('EXISTS (SELECT 1 FROM escort_services es WHERE es.escort_id = e.id AND LOWER(es.name) LIKE LOWER(?) AND es.available = 1)')
+      params.push(`%${service}%`)
+    }
+    if (q)         { conditions.push('(e.name LIKE ? OR e.area LIKE ? OR e.bio LIKE ? OR EXISTS (SELECT 1 FROM escort_services es2 WHERE es2.escort_id = e.id AND LOWER(es2.name) LIKE LOWER(?)))'); params.push(`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`) }
 
     const where = conditions.join(' AND ')
     const orderBy = sort === 'featured'

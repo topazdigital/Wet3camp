@@ -200,14 +200,15 @@ function StandardCard({ escort, isFav, onFav }: { escort: ApiEscort; isFav: bool
 // ─── Main Page ──────────────────────────────────────────────────────────────────
 
 export default function SearchPage() {
-  useSEO({ title: 'Search Escorts — Kenya', description: 'Browse verified escorts in Nairobi, Mombasa and across Kenya. Filter by location, tier, and availability.' })
-
   const [location] = useLocation()
+
+  // Parse URL params on every navigation so header search stays in sync
   const urlParams = new URLSearchParams(location.includes('?') ? location.split('?')[1] : '')
 
   const [query, setQuery] = useState(urlParams.get('q') ?? '')
-  const [city, setCity] = useState('All Cities')
-  const [tier, setTier] = useState('all')
+  const [city, setCity] = useState(urlParams.get('city') ?? 'All Cities')
+  const [tier, setTier] = useState(urlParams.get('tier') ?? 'all')
+  const [service, setService] = useState(urlParams.get('service') ?? '')
   const [availableOnly, setAvailableOnly] = useState(false)
   const [sortBy, setSortBy] = useState<'featured' | 'rating' | 'newest'>('featured')
   const [showFilters, setShowFilters] = useState(false)
@@ -216,6 +217,21 @@ export default function SearchPage() {
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(0)
   const [hasMore, setHasMore] = useState(false)
+
+  // Sync from URL when navigating from header search
+  useEffect(() => {
+    const p = new URLSearchParams(location.includes('?') ? location.split('?')[1] : '')
+    setQuery(p.get('q') ?? '')
+    if (p.get('city')) setCity(p.get('city') ?? 'All Cities')
+    if (p.get('service')) setService(p.get('service') ?? '')
+  }, [location])
+
+  useSEO({
+    title: service ? `${service.replace(/-/g,' ')} Escorts Kenya` : query ? `Search: ${query} — Kenya Escorts` : 'Search Escorts — Kenya',
+    description: `Browse verified escorts in Nairobi, Mombasa and across Kenya. Filter by city, service, tier, and availability.`,
+    keywords: service ? `${service} escort Kenya, ${service} escort Nairobi, ${service} escort Mombasa, ${service} services Kenya` : undefined,
+    city: city !== 'All Cities' ? city : undefined,
+  })
 
   const { isFavorite, toggleFavorite } = useFavorites()
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -228,22 +244,13 @@ export default function SearchPage() {
       if (city !== 'All Cities') params.city = city
       if (tier !== 'all') params.tier = tier
       if (availableOnly) params.available = '1'
+      if (service) params.service = service
+      if (query.trim().length >= 2) params.q = query.trim()
       const res = await api.escorts.list(params)
       const data = res.data ?? []
 
-      let filtered = data
-      if (query.trim().length >= 2) {
-        const q = query.toLowerCase()
-        filtered = data.filter(e =>
-          e.name.toLowerCase().includes(q) ||
-          (e.city ?? '').toLowerCase().includes(q) ||
-          (e.area ?? '').toLowerCase().includes(q) ||
-          (e.bio ?? '').toLowerCase().includes(q)
-        )
-      }
-
-      setEscorts(prev => replace ? filtered : [...prev, ...filtered])
-      setTotal(res.total ?? filtered.length)
+      setEscorts(prev => replace ? data : [...prev, ...data])
+      setTotal(res.total ?? data.length)
       setHasMore((pg + 1) * PER_PAGE < (res.total ?? 0))
       setPage(pg)
     } catch {
@@ -251,7 +258,7 @@ export default function SearchPage() {
     } finally {
       setLoading(false)
     }
-  }, [city, tier, availableOnly, sortBy, query])
+  }, [city, tier, availableOnly, sortBy, query, service])
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
@@ -366,10 +373,29 @@ export default function SearchPage() {
                 </div>
               </div>
 
+              {/* Service filter pills */}
+              <div className="mt-4 pt-3 border-t border-color">
+                <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider mb-2 block">Filter by Service</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {SERVICES_LIST.map(svc => (
+                    <button
+                      key={svc}
+                      onClick={() => setService(service === svc ? '' : svc)}
+                      className={`px-2.5 py-1 rounded-full text-[10px] font-bold border transition-all ${service === svc ? 'bg-[#8B0000] border-[#8B0000] text-white' : 'bg-card-bg border-color text-text-muted hover:border-[#8B0000]/50 hover:text-text-light'}`}
+                    >
+                      {svc}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div className="flex items-center justify-between mt-3 pt-3 border-t border-color">
-                <p className="text-xs text-text-muted">{loading ? 'Searching…' : `${total.toLocaleString()} escorts found`}</p>
+                <p className="text-xs text-text-muted">
+                  {loading ? 'Searching…' : `${total.toLocaleString()} escorts found`}
+                  {service && <span className="ml-2 px-2 py-0.5 bg-[#8B0000]/20 text-[#8B0000] rounded-full text-[10px] font-bold">{service}</span>}
+                </p>
                 <button
-                  onClick={() => { setCity('All Cities'); setTier('all'); setAvailableOnly(false); setSortBy('featured'); setQuery('') }}
+                  onClick={() => { setCity('All Cities'); setTier('all'); setAvailableOnly(false); setSortBy('featured'); setQuery(''); setService('') }}
                   className="text-xs text-[#EF4444] hover:underline"
                 >
                   Clear all filters
@@ -404,12 +430,24 @@ export default function SearchPage() {
             </div>
           )}
 
+          {/* Active service banner */}
+          {service && !loading && (
+            <div className="flex items-center gap-2 mb-4 px-3 py-2 bg-[#8B0000]/10 border border-[#8B0000]/30 rounded-xl">
+              <Check size={14} className="text-[#8B0000]" />
+              <span className="text-xs text-text-light font-semibold flex-1">
+                Showing escorts offering <span className="text-[#8B0000] font-black">{service}</span>
+                {city !== 'All Cities' && <> in <span className="text-[#8B0000] font-black">{city}</span></>}
+              </span>
+              <button onClick={() => setService('')} className="text-text-muted hover:text-[#EF4444]"><X size={12} /></button>
+            </div>
+          )}
+
           {!loading && escorts.length === 0 && (
             <div className="text-center py-20">
               <div className="text-5xl mb-4">🔍</div>
               <h3 className="text-lg font-bold text-text-light mb-2">No escorts found</h3>
               <p className="text-text-muted text-sm mb-6">Try adjusting your filters or search in a different city.</p>
-              <button onClick={() => { setCity('All Cities'); setTier('all'); setAvailableOnly(false); setQuery('') }} className="px-6 py-2.5 bg-[#8B0000] text-white font-bold rounded-xl hover:bg-[#a00000] transition-colors">
+              <button onClick={() => { setCity('All Cities'); setTier('all'); setAvailableOnly(false); setQuery(''); setService('') }} className="px-6 py-2.5 bg-[#8B0000] text-white font-bold rounded-xl hover:bg-[#a00000] transition-colors">
                 Clear Filters
               </button>
             </div>
