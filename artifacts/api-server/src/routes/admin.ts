@@ -2,7 +2,7 @@ import { Router } from 'express'
 import { getPool } from '../lib/db.js'
 import { requireAuth, type AuthRequest } from '../middlewares/requireAuth.js'
 import { setEscortOnline } from '../lib/online-store.js'
-import { sendEscortApprovedEmail, sendEscortRejectedEmail } from '../lib/mailer.js'
+import { sendEscortApprovedEmail, sendEscortRejectedEmail, sendTelegramNotification } from '../lib/mailer.js'
 
 const router = Router()
 
@@ -203,9 +203,37 @@ router.patch('/admin/escorts/:id/verify', requireAuth, requireAdmin, async (req:
     ).catch(() => [[null]])
     await pool.query('UPDATE escorts SET verified = 1, is_active = 1 WHERE id = ?', [req.params!.id])
     if (escort?.email) sendEscortApprovedEmail(escort.name, escort.email).catch(() => {})
+
+    // Telegram notification
+    const [tRows] = await pool.query<any[]>(
+      "SELECT `key`, `value` FROM platform_settings WHERE `key` IN ('telegram_token','telegram_chat_id')"
+    ).catch(() => [[]] as any)
+    const tCfg: Record<string, string> = {}
+    for (const r of (tRows as any[])) tCfg[r.key] = r.value
+    if (tCfg.telegram_token && tCfg.telegram_chat_id) {
+      sendTelegramNotification(
+        `✅ <b>Escort Approved</b>\n👤 ${escort?.name ?? 'Unknown'}\n📧 ${escort?.email ?? '-'}\n🕐 ${new Date().toLocaleString('en-KE', { timeZone: 'Africa/Nairobi' })}`,
+        { token: tCfg.telegram_token, chatId: tCfg.telegram_chat_id }
+      ).catch(() => {})
+    }
+
     res.json({ success: true })
   } catch {
     res.status(500).json({ message: 'Failed to verify escort' })
+  }
+})
+
+router.post('/admin/escorts/bulk-approve', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const pool = getPool()
+    if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
+    const [result] = await pool.query<any>(
+      'UPDATE escorts SET verified = 1, is_active = 1 WHERE is_active = 0 AND verified = 0'
+    )
+    const affected = (result as any).affectedRows ?? 0
+    res.json({ success: true, approved: affected, message: `${affected} escort${affected !== 1 ? 's' : ''} approved` })
+  } catch (err: any) {
+    res.status(500).json({ message: 'Failed to bulk approve escorts' })
   }
 })
 
@@ -569,6 +597,70 @@ router.patch('/admin/users/:id/toggle-active', requireAuth, requireAdmin, async 
     res.json({ success: true })
   } catch (err: any) {
     res.status(500).json({ message: 'Failed to toggle user', detail: err?.message })
+  }
+})
+
+router.get('/admin/revenue', requireAuth, requireAdmin, async (_req: AuthRequest, res) => {
+  try {
+    const pool = getPool()
+    if (!pool) { res.status(503).json({ message: 'Database not configured' }); return }
+
+    // Daily revenue last 30 days
+    const [dailyRows] = await pool.query<any[]>(
+      `SELECT DATE(created_at) AS day, SUM(amount) AS revenue, COUNT(*) AS txns
+       FROM subscriptions
+       WHERE status = 'paid' AND created_at >= NOW() - INTERVAL '30 days'
+       GROUP BY DATE(created_at)
+       ORDER BY day ASC`
+    ).catch(() => [[]])
+
+    // Top 8 escorts by subscription revenue
+    const [topEscortsRows] = await pool.query<any[]>(
+      `SELECT e.id, e.name, e.city, e.tier, SUM(s.amount) AS total, COUNT(*) AS txns
+       FROM subscriptions s
+       JOIN escorts e ON e.id = s.escort_id
+       WHERE s.status = 'paid'
+       GROUP BY e.id, e.name, e.city, e.tier
+       ORDER BY total DESC
+       LIMIT 8`
+    ).catch(() => [[]])
+
+    // Revenue by city
+    const [byCityRows] = await pool.query<any[]>(
+      `SELECT e.city, SUM(s.amount) AS total, COUNT(*) AS txns
+       FROM subscriptions s
+       JOIN escorts e ON e.id = s.escort_id
+       WHERE s.status = 'paid'
+       GROUP BY e.city
+       ORDER BY total DESC`
+    ).catch(() => [[]])
+
+    // Summary totals
+    const [summaryRows] = await pool.query<any[]>(
+      `SELECT
+         COALESCE(SUM(CASE WHEN status = 'paid'    THEN amount ELSE 0 END), 0) AS total_revenue,
+         COALESCE(COUNT(CASE WHEN status = 'paid'    THEN 1 END), 0)           AS paid_count,
+         COALESCE(COUNT(CASE WHEN status = 'pending' THEN 1 END), 0)           AS pending_count,
+         COALESCE(COUNT(*), 0)                                                  AS all_count
+       FROM subscriptions`
+    ).catch(() => [[{ total_revenue: 0, paid_count: 0, pending_count: 0, all_count: 0 }]])
+
+    const summary = (summaryRows as any[])[0] ?? { total_revenue: 0, paid_count: 0, pending_count: 0, all_count: 0 }
+
+    res.json({
+      summary: {
+        totalRevenue:    Number(summary.total_revenue ?? 0),
+        paidCount:       Number(summary.paid_count    ?? 0),
+        pendingCount:    Number(summary.pending_count ?? 0),
+        allCount:        Number(summary.all_count     ?? 0),
+      },
+      daily:      (dailyRows as any[]).map(r => ({ day: r.day, revenue: Number(r.revenue), txns: Number(r.txns) })),
+      topEscorts: (topEscortsRows as any[]).map(r => ({ id: String(r.id), name: r.name, city: r.city, tier: r.tier, total: Number(r.total), txns: Number(r.txns) })),
+      byCity:     (byCityRows as any[]).map(r => ({ city: r.city, total: Number(r.total), txns: Number(r.txns) })),
+    })
+  } catch (err: any) {
+    console.error('[admin/revenue]', err?.message ?? err)
+    res.status(500).json({ message: 'Failed to fetch revenue data' })
   }
 })
 

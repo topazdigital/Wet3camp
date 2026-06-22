@@ -3,6 +3,7 @@ import { createHash } from 'crypto'
 import { getPool } from '../lib/db.js'
 import { requireAuth, type AuthRequest } from '../middlewares/requireAuth.js'
 import { setEscortOnline } from '../lib/online-store.js'
+import { triggerStkPush } from './payments.js'
 
 function hashPassword(p: string) { return createHash('sha256').update(p).digest('hex') }
 
@@ -301,12 +302,31 @@ router.post('/profile/escort/subscribe', requireAuth, async (req: AuthRequest, r
       [req.userId, escort?.id ?? null, plan, planInfo.amount, cleanPhone, txRef, expiresAt]
     )
 
+    // Trigger real PayHero STK Push
+    const siteUrl = process.env.SITE_URL
+      ?? (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : 'https://wet3.camp')
+
+    const stkResult = await triggerStkPush(pool, {
+      phone:       cleanPhone,
+      amount:      planInfo.amount,
+      txRef,
+      callbackUrl: `${siteUrl}/api/payments/payhero/callback`,
+    })
+
+    if (!stkResult.success) {
+      // Log the failure but don't block — subscription record exists, payment can be retried
+      console.warn('[subscribe] STK push failed:', stkResult.message)
+    }
+
     res.json({
       txRef,
       plan,
-      amount:    planInfo.amount,
-      expiresAt: expiresAt.toISOString(),
-      message:   'Subscription initiated. Complete the M-Pesa prompt on your phone.',
+      amount:      planInfo.amount,
+      expiresAt:   expiresAt.toISOString(),
+      stkSent:     stkResult.success,
+      message:     stkResult.success
+        ? 'M-Pesa prompt sent to your phone. Enter your PIN to complete payment.'
+        : `Subscription created. ${stkResult.message}`,
     })
   } catch (err: any) {
     res.status(500).json({ message: 'Failed to initiate subscription', detail: err?.message ?? '' })

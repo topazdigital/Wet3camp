@@ -309,13 +309,17 @@ async function insertEscort(db, profile, avatarPath) {
 }
 
 async function insertGallery(db, escortId, imageUrls) {
-  for (let i = 0; i < imageUrls.length; i++) {
+  const seen = new Set()
+  let order = 0
+  for (const url of imageUrls) {
+    if (!url || seen.has(url)) continue
+    seen.add(url)
     try {
-      await db.run(
-        'INSERT INTO escort_gallery (escort_id, image_url, sort_order) VALUES ($1, $2, $3)',
-        [escortId, imageUrls[i], i]
-      )
-    } catch { /* ignore duplicate */ }
+      const sql = db.isMysql
+        ? 'INSERT IGNORE INTO escort_gallery (escort_id, image_url, sort_order) VALUES (?, ?, ?)'
+        : 'INSERT INTO escort_gallery (escort_id, image_url, sort_order) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING'
+      await db.run(sql, [escortId, url, order++])
+    } catch { /* ignore */ }
   }
 }
 

@@ -134,6 +134,25 @@ function badge(text: string, color: string): string {
   return `<span style="display:inline-block;padding:4px 12px;background:${color}22;border:1px solid ${color}55;border-radius:20px;font-size:11px;font-weight:700;color:${color};text-transform:uppercase;letter-spacing:1px;">${text}</span>`
 }
 
+// ─── Telegram ─────────────────────────────────────────────────────────────────
+
+export async function sendTelegramNotification(
+  message: string,
+  opts?: { token?: string; chatId?: string }
+) {
+  const token  = opts?.token  ?? process.env.TELEGRAM_TOKEN
+  const chatId = opts?.chatId ?? process.env.TELEGRAM_CHAT_ID
+  if (!token || !chatId) return
+  try {
+    await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, text: message, parse_mode: 'HTML' }),
+      signal: AbortSignal.timeout(8000),
+    })
+  } catch {}
+}
+
 // ─── Registration ─────────────────────────────────────────────────────────────
 
 export async function sendWelcomeEmail(name: string, email: string) {

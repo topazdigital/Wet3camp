@@ -5,9 +5,14 @@ import { useAuth } from '@/lib/auth-context'
 import {
   Shield, Users, Calendar, BarChart2, Settings, Plus, Trash2, Edit2, CheckCircle2, XCircle,
   AlertTriangle, Lock, Mail, Eye, EyeOff, TrendingUp, Crown, Key, Instagram,
-  Smartphone, Globe, MessageCircle, Bell, Star, Save, RefreshCw, Camera, Radio, WifiOff
+  Smartphone, Globe, MessageCircle, Bell, Star, Save, RefreshCw, Camera, Radio, WifiOff,
+  DollarSign, MapPin, Award
 } from 'lucide-react'
 import { useSEO } from '@/lib/useSEO'
+import {
+  LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
+  CartesianGrid, Cell
+} from 'recharts'
 
 async function adminFetch(path: string, opts?: RequestInit) {
   const token = localStorage.getItem('w3c_token')
@@ -25,7 +30,7 @@ interface AdminEscort {
   featured?: boolean | number; price_hourly?: number; bookings_count?: number
 }
 
-const TABS = ['Overview','Escorts','Claims','Clients','Bookings','Moderators','Featured','Blog','API Keys','Settings']
+const TABS = ['Overview','Escorts','Claims','Clients','Bookings','Revenue','Moderators','Featured','Blog','API Keys','Settings']
 
 interface Moderator { id: number; name: string; email: string; role: string; level: 1|2|3; status: 'active'|'inactive'; createdAt: string }
 
@@ -38,6 +43,50 @@ interface FeaturedRequest {
   phone: string
 }
 const INIT_FEATURED: FeaturedRequest[] = []
+
+function PayHeroTestButton() {
+  const [phone, setPhone] = useState('')
+  const [status, setStatus] = useState<'idle'|'loading'|'ok'|'err'>('idle')
+  const [msg, setMsg] = useState('')
+
+  const run = async () => {
+    if (!phone.trim()) { setMsg('Enter a phone number first'); setStatus('err'); return }
+    setStatus('loading'); setMsg('')
+    try {
+      const data = await adminFetch('/admin/payments/payhero/test', { method: 'POST', body: JSON.stringify({ phone: phone.trim() }) })
+      setMsg(data.message ?? 'STK push sent ✓')
+      setStatus('ok')
+    } catch (e: any) {
+      setMsg(e?.message ?? 'Test failed')
+      setStatus('err')
+    }
+    setTimeout(() => { setStatus('idle'); setMsg('') }, 10000)
+  }
+
+  return (
+    <div className="space-y-2">
+      <label className="text-[10px] text-text-muted uppercase tracking-widest block">Test STK Push (KES 1)</label>
+      <div className="flex gap-2">
+        <input
+          type="tel"
+          value={phone}
+          onChange={e => setPhone(e.target.value)}
+          placeholder="0712345678"
+          className="flex-1 px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted/40 focus:outline-none focus:border-[#28a745] transition-all"
+        />
+        <button
+          onClick={run}
+          disabled={status === 'loading'}
+          className="px-3 py-2.5 rounded-xl text-xs font-bold bg-[#28a745] text-white hover:bg-[#218838] disabled:opacity-60 flex items-center gap-1 transition-all"
+        >
+          {status === 'loading' ? <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"/> : <Smartphone size={12}/>}
+          Test
+        </button>
+      </div>
+      {msg && <p className={`text-[10px] ${status === 'err' ? 'text-[#EF4444]' : 'text-[#28a745]'}`}>{msg}</p>}
+    </div>
+  )
+}
 
 function TextSettingField({ label, placeholder, settingKey, hint, type: inputType }: { label: string; placeholder: string; settingKey: string; hint?: string; type?: string }) {
   const [value, setValue] = useState('')
@@ -1053,6 +1102,129 @@ function ClaimsTab() {
   )
 }
 
+function RevenueDashboard() {
+  const [data, setData] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    adminFetch('/admin/revenue')
+      .then(d => { setData(d); setLoading(false) })
+      .catch(() => setLoading(false))
+  }, [])
+
+  if (loading) return <div className="flex items-center justify-center h-40"><div className="w-6 h-6 border-2 border-[#8B0000] border-t-[#FFD700] rounded-full animate-spin"/></div>
+  if (!data) return <div className="text-center py-10 text-text-muted text-sm">Failed to load revenue data.</div>
+
+  const { summary, daily, topEscorts, byCity } = data
+  const tierColor: Record<string, string> = { elite: '#FFD700', vip: '#E91E63', premium: '#FF9800', standard: '#607D8B' }
+  const cityColors = ['#8B0000','#E91E63','#FF9800','#2196F3','#28a745','#9C27B0','#00BCD4']
+
+  const statCards = [
+    { label: 'Total Revenue', value: `KES ${Number(summary.totalRevenue).toLocaleString()}`, icon: DollarSign, color: '#FFD700' },
+    { label: 'Paid Subscriptions', value: summary.paidCount, icon: CheckCircle2, color: '#28a745' },
+    { label: 'Pending Payments', value: summary.pendingCount, icon: AlertTriangle, color: '#FF9800' },
+    { label: 'Avg per Sub', value: summary.paidCount > 0 ? `KES ${Math.round(summary.totalRevenue / summary.paidCount).toLocaleString()}` : '—', icon: TrendingUp, color: '#2196F3' },
+  ]
+
+  return (
+    <div className="space-y-5">
+      {/* KPI Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {statCards.map(c => (
+          <div key={c.label} className="bg-card-bg border border-color rounded-2xl p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <c.icon size={14} style={{ color: c.color }} />
+              <span className="text-[10px] text-text-muted uppercase tracking-widest">{c.label}</span>
+            </div>
+            <p className="text-xl font-black text-text-light">{c.value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* 30-day daily revenue chart */}
+      <div className="bg-card-bg border border-color rounded-2xl p-5">
+        <h3 className="text-sm font-bold text-text-light mb-4 flex items-center gap-2">
+          <TrendingUp size={14} className="text-[#28a745]"/>Daily Revenue — Last 30 Days
+        </h3>
+        {daily.length === 0
+          ? <p className="text-xs text-text-muted text-center py-6">No paid transactions yet. Revenue will appear here once escorts pay for subscriptions.</p>
+          : (
+            <ResponsiveContainer width="100%" height={180}>
+              <LineChart data={daily} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1e0000" />
+                <XAxis dataKey="day" tick={{ fontSize: 9, fill: '#666' }} tickFormatter={v => v?.slice(5) ?? ''} />
+                <YAxis tick={{ fontSize: 9, fill: '#666' }} tickFormatter={v => `${v/1000}k`} />
+                <Tooltip
+                  contentStyle={{ background: '#0d0000', border: '1px solid #2a0000', borderRadius: 8, fontSize: 11 }}
+                  formatter={(v: any) => [`KES ${Number(v).toLocaleString()}`, 'Revenue']}
+                />
+                <Line type="monotone" dataKey="revenue" stroke="#8B0000" strokeWidth={2} dot={{ fill: '#FFD700', r: 3 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          )
+        }
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {/* Top escorts */}
+        <div className="bg-card-bg border border-color rounded-2xl p-5">
+          <h3 className="text-sm font-bold text-text-light mb-4 flex items-center gap-2">
+            <Award size={14} className="text-[#FFD700]"/>Top Escorts by Revenue
+          </h3>
+          {topEscorts.length === 0
+            ? <p className="text-xs text-text-muted text-center py-6">No paid subscriptions yet.</p>
+            : (
+              <div className="space-y-2">
+                {topEscorts.map((e: any, i: number) => (
+                  <div key={e.id} className="flex items-center gap-3 py-2 border-b border-color last:border-0">
+                    <span className="text-xs font-black text-text-muted w-4">#{i + 1}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-text-light truncate">{e.name}</p>
+                      <p className="text-[10px] text-text-muted">{e.city} · <span style={{ color: tierColor[e.tier] ?? '#888' }}>{e.tier}</span></p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs font-bold text-[#FFD700]">KES {Number(e.total).toLocaleString()}</p>
+                      <p className="text-[10px] text-text-muted">{e.txns} sub{e.txns !== 1 ? 's' : ''}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )
+          }
+        </div>
+
+        {/* Revenue by city */}
+        <div className="bg-card-bg border border-color rounded-2xl p-5">
+          <h3 className="text-sm font-bold text-text-light mb-4 flex items-center gap-2">
+            <MapPin size={14} className="text-[#E91E63]"/>Revenue by City
+          </h3>
+          {byCity.length === 0
+            ? <p className="text-xs text-text-muted text-center py-6">No city data yet.</p>
+            : (
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={byCity} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1e0000" />
+                  <XAxis dataKey="city" tick={{ fontSize: 9, fill: '#666' }} />
+                  <YAxis tick={{ fontSize: 9, fill: '#666' }} tickFormatter={v => `${v/1000}k`} />
+                  <Tooltip
+                    contentStyle={{ background: '#0d0000', border: '1px solid #2a0000', borderRadius: 8, fontSize: 11 }}
+                    formatter={(v: any) => [`KES ${Number(v).toLocaleString()}`, 'Revenue']}
+                  />
+                  <Bar dataKey="total" radius={[4, 4, 0, 0]}>
+                    {byCity.map((_: any, idx: number) => (
+                      <Cell key={idx} fill={cityColors[idx % cityColors.length]} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            )
+          }
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function EscortsTab() {
   const [escorts, setEscorts] = useState<AdminEscort[]>([])
   const [loading, setLoading] = useState(true)
@@ -1063,6 +1235,22 @@ function EscortsTab() {
   const [cleanupLoading, setCleanupLoading] = useState(false)
   const [cleanupMsg, setCleanupMsg] = useState('')
   const [showAddModal, setShowAddModal] = useState(false)
+  const [bulkApproveLoading, setBulkApproveLoading] = useState(false)
+  const [bulkApproveMsg, setBulkApproveMsg] = useState('')
+
+  const handleBulkApprove = async () => {
+    if (!window.confirm('Approve ALL pending escorts at once? They will go live on the platform immediately.')) return
+    setBulkApproveLoading(true); setBulkApproveMsg('')
+    try {
+      const data = await adminFetch('/admin/escorts/bulk-approve', { method: 'POST' })
+      setBulkApproveMsg(`✓ ${data.message}`)
+      load()
+    } catch {
+      setBulkApproveMsg('Failed to bulk approve.')
+    }
+    setBulkApproveLoading(false)
+    setTimeout(() => setBulkApproveMsg(''), 6000)
+  }
 
   const handleCleanupFake = async () => {
     if (!window.confirm('This will permanently delete all seed/fake escorts (those without a real user account). Continue?')) return
@@ -1163,8 +1351,15 @@ function EscortsTab() {
       {pendingCount > 0 && (
         <div className="flex items-center gap-3 p-3.5 bg-[#FFD700]/10 border border-[#FFD700]/30 rounded-2xl">
           <AlertTriangle size={14} className="text-[#FFD700] flex-shrink-0" />
-          <p className="text-xs text-[#FFD700] font-semibold flex-1">{pendingCount} escort{pendingCount !== 1 ? 's' : ''} waiting for approval</p>
-          <button onClick={() => setStatusFilter('pending')} className="px-3 py-1 bg-[#FFD700] text-black text-[10px] font-bold rounded-lg">Review</button>
+          <div className="flex-1">
+            <p className="text-xs text-[#FFD700] font-semibold">{pendingCount} escort{pendingCount !== 1 ? 's' : ''} waiting for approval</p>
+            {bulkApproveMsg && <p className="text-[10px] text-[#28a745] mt-0.5 font-bold">{bulkApproveMsg}</p>}
+          </div>
+          <button onClick={() => setStatusFilter('pending')} className="px-3 py-1 bg-[#FFD700]/20 text-[#FFD700] text-[10px] font-bold rounded-lg border border-[#FFD700]/30">Review</button>
+          <button onClick={handleBulkApprove} disabled={bulkApproveLoading} className="px-3 py-1 bg-[#28a745] text-white text-[10px] font-bold rounded-lg disabled:opacity-60 flex items-center gap-1">
+            {bulkApproveLoading ? <div className="w-3 h-3 border border-white/30 border-t-white rounded-full animate-spin"/> : <CheckCircle2 size={10}/>}
+            Approve All
+          </button>
         </div>
       )}
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
@@ -1452,6 +1647,9 @@ function AdminDashboard() {
           {/* ── BOOKINGS ── */}
           {activeTab === 'Bookings' && <BookingsTab />}
 
+          {/* ── REVENUE ── */}
+          {activeTab === 'Revenue' && <RevenueDashboard />}
+
           {/* ── MODERATORS ── */}
           {activeTab === 'Moderators' && (
             <div className="space-y-4">
@@ -1634,17 +1832,16 @@ function AdminDashboard() {
                   <a href="https://payhero.co.ke" target="_blank" rel="noopener noreferrer" className="ml-auto text-[10px] text-[#FFD700] hover:underline">payhero.co.ke ↗</a>
                 </div>
                 <div className="space-y-4">
-                  <ApiKeyField label="PayHero API Key" placeholder="Enter your PayHero API key" icon={Key} hint="Get this from your PayHero dashboard → Settings → API Keys" />
-                  <ApiKeyField label="PayHero Secret" placeholder="Enter your PayHero secret" icon={Lock} />
+                  <ApiKeyField label="PayHero API Key (Username)" placeholder="e.g. e2s7pxzvlsHZcaAIuo80" icon={Key} hint="Found in PayHero dashboard → Settings → API Keys" settingKey="payhero_api_key" />
+                  <ApiKeyField label="PayHero Secret (Password)" placeholder="Enter your PayHero API password" icon={Lock} settingKey="payhero_secret" />
+                  <TextSettingField label="Channel ID" placeholder="e.g. 5107" settingKey="payhero_channel_id" hint="PayHero → Payment Channels → Channel ID column" />
+                  <TextSettingField label="Till / Paybill Number" placeholder="e.g. 9867233" settingKey="payhero_till" hint="Your M-Pesa till or paybill number for display" />
                   <div>
-                    <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Paybill / Till Number</label>
-                    <input defaultValue="" placeholder="e.g. 400200" className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted/40 focus:outline-none focus:border-[#28a745] transition-all"/>
+                    <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Callback URL (copy into PayHero)</label>
+                    <input readOnly value="https://wet3.camp/api/payments/payhero/callback" className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#28a745] transition-all font-mono text-xs cursor-text" onClick={e => (e.target as HTMLInputElement).select()}/>
+                    <p className="text-[10px] text-text-muted mt-1">Copy this into PayHero → Payment Channels → Callback URL.</p>
                   </div>
-                  <div>
-                    <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Callback URL</label>
-                    <input defaultValue="https://wet3camp.com/api/payments/payhero/callback" className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#28a745] transition-all font-mono text-xs"/>
-                    <p className="text-[10px] text-text-muted mt-1">Set this URL in your PayHero dashboard as the payment callback.</p>
-                  </div>
+                  <PayHeroTestButton />
                 </div>
               </div>
 
