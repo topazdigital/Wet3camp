@@ -1,43 +1,41 @@
 <svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#1a0000"/>
-      <stop offset="1" stop-color="#080000"/>
+      <stop stop-color="#160000"/>
+      <stop offset="1" stop-color="#060000"/>
     </linearGradient>
-    <linearGradient id="gld" x1="256" y1="20" x2="256" y2="460" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#FFE066"/>
-      <stop offset="0.5" stop-color="#FFD700"/>
-      <stop offset="1" stop-color="#FF8C00"/>
+    <linearGradient id="g" x1="256" y1="30" x2="256" y2="490" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFE566"/>
+      <stop offset="0.45" stop-color="#FFD700"/>
+      <stop offset="1" stop-color="#B06000"/>
     </linearGradient>
-    <radialGradient id="glow" cx="256" cy="290" r="200" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#8B0000" stop-opacity="0.50"/>
+    <radialGradient id="gl" cx="256" cy="256" r="252" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#8B0000" stop-opacity="0.55"/>
       <stop offset="1" stop-color="#8B0000" stop-opacity="0"/>
     </radialGradient>
   </defs>
-  <rect width="512" height="512" rx="108" fill="url(#bg)"/>
-  <ellipse cx="256" cy="296" rx="194" ry="194" fill="url(#glow)"/>
-  <!-- Crown sparkles -->
-  <path d="M256 22 L262 38 L279 38 L266 48 L271 64 L256 54 L241 64 L246 48 L233 38 L250 38 Z" fill="#FFD700"/>
-  <path d="M218 34 L221.5 43 L231 43 L223.5 48.5 L226.5 58 L218 52.5 L209.5 58 L212.5 48.5 L205 43 L214.5 43 Z" fill="#FFD700" opacity="0.6"/>
-  <path d="M294 34 L297.5 43 L307 43 L299.5 48.5 L302.5 58 L294 52.5 L285.5 58 L288.5 48.5 L281 43 L290.5 43 Z" fill="#FFD700" opacity="0.6"/>
-  <!-- Hair: wavy body -->
-  <path d="M194 130 C188 77 205 40 256 50 C307 40 324 77 318 130 C332 108 335 160 322 194 C308 170 294 228 286 228 L226 228 C218 228 204 170 190 194 C177 160 180 108 194 130 Z" fill="url(#gld)"/>
-  <!-- Hair flowing right -->
-  <path d="M318 148 C340 178 340 232 326 278 C336 250 346 210 336 164 Z" fill="url(#gld)" opacity="0.5"/>
-  <!-- Hair flowing left -->
-  <path d="M194 148 C172 178 172 232 186 278 C176 250 166 210 176 164 Z" fill="url(#gld)" opacity="0.28"/>
-  <!-- Head -->
-  <ellipse cx="256" cy="157" rx="60" ry="65" fill="url(#gld)"/>
-  <!-- Face sheen -->
-  <ellipse cx="236" cy="136" rx="17" ry="20" fill="#fff" opacity="0.10" transform="rotate(-15 236 136)"/>
-  <!-- Neck -->
-  <path d="M234 220 L238 262 L274 262 L278 220 Q266 228 256 228 Q246 228 234 220 Z" fill="url(#gld)"/>
-  <!-- Shoulders + bust -->
-  <path d="M74 434 C96 320 158 276 222 258 C234 254 245 252 256 252 C267 252 278 254 290 258 C354 276 416 320 438 434 Z" fill="url(#gld)"/>
-  <!-- Lower dress -->
-  <path d="M90 434 C132 386 188 362 256 362 C324 362 380 386 422 434 L432 512 L80 512 Z" fill="url(#gld)" opacity="0.36"/>
-  <!-- Heart detail -->
-  <path d="M256 304 C256 304 232 288 232 272 C232 260 241 254 248 258 C252 260 256 266 256 266 C256 266 260 260 264 258 C271 254 280 260 280 272 C280 288 256 304 256 304 Z" fill="#8B0000" opacity="0.55"/>
-  <!-- Lip hint -->
-  <path d="M242 182 Q248 187 256 187 Q264 187 270 182 Q264 190 256 190 Q248 190 242 182 Z" fill="#8B0000" opacity="0.45"/>
+  <rect width="512" height="512" rx="102" fill="url(#bg)"/>
+  <rect width="512" height="512" rx="102" fill="url(#gl)"/>
+
+  <!-- HAIR: large flowing mass to the LEFT — clear woman differentiator -->
+  <path d="M 274 80 C 228 57 162 52 108 74 C 54 97 29 148 34 200 C 39 245 74 274 120 268 C 157 262 182 234 174 200 C 160 216 139 228 125 212 C 109 188 120 154 154 134 C 188 114 228 126 250 160 C 260 134 268 104 274 80 Z" fill="url(#g)"/>
+
+  <!-- HEAD: circle at upper-right -->
+  <circle cx="314" cy="108" r="63" fill="url(#g)"/>
+
+  <!-- NECK -->
+  <path d="M 281 166 L 283 200 L 323 206 L 326 172 Q 306 182 281 166 Z" fill="url(#g)"/>
+
+  <!-- BODY back-side -->
+  <path d="M 317 200 C 300 222 280 258 272 300 C 263 340 260 382 252 422 C 246 450 237 468 232 486 L 278 492 C 285 462 294 432 305 398 C 317 358 329 315 341 278 C 353 244 360 214 354 192 C 344 184 330 185 317 200 Z" fill="url(#g)"/>
+
+  <!-- BUST + FRONT: breast curve visible, clearly feminine -->
+  <path d="M 354 194 C 382 219 392 265 382 310 C 372 354 346 390 332 434 C 320 467 318 486 325 496 L 280 492 C 287 462 296 432 308 399 C 320 362 337 323 348 286 C 360 252 363 224 354 194 Z" fill="url(#g)"/>
+
+  <!-- KNEELING LEGS at bottom -->
+  <ellipse cx="245" cy="480" rx="48" ry="20" fill="url(#g)"/>
+  <ellipse cx="322" cy="485" rx="42" ry="18" fill="url(#g)"/>
+
+  <!-- Ground hint -->
+  <path d="M 188 480 Q 280 506 370 485 L 366 498 Q 280 520 192 494 Z" fill="url(#g)" opacity="0.35"/>
 </svg>

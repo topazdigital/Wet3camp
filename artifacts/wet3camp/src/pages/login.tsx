@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Link, useLocation } from 'wouter'
-import { Flame, Mail, Lock, Eye, EyeOff, ShieldCheck, Star, AlertCircle } from 'lucide-react'
+import { Mail, Lock, Eye, EyeOff, ShieldCheck, Star, AlertCircle } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { setToken } from '@/lib/api'
 import { useSEO } from '@/lib/useSEO'
@@ -134,8 +134,8 @@ export default function LoginPage() {
         <div className="absolute bottom-0 right-0 w-64 h-64 rounded-full opacity-10 blur-3xl" style={{ background: '#FFD700' }} />
 
         <Link href="/" className="flex items-center gap-3 relative z-10">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#8B0000] to-[#FFD700] flex items-center justify-center shadow-lg">
-            <Flame size={20} className="text-white" />
+          <div className="w-10 h-10 rounded-xl overflow-hidden shadow-lg flex-shrink-0">
+            <img src="/favicon.svg" alt="Wet3Camp" className="w-full h-full object-cover" />
           </div>
           <div>
             <p className="text-lg font-bold text-text-light">Wet3<span className="text-[#FFD700]">Camp</span></p>
@@ -182,8 +182,8 @@ export default function LoginPage() {
       <div className="flex-1 flex flex-col">
         <div className="lg:hidden flex items-center justify-between px-5 py-4 border-b border-color">
           <Link href="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#8B0000] to-[#FFD700] flex items-center justify-center">
-              <Flame size={15} className="text-white" />
+            <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0">
+              <img src="/favicon.svg" alt="Wet3Camp" className="w-full h-full object-cover" />
             </div>
             <span className="font-bold text-text-light text-sm">Wet3<span className="text-[#FFD700]">Camp</span></span>
           </Link>

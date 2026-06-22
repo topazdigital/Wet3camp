@@ -29,10 +29,7 @@ const TABS = ['Overview','Escorts','Claims','Clients','Bookings','Moderators','F
 
 interface Moderator { id: number; name: string; email: string; role: string; level: 1|2|3; status: 'active'|'inactive'; createdAt: string }
 
-const INIT_MODS: Moderator[] = [
-  { id: 1, name: 'Sarah Johnson', email: 'sarah@wet3camp.com', role: 'admin',     level: 3, status: 'active',   createdAt: '2024-01-15' },
-  { id: 2, name: 'Mike Chen',     email: 'mike@wet3camp.com',  role: 'moderator', level: 2, status: 'active',   createdAt: '2024-02-20' },
-]
+const INIT_MODS: Moderator[] = []
 
 
 interface FeaturedRequest {
@@ -1320,15 +1317,44 @@ function EscortsTab() {
 function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('Overview')
   const [mods, setMods] = useState<Moderator[]>(INIT_MODS)
+  const [modsLoading, setModsLoading] = useState(false)
+  const [modsError, setModsError] = useState('')
   const [showAddMod, setShowAddMod] = useState(false)
-  const [newMod, setNewMod] = useState({ name:'', email:'', role:'moderator', level: 1 as 1|2|3 })
+  const [newMod, setNewMod] = useState({ name:'', email:'', role:'moderator', level: 1 as 1|2|3, password:'' })
+  const [addingMod, setAddingMod] = useState(false)
+  const [addModErr, setAddModErr] = useState('')
   const [featuredReqs, setFeaturedReqs] = useState<FeaturedRequest[]>(INIT_FEATURED)
   const { logout } = useAuth()
 
-  const addMod = () => {
-    if (!newMod.name || !newMod.email) return
-    setMods(p => [...p, { id: Date.now(), ...newMod, status: 'active', createdAt: new Date().toISOString().split('T')[0] }])
-    setNewMod({ name:'', email:'', role:'moderator', level: 1 }); setShowAddMod(false)
+  useEffect(() => {
+    if (activeTab !== 'Moderators') return
+    setModsLoading(true); setModsError('')
+    adminFetch('/admin/moderators')
+      .then((data: any[]) => setMods(data.map(m => ({
+        id: m.id,
+        name: m.name || m.email,
+        email: m.email,
+        role: m.role,
+        level: m.role === 'admin' ? 3 : 1,
+        status: m.is_active ? 'active' : 'inactive',
+        createdAt: m.created_at ? new Date(m.created_at).toLocaleDateString() : '—',
+      }))))
+      .catch(e => setModsError(e?.message ?? 'Failed to load moderators'))
+      .finally(() => setModsLoading(false))
+  }, [activeTab])
+
+  const addMod = async () => {
+    if (!newMod.name || !newMod.email || !newMod.password) { setAddModErr('Name, email and password are required'); return }
+    setAddingMod(true); setAddModErr('')
+    try {
+      await adminFetch('/admin/moderators', { method: 'POST', body: JSON.stringify({ name: newMod.name, email: newMod.email, role: newMod.role, password: newMod.password }) })
+      const data: any[] = await adminFetch('/admin/moderators')
+      setMods(data.map(m => ({ id: m.id, name: m.name || m.email, email: m.email, role: m.role, level: m.role === 'admin' ? 3 : 1, status: m.is_active ? 'active' : 'inactive', createdAt: m.created_at ? new Date(m.created_at).toLocaleDateString() : '—' })))
+      setNewMod({ name:'', email:'', role:'moderator', level: 1, password:'' }); setShowAddMod(false)
+    } catch (e: any) {
+      setAddModErr(e?.message ?? 'Failed to create moderator')
+    }
+    setAddingMod(false)
   }
 
   const approveFeatured = (id: number) => setFeaturedReqs(p => p.map(r => r.id === id ? { ...r, status: 'approved' } : r))
@@ -1429,39 +1455,86 @@ function AdminDashboard() {
           {/* ── MODERATORS ── */}
           {activeTab === 'Moderators' && (
             <div className="space-y-4">
-              <div className="flex justify-end"><button onClick={()=>setShowAddMod(true)} className="flex items-center gap-1.5 px-4 py-2 bg-[#8B0000] text-white text-xs font-bold rounded-xl"><Plus size={13}/>Add Moderator</button></div>
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-text-muted">Admin and moderator accounts with platform access.</p>
+                <button onClick={()=>{setShowAddMod(true);setAddModErr('')}} className="flex items-center gap-1.5 px-4 py-2 bg-[#8B0000] text-white text-xs font-bold rounded-xl"><Plus size={13}/>Add Moderator</button>
+              </div>
               {showAddMod && (
-                <div className="bg-card-bg border border-color rounded-2xl p-4">
-                  <div className="grid grid-cols-2 gap-3 mb-3">
+                <div className="bg-card-bg border border-color rounded-2xl p-4 space-y-3">
+                  <p className="text-xs font-bold text-text-light mb-1">New Moderator / Admin</p>
+                  <div className="grid grid-cols-2 gap-3">
                     <input value={newMod.name} onChange={e=>setNewMod(p=>({...p,name:e.target.value}))} placeholder="Full Name" className="px-3 py-2 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted focus:outline-none focus:border-[#8B0000]"/>
-                    <input value={newMod.email} onChange={e=>setNewMod(p=>({...p,email:e.target.value}))} placeholder="Email" className="px-3 py-2 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted focus:outline-none focus:border-[#8B0000]"/>
+                    <input value={newMod.email} onChange={e=>setNewMod(p=>({...p,email:e.target.value}))} placeholder="Email address" className="px-3 py-2 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted focus:outline-none focus:border-[#8B0000]"/>
+                    <input type="password" value={newMod.password} onChange={e=>setNewMod(p=>({...p,password:e.target.value}))} placeholder="Temporary password" className="px-3 py-2 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted focus:outline-none focus:border-[#8B0000]"/>
                     <select value={newMod.role} onChange={e=>setNewMod(p=>({...p,role:e.target.value}))} className="px-3 py-2 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none">
                       <option value="moderator">Moderator</option><option value="admin">Admin</option>
                     </select>
-                    <select value={newMod.level} onChange={e=>setNewMod(p=>({...p,level:+e.target.value as 1|2|3}))} className="px-3 py-2 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none">
-                      <option value={1}>Level 1 – Basic</option><option value={2}>Level 2 – Advanced</option><option value={3}>Level 3 – Full</option>
-                    </select>
                   </div>
-                  <div className="flex gap-2"><button onClick={addMod} className="px-4 py-2 bg-[#28a745] text-white text-xs rounded-xl font-bold">Save</button><button onClick={()=>setShowAddMod(false)} className="px-4 py-2 border border-color text-text-muted text-xs rounded-xl">Cancel</button></div>
+                  {addModErr && <p className="text-[10px] text-[#EF4444]">{addModErr}</p>}
+                  <div className="flex gap-2">
+                    <button onClick={addMod} disabled={addingMod} className="px-4 py-2 bg-[#28a745] text-white text-xs rounded-xl font-bold disabled:opacity-60 flex items-center gap-1.5">
+                      {addingMod && <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"/>}
+                      {addingMod ? 'Creating…' : 'Create Account'}
+                    </button>
+                    <button onClick={()=>setShowAddMod(false)} className="px-4 py-2 border border-color text-text-muted text-xs rounded-xl">Cancel</button>
+                  </div>
                 </div>
               )}
-              <div className="bg-card-bg border border-color rounded-2xl overflow-hidden">
-                <table className="w-full text-xs">
-                  <thead className="bg-dark-bg border-b border-color"><tr>{['Name','Email','Role','Level','Status','Actions'].map(h=><th key={h} className="px-4 py-3 text-left font-semibold text-text-muted">{h}</th>)}</tr></thead>
-                  <tbody>
-                    {mods.map(m=>(
-                      <tr key={m.id} className="border-b border-color/40 hover:bg-dark-bg transition-colors">
-                        <td className="px-4 py-3 font-semibold text-text-light">{m.name}</td>
-                        <td className="px-4 py-3 text-text-muted">{m.email}</td>
-                        <td className="px-4 py-3"><span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#8B0000]/20 text-[#8B0000]">{m.role}</span></td>
-                        <td className="px-4 py-3 text-text-muted">Level {m.level}</td>
-                        <td className="px-4 py-3"><button onClick={()=>setMods(p=>p.map(x=>x.id===m.id?{...x,status:x.status==='active'?'inactive':'active'}:x))} className={`px-2.5 py-1 rounded-lg text-[10px] font-bold ${m.status==='active'?'bg-[#28a745]/20 text-[#28a745]':'bg-[#EF4444]/20 text-[#EF4444]'}`}>{m.status}</button></td>
-                        <td className="px-4 py-3"><button onClick={()=>setMods(p=>p.filter(x=>x.id!==m.id))} className="p-1.5 text-[#EF4444] rounded-lg hover:bg-dark-bg"><Trash2 size={13}/></button></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              {modsLoading && <div className="flex items-center justify-center py-10 gap-2 text-text-muted"><div className="w-4 h-4 border-2 border-text-muted/30 border-t-text-muted rounded-full animate-spin"/><span className="text-sm">Loading…</span></div>}
+              {modsError && <div className="p-3 bg-[#EF4444]/10 border border-[#EF4444]/20 rounded-xl"><p className="text-xs text-[#EF4444]">{modsError}</p></div>}
+              {!modsLoading && (
+                <div className="bg-card-bg border border-color rounded-2xl overflow-hidden">
+                  <div className="px-4 py-3 border-b border-color flex items-center justify-between">
+                    <h3 className="text-sm font-bold text-text-light">Staff Accounts</h3>
+                    <span className="text-[10px] text-text-muted">{mods.length} account{mods.length!==1?'s':''}</span>
+                  </div>
+                  <table className="w-full text-xs">
+                    <thead className="bg-dark-bg border-b border-color"><tr>{['Name','Email','Role','Status','Joined','Actions'].map(h=><th key={h} className="px-4 py-3 text-left font-semibold text-text-muted">{h}</th>)}</tr></thead>
+                    <tbody>
+                      {mods.length === 0 && <tr><td colSpan={6} className="px-4 py-10 text-center text-text-muted text-xs">No staff accounts yet. Add a moderator above.</td></tr>}
+                      {mods.map(m=>(
+                        <tr key={m.id} className="border-b border-color/40 hover:bg-dark-bg transition-colors">
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <div className="w-6 h-6 rounded-full bg-[#8B0000]/20 flex items-center justify-center text-[10px] font-bold text-[#8B0000]">{(m.name||'?').charAt(0).toUpperCase()}</div>
+                              <span className="font-semibold text-text-light">{m.name}</span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-text-muted">{m.email}</td>
+                          <td className="px-4 py-3"><span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${m.role==='admin'?'bg-[#8B0000]/20 text-[#8B0000]':'bg-[#2196F3]/20 text-[#2196F3]'}`}>{m.role}</span></td>
+                          <td className="px-4 py-3">
+                            <button
+                              onClick={async ()=>{
+                                try {
+                                  await adminFetch(`/admin/users/${m.id}/toggle-active`, { method: 'PATCH' })
+                                  setMods(p=>p.map(x=>x.id===m.id?{...x,status:x.status==='active'?'inactive':'active'}:x))
+                                } catch {}
+                              }}
+                              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${m.status==='active'?'bg-[#28a745]/20 text-[#28a745] hover:bg-[#28a745]/30':'bg-[#EF4444]/20 text-[#EF4444] hover:bg-[#EF4444]/30'}`}
+                            >{m.status}</button>
+                          </td>
+                          <td className="px-4 py-3 text-text-muted">{m.createdAt}</td>
+                          <td className="px-4 py-3">
+                            {m.role !== 'admin' && (
+                              <button
+                                onClick={async ()=>{
+                                  if (!confirm(`Remove ${m.name}?`)) return
+                                  try {
+                                    await adminFetch(`/admin/users/${m.id}`, { method: 'DELETE' })
+                                    setMods(p=>p.filter(x=>x.id!==m.id))
+                                  } catch {}
+                                }}
+                                className="p-1.5 text-[#EF4444] rounded-lg hover:bg-dark-bg transition-colors"
+                                title="Remove"
+                              ><Trash2 size={13}/></button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
 

@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { Link, useLocation } from 'wouter'
 import {
-  Flame, User, Mail, Phone, Lock, Eye, EyeOff, MapPin, Camera,
+  User, Mail, Phone, Lock, Eye, EyeOff, MapPin, Camera,
   CheckCircle2, ChevronRight, AlertCircle, Navigation, Calendar,
   MessageCircle, Globe, DollarSign, ShieldCheck, Loader2, RefreshCw,
   Instagram, Facebook, Sparkles
@@ -497,8 +497,8 @@ export default function RegisterPage() {
       {/* Top bar */}
       <div className="sticky top-0 z-40 bg-card-bg border-b border-color px-4 py-3 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#8B0000] to-[#FFD700] flex items-center justify-center">
-            <Flame size={15} className="text-white" />
+          <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0">
+            <img src="/favicon.svg" alt="Wet3Camp" className="w-full h-full object-cover" />
           </div>
           <span className="text-sm font-black text-text-light">Wet3<span className="text-[#FFD700]">Camp</span></span>
         </Link>

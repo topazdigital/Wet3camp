@@ -524,6 +524,54 @@ router.post('/admin/seed-escorts', requireAuth, requireAdmin, async (_req: AuthR
 })
 
 
+// ─── Moderators ───────────────────────────────────────────────────────────────
+
+router.get('/admin/moderators', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  const pool = getPool()
+  if (!pool) { res.status(503).json({ message: 'Database not configured' }); return }
+  try {
+    const [rows] = await pool.query<any[]>(
+      `SELECT id, display_name AS name, email, role, is_active, created_at FROM users WHERE role IN ('admin','moderator') ORDER BY role DESC, created_at ASC`
+    )
+    res.json(rows)
+  } catch (err: any) {
+    res.status(500).json({ message: 'Failed to load moderators', detail: err?.message })
+  }
+})
+
+router.post('/admin/moderators', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  const pool = getPool()
+  if (!pool) { res.status(503).json({ message: 'Database not configured' }); return }
+  const { name, email, role = 'moderator', password } = req.body ?? {}
+  if (!name || !email || !password) { res.status(400).json({ message: 'name, email and password are required' }); return }
+  try {
+    const { hashPassword } = await import('../lib/crypto.js')
+    const hash = await hashPassword(password)
+    const id = require('crypto').randomUUID()
+    await pool.query(
+      `INSERT INTO users (id, display_name, username, email, password_hash, role, is_active, email_verified, created_at, updated_at) VALUES (?,?,?,?,?,?,1,1,NOW(),NOW())`,
+      [id, name, email.split('@')[0], email, hash, role]
+    )
+    res.json({ success: true, id })
+  } catch (err: any) {
+    if (err?.message?.includes('Duplicate') || err?.code === '23505') {
+      res.status(409).json({ message: 'A user with this email already exists' }); return
+    }
+    res.status(500).json({ message: 'Failed to create moderator', detail: err?.message })
+  }
+})
+
+router.patch('/admin/users/:id/toggle-active', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  const pool = getPool()
+  if (!pool) { res.status(503).json({ message: 'Database not configured' }); return }
+  try {
+    await pool.query('UPDATE users SET is_active = 1 - is_active WHERE id = ?', [req.params!.id])
+    res.json({ success: true })
+  } catch (err: any) {
+    res.status(500).json({ message: 'Failed to toggle user', detail: err?.message })
+  }
+})
+
 router.get('/admin/health', requireAuth, requireAdmin, async (_req: AuthRequest, res) => {
   const pool = getPool()
   const status: Record<string, { ok: boolean; detail: string }> = {}
