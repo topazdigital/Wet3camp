@@ -1,4 +1,4 @@
-modules = ["nodejs-20", "web", "bash"]
+modules = ["nodejs-20", "web", "bash", "postgresql-16"]
 
 [deployment]
 router = "application"
@@ -18,19 +18,19 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Start Wet3Camp"
+args = "Start application"
 
 [[workflows.workflow]]
-name = "Start Wet3Camp"
+name = "Start application"
 author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "PORT=8080 pnpm --filter @workspace/api-server run dev & PORT=19099 BASE_PATH=/ pnpm --filter @workspace/wet3camp run dev"
-waitForPort = 19099
 
 [workflows.workflow.metadata]
 outputType = "webview"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "PORT=8080 pnpm --filter @workspace/api-server run dev & PORT=5000 BASE_PATH=/ pnpm --filter @workspace/wet3camp run dev"
+waitForPort = 5000
 
 [agent]
 stack = "BEST_EFFORT_FALLBACK"
@@ -43,15 +43,11 @@ timeoutMs = 20000
 
 [[ports]]
 localPort = 5000
-externalPort = 5000
+externalPort = 80
 
 [[ports]]
 localPort = 8080
 externalPort = 8080
-
-[[ports]]
-localPort = 8081
-externalPort = 8081
 
 [[ports]]
 localPort = 19099
@@ -61,7 +57,6 @@ externalPort = 80
 
 [userenv.shared]
 NODE_ENV = "development"
-PORT = "8080"
 BASE_PATH = "/"
 JWT_SECRET = "2ad7460920eead0e05d20b55ccf74747c75d9591b9953c21ce2333809b44e89d"
 APP_URL = "https://c5a150d4-ef03-474e-a2d3-f46135a51966-00-3kco7btl0yjd8.picard.replit.dev"
