@@ -71,7 +71,8 @@ add_if_missing "SMTP_HOST"    "mail.wet3.camp"
 add_if_missing "SMTP_PORT"    "587"
 add_if_missing "SMTP_USER"    "support@wet3.camp"
 add_if_missing "SMTP_PASS"    "CHANGE_ME"
-add_if_missing "STATIC_DIR"  "/home/admin/api-server/public"
+add_if_missing "STATIC_DIR"   "/home/admin/api-server/public"
+add_if_missing "UPLOADS_DIR"  "/home/admin/api-server/uploads"
 
 # Re-source so all variables (including newly added ones) are available
 set -a; source "$API_ENV"; set +a
