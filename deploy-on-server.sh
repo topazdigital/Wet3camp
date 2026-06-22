@@ -72,7 +72,8 @@ add_if_missing "SMTP_PORT"    "587"
 add_if_missing "SMTP_USER"    "support@wet3.camp"
 add_if_missing "SMTP_PASS"    "CHANGE_ME"
 add_if_missing "STATIC_DIR"   "/home/admin/api-server/public"
-add_if_missing "UPLOADS_DIR"  "/home/admin/api-server/uploads"
+# Uploads stay in the build repo folder — this is where the API has always written them
+add_if_missing "UPLOADS_DIR"  "/home/admin/wet3camp-build/artifacts/api-server/uploads"
 
 # Re-source so all variables (including newly added ones) are available
 set -a; source "$API_ENV"; set +a
@@ -127,14 +128,14 @@ chmod -R 755 "$WEB_ROOT"
 
 # ── Symlink uploads so Apache serves photos DIRECTLY (no proxy needed) ────────
 # This avoids relying on mod_proxy [P] which may be disabled on shared hosts.
-# /api/uploads/* → /home/admin/api-server/uploads/* served as plain static files
+# Uploads live permanently in the build repo folder (where the API has always written them).
+# Do NOT move them to $API_DIR/uploads — that would break existing image URLs in the DB.
+UPLOADS_REAL="/home/admin/wet3camp-build/artifacts/api-server/uploads"
+mkdir -p "${UPLOADS_REAL}"
 mkdir -p "${WEB_ROOT}/api"
 rm -f  "${WEB_ROOT}/api/uploads"
-ln -sfn "${API_DIR}/uploads" "${WEB_ROOT}/api/uploads"
-echo "    Uploads symlinked: $WEB_ROOT/api/uploads -> $API_DIR/uploads"
-
-# Also ensure the uploads directory actually exists on the server
-mkdir -p "${API_DIR}/uploads"
+ln -sfn "${UPLOADS_REAL}" "${WEB_ROOT}/api/uploads"
+echo "    Uploads symlinked: $WEB_ROOT/api/uploads -> $UPLOADS_REAL"
 
 # Write .htaccess
 # Strategy:
