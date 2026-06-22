@@ -3,23 +3,18 @@ import Header from '@/components/Header'
 import Sidebar from '@/components/Sidebar'
 import FeaturedCarousel from '@/components/FeaturedCarousel'
 import InfiniteEscortGrid from '@/components/InfiniteEscortGrid'
-import { Users, MapPin, ShieldCheck, Flame, Video, Hotel, Plane, ShoppingBag, Calendar, Newspaper, Navigation } from 'lucide-react'
+import { Users, MapPin, ShieldCheck, Flame, Video, Hotel, Plane, ShoppingBag, Calendar, Newspaper, Navigation, Radio } from 'lucide-react'
 import { Link } from 'wouter'
 import { CITIES } from '@/data/escorts'
 import { useSEO } from '@/lib/useSEO'
 import { api } from '@/lib/api'
 
-const CATEGORIES = [
+const TIER_CATEGORIES = [
   { label: 'All',       value: 'all',       icon: '✨' },
   { label: 'Elite',     value: 'Elite',     icon: '👑' },
   { label: 'VIP',       value: 'VIP',       icon: '💎' },
   { label: 'Premium',   value: 'Premium',   icon: '⭐' },
   { label: 'Available', value: 'available', icon: '🟢' },
-  { label: 'Nairobi',   value: 'Nairobi',   icon: '📍' },
-  { label: 'Mombasa',   value: 'Mombasa',   icon: '🏖️' },
-  { label: 'Kisumu',    value: 'Kisumu',    icon: '📍' },
-  { label: 'Nakuru',    value: 'Nakuru',    icon: '🏔️' },
-  { label: 'Eldoret',   value: 'Eldoret',   icon: '🌄' },
 ]
 
 const QUICK_LINKS = [
@@ -30,6 +25,103 @@ const QUICK_LINKS = [
   { icon: ShoppingBag, label: 'Shop',   href: '/shop',   color: '#00BCD4' },
   { icon: Calendar,    label: 'Events', href: '/events', color: '#4CAF50' },
 ]
+
+// ─── Trending Live Strip ──────────────────────────────────────────────────────
+
+interface LiveSession {
+  id: string
+  escortId: number
+  name: string
+  avatar?: string
+  title?: string
+  city?: string
+  tier?: string
+  viewerCount: number
+}
+
+function TrendingLive() {
+  const [sessions, setSessions] = useState<LiveSession[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchLive = () => {
+      fetch('/api/live')
+        .then(r => r.json())
+        .then(data => {
+          setSessions(Array.isArray(data) ? data : [])
+          setLoading(false)
+        })
+        .catch(() => setLoading(false))
+    }
+    fetchLive()
+    // Refresh every 30s
+    const id = setInterval(fetchLive, 30000)
+    return () => clearInterval(id)
+  }, [])
+
+  if (loading || sessions.length === 0) return null
+
+  return (
+    <div className="w-full px-3 sm:px-5 py-3 border-b border-color bg-dark-bg">
+      <div className="flex items-center gap-2 mb-2.5">
+        <div className="flex items-center gap-1.5">
+          <div className="w-2 h-2 bg-[#E91E63] rounded-full animate-pulse" />
+          <Radio size={13} className="text-[#E91E63]" />
+          <span className="text-xs font-bold text-text-light">Live Now</span>
+        </div>
+        <span className="text-[10px] text-text-muted">{sessions.length} streaming</span>
+        <Link href="/live" className="ml-auto text-[10px] text-[#8B0000] hover:text-[#FFD700] font-semibold transition-colors">
+          See all →
+        </Link>
+      </div>
+      <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-1">
+        {sessions.map(s => {
+          const tierColors: Record<string, string> = { Elite: '#8B0000', VIP: '#FF4500', Premium: '#B8860B', Standard: '#555' }
+          const tc = tierColors[s.tier ?? ''] ?? '#8B0000'
+          return (
+            <Link
+              key={s.id}
+              href={`/live/${s.escortId}`}
+              className="flex-shrink-0 group relative"
+            >
+              <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border-2 border-[#E91E63]/60 group-hover:border-[#E91E63] transition-all shadow-lg shadow-black/40">
+                {s.avatar
+                  ? <img src={s.avatar} alt={s.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                  : <div className="w-full h-full bg-card-bg flex items-center justify-center"><Video size={22} className="text-[#E91E63]" /></div>
+                }
+                {/* Live badge */}
+                <div className="absolute top-1 left-1 flex items-center gap-0.5 px-1 py-0.5 bg-[#E91E63] rounded text-white text-[8px] font-black leading-none">
+                  <span className="w-1 h-1 rounded-full bg-white animate-pulse" />LIVE
+                </div>
+                {/* Viewer count */}
+                <div className="absolute bottom-1 right-1 px-1 py-0.5 bg-black/60 rounded text-white text-[8px] font-bold">
+                  👁 {s.viewerCount}
+                </div>
+                {/* Gradient overlay */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+              </div>
+              <p className="text-[10px] text-text-light text-center mt-1 max-w-[64px] sm:max-w-[80px] truncate group-hover:text-[#E91E63] transition-colors">
+                {s.name.split(' ')[0]}
+              </p>
+              {s.city && (
+                <p className="text-[9px] text-text-muted text-center truncate max-w-[64px] sm:max-w-[80px]">{s.city}</p>
+              )}
+            </Link>
+          )
+        })}
+        {/* See all card */}
+        <Link href="/live" className="flex-shrink-0 flex flex-col items-center gap-1">
+          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl border-2 border-dashed border-color flex items-center justify-center hover:border-[#E91E63]/50 transition-colors group">
+            <span className="text-2xl group-hover:scale-110 transition-transform">🎬</span>
+          </div>
+          <p className="text-[10px] text-text-muted">See all</p>
+        </Link>
+      </div>
+    </div>
+  )
+}
+
+// ─── Main ─────────────────────────────────────────────────────────────────────
 
 export default function Home() {
   useSEO({
@@ -42,17 +134,23 @@ export default function Home() {
   const [detectedCity, setDetectedCity] = useState<string | null>(null)
   const [geoState, setGeoState] = useState<'idle' | 'loading' | 'done' | 'denied'>('idle')
   const [stats, setStats] = useState<{ total: number; verified: number; online: number; cities: number } | null>(null)
+  const [popularCities, setPopularCities] = useState<string[]>([])
 
   useEffect(() => {
-    api.escorts.list({ limit: 1 })
+    api.escorts.meta()
       .then(res => {
-        if (res.meta) {
-          setStats({
-            total: res.meta.total ?? 0,
-            verified: res.meta.verified ?? 0,
-            online: res.meta.online ?? 0,
-            cities: res.meta.cities ?? 12,
-          })
+        setStats({
+          total: res.total ?? 0,
+          verified: res.verified ?? 0,
+          online: res.online ?? 0,
+          cities: res.cities ?? 12,
+        })
+        if (Array.isArray(res.byCity)) {
+          const cities = res.byCity
+            .slice(0, 6)
+            .map(c => c.city)
+            .filter(Boolean)
+          setPopularCities(cities)
         }
       })
       .catch(() => {})
@@ -80,7 +178,7 @@ export default function Home() {
   const locationLabel = geoState === 'done' && detectedCity
     ? `Near you · ${detectedCity}`
     : geoState === 'denied'
-    ? 'All cities · Kenya'
+    ? 'All cities worldwide'
     : 'All cities · Nairobi shown first'
 
   const statItems = [
@@ -89,6 +187,14 @@ export default function Home() {
     { icon: ShieldCheck, value: stats ? `${stats.verified}+` : '…',     label: 'Verified'       },
     { icon: Flame,       value: stats ? String(stats.online) : '…',     label: 'Online Now', pulse: true },
   ]
+
+  // Build category chips: tier chips + top cities from DB (worldwide)
+  const cityChips = popularCities.map(city => ({
+    label: city,
+    value: city,
+    icon: '📍',
+  }))
+  const allCategories = [...TIER_CATEGORIES, ...cityChips]
 
   return (
     <main className="min-h-screen bg-dark-bg flex flex-col lg:flex-row">
@@ -150,6 +256,9 @@ export default function Home() {
           </div>
         </div>
 
+        {/* Trending Live — only shown when escorts are streaming */}
+        <TrendingLive />
+
         {/* Featured Carousel */}
         <FeaturedCarousel />
 
@@ -167,10 +276,10 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Category Chips */}
+          {/* Category Chips — tier filters + real cities from DB */}
           <div className="px-3 sm:px-5 py-2.5 border-b border-color">
             <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-0.5">
-              {CATEGORIES.map(cat => (
+              {allCategories.map(cat => (
                 <button
                   key={cat.value}
                   onClick={() => setActiveCategory(cat.value)}

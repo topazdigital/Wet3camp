@@ -62,6 +62,7 @@ export const api = {
       const qs = params.toString()
       return req<{ data: ApiEscort[]; total: number }>(`/escorts${qs ? '?' + qs : ''}`)
     },
+    meta: () => req<{ total: number; verified: number; online: number; cities: number; byCity: { city: string; count: number }[] }>('/escorts/stats'),
     get: (id: string) => req<ApiEscort>(`/escorts/${id}`),
     claim: (id: string, message?: string) =>
       req<{ success: boolean; message: string }>(`/escorts/${id}/claim`, {

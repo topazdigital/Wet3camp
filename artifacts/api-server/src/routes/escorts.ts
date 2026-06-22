@@ -69,8 +69,9 @@ router.get('/escorts', async (req, res) => {
         conditions.push(`LOWER(e.city) IN (${placeholders})`)
         params.push(...areas)
       } else {
-        conditions.push('LOWER(e.city) = LOWER(?)')
-        params.push(city)
+        // Worldwide fallback: match city OR area with LIKE so "London" matches "London West" etc.
+        conditions.push('(LOWER(e.city) LIKE LOWER(?) OR LOWER(e.area) LIKE LOWER(?))')
+        params.push(`%${city}%`, `%${city}%`)
       }
     }
     if (tier)      { conditions.push('LOWER(e.tier) = LOWER(?)'); params.push(tier) }
