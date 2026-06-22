@@ -8,16 +8,21 @@ export const DEFAULT_OG_IMAGE = `${SITE_URL}/opengraph.jpg`
 
 // ── Master keyword list — targets every major Kenyan escort search query ──────
 export const MASTER_KEYWORDS = [
-  // Brand / platform competitors
-  "nairobiraha", "raha nairobi", "rahazanairobi", "wet3camp", "nairobi raha escorts",
-  "kenya raha", "raha kenya", "escortify kenya", "xescorts kenya", "skissr kenya",
-  "adultsearch kenya", "africanescorts", "kenyan escort site", "escort directory kenya",
+  // Direct competitor brand targeting (what people search to find those sites)
+  "nairobiraha", "nairobi raha", "raha nairobi", "rahazanairobi", "raha za nairobi",
+  "nairobiescorts", "nairobi escorts", "nairobirahaescorts", "rahakenyaescorts",
+  "wet3camp", "wet3.camp", "nairobi raha escorts", "kenya raha", "raha kenya",
+  "escortify kenya", "xescorts kenya", "skissr kenya", "adultsearch kenya",
+  "africanescorts", "kenyan escort site", "escort directory kenya",
+  "escorts kenya 2025", "escorts nairobi 2025", "best escort site kenya",
+  "top escort site nairobi", "escort website kenya", "escort listing kenya",
 
-  // City-level
+  // City-level — primary
   "Nairobi escorts", "Mombasa escorts", "Kisumu escorts", "Nakuru escorts",
   "Eldoret escorts", "Thika escorts", "Machakos escorts", "Nyeri escorts",
   "Meru escorts", "Kitale escorts", "Malindi escorts", "Kilifi escorts",
   "Lamu escorts", "Diani escorts", "Nanyuki escorts", "Embu escorts",
+  "Nakuru escorts", "Eldoret escorts", "Thika escorts",
 
   // Nairobi areas
   "Westlands escorts", "CBD Nairobi escorts", "Karen escorts Nairobi",
@@ -40,6 +45,7 @@ export const MASTER_KEYWORDS = [
   "book escort Nairobi", "hire escort Kenya", "escort booking Kenya",
   "escort near me Kenya", "escort services Nairobi", "escort agency Nairobi",
   "call girl Nairobi", "call girls Kenya", "call girl Mombasa",
+  "escorts near me", "find escort Nairobi", "escort contact Kenya",
 
   // GFE & services
   "girlfriend experience Nairobi", "GFE escort Kenya", "escort incall Nairobi",
@@ -50,6 +56,7 @@ export const MASTER_KEYWORDS = [
   "escort reviews Kenya", "top rated escorts Nairobi",
   "how to find escort Nairobi", "escort guide Kenya 2025",
   "escort with WhatsApp Kenya", "escort Telegram Kenya",
+  "female escort Nairobi WhatsApp", "escort WhatsApp number Kenya",
 ]
 
 export const CITY_KEYWORDS: Record<string, string[]> = {
@@ -88,20 +95,27 @@ export function buildCityKeywords(city?: string): string {
 
 export function buildEscortKeywords(escort: {
   name: string; city: string; area: string; tier?: string;
-  ethnicity?: string; bodyType?: string; gender?: string;
+  ethnicity?: string; bodyType?: string; gender?: string; age?: number;
 }): string {
-  const { name, city, area, tier, ethnicity } = escort
+  const { name, city, area, tier, ethnicity, gender = 'female', age } = escort
+  const g = gender.toLowerCase()
   const specific = [
     `${name}`, `${name} ${city}`, `${name} escort`, `${name} wet3camp`,
-    `${area} escort`, `${area} escort ${city}`, `${city} escort`,
-    tier ? `${tier} escort ${city}` : '',
+    age ? `${name} ${age} escort` : '',
+    `${area} escort`, `${area} ${g} escort ${city}`, `${city} escort`,
+    `${g} escort ${city}`, `${g} escort ${area}`,
+    tier ? `${tier} ${g} escort ${city}` : '',
+    tier ? `${tier} escort ${area}` : '',
     ethnicity ? `${ethnicity} escort Kenya` : '',
-    `book ${name}`, `${name} WhatsApp`,
-    `escort ${area} Kenya`, `${city} female escort`,
+    ethnicity ? `${ethnicity} ${g} escort ${city}` : '',
+    `book ${name}`, `${name} WhatsApp`, `${name} Telegram`,
+    `escort ${area} Kenya`, `${city} ${g} escort`,
     `verified escort ${city}`, `${tier ?? 'premium'} escort ${area}`,
+    `nairobi raha ${city.toLowerCase()}`, `raha za nairobi ${city.toLowerCase()}`,
+    `${city} raha escorts`, `escorts ${city} Kenya 2025`,
   ].filter(Boolean)
-  const cityKw = CITY_KEYWORDS[city] ?? [`${city} escorts`]
-  return [...specific, ...cityKw, ...MASTER_KEYWORDS.slice(0, 15)].join(', ')
+  const cityKw = CITY_KEYWORDS[city] ?? [`${city} escorts`, `${city} ${g} escort`, `escort ${city}`]
+  return [...specific, ...cityKw, ...MASTER_KEYWORDS.slice(0, 20)].join(', ')
 }
 
 interface SEOProps {
@@ -113,7 +127,7 @@ interface SEOProps {
   canonicalPath?: string
   schema?: object | object[]
   city?: string
-  escort?: { name: string; city: string; area: string; tier?: string; ethnicity?: string; bodyType?: string; gender?: string }
+  escort?: { name: string; city: string; area: string; tier?: string; ethnicity?: string; bodyType?: string; gender?: string; age?: number }
   type?: 'website' | 'profile' | 'article' | 'place'
 }
 

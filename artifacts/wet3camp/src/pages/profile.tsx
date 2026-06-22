@@ -85,12 +85,18 @@ export default function ProfilePage() {
     }
   ] : undefined
 
+  const profileAge   = escort?.age   ? `, ${escort.age}` : ''
+  const profileGender = escort?.gender ?? 'Female'
+  const profileArea   = escort?.area  ? `${escort.area}, ` : ''
+
   useSEO({
-    title: escort ? `${escort.name} — ${escort.tier} Escort in ${escort.city}` : 'Verified Escort Profile Kenya | Wet3Camp',
+    title: escort
+      ? `${escort.name}${profileAge} — ${profileGender} Escort in ${profileArea}${escort.city} | Wet3Camp`
+      : 'Verified Escort Profile Kenya | Wet3Camp',
     description: escort
-      ? `Book ${escort.name}, verified ${escort.tier ?? 'premium'} escort in ${escort.area}, ${escort.city}, Kenya. ${escort.bio?.slice(0, 120) ?? ''} Incall from KES ${(escort.pricing?.incall || 0).toLocaleString()}.`
+      ? `Book ${escort.name}${profileAge}, verified ${escort.tier ?? 'premium'} ${profileGender.toLowerCase()} escort in ${escort.area}, ${escort.city}, Kenya. ${escort.bio?.slice(0, 100) ?? ''} Incall from KES ${(escort.pricing?.incall || 0).toLocaleString()}/hr. Available on Wet3Camp.`
       : "Verified escort profiles on Wet3Camp — Kenya's #1 escort directory.",
-    escort: escort ? { name: escort.name, city: escort.city, area: escort.area, tier: escort.tier, ethnicity: escort.ethnicity, gender: escort.gender } : undefined,
+    escort: escort ? { name: escort.name, city: escort.city, area: escort.area, tier: escort.tier, ethnicity: escort.ethnicity, gender: escort.gender, age: escort.age } : undefined,
     ogImage: escort?.image,
     canonicalPath: `/profile/${escort?.id ?? slug}`,
     type: 'profile',
