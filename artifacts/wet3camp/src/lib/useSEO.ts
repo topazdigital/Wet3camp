@@ -17,6 +17,24 @@ export const MASTER_KEYWORDS = [
   "escorts kenya 2025", "escorts nairobi 2025", "best escort site kenya",
   "top escort site nairobi", "escort website kenya", "escort listing kenya",
 
+  // ── Escort services — high-intent queries ───────────────────────────────
+  "massage escort Nairobi", "body massage Nairobi escort", "erotic massage Kenya",
+  "girlfriend experience Kenya", "GFE escort Nairobi", "GFE escort Mombasa",
+  "BDSM escort Kenya", "dominatrix Nairobi", "role play escort Kenya",
+  "anal escort Kenya", "oral escort Nairobi", "blow job escort Kenya",
+  "69 escort Nairobi", "threesome escort Kenya", "couple escort Nairobi",
+  "escort with WhatsApp Kenya", "escort outcall Nairobi", "escort incall Nairobi",
+  "escort video call Kenya", "webcam escort Kenya", "online escort Kenya",
+  "escort overnight Kenya", "overnight escort Nairobi", "overnight escort Mombasa",
+  "escort for hire Kenya", "escort for party Kenya", "escort for events Kenya",
+  "escort for travel Kenya", "escort tours Kenya", "escort companion Kenya",
+  "happy ending massage Nairobi", "sensual massage Kenya", "escort full service Kenya",
+  "escort striptease Kenya", "escort lapdance Nairobi", "escort foot fetish Kenya",
+  "escort golden shower Kenya", "escort squirting Kenya", "escort deep throat Kenya",
+  "escort CIM Kenya", "escort MILF Nairobi", "BBW escort Nairobi", "slim escort Kenya",
+  "curvy escort Nairobi", "plus size escort Kenya", "petite escort Kenya",
+  "tall escort Kenya", "busty escort Nairobi", "big ass escort Kenya",
+
   // City-level — primary
   "Nairobi escorts", "Mombasa escorts", "Kisumu escorts", "Nakuru escorts",
   "Eldoret escorts", "Thika escorts", "Machakos escorts", "Nyeri escorts",
@@ -96,8 +114,9 @@ export function buildCityKeywords(city?: string): string {
 export function buildEscortKeywords(escort: {
   name: string; city: string; area: string; tier?: string;
   ethnicity?: string; bodyType?: string; gender?: string; age?: number;
+  services?: string[];
 }): string {
-  const { name, city, area, tier, ethnicity, gender = 'female', age } = escort
+  const { name, city, area, tier, ethnicity, gender = 'female', age, services = [] } = escort
   const g = gender.toLowerCase()
   const specific = [
     `${name}`, `${name} ${city}`, `${name} escort`, `${name} wet3camp`,
@@ -114,8 +133,11 @@ export function buildEscortKeywords(escort: {
     `nairobi raha ${city.toLowerCase()}`, `raha za nairobi ${city.toLowerCase()}`,
     `${city} raha escorts`, `escorts ${city} Kenya 2025`,
   ].filter(Boolean)
+  const serviceKw = services.flatMap(svc => [
+    `${svc} escort ${city}`, `${svc} services ${area}`, `${svc} escort near me Kenya`,
+  ])
   const cityKw = CITY_KEYWORDS[city] ?? [`${city} escorts`, `${city} ${g} escort`, `escort ${city}`]
-  return [...specific, ...cityKw, ...MASTER_KEYWORDS.slice(0, 20)].join(', ')
+  return [...specific, ...serviceKw, ...cityKw, ...MASTER_KEYWORDS.slice(0, 20)].join(', ')
 }
 
 interface SEOProps {
@@ -168,7 +190,9 @@ export function useSEO({
   city, escort, type = 'website',
 }: SEOProps = {}) {
   useEffect(() => {
-    const fullTitle = title ? `${title} | ${SITE_NAME}` : DEFAULT_TITLE
+    // Strip any existing site-name suffix (| Wet3Camp, — Wet3Camp, – Wet3Camp, etc.) to prevent duplication
+    const cleanTitle = title?.replace(/[\s—–|]*Wet3\s?Camp\s*$/i, '').trim() ?? ''
+    const fullTitle = cleanTitle ? `${cleanTitle} | ${SITE_NAME}` : DEFAULT_TITLE
     const desc = description ?? DEFAULT_DESC
     const kw = keywords
       ? keywords

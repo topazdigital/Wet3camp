@@ -257,6 +257,26 @@ function parseProfilePage(html) {
   const incall       = availability.toLowerCase().includes('incall')  ? 1 : 0
   const outcall      = availability.toLowerCase().includes('outcall') ? 1 : 0
 
+  // ── Services ──────────────────────────────────────────────────────────────
+  // Nairobiraha shows services as checkmarks/items inside a services section
+  const services = []
+  // Try structured services list: <li class="service-item ...">ServiceName</li>
+  const svcListRe = /<li[^>]*class="[^"]*service[^"]*"[^>]*>\s*([^<]{2,40}?)\s*<\/li>/gi
+  let slm
+  while ((slm = svcListRe.exec(html)) !== null) {
+    const svc = decodeHtml(slm[1]).replace(/[✓✗✔×]/g, '').trim()
+    if (svc && svc.length > 1 && svc.length < 40 && !services.includes(svc)) services.push(svc)
+  }
+  // Fallback: service checkboxes with yes/no or icon indicators
+  if (services.length === 0) {
+    const checkRe = /<span[^>]*class="[^"]*check[^"]*"[^>]*>\s*([^<]{2,40}?)\s*<\/span>/gi
+    let cm
+    while ((cm = checkRe.exec(html)) !== null) {
+      const svc = decodeHtml(cm[1]).replace(/[✓✗✔×]/g, '').trim()
+      if (svc && svc.length > 1 && svc.length < 40 && !services.includes(svc)) services.push(svc)
+    }
+  }
+
   // ── Gallery images ────────────────────────────────────────────────────────
   const galleryImgs = []
   // Full-size fancybox hrefs first
@@ -274,7 +294,7 @@ function parseProfilePage(html) {
     if (!galleryImgs.includes(u)) galleryImgs.push(u)
   }
 
-  return { name, phone, age, city, area, bio, height, weight, ethnicity, bodyType, incall, outcall, galleryImgs }
+  return { name, phone, age, city, area, bio, height, weight, ethnicity, bodyType, incall, outcall, galleryImgs, services }
 }
 
 // ── DB operations ────────────────────────────────────────────────────────────
@@ -411,6 +431,20 @@ async function main() {
     try {
       const escortId = await insertEscort(db, profile, avatarPath)
       await insertGallery(db, escortId, galleryPaths)
+
+      // Insert scraped services (upsert — avoid duplicates on re-run)
+      if (profile.services && profile.services.length > 0) {
+        for (const svcName of profile.services) {
+          await db.query(
+            `INSERT INTO escort_services (escort_id, name, available)
+             VALUES ($1, $2, true)
+             ON CONFLICT (escort_id, name) DO NOTHING`,
+            [escortId, svcName],
+          ).catch(() => {})
+        }
+        process.stdout.write(` [${profile.services.length} services]`)
+      }
+
       console.log(`✅ id:${escortId} ${profile.name} | ${profile.phone} | ${profile.area}`)
       imported++
     } catch (err) {

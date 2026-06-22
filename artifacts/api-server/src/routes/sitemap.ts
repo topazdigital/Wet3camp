@@ -26,6 +26,16 @@ const MOMBASA_AREAS = [
   'nyali', 'bamburi', 'diani-beach', 'mtwapa', 'tudor', 'likoni', 'kisauni',
 ]
 
+// ── High-demand escort services for SEO ───────────────────────────────────────
+const ESCORT_SERVICES = [
+  'massage', 'gfe', 'girlfriend-experience', 'bdsm', 'dominatrix',
+  'anal', 'oral', 'overnight', 'roleplay', 'striptease',
+  'body-slide', 'domination', 'submission', 'threesome', 'duo',
+  'webcam', 'video-call', 'outcall', 'incall', 'erotic-massage',
+  'sensual-massage', 'foot-fetish', 'golden-shower', 'squirting',
+  'deep-throat', 'bbw', 'milf', 'petite', 'busty', 'curvy',
+]
+
 const STATIC_PAGES = [
   { loc: '/',              changefreq: 'hourly',  priority: '1.0' },
   { loc: '/search',        changefreq: 'hourly',  priority: '0.9' },
@@ -87,6 +97,7 @@ router.get('/sitemap.xml', (_req, res) => {
     `  <sitemap><loc>${BASE}/sitemap-main.xml</loc><lastmod>${today}</lastmod></sitemap>`,
     `  <sitemap><loc>${BASE}/sitemap-escorts.xml</loc><lastmod>${today}</lastmod></sitemap>`,
     `  <sitemap><loc>${BASE}/sitemap-cities.xml</loc><lastmod>${today}</lastmod></sitemap>`,
+    `  <sitemap><loc>${BASE}/sitemap-services.xml</loc><lastmod>${today}</lastmod></sitemap>`,
     `  <sitemap><loc>${BASE}/sitemap-blog.xml</loc><lastmod>${today}</lastmod></sitemap>`,
     '</sitemapindex>',
   ].join('\n')
@@ -177,6 +188,43 @@ router.get('/sitemap-cities.xml', (_req, res) => {
   // Mombasa area pages
   for (const area of MOMBASA_AREAS) {
     lines.push(url(`${BASE}/search?city=Mombasa&area=${area}`, today, 'weekly', '0.6'))
+  }
+
+  res.send([
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+    ...lines,
+    '</urlset>',
+  ].join('\n'))
+})
+
+// ── Services sitemap — targets high-intent service-specific search queries ─────
+router.get('/sitemap-services.xml', (_req, res) => {
+  const today = new Date().toISOString().split('T')[0]
+  res.setHeader('Content-Type', 'application/xml; charset=utf-8')
+  res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=172800')
+
+  const lines: string[] = []
+
+  // Service landing pages — /search?service=X (high priority)
+  for (const svc of ESCORT_SERVICES) {
+    lines.push(url(`${BASE}/search?service=${encodeURIComponent(svc)}`, today, 'daily', '0.8'))
+  }
+
+  // Service + city combos (Nairobi, Mombasa, Kisumu are highest value)
+  const topCities = ['Nairobi', 'Mombasa', 'Kisumu', 'Nakuru', 'Eldoret']
+  for (const svc of ESCORT_SERVICES) {
+    for (const city of topCities) {
+      lines.push(url(
+        `${BASE}/search?service=${encodeURIComponent(svc)}&city=${encodeURIComponent(city)}`,
+        today, 'daily', '0.7',
+      ))
+    }
+  }
+
+  // Service homepage filter links (/?service=X)
+  for (const svc of ESCORT_SERVICES) {
+    lines.push(url(`${BASE}/?service=${encodeURIComponent(svc)}`, today, 'daily', '0.6'))
   }
 
   res.send([

@@ -52,22 +52,36 @@ export default function ProfilePage() {
       .catch(() => {})
   }, [escort?.city, escort?.id])
 
+  const availableServices = escort?.services?.filter((s: any) => s.available).map((s: any) => s.name as string) ?? []
+  const servicesText = availableServices.length > 0
+    ? `Services: ${availableServices.slice(0, 5).join(', ')}.`
+    : ''
+
   const escortSeoSchema = escort ? [
     {
       "@context": "https://schema.org",
       "@type": "Person",
       "name": escort.name,
-      "jobTitle": `${escort.tier ?? 'Premium'} Escort`,
+      "jobTitle": `${escort.tier ?? 'Premium'} Escort in ${escort.city}, Kenya`,
       "description": escort.bio?.slice(0, 200),
       "image": escort.image,
       "url": `https://wet3.camp/profile/${escort.id}`,
       "address": {
         "@type": "PostalAddress",
-        "addressLocality": escort.city,
+        "addressLocality": escort.area ?? escort.city,
         "addressRegion": escort.city,
         "addressCountry": "KE"
       },
-      "knowsAbout": escort.services?.filter((s: any) => s.available).map((s: any) => s.name) ?? [],
+      "knowsAbout": availableServices,
+      "hasOfferCatalog": availableServices.length > 0 ? {
+        "@type": "OfferCatalog",
+        "name": `${escort.name}'s Escort Services`,
+        "itemListElement": availableServices.map((svc: string) => ({
+          "@type": "Offer",
+          "itemOffered": { "@type": "Service", "name": svc },
+          "areaServed": { "@type": "City", "name": escort.city }
+        }))
+      } : undefined,
       "memberOf": {
         "@type": "Organization",
         "name": "Wet3 Camp",
@@ -80,7 +94,8 @@ export default function ProfilePage() {
       "itemListElement": [
         { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://wet3.camp/" },
         { "@type": "ListItem", "position": 2, "name": `${escort.city} Escorts`, "item": `https://wet3.camp/?city=${escort.city}` },
-        { "@type": "ListItem", "position": 3, "name": escort.name, "item": `https://wet3.camp/profile/${escort.id}` }
+        { "@type": "ListItem", "position": 3, "name": `${escort.area ?? escort.city} Escorts`, "item": `https://wet3.camp/?city=${escort.city}&area=${escort.area ?? ''}` },
+        { "@type": "ListItem", "position": 4, "name": escort.name, "item": `https://wet3.camp/profile/${escort.id}` }
       ]
     }
   ] : undefined
@@ -91,12 +106,21 @@ export default function ProfilePage() {
 
   useSEO({
     title: escort
-      ? `${escort.name}${profileAge} — ${profileGender} Escort in ${profileArea}${escort.city} | Wet3Camp`
-      : 'Verified Escort Profile Kenya | Wet3Camp',
+      ? `${escort.name}${profileAge} — ${profileGender} Escort in ${profileArea}${escort.city}`
+      : 'Verified Escort Profile Kenya',
     description: escort
-      ? `Book ${escort.name}${profileAge}, verified ${escort.tier ?? 'premium'} ${profileGender.toLowerCase()} escort in ${escort.area}, ${escort.city}, Kenya. ${escort.bio?.slice(0, 100) ?? ''} Incall from KES ${(escort.pricing?.incall || 0).toLocaleString()}/hr. Available on Wet3Camp.`
+      ? `Book ${escort.name}${profileAge}, verified ${escort.tier ?? 'premium'} ${profileGender.toLowerCase()} escort in ${escort.area}, ${escort.city}, Kenya. ${servicesText} ${escort.bio?.slice(0, 80) ?? ''} Incall from KES ${(escort.pricing?.incall || 0).toLocaleString()}/hr. Available now on Wet3Camp.`.trim()
       : "Verified escort profiles on Wet3Camp — Kenya's #1 escort directory.",
-    escort: escort ? { name: escort.name, city: escort.city, area: escort.area, tier: escort.tier, ethnicity: escort.ethnicity, gender: escort.gender, age: escort.age } : undefined,
+    escort: escort ? {
+      name: escort.name,
+      city: escort.city,
+      area: escort.area,
+      tier: escort.tier,
+      ethnicity: escort.ethnicity,
+      gender: escort.gender,
+      age: escort.age,
+      services: availableServices,
+    } : undefined,
     ogImage: escort?.image,
     canonicalPath: `/profile/${escort?.id ?? slug}`,
     type: 'profile',
