@@ -52,7 +52,27 @@ router.get('/escorts', async (req, res) => {
     const conditions: string[] = ['e.is_active = 1']
     const params: unknown[] = []
 
-    if (city)      { conditions.push('e.city = ?');      params.push(city) }
+    // Hierarchical city→area lookup: filtering by "Nairobi" also matches Kilimani, Westlands, etc.
+    const CITY_AREAS: Record<string, string[]> = {
+      nairobi: ['nairobi','nairobi cbd','westlands','karen','kilimani','lavington','parklands','upperhill','langata','south b','south c','gigiri','runda','eastleigh','embakasi','ngong road','thika road','nairobi west','kasarani','ruaka','kileleshwa','hurlingham','spring valley','loresho','muthaiga','ridgeways','roysambu','zimmerman','ruaraka','buru buru','mwiki','outering','juja','ongata rongai','kitengela','syokimau','utawala','kahawa','kariobangi','mathare','kayole','dandora','githurai','clay city','kahawa west','kamiti road'],
+      mombasa: ['mombasa','mombasa cbd','nyali','bamburi','diani','mtwapa','likoni','kisauni','shanzu','malindi','watamu','kilifi'],
+      kisumu: ['kisumu','kisumu cbd','milimani','kondele','mamboleo','nyalenda','kolwa','riat','airport'],
+      nakuru: ['nakuru','nakuru cbd','milimani nakuru','lanet','section 58','bahati','bondeni','free area'],
+      eldoret: ['eldoret','eldoret cbd','elgon view','kipkorir','huruma','kapsabet'],
+    }
+
+    if (city) {
+      const key = city.toLowerCase()
+      const areas = CITY_AREAS[key]
+      if (areas && areas.length) {
+        const placeholders = areas.map(() => '?').join(', ')
+        conditions.push(`LOWER(e.city) IN (${placeholders})`)
+        params.push(...areas)
+      } else {
+        conditions.push('LOWER(e.city) = LOWER(?)')
+        params.push(city)
+      }
+    }
     if (tier)      { conditions.push('LOWER(e.tier) = LOWER(?)'); params.push(tier) }
     if (available) { conditions.push('e.available = 1') }
     if (featured)  { conditions.push('e.featured = 1') }

@@ -18,9 +18,11 @@ import notificationsRouter from "./notifications.js";
 import webrtcRouter        from "./webrtc.js";
 import claimsRouter        from "./claims.js";
 import contentRouter       from "./content.js";
+import liveRouter          from "./live.js";
 
 const router: IRouter = Router();
 
+router.use(liveRouter);
 router.use(webrtcRouter);
 router.use(healthRouter);
 router.use(escortsRouter);

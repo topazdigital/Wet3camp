@@ -1,41 +1,30 @@
 <svg width="180" height="180" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="180" y2="180" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#160000"/>
-      <stop offset="1" stop-color="#060000"/>
+      <stop stop-color="#1a0000"/>
+      <stop offset="1" stop-color="#050000"/>
     </linearGradient>
-    <linearGradient id="g" x1="90" y1="12" x2="90" y2="172" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#FFE566"/>
-      <stop offset="0.45" stop-color="#FFD700"/>
-      <stop offset="1" stop-color="#B06000"/>
+    <linearGradient id="sil" x1="90" y1="15" x2="90" y2="168" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFD700"/>
+      <stop offset="1" stop-color="#8B0000"/>
     </linearGradient>
-    <radialGradient id="gl" cx="90" cy="90" r="88" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#8B0000" stop-opacity="0.55"/>
-      <stop offset="1" stop-color="#8B0000" stop-opacity="0"/>
-    </radialGradient>
   </defs>
   <rect width="180" height="180" rx="36" fill="url(#bg)"/>
-  <rect width="180" height="180" rx="36" fill="url(#gl)"/>
-
-  <!-- HAIR: large flowing mass to the LEFT of the head — key visual that makes this NOT a user avatar -->
-  <path d="M 96 28 C 80 20 57 18 38 26 C 19 34 10 52 12 70 C 14 86 26 96 42 94 C 55 92 64 82 61 70 C 56 76 49 80 44 74 C 38 66 42 54 54 47 C 66 40 80 44 88 56 C 91 47 94 36 96 28 Z" fill="url(#g)"/>
-
-  <!-- HEAD: circle positioned at upper-right, clearly side-profile -->
-  <circle cx="110" cy="38" r="22" fill="url(#g)"/>
-
-  <!-- NECK connecting hair/head to body -->
-  <path d="M 98 58 L 99 70 L 113 72 L 114 60 Q 107 64 98 58 Z" fill="url(#g)"/>
-
-  <!-- BODY back-side: from neck down the back -->
-  <path d="M 111 70 C 105 78 98 90 95 105 C 92 119 91 134 88 148 C 86 158 83 164 81 170 L 97 172 C 100 162 103 151 107 139 C 111 125 115 110 119 97 C 123 85 126 74 124 67 C 120 64 115 65 111 70 Z" fill="url(#g)"/>
-
-  <!-- BUST + FRONT body: breast curve clearly visible — clearly feminine -->
-  <path d="M 124 68 C 134 77 138 93 134 109 C 130 124 121 137 116 152 C 112 163 111 170 114 174 L 98 172 C 101 162 104 152 108 140 C 112 127 118 113 122 100 C 126 88 127 78 124 68 Z" fill="url(#g)"/>
-
-  <!-- KNEELING LEGS: two rounded bumps at bottom, clearly kneeling pose -->
-  <ellipse cx="86" cy="168" rx="17" ry="7" fill="url(#g)"/>
-  <ellipse cx="113" cy="170" rx="15" ry="6" fill="url(#g)"/>
-
-  <!-- Ground/feet hint -->
-  <path d="M 66 168 Q 98 178 130 170 L 128 175 Q 98 184 68 174 Z" fill="url(#g)" opacity="0.35"/>
+  <!-- Woman silhouette kneeling, side view -->
+  <!-- Head -->
+  <circle cx="112" cy="36" r="18" fill="url(#sil)"/>
+  <!-- Long flowing hair behind head -->
+  <path d="M 100 24 C 82 20 58 24 44 38 C 32 50 32 68 42 80 C 50 90 62 90 70 82 C 60 82 52 72 56 60 C 60 46 76 38 94 42 Z" fill="url(#sil)"/>
+  <!-- Neck -->
+  <rect x="104" y="52" width="14" height="16" rx="4" fill="url(#sil)"/>
+  <!-- Torso / upper body -->
+  <path d="M 96 66 C 88 70 80 84 78 102 C 76 116 78 128 84 138 L 126 138 C 132 128 134 116 132 102 C 130 84 122 70 114 66 Z" fill="url(#sil)"/>
+  <!-- Bust curve (feminine) -->
+  <path d="M 128 80 C 138 88 142 104 138 118 C 136 126 130 132 126 138 L 116 138 C 122 128 128 116 130 104 C 132 92 130 84 124 78 Z" fill="url(#sil)"/>
+  <!-- Kneeling legs - thighs going forward -->
+  <path d="M 84 138 C 76 140 56 144 48 152 C 42 158 44 166 52 168 L 128 168 C 136 168 140 162 136 156 C 128 146 110 140 98 138 Z" fill="url(#sil)"/>
+  <!-- Lower legs folded back (kneeling) -->
+  <path d="M 48 152 C 36 152 28 158 28 164 C 28 168 34 170 42 168 L 52 168 C 48 164 44 160 48 152 Z" fill="url(#sil)"/>
+  <!-- Arm reaching forward -->
+  <path d="M 84 88 C 72 96 58 110 52 126 C 48 136 52 142 60 140 C 66 138 70 130 76 120 C 82 108 90 96 96 90 Z" fill="url(#sil)"/>
 </svg>

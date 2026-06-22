@@ -1,41 +1,35 @@
 <svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#160000"/>
-      <stop offset="1" stop-color="#060000"/>
+      <stop stop-color="#1a0000"/>
+      <stop offset="1" stop-color="#050000"/>
     </linearGradient>
-    <linearGradient id="g" x1="256" y1="30" x2="256" y2="490" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#FFE566"/>
-      <stop offset="0.45" stop-color="#FFD700"/>
-      <stop offset="1" stop-color="#B06000"/>
+    <linearGradient id="sil" x1="256" y1="40" x2="256" y2="480" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFD700"/>
+      <stop offset="1" stop-color="#8B0000"/>
     </linearGradient>
-    <radialGradient id="gl" cx="256" cy="256" r="252" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#8B0000" stop-opacity="0.55"/>
+    <radialGradient id="glow" cx="256" cy="256" r="250" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#8B0000" stop-opacity="0.3"/>
       <stop offset="1" stop-color="#8B0000" stop-opacity="0"/>
     </radialGradient>
   </defs>
   <rect width="512" height="512" rx="102" fill="url(#bg)"/>
-  <rect width="512" height="512" rx="102" fill="url(#gl)"/>
-
-  <!-- HAIR: large flowing mass to the LEFT — clear woman differentiator -->
-  <path d="M 274 80 C 228 57 162 52 108 74 C 54 97 29 148 34 200 C 39 245 74 274 120 268 C 157 262 182 234 174 200 C 160 216 139 228 125 212 C 109 188 120 154 154 134 C 188 114 228 126 250 160 C 260 134 268 104 274 80 Z" fill="url(#g)"/>
-
-  <!-- HEAD: circle at upper-right -->
-  <circle cx="314" cy="108" r="63" fill="url(#g)"/>
-
-  <!-- NECK -->
-  <path d="M 281 166 L 283 200 L 323 206 L 326 172 Q 306 182 281 166 Z" fill="url(#g)"/>
-
-  <!-- BODY back-side -->
-  <path d="M 317 200 C 300 222 280 258 272 300 C 263 340 260 382 252 422 C 246 450 237 468 232 486 L 278 492 C 285 462 294 432 305 398 C 317 358 329 315 341 278 C 353 244 360 214 354 192 C 344 184 330 185 317 200 Z" fill="url(#g)"/>
-
-  <!-- BUST + FRONT: breast curve visible, clearly feminine -->
-  <path d="M 354 194 C 382 219 392 265 382 310 C 372 354 346 390 332 434 C 320 467 318 486 325 496 L 280 492 C 287 462 296 432 308 399 C 320 362 337 323 348 286 C 360 252 363 224 354 194 Z" fill="url(#g)"/>
-
-  <!-- KNEELING LEGS at bottom -->
-  <ellipse cx="245" cy="480" rx="48" ry="20" fill="url(#g)"/>
-  <ellipse cx="322" cy="485" rx="42" ry="18" fill="url(#g)"/>
-
-  <!-- Ground hint -->
-  <path d="M 188 480 Q 280 506 370 485 L 366 498 Q 280 520 192 494 Z" fill="url(#g)" opacity="0.35"/>
+  <rect width="512" height="512" rx="102" fill="url(#glow)"/>
+  <!-- Woman silhouette kneeling, side view -->
+  <!-- Head -->
+  <circle cx="316" cy="100" r="52" fill="url(#sil)"/>
+  <!-- Long flowing hair behind head -->
+  <path d="M 284 68 C 232 56 162 68 124 108 C 90 142 90 194 120 228 C 142 256 176 256 198 232 C 170 232 148 204 158 172 C 170 132 216 108 268 120 Z" fill="url(#sil)"/>
+  <!-- Neck -->
+  <rect x="296" y="148" width="40" height="46" rx="12" fill="url(#sil)"/>
+  <!-- Torso / upper body -->
+  <path d="M 274 188 C 250 200 228 240 222 292 C 216 332 222 366 240 394 L 358 394 C 376 366 382 332 376 292 C 370 240 348 200 324 188 Z" fill="url(#sil)"/>
+  <!-- Bust curve (feminine) -->
+  <path d="M 366 228 C 394 252 406 298 394 338 C 388 360 370 378 358 394 L 328 394 C 346 366 364 332 370 298 C 376 264 370 240 352 222 Z" fill="url(#sil)"/>
+  <!-- Kneeling legs - thighs going forward -->
+  <path d="M 240 394 C 214 400 158 412 136 432 C 118 450 124 474 146 478 L 364 478 C 386 478 398 462 386 446 C 364 416 312 400 280 394 Z" fill="url(#sil)"/>
+  <!-- Lower legs folded back (kneeling) -->
+  <path d="M 136 432 C 102 432 80 448 80 464 C 80 476 96 482 118 478 L 146 478 C 136 466 126 454 136 432 Z" fill="url(#sil)"/>
+  <!-- Arm reaching forward elegantly -->
+  <path d="M 240 252 C 204 274 164 314 148 358 C 136 390 148 406 170 400 C 188 394 200 370 216 344 C 234 312 256 276 274 260 Z" fill="url(#sil)"/>
 </svg>
