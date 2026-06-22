@@ -39,11 +39,15 @@ function EliteCard({ escort, isFav, onFav }: { escort: ApiEscort; isFav: boolean
     <div className="relative col-span-2 md:col-span-1 rounded-2xl overflow-hidden border-2 border-[#FFD700]/40 shadow-xl shadow-[#FFD700]/10 group hover:border-[#FFD700]/70 transition-all">
       <div className="aspect-[4/5] relative">
         {escort.image ? (
-          <img
-            src={escort.image}
-            alt={escort.name}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-          />
+          <>
+            <img
+              src={escort.image}
+              alt={escort.name}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+              onError={(ev) => { ev.currentTarget.style.display='none'; const fb=ev.currentTarget.parentElement?.querySelector<HTMLElement>('.img-fallback'); if(fb) fb.style.display='flex' }}
+            />
+            <div className="img-fallback w-full h-full absolute inset-0 items-center justify-center" style={{ display:'none' }}><EscortPlaceholder name={escort.name} size="lg" /></div>
+          </>
         ) : (
           <EscortPlaceholder name={escort.name} size="lg" />
         )}
@@ -103,11 +107,15 @@ function VIPCard({ escort, isFav, onFav }: { escort: ApiEscort; isFav: boolean; 
     <div className="relative rounded-xl overflow-hidden border border-[#FF4500]/30 shadow-lg group hover:border-[#FF4500]/60 transition-all">
       <div className="aspect-[3/4] relative">
         {escort.image ? (
-          <img
-            src={escort.image}
-            alt={escort.name}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-          />
+          <>
+            <img
+              src={escort.image}
+              alt={escort.name}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+              onError={(ev) => { ev.currentTarget.style.display='none'; const fb=ev.currentTarget.parentElement?.querySelector<HTMLElement>('.img-fallback'); if(fb) fb.style.display='flex' }}
+            />
+            <div className="img-fallback w-full h-full absolute inset-0 items-center justify-center" style={{ display:'none' }}><EscortPlaceholder name={escort.name} size="md" /></div>
+          </>
         ) : (
           <EscortPlaceholder name={escort.name} size="md" />
         )}
@@ -149,7 +157,15 @@ function StandardCard({ escort, isFav, onFav }: { escort: ApiEscort; isFav: bool
     <div className="flex gap-3 p-3 bg-card-bg border border-color rounded-xl hover:border-[#8B0000]/40 transition-all group">
       <div className="relative flex-shrink-0 w-16 h-16 rounded-xl overflow-hidden">
         {escort.image ? (
-          <img src={escort.image} alt={escort.name} className="w-full h-full object-cover" />
+          <>
+            <img
+              src={escort.image}
+              alt={escort.name}
+              className="w-full h-full object-cover"
+              onError={(ev) => { ev.currentTarget.style.display='none'; const fb=ev.currentTarget.parentElement?.querySelector<HTMLElement>('.img-fallback'); if(fb) fb.style.display='flex' }}
+            />
+            <div className="img-fallback w-full h-full absolute inset-0 items-center justify-center" style={{ display:'none' }}><EscortPlaceholder name={escort.name} size="sm" /></div>
+          </>
         ) : (
           <EscortPlaceholder name={escort.name} size="sm" />
         )}

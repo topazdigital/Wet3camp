@@ -91,15 +91,25 @@ export default function FeaturedCarousel() {
             >
               <div className="relative" style={{ height: 300 }}>
                 {e.image ? (
-                  <img
-                    src={e.image}
-                    alt={e.name}
-                    draggable={false}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                  />
+                  <>
+                    <img
+                      src={e.image}
+                      alt={e.name}
+                      draggable={false}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      onError={(ev) => {
+                        ev.currentTarget.style.display = 'none'
+                        const fb = ev.currentTarget.parentElement?.querySelector<HTMLElement>('.img-fallback')
+                        if (fb) fb.style.display = 'flex'
+                      }}
+                    />
+                    <div className="img-fallback w-full h-full absolute inset-0 items-center justify-center bg-gradient-to-br from-[#1a1a1a] to-[#2a1a1a]" style={{ display: 'none' }}>
+                      <span className="text-5xl font-black text-[#8B0000]/40 select-none">{(e.name || '?').charAt(0).toUpperCase()}</span>
+                    </div>
+                  </>
                 ) : (
-                  <div className="w-full h-full bg-card-bg flex items-center justify-center">
-                    <span className="text-text-muted text-xs">No photo</span>
+                  <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#1a1a1a] to-[#2a1a1a]">
+                    <span className="text-5xl font-black text-[#8B0000]/40 select-none">{(e.name || '?').charAt(0).toUpperCase()}</span>
                   </div>
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-transparent" />

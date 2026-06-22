@@ -177,7 +177,24 @@ export default function ProfilePage() {
 
           <div className="absolute inset-0 flex items-center justify-center">
             {mainImg ? (
-              <img src={mainImg} alt={escort.name} onClick={() => setSelectedImg(mainImg)} className="h-full w-auto max-w-[65%] sm:max-w-[45%] lg:max-w-[35%] object-contain drop-shadow-2xl cursor-zoom-in" style={{ filter: 'drop-shadow(0 8px 40px rgba(0,0,0,0.7))' }} draggable={false} />
+              <>
+                <img
+                  src={mainImg}
+                  alt={escort.name}
+                  onClick={() => setSelectedImg(mainImg)}
+                  className="h-full w-auto max-w-[65%] sm:max-w-[45%] lg:max-w-[35%] object-contain drop-shadow-2xl cursor-zoom-in"
+                  style={{ filter: 'drop-shadow(0 8px 40px rgba(0,0,0,0.7))' }}
+                  draggable={false}
+                  onError={(ev) => {
+                    ev.currentTarget.style.display = 'none'
+                    const fb = ev.currentTarget.parentElement?.querySelector<HTMLElement>('.profile-img-fallback')
+                    if (fb) fb.style.display = 'flex'
+                  }}
+                />
+                <div className="profile-img-fallback w-48 h-64 bg-dark-bg/50 rounded-2xl items-center justify-center" style={{ display: 'none' }}>
+                  <span className="text-6xl">👤</span>
+                </div>
+              </>
             ) : (
               <div className="w-48 h-64 bg-dark-bg/50 rounded-2xl flex items-center justify-center"><span className="text-6xl">👤</span></div>
             )}
