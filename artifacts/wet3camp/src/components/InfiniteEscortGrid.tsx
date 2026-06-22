@@ -152,7 +152,7 @@ export default function InfiniteEscortGrid({
           const uniqueKey = `${escort.id}-${idx}`
           const following = isFollowing(escort.id)
           const isOwnEscort = !!(user?.id && escort.user_id && String(escort.user_id) === user.id)
-          const profileHref = /^\d+$/.test(escort.id) ? `/profile/${escort.id}` : `/profile/${getSlug(escort.name)}`
+          const profileHref = `/@${getSlug(escort.name)}`
           return (
             <Link href={profileHref} key={uniqueKey} className="group">
               <div className="bg-card-bg rounded-xl overflow-hidden border border-color hover:border-[#8B0000]/50 hover:shadow-lg hover:shadow-[#8B0000]/10 transition-all duration-200">

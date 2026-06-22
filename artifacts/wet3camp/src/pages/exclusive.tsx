@@ -7,6 +7,7 @@ import { useAuth } from '@/lib/auth-context'
 import { useSEO } from '@/lib/useSEO'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
+import { getSlug } from '@/data/escorts'
 
 const PACKAGES = [
   { name:'Silver', price:2500, period:'month', perks:['Exclusive profiles access','Priority messaging','No ads','HD photos'], color:'#9E9E9E' },
@@ -84,7 +85,7 @@ export default function ExclusivePage() {
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                   {eliteEscorts.map(e => (
-                    <Link href={isLoggedIn ? `/profile/${e.id}` : '/register'} key={e.id} className="block">
+                    <Link href={isLoggedIn ? `/@${getSlug(e.name)}` : '/register'} key={e.id} className="block">
                       <div className="bg-card-bg border border-[#FFD700]/20 rounded-2xl overflow-hidden group hover:border-[#FFD700]/50 hover:shadow-lg hover:shadow-[#FFD700]/10 transition-all">
                         <div className="relative aspect-[3/4] overflow-hidden">
                           {e.image ? (

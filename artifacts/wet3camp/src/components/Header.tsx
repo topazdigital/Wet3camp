@@ -4,6 +4,7 @@ import { Bell, Heart, Search, X, ShieldCheck, ChevronDown, LogOut, User, Setting
 import { useSidebar } from '@/lib/sidebar-context'
 import { useAuth } from '@/lib/auth-context'
 import { useNotifications } from '@/lib/notifications-context'
+import { getSlug } from '@/data/escorts'
 
 interface SearchResult {
   id: string; name: string; city: string; area: string; image?: string; tier?: string; verified?: boolean
@@ -43,7 +44,7 @@ function SearchDropdown({ results, loading, query, onClose }: {
           {results.map(r => (
             <Link
               key={r.id}
-              href={`/profile/${r.id}`}
+              href={`/@${getSlug(r.name)}`}
               onClick={onClose}
               className="flex items-center gap-3 px-4 py-3 hover:bg-dark-bg transition-colors border-b border-color/30 last:border-0"
             >

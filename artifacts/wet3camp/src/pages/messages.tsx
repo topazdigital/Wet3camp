@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react'
 import Header from '@/components/Header'
 import Sidebar from '@/components/Sidebar'
 import { useSEO } from '@/lib/useSEO'
+import { getSlug } from '@/data/escorts'
 import {
   Send, Search, CheckCheck, Check, MoreVertical, Phone, Video, Paperclip,
   Smile, ArrowLeft, Calendar, X, Wifi, WifiOff, Mic, StopCircle, FileText,
@@ -826,13 +827,13 @@ export default function MessagesPage() {
                 <button className="md:hidden p-1.5 text-text-muted hover:text-text-light mr-1" onClick={() => setShowList(true)}>
                   <ArrowLeft size={18} />
                 </button>
-                <Link href={`/profile/${activeCon?.id}`} className="relative flex-shrink-0 group">
+                <Link href={`/@${getSlug(activeCon?.name ?? '')}`} className="relative flex-shrink-0 group">
                   <img src={activeCon?.avatar} alt={activeCon?.name} className="w-9 h-9 rounded-full object-cover group-hover:ring-2 group-hover:ring-[#8B0000]/50 transition-all" />
                   {activeCon?.online && <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-[#28a745] rounded-full border-2 border-card-bg" />}
                 </Link>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <Link href={`/profile/${activeCon?.id}`} className="font-bold text-text-light text-sm hover:text-[#FFD700] transition-colors">
+                    <Link href={`/@${getSlug(activeCon?.name ?? '')}`} className="font-bold text-text-light text-sm hover:text-[#FFD700] transition-colors">
                       {activeCon?.name}
                     </Link>
                     {isLoggedIn && (
@@ -894,7 +895,7 @@ export default function MessagesPage() {
                     return (
                       <div key={msg.id} className={`flex ${msg.mine ? 'justify-end' : 'justify-start'} mb-1.5`}>
                         {!msg.mine && (
-                          <Link href={`/profile/${activeCon?.id}`}>
+                          <Link href={`/@${getSlug(activeCon?.name ?? '')}`}>
                             <img src={activeCon?.avatar} alt="" className="w-6 h-6 rounded-full object-cover mr-2 self-end flex-shrink-0 hover:ring-2 hover:ring-[#8B0000]/40 transition-all" />
                           </Link>
                         )}

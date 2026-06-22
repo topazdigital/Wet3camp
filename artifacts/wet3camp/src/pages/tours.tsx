@@ -4,6 +4,7 @@ import Sidebar from '@/components/Sidebar'
 import { MapPin, Star, Plane, ChevronRight, CheckCircle2, MessageCircle } from 'lucide-react'
 import { Link } from 'wouter'
 import { useSEO } from '@/lib/useSEO'
+import { getSlug } from '@/data/escorts'
 
 const CITIES = ['All', 'Nairobi', 'Mombasa', 'Kisumu', 'Nakuru', 'Diani']
 const TIER_COLORS: Record<string, string> = { elite: '#8B0000', vip: '#FF4500', premium: '#B8860B' }
@@ -142,7 +143,7 @@ export default function ToursPage() {
                         </div>
 
                         <div className="flex gap-2">
-                          <Link href={`/profile/${e.id}`} className="flex-1 py-2.5 bg-gradient-to-r from-[#9C27B0] to-[#7B1FA2] text-white font-bold text-xs rounded-xl hover:opacity-90 transition-all flex items-center justify-center gap-1.5">
+                          <Link href={`/@${getSlug(e.name)}`} className="flex-1 py-2.5 bg-gradient-to-r from-[#9C27B0] to-[#7B1FA2] text-white font-bold text-xs rounded-xl hover:opacity-90 transition-all flex items-center justify-center gap-1.5">
                             View Profile <ChevronRight size={13} />
                           </Link>
                           <Link href={`/messages?to=${e.id}`} className="px-3 py-2.5 bg-card-bg border border-color text-text-muted rounded-xl hover:border-[#9C27B0] hover:text-[#9C27B0] transition-all">

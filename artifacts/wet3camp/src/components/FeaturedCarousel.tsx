@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useCallback, useState } from 'react'
 import { Link } from 'wouter'
 import { Star, MapPin, CheckCircle2 } from 'lucide-react'
 import { api, type ApiEscort } from '@/lib/api'
+import { getSlug } from '@/data/escorts'
 
 const CARD_W = 220
 const GAP    = 12
@@ -80,7 +81,7 @@ export default function FeaturedCarousel() {
           return (
             <Link
               key={`${e.id}-${i}`}
-              href={`/profile/${e.id}`}
+              href={`/@${getSlug(e.name)}`}
               className="flex-shrink-0 rounded-2xl overflow-hidden relative group"
               style={{ width: CARD_W }}
               draggable={false}

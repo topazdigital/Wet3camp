@@ -10,6 +10,7 @@ import { useSEO } from '@/lib/useSEO'
 import BookingModal from '@/components/BookingModal'
 import { api } from '@/lib/api'
 import type { ApiEscort } from '@/lib/api'
+import { getSlug } from '@/data/escorts'
 
 const TIER_STYLE: Record<string, { bg: string; text: string; label: string }> = {
   Elite:    { bg: '#8B0000',  text: '#fff', label: '★ ELITE'   },
@@ -66,7 +67,7 @@ export default function ProfilePage() {
       "jobTitle": `${escort.tier ?? 'Premium'} Escort in ${escort.city}, Kenya`,
       "description": escort.bio?.slice(0, 200),
       "image": escort.image,
-      "url": `https://wet3.camp/profile/${escort.id}`,
+      "url": `https://wet3.camp/@${getSlug(escort.name)}`,
       "address": {
         "@type": "PostalAddress",
         "addressLocality": escort.area ?? escort.city,
@@ -123,7 +124,7 @@ export default function ProfilePage() {
       services: availableServices,
     } : undefined,
     ogImage: escort?.image,
-    canonicalPath: `/profile/${escort?.id ?? slug}`,
+    canonicalPath: escort ? `/@${getSlug(escort.name)}` : `/profile/${slug}`,
     type: 'profile',
     schema: escortSeoSchema,
     city: escort?.city,
@@ -433,7 +434,7 @@ export default function ProfilePage() {
                   <h3 className="text-sm font-bold text-text-light mb-3">More in {escort.city}</h3>
                   <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
                     {similar.slice(0, 6).map(s => (
-                      <Link key={s.id} href={`/profile/${s.slug ?? s.id}`} className="group">
+                      <Link key={s.id} href={`/@${getSlug(s.name)}`} className="group">
                         <div className="bg-card-bg border border-color rounded-xl overflow-hidden hover:border-[#8B0000]/40 transition-all">
                           <div className="relative aspect-[3/4] overflow-hidden">
                             <img src={s.image || '/placeholder.jpg'} alt={s.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />

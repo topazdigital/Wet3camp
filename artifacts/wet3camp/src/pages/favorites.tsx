@@ -5,6 +5,7 @@ import { Heart, Star, MapPin, CheckCircle2, Trash2, MessageCircle } from 'lucide
 import { Link } from 'wouter'
 import { useFavorites } from '@/lib/favorites-context'
 import { useAllEscorts } from '@/hooks/useEscorts'
+import { getSlug } from '@/data/escorts'
 
 const tierStyle: Record<string,{bg:string,text:string,label:string}> = {
   elite:    { bg:'#8B000020', text:'#FF6B6B',  label:'ELITE'    },
@@ -56,7 +57,7 @@ export default function FavoritesPage() {
                 return (
                   <div key={e.id} className="bg-card-bg border border-color rounded-2xl overflow-hidden group hover:border-[#8B0000]/50 hover:shadow-lg hover:shadow-[#8B0000]/10 transition-all">
                     <div className="relative aspect-[3/4] overflow-hidden">
-                      <Link href={`/profile/${e.id}`}>
+                      <Link href={`/@${getSlug(e.name)}`}>
                         {e.image ? (
                           <img src={e.image} alt={e.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"/>
                         ) : (
@@ -80,7 +81,7 @@ export default function FavoritesPage() {
                       </button>
                     </div>
                     <div className="p-2.5">
-                      <Link href={`/profile/${e.id}`}>
+                      <Link href={`/@${getSlug(e.name)}`}>
                         <div className="flex items-center gap-1 mb-0.5">
                           <span className="font-bold text-text-light text-xs truncate hover:underline">{e.name}</span>
                           {e.verified && <CheckCircle2 size={9} className="text-[#28a745] flex-shrink-0"/>}
@@ -99,7 +100,7 @@ export default function FavoritesPage() {
                           <span className="text-[9px] text-[#FFD700] font-bold">KES {(e.pricing.hourly).toLocaleString()}/hr</span>
                         )}
                       </div>
-                      <Link href={`/profile/${e.id}`} className="mt-2 flex items-center justify-center gap-1 py-1.5 bg-dark-bg border border-color rounded-lg text-[10px] font-bold text-text-muted hover:text-text-light hover:border-text-muted transition-all">
+                      <Link href={`/@${getSlug(e.name)}`} className="mt-2 flex items-center justify-center gap-1 py-1.5 bg-dark-bg border border-color rounded-lg text-[10px] font-bold text-text-muted hover:text-text-light hover:border-text-muted transition-all">
                         <MessageCircle size={10}/> Contact
                       </Link>
                     </div>

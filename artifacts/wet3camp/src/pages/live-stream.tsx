@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useLocation, useRoute, Link } from 'wouter'
 import { useAuth } from '@/lib/auth-context'
+import { getSlug } from '@/data/escorts'
 import {
   Eye, Radio, X, Send, Heart, Flame, Crown, Star, Gift, Lock, Unlock,
   Share2, UserPlus, BookOpen, Pin, Users, Zap, ChevronDown, AlertCircle,
@@ -347,7 +348,7 @@ export default function LiveStreamPage() {
               <span className="text-[11px] font-bold text-white">Gift</span>
             </button>
             {session?.id && (
-              <Link href={`/profile/${session.id}`} className="flex items-center gap-1 bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-full transition-colors">
+              <Link href={`/@${getSlug(session.name)}`} className="flex items-center gap-1 bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-full transition-colors">
                 <UserPlus size={12} className="text-white" />
                 <span className="text-[11px] text-white">Follow</span>
               </Link>

@@ -7,6 +7,7 @@ import { useFollow } from '@/lib/follow-context'
 import { useAuth } from '@/lib/auth-context'
 import { useAllEscorts } from '@/hooks/useEscorts'
 import { useSEO } from '@/lib/useSEO'
+import { getSlug } from '@/data/escorts'
 
 const TIER_COLOR: Record<string, string> = { elite:'#8B0000', vip:'#FF4500', premium:'#B8860B', standard:'#3a6da8' }
 
@@ -132,7 +133,7 @@ export default function FeedsPage() {
                     <div key={pid} className="bg-card-bg border border-color rounded-2xl overflow-hidden hover:border-[#8B0000]/30 transition-all">
                       {/* Header */}
                       <div className="flex items-center gap-3 px-4 pt-4 pb-3">
-                        <Link href={`/profile/${escort.id}`}>
+                        <Link href={`/@${getSlug(escort.name)}`}>
                           {escort.image
                             ? <img src={escort.image} alt={escort.name} className="w-10 h-10 rounded-full object-cover border-2 flex-shrink-0 cursor-pointer" style={{ borderColor: TIER_COLOR[escort.tier] ?? '#555' }} />
                             : <div className="w-10 h-10 rounded-full border-2 bg-gradient-to-br from-[#1a0000] to-[#2a1a1a] flex items-center justify-center text-[#8B0000]/60 text-sm font-black flex-shrink-0 cursor-pointer" style={{ borderColor: TIER_COLOR[escort.tier] ?? '#555' }}>{(escort.name || '?')[0]}</div>
@@ -140,7 +141,7 @@ export default function FeedsPage() {
                         </Link>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <Link href={`/profile/${escort.id}`} className="font-bold text-text-light text-sm hover:underline">{escort.name}</Link>
+                            <Link href={`/@${getSlug(escort.name)}`} className="font-bold text-text-light text-sm hover:underline">{escort.name}</Link>
                             {escort.verified && (
                               <span className="w-3.5 h-3.5 bg-[#28a745] rounded-full flex items-center justify-center flex-shrink-0">
                                 <span className="text-white text-[7px] font-black">✓</span>
@@ -169,12 +170,12 @@ export default function FeedsPage() {
                       {/* Bio as post text */}
                       <div className="px-4 pb-3">
                         <p className="text-sm text-text-light leading-relaxed whitespace-pre-line line-clamp-4">{escort.bio}</p>
-                        <Link href={`/profile/${escort.id}`} className="text-[11px] text-[#8B0000] hover:underline mt-1 block">View full profile →</Link>
+                        <Link href={`/@${getSlug(escort.name)}`} className="text-[11px] text-[#8B0000] hover:underline mt-1 block">View full profile →</Link>
                       </div>
 
                       {/* Photo */}
                       {escort.image && (
-                        <Link href={`/profile/${escort.id}`} className="block w-full aspect-video overflow-hidden">
+                        <Link href={`/@${getSlug(escort.name)}`} className="block w-full aspect-video overflow-hidden">
                           <img src={escort.image} alt={escort.name} className="w-full h-full object-cover hover:scale-[1.01] transition-transform duration-500 cursor-pointer" />
                         </Link>
                       )}
@@ -187,7 +188,7 @@ export default function FeedsPage() {
                               <Heart size={15} className={isLiked ? 'fill-[#E91E63]' : ''} />
                               <span className="font-semibold">{likes + (isLiked ? 1 : 0)}</span>
                             </button>
-                            <Link href={`/profile/${escort.id}`} className="flex items-center gap-1.5 text-xs text-text-muted hover:text-text-light transition-colors">
+                            <Link href={`/@${getSlug(escort.name)}`} className="flex items-center gap-1.5 text-xs text-text-muted hover:text-text-light transition-colors">
                               <MessageCircle size={15} />
                               <span className="font-semibold">{comments}</span>
                             </Link>
@@ -238,14 +239,14 @@ export default function FeedsPage() {
                   <div className="space-y-3">
                     {recommended.map((e: any) => (
                       <div key={e.id} className="flex items-center gap-2.5">
-                        <Link href={`/profile/${e.id}`} className="flex-shrink-0">
+                        <Link href={`/@${getSlug(e.name)}`} className="flex-shrink-0">
                           {e.image
                             ? <img src={e.image} alt={e.name} className="w-9 h-9 rounded-full object-cover border border-color" />
                             : <div className="w-9 h-9 rounded-full border border-color bg-gradient-to-br from-[#1a1a1a] to-[#2a1a1a] flex items-center justify-center text-[#8B0000]/60 text-sm font-black">{(e.name || '?')[0]}</div>
                           }
                         </Link>
                         <div className="flex-1 min-w-0">
-                          <Link href={`/profile/${e.id}`} className="font-bold text-text-light text-xs hover:underline block truncate">{e.name}</Link>
+                          <Link href={`/@${getSlug(e.name)}`} className="font-bold text-text-light text-xs hover:underline block truncate">{e.name}</Link>
                           <p className="text-[10px] text-text-muted truncate">{e.city} · {followerCount(e.id).toLocaleString()} followers</p>
                         </div>
                         <FollowBtn escortId={String(e.id)} small />

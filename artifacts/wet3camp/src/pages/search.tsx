@@ -7,6 +7,7 @@ import { Link, useLocation } from 'wouter'
 import { api } from '@/lib/api'
 import type { ApiEscort } from '@/lib/api'
 import { useFavorites } from '@/lib/favorites-context'
+import { getSlug } from '@/data/escorts'
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
@@ -88,7 +89,7 @@ function EliteCard({ escort, isFav, onFav }: { escort: ApiEscort; isFav: boolean
             </div>
           </div>
           <div className="flex gap-2 mt-3">
-            <Link href={`/profile/${escort.id}`} className="flex-1 py-2 bg-[#FFD700] text-black text-xs font-black rounded-xl text-center hover:bg-[#FFC200] transition-colors">
+            <Link href={`/@${getSlug(escort.name)}`} className="flex-1 py-2 bg-[#FFD700] text-black text-xs font-black rounded-xl text-center hover:bg-[#FFC200] transition-colors">
               View Profile
             </Link>
             <Link href="/messages" className="w-9 h-9 bg-white/10 rounded-xl flex items-center justify-center hover:bg-white/20 transition-colors">
@@ -142,7 +143,7 @@ function VIPCard({ escort, isFav, onFav }: { escort: ApiEscort; isFav: boolean; 
           <p className="text-[10px] text-white/60 flex items-center gap-1"><MapPin size={9} />{escort.city}</p>
           <div className="flex items-center justify-between mt-2">
             <p className="text-sm font-black" style={{ color: tier.color }}>KES {(escort.price_incall || escort.price_hourly || 0).toLocaleString()}<span className="text-[9px] text-white/40">/hr</span></p>
-            <Link href={`/profile/${escort.id}`} className="px-2.5 py-1 text-[10px] font-bold rounded-lg text-black" style={{ background: tier.color }}>
+            <Link href={`/@${getSlug(escort.name)}`} className="px-2.5 py-1 text-[10px] font-bold rounded-lg text-black" style={{ background: tier.color }}>
               View
             </Link>
           </div>
@@ -189,7 +190,7 @@ function StandardCard({ escort, isFav, onFav }: { escort: ApiEscort; isFav: bool
           <Heart size={14} className={isFav ? 'fill-[#E91E63] text-[#E91E63]' : 'text-text-muted hover:text-[#E91E63] transition-colors'} />
         </button>
         <p className="text-xs font-bold text-[#8B0000]">KES {(escort.price_incall || escort.price_hourly || 0).toLocaleString()}</p>
-        <Link href={`/profile/${escort.id}`} className="text-[10px] px-2 py-1 bg-[#8B0000]/15 text-[#8B0000] rounded-lg font-semibold hover:bg-[#8B0000]/25 transition-colors">
+        <Link href={`/@${getSlug(escort.name)}`} className="text-[10px] px-2 py-1 bg-[#8B0000]/15 text-[#8B0000] rounded-lg font-semibold hover:bg-[#8B0000]/25 transition-colors">
           View
         </Link>
       </div>

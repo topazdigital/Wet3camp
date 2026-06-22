@@ -3,6 +3,7 @@ import Header from '@/components/Header'
 import Sidebar from '@/components/Sidebar'
 import { useAuth } from '@/lib/auth-context'
 import { api } from '@/lib/api'
+import { getSlug } from '@/data/escorts'
 import { Eye, Calendar, Star, Edit3, Camera, CheckCircle2, XCircle, MapPin, DollarSign, Users, Heart, MessageCircle, BarChart2, Zap, Crown, Smartphone, Instagram, Loader2, AlertCircle, UserCheck, Globe, Radio, RefreshCw, X } from 'lucide-react'
 import { Link } from 'wouter'
 import { useFollow } from '@/lib/follow-context'
@@ -374,7 +375,7 @@ export default function MyProfile() {
                   {available ? 'Available' : 'Unavailable'}
                 </button>
                 {escortProfile?.id && (
-                  <Link href={`/profile/${escortProfile.id}`} className="flex items-center gap-1.5 px-3 py-2 bg-white/10 hover:bg-white/20 text-white text-xs font-medium rounded-xl transition-all">
+                  <Link href={`/@${getSlug(escortProfile.name ?? '')}`} className="flex items-center gap-1.5 px-3 py-2 bg-white/10 hover:bg-white/20 text-white text-xs font-medium rounded-xl transition-all">
                     <Eye size={12} /> View Profile
                   </Link>
                 )}
