@@ -165,10 +165,17 @@ Options -Indexes
   Header set Cache-Control "public, max-age=3600"
 </FilesMatch>
 
-# SPA fallback — redirect all non-file requests to index.html
+# --- API proxy + SPA fallback ---
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
+
+  # Proxy ALL /api/* requests (including /api/uploads/*) to Node.js on port 8080
+  # This MUST come before the SPA fallback so image/API requests reach the server
+  RewriteCond %{REQUEST_URI} ^/api [NC]
+  RewriteRule ^ http://localhost:8080%{REQUEST_URI} [P,L,QSA]
+
+  # SPA fallback — serve index.html for all non-file, non-directory routes
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
   RewriteRule ^ index.html [L]
