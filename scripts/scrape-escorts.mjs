@@ -1,55 +1,140 @@
 /**
  * Kenyan Escort Directory Scraper
- * Scrapes profiles from nairobiraha.com and imports into the wet3.camp database.
- * Escorts can later claim their profiles via the wet3.camp registration flow.
+ * Scrapes profiles from nairobiraha.com and imports them into the wet3.camp database.
+ * Works with both MySQL (live server) and PostgreSQL (Replit dev) — auto-detected
+ * from DATABASE_URL.  Escorts can later claim their profiles via the registration flow.
  *
- * Usage:
- *   node scripts/scrape-escorts.mjs
- *   node scripts/scrape-escorts.mjs --limit=10   (scrape only 10 profiles)
- *   node scripts/scrape-escorts.mjs --dry-run    (parse but don't insert)
+ * Usage (run from project root or artifacts/api-server/):
+ *   node scrape-escorts.mjs                  — full scrape + import
+ *   node scrape-escorts.mjs --dry-run        — parse only, no DB writes
+ *   node scrape-escorts.mjs --limit=10       — import first 10 profiles
+ *
+ * On the live server:
+ *   cd /home/admin/wet3camp-build/artifacts/api-server
+ *   DATABASE_URL="mysql://admin_wet3camp:PASSWORD@localhost/admin_wet3camp" node scrape-escorts.mjs
  */
 
-import { createWriteStream, mkdirSync, existsSync } from 'fs'
+import { mkdirSync, existsSync } from 'fs'
 import { writeFile } from 'fs/promises'
 import path from 'path'
 import { fileURLToPath } from 'url'
-import pg from 'pg'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
-// ── Config ──────────────────────────────────────────────────────────────────
+// ── Config ───────────────────────────────────────────────────────────────────
 const DATABASE_URL = process.env.DATABASE_URL
-const UPLOADS_DIR = process.env.UPLOADS_DIR
-  || path.join(__dirname, '..', 'artifacts', 'api-server', 'uploads')
-const DELAY_MS = 1200          // polite delay between requests
-const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+const UPLOADS_DIR  = process.env.UPLOADS_DIR || path.join(__dirname, 'uploads')
+const DELAY_MS     = 1200
+const USER_AGENT   = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
 
-const args = process.argv.slice(2)
+const args    = process.argv.slice(2)
 const DRY_RUN = args.includes('--dry-run')
-const LIMIT = parseInt(args.find(a => a.startsWith('--limit='))?.split('=')[1] || '9999', 10)
+const LIMIT   = parseInt(args.find(a => a.startsWith('--limit='))?.split('=')[1] || '9999', 10)
+const IS_MYSQL = DATABASE_URL?.startsWith('mysql://')
 
-// Source sites to scrape — add more listing URLs here as needed
+// Listing pages to scrape — add more as needed
 const SOURCES = [
-  { site: 'nairobiraha', listingUrl: 'https://nairobiraha.com/escorts/' },
-  { site: 'nairobiraha', listingUrl: 'https://nairobiraha.com/escorts/page/2/' },
-  { site: 'nairobiraha', listingUrl: 'https://nairobiraha.com/african-escorts/' },
-  { site: 'nairobiraha', listingUrl: 'https://nairobiraha.com/call-girls/' },
+  { listingUrl: 'https://nairobiraha.com/escorts/' },
+  { listingUrl: 'https://nairobiraha.com/escorts/page/2/' },
+  { listingUrl: 'https://nairobiraha.com/african-escorts/' },
+  { listingUrl: 'https://nairobiraha.com/call-girls/' },
 ]
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
-function sleep(ms) {
-  return new Promise(r => setTimeout(r, ms))
+// ── Dual-DB adapter ──────────────────────────────────────────────────────────
+// Wraps both mysql2 (? placeholders, result.insertId) and pg ($N placeholders,
+// RETURNING id) behind a single uniform interface so the rest of the script
+// doesn't care which backend is in use.
+
+class DbAdapter {
+  constructor(pool, isMysql) {
+    this.pool    = pool
+    this.isMysql = isMysql
+  }
+
+  // Convert $1/$2... placeholders to ? for MySQL
+  #toMysql(sql) {
+    return sql.replace(/\$\d+/g, '?').replace(/\s+RETURNING\s+id\s*;?\s*$/i, '')
+  }
+
+  // Execute a query and return a normalised { rows } object
+  async query(sql, params = []) {
+    if (this.isMysql) {
+      const [rows] = await this.pool.query(this.#toMysql(sql), params)
+      return { rows: Array.isArray(rows) ? rows : [rows] }
+    }
+    return this.pool.query(sql, params)
+  }
+
+  // INSERT — returns the new row's id
+  async insert(sql, params = []) {
+    if (this.isMysql) {
+      const [result] = await this.pool.query(this.#toMysql(sql), params)
+      return result.insertId
+    }
+    // PostgreSQL — append RETURNING id if not already present
+    const pgSql = /RETURNING\s+id/i.test(sql) ? sql : sql.trimEnd() + ' RETURNING id'
+    const res   = await this.pool.query(pgSql, params)
+    return res.rows[0].id
+  }
+
+  // Fire-and-forget (DDL, gallery inserts, etc.)
+  async run(sql, params = []) {
+    if (this.isMysql) {
+      await this.pool.query(this.#toMysql(sql), params)
+    } else {
+      await this.pool.query(sql, params)
+    }
+  }
+
+  async end() { await this.pool.end() }
 }
+
+async function createDb() {
+  if (!DATABASE_URL) throw new Error('DATABASE_URL env var is not set')
+
+  if (IS_MYSQL) {
+    // mysql2 is a production dep — always available on the live server
+    const mysql = (await import('mysql2/promise')).default
+    const pool  = mysql.createPool(DATABASE_URL)
+    return new DbAdapter(pool, true)
+  } else {
+    // pg is a dep of api-server — available on Replit dev
+    const { default: pg } = await import('pg')
+    const pool = new pg.Pool({ connectionString: DATABASE_URL, max: 3 })
+    return new DbAdapter(pool, false)
+  }
+}
+
+// ── Ensure optional columns exist ────────────────────────────────────────────
+async function ensureColumns(db) {
+  const stmts = db.isMysql
+    ? [
+        'ALTER TABLE escorts ADD COLUMN IF NOT EXISTS incall     TINYINT  NOT NULL DEFAULT 0',
+        'ALTER TABLE escorts ADD COLUMN IF NOT EXISTS outcall    TINYINT  NOT NULL DEFAULT 0',
+        'ALTER TABLE escorts ADD COLUMN IF NOT EXISTS source_site VARCHAR(100) DEFAULT NULL',
+      ]
+    : [
+        'ALTER TABLE escorts ADD COLUMN IF NOT EXISTS incall     SMALLINT NOT NULL DEFAULT 0',
+        'ALTER TABLE escorts ADD COLUMN IF NOT EXISTS outcall    SMALLINT NOT NULL DEFAULT 0',
+        'ALTER TABLE escorts ADD COLUMN IF NOT EXISTS source_site VARCHAR(100) DEFAULT NULL',
+      ]
+  for (const sql of stmts) {
+    try { await db.run(sql) } catch { /* already exists — fine */ }
+  }
+}
+
+// ── HTTP helpers ─────────────────────────────────────────────────────────────
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)) }
 
 async function fetchPage(url) {
   try {
     const res = await fetch(url, {
-      headers: { 'User-Agent': USER_AGENT, 'Accept': 'text/html,application/xhtml+xml' },
+      headers: { 'User-Agent': USER_AGENT, Accept: 'text/html' },
       redirect: 'follow',
       signal: AbortSignal.timeout(20000),
     })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    return await res.text()
+    return res.text()
   } catch (err) {
     console.warn(`  [WARN] fetch failed for ${url}: ${err.message}`)
     return null
@@ -59,17 +144,16 @@ async function fetchPage(url) {
 async function downloadImage(imageUrl, localFilename) {
   if (!existsSync(UPLOADS_DIR)) mkdirSync(UPLOADS_DIR, { recursive: true })
   const destPath = path.join(UPLOADS_DIR, localFilename)
-  if (existsSync(destPath)) return `/api/uploads/${localFilename}`  // already cached
+  if (existsSync(destPath)) return `/api/uploads/${localFilename}`
 
   try {
     const res = await fetch(imageUrl, {
-      headers: { 'User-Agent': USER_AGENT, 'Referer': 'https://nairobiraha.com/' },
+      headers: { 'User-Agent': USER_AGENT, Referer: 'https://nairobiraha.com/' },
       redirect: 'follow',
       signal: AbortSignal.timeout(20000),
     })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    const buf = Buffer.from(await res.arrayBuffer())
-    await writeFile(destPath, buf)
+    await writeFile(destPath, Buffer.from(await res.arrayBuffer()))
     return `/api/uploads/${localFilename}`
   } catch (err) {
     console.warn(`  [WARN] image download failed (${imageUrl}): ${err.message}`)
@@ -77,33 +161,22 @@ async function downloadImage(imageUrl, localFilename) {
   }
 }
 
-// ── HTML parsing helpers (no external deps) ─────────────────────────────────
-function extractText(html, pattern) {
-  const m = html.match(pattern)
-  return m ? m[1].trim().replace(/&amp;/g, '&').replace(/&ndash;/g, '–').replace(/&#039;/g, "'").replace(/&quot;/g, '"').replace(/<[^>]+>/g, '').trim() : null
-}
-
-function extractAttr(html, pattern) {
-  const m = html.match(pattern)
-  return m ? m[1].trim() : null
-}
-
+// ── HTML parsers ─────────────────────────────────────────────────────────────
 function parseListingPage(html) {
   const profiles = []
-  // Match: <a href="URL" class="girlimg" ...><img ... data-responsive-img-url="IMG_URL" ... />...<span class="modelname">NAME</span>...<span class="modelinfo-location">LOCATION</span>
-  const blockRe = /<a\s+href="(https:\/\/nairobiraha\.com\/escort\/[^"]+)"\s+class="girlimg"[^>]*>([\s\S]*?)<\/a>/g
+  const blockRe  = /<a\s+href="(https:\/\/nairobiraha\.com\/escort\/[^"]+)"\s+class="girlimg"[^>]*>([\s\S]*?)<\/a>/g
   let m
   while ((m = blockRe.exec(html)) !== null) {
-    const url = m[1]
+    const url   = m[1]
     const block = m[2]
 
     const nameM = block.match(/<span[^>]*class="modelname"[^>]*>([\s\S]*?)<\/span>/i)
-    const locM = block.match(/<span[^>]*class="modelinfo-location"[^>]*>([\s\S]*?)<\/span>/i)
-    const imgM = block.match(/data-responsive-img-url="([^"]+)"/)
+    const locM  = block.match(/<span[^>]*class="modelinfo-location"[^>]*>([\s\S]*?)<\/span>/i)
+    const imgM  = block.match(/data-responsive-img-url="([^"]+)"/)
 
-    const rawName = nameM ? nameM[1].replace(/<[^>]+>/g, '').trim() : null
-    const location = locM ? locM[1].replace(/<[^>]+>/g, '').trim() : null
-    const thumbnailUrl = imgM ? imgM[1].trim() : null
+    const rawName      = nameM ? nameM[1].replace(/<[^>]+>/g, '').trim() : null
+    const location     = locM  ? locM[1].replace(/<[^>]+>/g, '').trim() : null
+    const thumbnailUrl = imgM  ? imgM[1].trim() : null
 
     if (!rawName || profiles.find(p => p.url === url)) continue
     profiles.push({ url, rawName, location, thumbnailUrl })
@@ -111,176 +184,150 @@ function parseListingPage(html) {
   return profiles
 }
 
-function parseProfilePage(html, url) {
-  // ── Name + phone from header ────────────────────────────────────────────
+function decodeHtml(str) {
+  return str
+    .replace(/&amp;/g, '&').replace(/&ndash;/g, '–').replace(/&#039;/g, "'")
+    .replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+function parseProfilePage(html) {
+  // ── Name ──────────────────────────────────────────────────────────────────
   const titleM = html.match(/<h3[^>]*class="profile-title"[^>]*title="([^"]+)"/)
-  const rawName = titleM ? titleM[1].trim() : null
+  let rawName  = titleM ? titleM[1].trim() : null
+  if (!rawName) return null
 
+  // ── Phone ─────────────────────────────────────────────────────────────────
   const phoneM = html.match(/href="tel:(\+?[\d]+)"/)
-  const phone = phoneM ? phoneM[1].trim() : null
+  let phone    = phoneM ? phoneM[1].trim() : null
+  if (phone) {
+    const d = phone.replace(/\D/g, '')
+    if      (d.startsWith('254') && d.length === 12) phone = `+${d}`
+    else if (d.startsWith('0')   && d.length === 10) phone = `+254${d.slice(1)}`
+    else if (d.length === 9)                          phone = `+254${d}`
+    else                                              phone = `+${d}`
+  }
 
-  // Strip phone from name
-  let name = rawName || ''
-  if (phone) name = name.replace(phone, '').trim()
-  // Also strip 07xxxx patterns
-  name = name.replace(/\s*0\d{9}\s*$/,'').trim()
+  // Strip phone digits from name
+  let name = rawName.replace(/\s*\+?2540?\d{8,9}\s*$/, '').replace(/\s*0\d{9}\s*$/, '').trim()
   if (!name) return null
 
-  // ── Stats block: age/height/weight ─────────────────────────────────────
-  const statsM = html.match(/<div class="profile-header-name-info[^"]*"[^>]*>([\s\S]*?)<\/div>/)
-  let age = 0, height = null, weight = null
-  if (statsM) {
-    const ageM = statsM[1].match(/<span[^>]*>(\d+)<\/span><b>years<\/b>/)
-    const htM  = statsM[1].match(/<span[^>]*>(\d+)<\/span><b>cm<\/b>/)
-    const wM   = statsM[1].match(/<span[^>]*>(\d+)<\/span><b>kg<\/b>/)
-    age = ageM ? parseInt(ageM[1], 10) : 0
-    height = htM ? `${htM[1]}cm` : null
-    weight = wM ? `${wM[1]}kg` : null
+  // ── Age / height / weight ─────────────────────────────────────────────────
+  const ageM    = html.match(/<span[^>]*class="valuecolumn"[^>]*>(\d+)<\/span><b>years<\/b>/)
+  const htM     = html.match(/<span[^>]*class="valuecolumn"[^>]*>(\d+)<\/span><b>cm<\/b>/)
+  const wM      = html.match(/<span[^>]*class="valuecolumn"[^>]*>(\d+)<\/span><b>kg<\/b>/)
+  const age     = ageM ? parseInt(ageM[1], 10) : 0
+  const height  = htM  ? `${htM[1]}cm` : null
+  const weight  = wM   ? `${wM[1]}kg`  : null
+
+  // ── Bio ───────────────────────────────────────────────────────────────────
+  const bioM  = html.match(/<div class="aboutme">([\s\S]*?)<\/div>\s*<div class="clear/)
+  let bio     = null
+  if (bioM) {
+    const raw = bioM[1].replace(/<h4>[^<]*<\/h4>/gi, '').replace(/<b>[^<]*<\/b>/gi, '')
+    const txt = decodeHtml(raw)
+    if (txt.length > 10) bio = txt
   }
 
-  // ── Bio ─────────────────────────────────────────────────────────────────
-  const bioSectionM = html.match(/<div class="aboutme">([\s\S]*?)<\/div>\s*<div class="clear/)
-  let bio = null
-  if (bioSectionM) {
-    // Skip the <h4> and <b> intro line, grab the text after
-    let raw = bioSectionM[1]
-    raw = raw.replace(/<h4>[^<]*<\/h4>/gi, '')
-    raw = raw.replace(/<b>[^<]*<\/b>/gi, '')
-    raw = raw.replace(/<[^>]+>/g, ' ')
-    raw = raw.replace(/\s+/g, ' ').trim()
-    // Decode HTML entities
-    raw = raw.replace(/&amp;/g, '&').replace(/&ndash;/g, '–').replace(/&#039;/g, "'")
-             .replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-    bio = raw.length > 10 ? raw : null
-  }
-
-  // ── Location from aboutme link ───────────────────────────────────────────
+  // ── Location ──────────────────────────────────────────────────────────────
   let city = '', area = ''
-  const cityLinkM = html.match(/escorts-from\/kenya\/([^/"]+)\/?" title="([^"]+)"/)
-  if (cityLinkM) {
-    area = cityLinkM[2].trim()
+  const cityM = html.match(/escorts-from\/kenya\/([^/"]+)\/?" title="([^"]+)"/)
+  if (cityM) {
+    area = cityM[2].trim()
     city = area.includes('Nairobi') ? 'Nairobi' : area
   }
-  // Fallback to contact city field
-  if (!area) {
-    const contactCityM = html.match(/addressLocality"[^>]*>([^<]+)<\/a>/)
-    if (contactCityM) { area = contactCityM[1].trim(); city = area }
-  }
 
-  // ── Section boxes (Availability, Ethnicity, Build, etc.) ────────────────
-  const sectionBoxes = {}
-  const sboxRe = /<div class="section-box"><b[^>]*>([^<]+)<\/b><span[^>]*>([^<]*)<\/span><\/div>/g
-  let sbM
-  while ((sbM = sboxRe.exec(html)) !== null) {
-    sectionBoxes[sbM[1].trim()] = sbM[2].trim()
-  }
+  // ── Section-box fields ────────────────────────────────────────────────────
+  const boxes = {}
+  const boxRe = /<div class="section-box"><b[^>]*>([^<]+)<\/b><span[^>]*>([^<]*)<\/span><\/div>/g
+  let bm
+  while ((bm = boxRe.exec(html)) !== null) boxes[bm[1].trim()] = bm[2].trim()
 
-  const availability = sectionBoxes['Availability'] || ''
-  const ethnicity    = sectionBoxes['Ethnicity'] || null
-  const bodyType     = sectionBoxes['Build'] || null
-  const incall       = availability.toLowerCase().includes('incall') ? 1 : 0
+  const availability = boxes['Availability'] || ''
+  const ethnicity    = boxes['Ethnicity'] || null
+  const bodyType     = boxes['Build'] || null
+  const incall       = availability.toLowerCase().includes('incall')  ? 1 : 0
   const outcall      = availability.toLowerCase().includes('outcall') ? 1 : 0
 
-  // ── Gallery images ───────────────────────────────────────────────────────
+  // ── Gallery images ────────────────────────────────────────────────────────
   const galleryImgs = []
-  const thumbRe = /data-fancybox="profile-photo"[^>]*>\s*<img[^>]+data-responsive-img-url="([^"]+)"/g
-  let gM
-  while ((gM = thumbRe.exec(html)) !== null) {
-    const imgUrl = gM[1].trim().split('?')[0]  // strip CDN query params
-    if (!galleryImgs.includes(imgUrl)) galleryImgs.push(imgUrl)
+  // Full-size fancybox hrefs first
+  const fullRe = /href="(https:\/\/nairobiraha\.com\/wp-content\/uploads\/[^"]+\.(?:jpg|jpeg|png|webp))" data-fancybox="profile-photo"/gi
+  let fm
+  while ((fm = fullRe.exec(html)) !== null) {
+    const u = fm[1].trim()
+    if (!galleryImgs.includes(u)) galleryImgs.push(u)
   }
-  // Also grab fancybox href (full size)
-  const fullImgRe = /href="(https:\/\/nairobiraha\.com\/wp-content\/uploads\/[^"]+\.jpg)" data-fancybox="profile-photo"/g
-  let fM
-  while ((fM = fullImgRe.exec(html)) !== null) {
-    const url2 = fM[1].trim()
-    if (!galleryImgs.includes(url2)) galleryImgs.unshift(url2)
+  // Thumbnail fallback
+  const thumbRe = /data-fancybox="profile-photo"[^>]*>\s*<img[^>]+data-responsive-img-url="([^"]+)"/g
+  let tm
+  while ((tm = thumbRe.exec(html)) !== null) {
+    const u = tm[1].trim().split('?')[0]
+    if (!galleryImgs.includes(u)) galleryImgs.push(u)
   }
 
   return { name, phone, age, city, area, bio, height, weight, ethnicity, bodyType, incall, outcall, galleryImgs }
 }
 
-// ── Database ────────────────────────────────────────────────────────────────
-async function getDb() {
-  if (!DATABASE_URL) throw new Error('DATABASE_URL not set')
-  const pool = new pg.Pool({ connectionString: DATABASE_URL, max: 3 })
-  return pool
-}
-
-async function escortExists(pool, phone) {
+// ── DB operations ────────────────────────────────────────────────────────────
+async function escortExists(db, phone) {
   if (!phone) return false
-  const res = await pool.query('SELECT id FROM escorts WHERE phone = $1', [phone])
-  return res.rows.length > 0
+  const { rows } = await db.query('SELECT id FROM escorts WHERE phone = $1', [phone])
+  return rows.length > 0
 }
 
-async function insertEscort(pool, data, avatarPath) {
-  const {
-    name, phone, age, city, area, bio,
-    height, ethnicity, bodyType, incall, outcall
-  } = data
-
-  const slug = (name.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + Date.now()).slice(0, 80)
-
-  const res = await pool.query(
+async function insertEscort(db, profile, avatarPath) {
+  const { name, phone, age, city, area, bio, height, ethnicity, bodyType, incall, outcall } = profile
+  return db.insert(
     `INSERT INTO escorts (
-      name, phone, whatsapp, age, city, area, bio,
-      height, ethnicity, body_type,
-      image, tier, is_active, verified, gender,
-      incall, outcall, source_site
-    ) VALUES (
-      $1, $2, $3, $4, $5, $6, $7,
-      $8, $9, $10,
-      $11, $12, $13, $14, $15,
-      $16, $17, $18
-    ) RETURNING id`,
+       name, phone, whatsapp, age, city, area, bio,
+       height, ethnicity, body_type,
+       image, tier, is_active, verified, gender,
+       incall, outcall, source_site
+     ) VALUES (
+       $1, $2, $3, $4, $5, $6, $7,
+       $8, $9, $10,
+       $11, $12, $13, $14, $15,
+       $16, $17, $18
+     )`,
     [
-      name, phone, phone, age || 0, city || 'Nairobi', area || city || 'Nairobi', bio,
+      name, phone, phone, age || 0,
+      city || 'Nairobi', area || city || 'Nairobi', bio,
       height, ethnicity, bodyType,
       avatarPath, 'standard', 1, 0, 'Female',
-      incall, outcall, 'nairobiraha'
+      incall, outcall, 'nairobiraha',
     ]
   )
-  return res.rows[0].id
 }
 
-async function insertGallery(pool, escortId, imageUrls) {
+async function insertGallery(db, escortId, imageUrls) {
   for (let i = 0; i < imageUrls.length; i++) {
     try {
-      await pool.query(
+      await db.run(
         'INSERT INTO escort_gallery (escort_id, image_url, sort_order) VALUES ($1, $2, $3)',
         [escortId, imageUrls[i], i]
       )
-    } catch {}
-  }
-}
-
-// ── Check if escorts table has source_site column ────────────────────────────
-async function ensureSourceSiteColumn(pool) {
-  try {
-    await pool.query(`ALTER TABLE escorts ADD COLUMN IF NOT EXISTS incall SMALLINT NOT NULL DEFAULT 0`)
-    await pool.query(`ALTER TABLE escorts ADD COLUMN IF NOT EXISTS outcall SMALLINT NOT NULL DEFAULT 0`)
-    await pool.query(`ALTER TABLE escorts ADD COLUMN IF NOT EXISTS source_site VARCHAR(100) DEFAULT NULL`)
-  } catch (e) {
-    // May already exist — that's fine
+    } catch { /* ignore duplicate */ }
   }
 }
 
 // ── Main ─────────────────────────────────────────────────────────────────────
 async function main() {
-  console.log(`\n🚀 Wet3Camp Escort Scraper`)
-  console.log(`   Uploads: ${UPLOADS_DIR}`)
-  console.log(`   Dry run: ${DRY_RUN}`)
-  console.log(`   Limit:   ${LIMIT}`)
+  console.log('\n🚀 Wet3Camp Escort Scraper')
+  console.log(`   DB backend: ${IS_MYSQL ? 'MySQL/MariaDB' : 'PostgreSQL'}`)
+  console.log(`   Uploads:    ${UPLOADS_DIR}`)
+  console.log(`   Dry run:    ${DRY_RUN}`)
+  console.log(`   Limit:      ${LIMIT}`)
   console.log()
 
-  let pool
+  let db
   if (!DRY_RUN) {
-    pool = await getDb()
-    await ensureSourceSiteColumn(pool)
+    db = await createDb()
+    await ensureColumns(db)
     console.log('✅ Database connected\n')
   }
 
-  // Step 1 — Collect all profile URLs from listing pages
+  // ── Step 1: collect listing URLs ──────────────────────────────────────────
   const allProfiles = []
   const seen = new Set()
 
@@ -293,76 +340,69 @@ async function main() {
     const profiles = parseListingPage(html)
     console.log(`   Found ${profiles.length} profiles`)
     for (const p of profiles) {
-      if (!seen.has(p.url)) {
-        seen.add(p.url)
-        allProfiles.push({ ...p, site: source.site })
-      }
+      if (!seen.has(p.url)) { seen.add(p.url); allProfiles.push(p) }
     }
     await sleep(DELAY_MS)
   }
 
-  console.log(`\n📦 Total unique profiles to process: ${Math.min(allProfiles.length, LIMIT)}\n`)
+  const total = Math.min(allProfiles.length, LIMIT)
+  console.log(`\n📦 Total unique profiles to process: ${total}\n`)
 
-  // Step 2 — Scrape each profile detail page
+  // ── Step 2: scrape + import each profile ──────────────────────────────────
   let imported = 0, skipped = 0, errors = 0
 
-  for (let i = 0; i < Math.min(allProfiles.length, LIMIT); i++) {
+  for (let i = 0; i < total; i++) {
     const listing = allProfiles[i]
-    const num = `[${i + 1}/${Math.min(allProfiles.length, LIMIT)}]`
+    const num     = `[${i + 1}/${total}]`
 
     process.stdout.write(`${num} ${listing.rawName}... `)
 
     const html = await fetchPage(listing.url)
     if (!html) { console.log('❌ fetch failed'); errors++; await sleep(DELAY_MS); continue }
 
-    const profile = parseProfilePage(html, listing.url)
+    const profile = parseProfilePage(html)
     if (!profile) { console.log('❌ parse failed'); errors++; await sleep(DELAY_MS); continue }
 
-    // Fallback location from listing
+    // Location fallback from listing page
     if (!profile.area && listing.location) {
-      const parts = listing.location.split(',')
+      const parts  = listing.location.split(',')
       profile.area = parts[0].trim()
       profile.city = profile.area.includes('Nairobi') ? 'Nairobi' : profile.area
     }
 
     if (DRY_RUN) {
       console.log(`✓ (dry) ${profile.name} | ${profile.phone} | ${profile.area} | age:${profile.age} | imgs:${profile.galleryImgs.length}`)
-      imported++
-      await sleep(300)
-      continue
+      imported++; await sleep(300); continue
     }
 
-    // Skip if phone already exists
-    if (profile.phone && await escortExists(pool, profile.phone)) {
-      console.log(`⏭  already exists (phone: ${profile.phone})`)
-      skipped++
-      await sleep(300)
-      continue
+    // Skip duplicates by phone number
+    if (profile.phone && await escortExists(db, profile.phone)) {
+      console.log(`⏭  already exists`)
+      skipped++; await sleep(300); continue
     }
 
-    // Download avatar (first gallery image or thumbnail)
+    // Download avatar
     let avatarPath = null
-    const primaryImgUrl = profile.galleryImgs[0] || listing.thumbnailUrl
-    if (primaryImgUrl) {
-      const ext = primaryImgUrl.match(/\.(jpg|jpeg|png|webp)/i)?.[1] || 'jpg'
-      const filename = `scraped_${Date.now()}_${Math.random().toString(36).slice(2, 7)}.${ext}`
-      avatarPath = await downloadImage(primaryImgUrl, filename)
+    const primaryImg = profile.galleryImgs[0] || listing.thumbnailUrl
+    if (primaryImg) {
+      const ext  = primaryImg.match(/\.(jpg|jpeg|png|webp)/i)?.[1] || 'jpg'
+      const name = `scraped_${Date.now()}_${Math.random().toString(36).slice(2, 7)}.${ext}`
+      avatarPath = await downloadImage(primaryImg, name)
     }
 
-    // Download additional gallery images
-    const galleryPaths = []
-    if (avatarPath) galleryPaths.push(avatarPath)
+    // Download extra gallery images (up to 4 more = 5 total)
+    const galleryPaths = avatarPath ? [avatarPath] : []
     for (let g = 1; g < Math.min(profile.galleryImgs.length, 5); g++) {
-      const ext = profile.galleryImgs[g].match(/\.(jpg|jpeg|png|webp)/i)?.[1] || 'jpg'
-      const fname = `scraped_${Date.now()}_${Math.random().toString(36).slice(2, 7)}.${ext}`
-      const gPath = await downloadImage(profile.galleryImgs[g], fname)
-      if (gPath) galleryPaths.push(gPath)
+      const ext  = profile.galleryImgs[g].match(/\.(jpg|jpeg|png|webp)/i)?.[1] || 'jpg'
+      const name = `scraped_${Date.now()}_${Math.random().toString(36).slice(2, 7)}.${ext}`
+      const gp   = await downloadImage(profile.galleryImgs[g], name)
+      if (gp) galleryPaths.push(gp)
       await sleep(300)
     }
 
     try {
-      const escortId = await insertEscort(pool, profile, avatarPath)
-      if (galleryPaths.length > 0) await insertGallery(pool, escortId, galleryPaths)
+      const escortId = await insertEscort(db, profile, avatarPath)
+      await insertGallery(db, escortId, galleryPaths)
       console.log(`✅ id:${escortId} ${profile.name} | ${profile.phone} | ${profile.area}`)
       imported++
     } catch (err) {
@@ -373,13 +413,13 @@ async function main() {
     await sleep(DELAY_MS)
   }
 
-  if (!DRY_RUN) await pool.end()
+  if (db) await db.end()
 
-  console.log(`\n════════════════════════════════════════`)
+  console.log('\n════════════════════════════════════════')
   console.log(`✅ Imported: ${imported}`)
   console.log(`⏭  Skipped:  ${skipped}`)
   console.log(`❌ Errors:   ${errors}`)
-  console.log(`════════════════════════════════════════\n`)
+  console.log('════════════════════════════════════════\n')
 }
 
 main().catch(err => { console.error('Fatal:', err); process.exit(1) })
