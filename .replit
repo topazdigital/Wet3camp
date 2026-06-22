@@ -63,6 +63,9 @@ externalPort = 80
 NODE_ENV = "development"
 PORT = "8080"
 BASE_PATH = "/"
+JWT_SECRET = "2ad7460920eead0e05d20b55ccf74747c75d9591b9953c21ce2333809b44e89d"
+APP_URL = "https://c5a150d4-ef03-474e-a2d3-f46135a51966-00-3kco7btl0yjd8.picard.replit.dev"
+SITE_URL = "https://c5a150d4-ef03-474e-a2d3-f46135a51966-00-3kco7btl0yjd8.picard.replit.dev"
 
 [nix]
 channel = "stable-25_05"
