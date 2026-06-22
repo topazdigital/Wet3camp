@@ -47,6 +47,11 @@ CREATE TABLE IF NOT EXISTS escorts (
   available        SMALLINT         NOT NULL DEFAULT 0,
   verified         SMALLINT         NOT NULL DEFAULT 0,
   online           SMALLINT         NOT NULL DEFAULT 0,
+  featured         SMALLINT         NOT NULL DEFAULT 0,
+  price_incall_overnight INTEGER     NOT NULL DEFAULT 0,
+  price_outcall_overnight INTEGER    NOT NULL DEFAULT 0,
+  instagram        VARCHAR(100)     DEFAULT NULL,
+  facebook         VARCHAR(100)     DEFAULT NULL,
   is_active        SMALLINT         NOT NULL DEFAULT 1,
   created_at       TIMESTAMP        NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at       TIMESTAMP        NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -236,3 +241,46 @@ CREATE TABLE IF NOT EXISTS sessions (
   PRIMARY KEY (id)
 );
 CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions (user_id);
+
+CREATE TABLE IF NOT EXISTS user_follows (
+  id         SERIAL PRIMARY KEY,
+  user_id    INTEGER   NOT NULL,
+  escort_id  INTEGER   NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT uq_user_follows UNIQUE (user_id, escort_id)
+);
+
+CREATE TABLE IF NOT EXISTS profile_claims (
+  id         SERIAL PRIMARY KEY,
+  escort_id  INTEGER      NOT NULL,
+  user_id    INTEGER      NOT NULL,
+  message    TEXT         DEFAULT NULL,
+  status     VARCHAR(20)  NOT NULL DEFAULT 'pending',
+  created_at TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_profile_claims_escort_id ON profile_claims (escort_id);
+CREATE INDEX IF NOT EXISTS idx_profile_claims_user_id   ON profile_claims (user_id);
+
+CREATE TABLE IF NOT EXISTS claims (
+  id         SERIAL PRIMARY KEY,
+  escort_id  INTEGER      NOT NULL,
+  user_id    INTEGER      NOT NULL,
+  message    TEXT         DEFAULT NULL,
+  status     VARCHAR(20)  NOT NULL DEFAULT 'pending',
+  created_at TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS subscriptions (
+  id         SERIAL PRIMARY KEY,
+  user_id    INTEGER      NOT NULL,
+  escort_id  INTEGER      DEFAULT NULL,
+  plan       VARCHAR(50)  NOT NULL DEFAULT 'standard',
+  amount     INTEGER      NOT NULL DEFAULT 0,
+  phone      VARCHAR(30)  DEFAULT NULL,
+  tx_ref     VARCHAR(100) DEFAULT NULL,
+  status     VARCHAR(20)  NOT NULL DEFAULT 'pending',
+  expires_at TIMESTAMP    DEFAULT NULL,
+  created_at TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_user_id   ON subscriptions (user_id);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_escort_id ON subscriptions (escort_id);
