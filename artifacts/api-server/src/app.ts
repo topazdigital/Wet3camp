@@ -17,6 +17,7 @@ import { fileURLToPath } from "url";
 import { mkdirSync, existsSync } from "fs";
 import router from "./routes";
 import sitemapRouter from "./routes/sitemap.js";
+import { ogPreviewMiddleware } from "./middlewares/ogPreview.js";
 import { logger } from "./lib/logger";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -101,6 +102,11 @@ app.use("/api/uploads", express.static(UPLOADS_DIR, {
 
 // ── API routes ────────────────────────────────────────────────────────────────
 app.use("/api", router);
+
+// ── OG/Social preview middleware (bot detection → inject meta tags) ───────────
+// Must come AFTER /api routes so bots hitting /api/* are not intercepted,
+// but BEFORE static file serving so profile/page bots get real OG tags.
+app.use(ogPreviewMiddleware);
 
 // ── Production static file serving ───────────────────────────────────────────
 const STATIC_DIR = process.env["STATIC_DIR"];

@@ -38,7 +38,9 @@ export default function BlogPost() {
     title: post?.seoTitle ?? post?.title ?? 'Escort Blog | Wet3Camp',
     description: post?.seoDescription ?? post?.excerpt ?? '',
     keywords: post?.tags.join(', '),
+    ogImage: post?.imageUrl,
     canonicalPath: post ? `/blog/${post.slug}` : '/blog',
+    type: 'article',
   })
 
   if (!post) {
