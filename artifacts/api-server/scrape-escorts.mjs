@@ -1,91 +1,52 @@
 /**
- * Kenyan Escort Directory Scraper
- * Scrapes profiles from nairobiraha.com and imports them into the wet3.camp database.
- * Works with both MySQL (live server) and PostgreSQL (Replit dev) — auto-detected
- * from DATABASE_URL.  Escorts can later claim their profiles via the registration flow.
+ * Wet3Camp Multi-Source Kenyan Escort Scraper
  *
- * Usage (run from project root or artifacts/api-server/):
- *   node scrape-escorts.mjs                  — full scrape + import
+ * Sources (in order):
+ *   1. nairobiraha.com  — ~47 unique, phone + services + rates + languages
+ *   2. skokka.co.ke     — 200+ listings, phone + description + location
+ *   3. locanto.co.ke    — 100+ listings, phone + description
+ *
+ * Usage (run from artifacts/api-server/):
+ *   node scrape-escorts.mjs                  — full scrape all sources
+ *   node scrape-escorts.mjs --fast           — skip image downloads
  *   node scrape-escorts.mjs --dry-run        — parse only, no DB writes
- *   node scrape-escorts.mjs --limit=10       — import first 10 profiles
+ *   node scrape-escorts.mjs --limit=20       — stop after N imports
+ *   node scrape-escorts.mjs --source=nairobiraha  — one source only
+ *   node scrape-escorts.mjs --source=skokka
+ *   node scrape-escorts.mjs --source=locanto
  *
- * On the live server:
+ * Live server:
  *   cd /home/admin/wet3camp-build/artifacts/api-server
- *   DATABASE_URL="mysql://admin_wet3camp:PASSWORD@localhost/admin_wet3camp" node scrape-escorts.mjs
+ *   node scrape-escorts.mjs --fast
  */
 
 import { mkdirSync, existsSync } from 'fs'
 import { writeFile } from 'fs/promises'
+import { createGunzip, createBrotliDecompress, createInflate } from 'zlib'
+import { Readable } from 'stream'
 import path from 'path'
 import { fileURLToPath } from 'url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
-// ── Config ───────────────────────────────────────────────────────────────────
 const DATABASE_URL = process.env.DATABASE_URL
 const UPLOADS_DIR  = process.env.UPLOADS_DIR || path.join(__dirname, 'uploads')
-const DELAY_MS     = 1200
 const USER_AGENT   = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
 
-const args      = process.argv.slice(2)
-const DRY_RUN   = args.includes('--dry-run')
-const FAST_MODE = args.includes('--fast')   // skip image downloads, shorter delays
-const LIMIT     = parseInt(args.find(a => a.startsWith('--limit='))?.split('=')[1] || '9999', 10)
-const IS_MYSQL  = DATABASE_URL?.startsWith('mysql://')
-
-const EFFECTIVE_DELAY = FAST_MODE ? 600 : 1200
-
-// Listing pages to scrape — add more as needed
-const SOURCES = [
-  // Main escort listings — paginate deep
-  { listingUrl: 'https://nairobiraha.com/escorts/' },
-  { listingUrl: 'https://nairobiraha.com/escorts/page/2/' },
-  { listingUrl: 'https://nairobiraha.com/escorts/page/3/' },
-  { listingUrl: 'https://nairobiraha.com/escorts/page/4/' },
-  { listingUrl: 'https://nairobiraha.com/escorts/page/5/' },
-  { listingUrl: 'https://nairobiraha.com/escorts/page/6/' },
-  { listingUrl: 'https://nairobiraha.com/escorts/page/7/' },
-  { listingUrl: 'https://nairobiraha.com/escorts/page/8/' },
-  { listingUrl: 'https://nairobiraha.com/escorts/page/9/' },
-  { listingUrl: 'https://nairobiraha.com/escorts/page/10/' },
-  { listingUrl: 'https://nairobiraha.com/escorts/page/11/' },
-  { listingUrl: 'https://nairobiraha.com/escorts/page/12/' },
-  { listingUrl: 'https://nairobiraha.com/escorts/page/13/' },
-  { listingUrl: 'https://nairobiraha.com/escorts/page/14/' },
-  { listingUrl: 'https://nairobiraha.com/escorts/page/15/' },
-  // Category-specific listings
-  { listingUrl: 'https://nairobiraha.com/african-escorts/' },
-  { listingUrl: 'https://nairobiraha.com/call-girls/' },
-  { listingUrl: 'https://nairobiraha.com/nairobi-escorts/' },
-  { listingUrl: 'https://nairobiraha.com/mombasa-escorts/' },
-  { listingUrl: 'https://nairobiraha.com/vip-escorts/' },
-  { listingUrl: 'https://nairobiraha.com/massage/' },
-  { listingUrl: 'https://nairobiraha.com/indian-escorts/' },
-  { listingUrl: 'https://nairobiraha.com/kisumu-escorts/' },
-  { listingUrl: 'https://nairobiraha.com/nakuru-escorts/' },
-  { listingUrl: 'https://nairobiraha.com/westlands-escorts/' },
-  { listingUrl: 'https://nairobiraha.com/karen-escorts/' },
-  { listingUrl: 'https://nairobiraha.com/kilimani-escorts/' },
-  { listingUrl: 'https://nairobiraha.com/nairobi-cbd-escorts/' },
-]
+const args       = process.argv.slice(2)
+const DRY_RUN    = args.includes('--dry-run')
+const FAST_MODE  = args.includes('--fast')
+const LIMIT      = parseInt(args.find(a => a.startsWith('--limit='))?.split('=')[1] || '9999', 10)
+const SRC_FILTER = args.find(a => a.startsWith('--source='))?.split('=')[1]?.toLowerCase() || null
+const IS_MYSQL   = DATABASE_URL?.startsWith('mysql://')
+const DELAY_MS   = FAST_MODE ? 600 : 1200
 
 // ── Dual-DB adapter ──────────────────────────────────────────────────────────
-// Wraps both mysql2 (? placeholders, result.insertId) and pg ($N placeholders,
-// RETURNING id) behind a single uniform interface so the rest of the script
-// doesn't care which backend is in use.
-
 class DbAdapter {
-  constructor(pool, isMysql) {
-    this.pool    = pool
-    this.isMysql = isMysql
-  }
+  constructor(pool, isMysql) { this.pool = pool; this.isMysql = isMysql }
 
-  // Convert $1/$2... placeholders to ? for MySQL
-  #toMysql(sql) {
-    return sql.replace(/\$\d+/g, '?').replace(/\s+RETURNING\s+id\s*;?\s*$/i, '')
-  }
+  #toMysql(sql) { return sql.replace(/\$\d+/g, '?').replace(/\s+RETURNING\s+id\s*;?\s*$/i, '') }
 
-  // Execute a query and return a normalised { rows } object
   async query(sql, params = []) {
     if (this.isMysql) {
       const [rows] = await this.pool.query(this.#toMysql(sql), params)
@@ -94,25 +55,18 @@ class DbAdapter {
     return this.pool.query(sql, params)
   }
 
-  // INSERT — returns the new row's id
   async insert(sql, params = []) {
     if (this.isMysql) {
       const [result] = await this.pool.query(this.#toMysql(sql), params)
       return result.insertId
     }
-    // PostgreSQL — append RETURNING id if not already present
     const pgSql = /RETURNING\s+id/i.test(sql) ? sql : sql.trimEnd() + ' RETURNING id'
-    const res   = await this.pool.query(pgSql, params)
-    return res.rows[0].id
+    return (await this.pool.query(pgSql, params)).rows[0].id
   }
 
-  // Fire-and-forget (DDL, gallery inserts, etc.)
   async run(sql, params = []) {
-    if (this.isMysql) {
-      await this.pool.query(this.#toMysql(sql), params)
-    } else {
-      await this.pool.query(sql, params)
-    }
+    if (this.isMysql) await this.pool.query(this.#toMysql(sql), params)
+    else              await this.pool.query(sql, params)
   }
 
   async end() { await this.pool.end() }
@@ -120,33 +74,24 @@ class DbAdapter {
 
 async function createDb() {
   if (!DATABASE_URL) throw new Error('DATABASE_URL env var is not set')
-
   if (IS_MYSQL) {
-    // mysql2 is a production dep — always available on the live server
     const mysql = (await import('mysql2/promise')).default
-    const pool  = mysql.createPool(DATABASE_URL)
-    return new DbAdapter(pool, true)
-  } else {
-    // pg is a dep of api-server — available on Replit dev
-    const { default: pg } = await import('pg')
-    const pool = new pg.Pool({ connectionString: DATABASE_URL, max: 3 })
-    return new DbAdapter(pool, false)
+    return new DbAdapter(mysql.createPool(DATABASE_URL), true)
   }
+  const { default: pg } = await import('pg')
+  return new DbAdapter(new pg.Pool({ connectionString: DATABASE_URL, max: 3 }), false)
 }
 
-// ── Ensure optional columns exist ────────────────────────────────────────────
+// ── Ensure optional columns ──────────────────────────────────────────────────
 async function ensureColumns(db) {
-  const stmts = db.isMysql
+  const cols = db.isMysql
     ? [
-        'ALTER TABLE escorts ADD COLUMN IF NOT EXISTS incall         TINYINT  NOT NULL DEFAULT 0',
-        'ALTER TABLE escorts ADD COLUMN IF NOT EXISTS outcall        TINYINT  NOT NULL DEFAULT 0',
+        'ALTER TABLE escorts ADD COLUMN IF NOT EXISTS incall         TINYINT      NOT NULL DEFAULT 0',
+        'ALTER TABLE escorts ADD COLUMN IF NOT EXISTS outcall        TINYINT      NOT NULL DEFAULT 0',
         'ALTER TABLE escorts ADD COLUMN IF NOT EXISTS source_site    VARCHAR(100) DEFAULT NULL',
         'ALTER TABLE escorts ADD COLUMN IF NOT EXISTS price_incall   INT DEFAULT 0',
         'ALTER TABLE escorts ADD COLUMN IF NOT EXISTS price_outcall  INT DEFAULT 0',
         'ALTER TABLE escorts ADD COLUMN IF NOT EXISTS price_overnight INT DEFAULT 0',
-        'ALTER TABLE escorts ADD COLUMN IF NOT EXISTS hobbies        VARCHAR(255) DEFAULT NULL',
-        'ALTER TABLE escorts ADD COLUMN IF NOT EXISTS sexual_orientation VARCHAR(100) DEFAULT NULL',
-        'ALTER TABLE escorts ADD COLUMN IF NOT EXISTS looks          VARCHAR(100) DEFAULT NULL',
       ]
     : [
         'ALTER TABLE escorts ADD COLUMN IF NOT EXISTS incall          SMALLINT NOT NULL DEFAULT 0',
@@ -155,132 +100,181 @@ async function ensureColumns(db) {
         'ALTER TABLE escorts ADD COLUMN IF NOT EXISTS price_incall    INT DEFAULT 0',
         'ALTER TABLE escorts ADD COLUMN IF NOT EXISTS price_outcall   INT DEFAULT 0',
         'ALTER TABLE escorts ADD COLUMN IF NOT EXISTS price_overnight  INT DEFAULT 0',
-        'ALTER TABLE escorts ADD COLUMN IF NOT EXISTS hobbies         VARCHAR(255) DEFAULT NULL',
-        'ALTER TABLE escorts ADD COLUMN IF NOT EXISTS sexual_orientation VARCHAR(100) DEFAULT NULL',
-        'ALTER TABLE escorts ADD COLUMN IF NOT EXISTS looks           VARCHAR(100) DEFAULT NULL',
       ]
-  for (const sql of stmts) {
-    try { await db.run(sql) } catch { /* already exists — fine */ }
+  for (const sql of cols) {
+    try { await db.run(sql) } catch { /* already exists */ }
   }
 }
 
 // ── HTTP helpers ─────────────────────────────────────────────────────────────
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)) }
 
-async function fetchPage(url) {
+async function fetchPage(url, referer) {
   try {
     const res = await fetch(url, {
-      headers: { 'User-Agent': USER_AGENT, Accept: 'text/html' },
+      headers: {
+        'User-Agent': USER_AGENT,
+        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Referer': referer || url,
+      },
       redirect: 'follow',
       signal: AbortSignal.timeout(20000),
     })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    return res.text()
+    // Decompress if needed (Node fetch may not auto-decompress)
+    const encoding = res.headers.get('content-encoding') || ''
+    const buf = await res.arrayBuffer()
+    const bytes = Buffer.from(buf)
+    if (encoding.includes('br')) {
+      return await decompress(bytes, createBrotliDecompress())
+    } else if (encoding.includes('gzip')) {
+      return await decompress(bytes, createGunzip())
+    } else if (encoding.includes('deflate')) {
+      return await decompress(bytes, createInflate())
+    }
+    return bytes.toString('utf8')
   } catch (err) {
     console.warn(`  [WARN] fetch failed for ${url}: ${err.message}`)
     return null
   }
 }
 
-async function downloadImage(imageUrl, localFilename) {
+function decompress(buf, transform) {
+  return new Promise((resolve, reject) => {
+    const chunks = []
+    const readable = Readable.from([buf])
+    readable.pipe(transform)
+      .on('data', c => chunks.push(c))
+      .on('end', () => resolve(Buffer.concat(chunks).toString('utf8')))
+      .on('error', reject)
+  })
+}
+
+async function downloadImage(imageUrl, localFilename, referer) {
   if (!existsSync(UPLOADS_DIR)) mkdirSync(UPLOADS_DIR, { recursive: true })
   const destPath = path.join(UPLOADS_DIR, localFilename)
   if (existsSync(destPath)) return `/api/uploads/${localFilename}`
-
   try {
     const res = await fetch(imageUrl, {
-      headers: { 'User-Agent': USER_AGENT, Referer: 'https://nairobiraha.com/' },
-      redirect: 'follow',
-      signal: AbortSignal.timeout(20000),
+      headers: { 'User-Agent': USER_AGENT, Referer: referer || imageUrl },
+      redirect: 'follow', signal: AbortSignal.timeout(20000),
     })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     await writeFile(destPath, Buffer.from(await res.arrayBuffer()))
     return `/api/uploads/${localFilename}`
-  } catch (err) {
-    console.warn(`  [WARN] image download failed (${imageUrl}): ${err.message}`)
-    return null
-  }
+  } catch { return null }
 }
 
-// ── HTML parsers ─────────────────────────────────────────────────────────────
-function parseListingPage(html) {
+// ── Shared helpers ───────────────────────────────────────────────────────────
+function decodeHtml(str) {
+  return str
+    .replace(/&amp;/g, '&').replace(/&ndash;/g, '–').replace(/&#039;/g, "'")
+    .replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&nbsp;/g, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+function normalizePhone(raw) {
+  if (!raw) return null
+  const d = raw.replace(/\D/g, '')
+  if (d.startsWith('254') && d.length === 12) return `+${d}`
+  if (d.startsWith('0')   && d.length === 10) return `+254${d.slice(1)}`
+  if (d.length === 9)                          return `+254${d}`
+  if (d.length >= 10)                          return `+${d}`
+  return null
+}
+
+function normalizeCity(raw) {
+  if (!raw) return { city: 'Nairobi', area: 'Nairobi' }
+  const r = raw.toLowerCase()
+  if (r.includes('mombasa'))  return { city: 'Mombasa',  area: raw.trim() }
+  if (r.includes('kisumu'))   return { city: 'Kisumu',   area: raw.trim() }
+  if (r.includes('nakuru'))   return { city: 'Nakuru',   area: raw.trim() }
+  if (r.includes('eldoret'))  return { city: 'Eldoret',  area: raw.trim() }
+  if (r.includes('thika'))    return { city: 'Nairobi',  area: raw.trim() }
+  if (r.includes('nairobi') || r.includes('kilimani') || r.includes('westlands') ||
+      r.includes('karen') || r.includes('lavington') || r.includes('langata') ||
+      r.includes('ruaka') || r.includes('parklands') || r.includes('upperhill')) {
+    return { city: 'Nairobi', area: raw.trim() }
+  }
+  return { city: raw.trim(), area: raw.trim() }
+}
+
+// Parse KES price from text: "3,000", "3000", "3k", "KES 3000", "Ksh 5,000"
+function parseKES(text) {
+  if (!text) return 0
+  const t = text.replace(/,/g, '').toLowerCase()
+  const kM = t.match(/(\d+(?:\.\d+)?)\s*k\b/)
+  if (kM) return Math.round(parseFloat(kM[1]) * 1000)
+  const mM = t.match(/(?:kes|ksh?|sh)\s*(\d{3,6})/i)
+  if (mM) return parseInt(mM[1], 10)
+  const nM = t.match(/\b(\d{3,6})\b/)
+  if (nM) return parseInt(nM[1], 10)
+  return 0
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SOURCE 1 — nairobiraha.com
+// ══════════════════════════════════════════════════════════════════════════════
+function parseNairobirahaListing(html) {
   const profiles = []
   const blockRe  = /<a\s+href="(https:\/\/nairobiraha\.com\/escort\/[^"]+)"\s+class="girlimg"[^>]*>([\s\S]*?)<\/a>/g
   let m
   while ((m = blockRe.exec(html)) !== null) {
     const url   = m[1]
     const block = m[2]
-
     const nameM = block.match(/<span[^>]*class="modelname"[^>]*>([\s\S]*?)<\/span>/i)
     const locM  = block.match(/<span[^>]*class="modelinfo-location"[^>]*>([\s\S]*?)<\/span>/i)
     const imgM  = block.match(/data-responsive-img-url="([^"]+)"/)
-
-    const rawName      = nameM ? nameM[1].replace(/<[^>]+>/g, '').trim() : null
-    const location     = locM  ? locM[1].replace(/<[^>]+>/g, '').trim() : null
-    const thumbnailUrl = imgM  ? imgM[1].trim() : null
-
+    const rawName = nameM ? nameM[1].replace(/<[^>]+>/g, '').trim() : null
+    const location = locM ? locM[1].replace(/<[^>]+>/g, '').trim() : null
+    const thumbnailUrl = imgM ? imgM[1].trim() : null
     if (!rawName || profiles.find(p => p.url === url)) continue
-    profiles.push({ url, rawName, location, thumbnailUrl })
+    profiles.push({ url, rawName, location, thumbnailUrl, site: 'nairobiraha' })
   }
   return profiles
 }
 
-function decodeHtml(str) {
-  return str
-    .replace(/&amp;/g, '&').replace(/&ndash;/g, '–').replace(/&#039;/g, "'")
-    .replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-    .replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
-}
-
-function parseProfilePage(html) {
-  // ── Name ──────────────────────────────────────────────────────────────────
+function parseNairobirahaProfile(html) {
+  // Name
   const titleM = html.match(/<h3[^>]*class="profile-title"[^>]*title="([^"]+)"/)
   let rawName  = titleM ? titleM[1].trim() : null
   if (!rawName) return null
 
-  // ── Phone ─────────────────────────────────────────────────────────────────
-  const phoneM = html.match(/href="tel:(\+?[\d]+)"/)
-  let phone    = phoneM ? phoneM[1].trim() : null
-  if (phone) {
-    const d = phone.replace(/\D/g, '')
-    if      (d.startsWith('254') && d.length === 12) phone = `+${d}`
-    else if (d.startsWith('0')   && d.length === 10) phone = `+254${d.slice(1)}`
-    else if (d.length === 9)                          phone = `+254${d}`
-    else                                              phone = `+${d}`
-  }
+  // Phone
+  const phoneM = html.match(/href="tel:(\+?[\d\s-]+)"/)
+  const phone  = normalizePhone(phoneM ? phoneM[1] : null)
 
-  // Strip phone digits from name
   let name = rawName.replace(/\s*\+?2540?\d{8,9}\s*$/, '').replace(/\s*0\d{9}\s*$/, '').trim()
   if (!name) return null
 
-  // ── Age / height / weight ─────────────────────────────────────────────────
-  const ageM    = html.match(/<span[^>]*class="valuecolumn"[^>]*>(\d+)<\/span><b>years<\/b>/)
-  const htM     = html.match(/<span[^>]*class="valuecolumn"[^>]*>(\d+)<\/span><b>cm<\/b>/)
-  const wM      = html.match(/<span[^>]*class="valuecolumn"[^>]*>(\d+)<\/span><b>kg<\/b>/)
-  const age     = ageM ? parseInt(ageM[1], 10) : 0
-  const height  = htM  ? `${htM[1]}cm` : null
-  const weight  = wM   ? `${wM[1]}kg`  : null
+  // Age / height / weight
+  const ageM   = html.match(/<span[^>]*class="valuecolumn"[^>]*>(\d+)<\/span><b>years<\/b>/)
+  const htM    = html.match(/<span[^>]*class="valuecolumn"[^>]*>(\d+)<\/span><b>cm<\/b>/)
+  const age    = ageM ? parseInt(ageM[1], 10) : 0
+  const height = htM  ? `${htM[1]}cm` : null
 
-  // ── Bio ───────────────────────────────────────────────────────────────────
-  const bioM  = html.match(/<div class="aboutme">([\s\S]*?)<\/div>\s*<div class="clear/)
-  let bio     = null
+  // Bio
+  const bioM = html.match(/<div class="aboutme">([\s\S]*?)<\/div>\s*<div class="clear/)
+  let bio = null
   if (bioM) {
     const raw = bioM[1].replace(/<h4>[^<]*<\/h4>/gi, '').replace(/<b>[^<]*<\/b>/gi, '')
     const txt = decodeHtml(raw)
     if (txt.length > 10) bio = txt
   }
 
-  // ── Location ──────────────────────────────────────────────────────────────
-  let city = '', area = ''
+  // Location
+  let city = 'Nairobi', area = 'Nairobi'
   const cityM = html.match(/escorts-from\/kenya\/([^/"]+)\/?" title="([^"]+)"/)
   if (cityM) {
-    area = cityM[2].trim()
-    city = area.includes('Nairobi') ? 'Nairobi' : area
+    const loc = normalizeCity(cityM[2].trim())
+    city = loc.city; area = loc.area
   }
 
-  // ── Section-box fields ────────────────────────────────────────────────────
+  // Section-box fields — nairobiraha uses EITHER single OR double quotes on class attribute
   const boxes = {}
-  const boxRe = /<div class="section-box"><b[^>]*>([^<]+)<\/b><span[^>]*>([^<]*)<\/span><\/div>/g
+  const boxRe = /<div class=['"]section-box['"]>\s*<b[^>]*>([^<]+)<\/b>\s*<span[^>]*>([^<]*)<\/span>\s*<\/div>/g
   let bm
   while ((bm = boxRe.exec(html)) !== null) boxes[bm[1].trim()] = bm[2].trim()
 
@@ -290,70 +284,95 @@ function parseProfilePage(html) {
   const incall       = availability.toLowerCase().includes('incall')  ? 1 : 0
   const outcall      = availability.toLowerCase().includes('outcall') ? 1 : 0
 
-  // ── Extra profile fields from section-boxes ───────────────────────────────
-  const hobbies           = boxes['Hobbies'] || null
-  const sexualOrientation = boxes['Sexual Orientation'] || boxes['Orientation'] || null
-  const looks             = boxes['Looks'] || null
-
-  // ── Languages ─────────────────────────────────────────────────────────────
+  // Languages — nairobiraha puts them in section-box divs: <b>English:</b><span>Fluent</span>
   const languages = []
-  const langBoxRe = /<b[^>]*>([A-Z][A-Z]+):<\/b>\s*<span[^>]*>([^<]+)<\/span>/gi
-  let lbm
-  while ((lbm = langBoxRe.exec(html)) !== null) {
-    const lang = decodeHtml(lbm[1]).trim()
-    const lvl  = decodeHtml(lbm[2]).trim()
-    if (['ENGLISH','SWAHILI','FRENCH','ARABIC','SPANISH','GERMAN','CHINESE','PORTUGUESE'].includes(lang.toUpperCase()) && lvl.toLowerCase() !== 'no') {
-      languages.push(lang.charAt(0).toUpperCase() + lang.slice(1).toLowerCase())
+  const knownLangs = ['English','Swahili','French','Arabic','Spanish','German','Chinese','Portuguese','Somali','Kikuyu','Luo','Luhya','Italian']
+  for (const [key, val] of Object.entries(boxes)) {
+    const k = key.replace(/:$/, '').trim()
+    const match = knownLangs.find(l => l.toLowerCase() === k.toLowerCase())
+    if (match && val.toLowerCase() !== 'no') languages.push(match)
+  }
+  // Always ensure English + Swahili for Kenya
+  if (!languages.some(l => l.toLowerCase() === 'english')) languages.unshift('English')
+  if (!languages.some(l => l.toLowerCase() === 'swahili')) languages.push('Swahili')
+
+  // Services — nairobiraha shows services with ✓/✗ marks
+  const services = []
+  // Find the SERVICES block
+  const svcBlockM = html.match(/(?:SERVICES?|OFFERED SERVICES?)\s*:?\s*([\s\S]{0,5000}?)(?:<div class="section-box|<h[23]|RATES?\s*:|CONTACT|<footer)/i)
+  const svcBlock  = svcBlockM ? svcBlockM[1] : html
+
+  // Nairobiraha typically uses icon-yes / icon-no classes, or ✓ / ✗ text
+  // Pattern A: class="yes|icon-yes" adjacent to service name
+  const yesRe = /class="(?:yes|icon-yes|available)[^"]*"[^>]*>[\s\S]{0,200}?<\/[^>]+>[\s\S]{0,50}?([A-Z][A-Za-z0-9 (),/-]{2,50})/g
+  let ym
+  while ((ym = yesRe.exec(svcBlock)) !== null) {
+    const s = decodeHtml(ym[1]).trim()
+    if (s && s.length > 1 && s.length < 60 && !services.includes(s)) services.push(s)
+  }
+  // Pattern B: ✓ character before service name
+  const tickRe = /[✓✔]\s*(?:<[^>]+>)*\s*([A-Za-z][^<✗✘×✓✔\n]{2,60}?)(?:\s*<|\s*[✗✘×✓✔])/g
+  let tk
+  while ((tk = tickRe.exec(svcBlock)) !== null) {
+    const s = decodeHtml(tk[1]).replace(/[✓✔✗✘×]/g, '').trim()
+    if (s && s.length > 1 && s.length < 60 && !services.includes(s)) services.push(s)
+  }
+  // Pattern C: <li> items in service list
+  if (services.length === 0) {
+    const liRe = /<li[^>]*>\s*(?:<[a-z]+[^>]*>\s*)*([A-Z][A-Za-z0-9 (),/()-]{2,50}?)(?:\s*<\/|\s*<)/g
+    let lm
+    while ((lm = liRe.exec(svcBlock)) !== null) {
+      const s = decodeHtml(lm[1]).trim()
+      if (s && s.length > 2 && s.length < 60 && !services.includes(s)) services.push(s)
     }
   }
 
-  // ── Services ──────────────────────────────────────────────────────────────
-  // Nairobiraha marks available services with ✓ (green check) in a SERVICES section
-  const services = []
-
-  // Strategy 1: Look for the services block — items preceded by ✓ or check icons
-  // Common pattern: <span class="yes">✓ OWO (Oral without condom)</span>
-  const svcBlockM = html.match(/SERVICES?:?([\s\S]{0,4000}?)(?:<div class="section-box"|<h\d|RATES?:|CONTACT|<\/div>\s*<div class="col)/i)
-  if (svcBlockM) {
-    const block = svcBlockM[1]
-    // Extract items with checkmarks or "yes" class
-    const checkRe = /(?:✓|✔|fa-check|class="yes"|icon-check)[^>]*>?\s*([A-Za-z0-9][^<✗✘×]{2,60}?)(?=<|✓|✔|✗|✘|$)/gi
-    let cm
-    while ((cm = checkRe.exec(block)) !== null) {
-      const raw = decodeHtml(cm[1]).replace(/^\s*>?\s*/, '').replace(/[✓✔✗✘×✗]/g, '').trim()
-      if (raw && raw.length > 2 && raw.length < 60 && !services.includes(raw)) services.push(raw)
+  // Rates — nairobiraha uses KES or EUR
+  let price_incall = 0, price_outcall = 0, price_overnight = 0
+  const ratesM = html.match(/RATES?\s*:?\s*([\s\S]{0,3000}?)(?:SERVICES?\s*:|CONTACT|<footer|<div class="clear)/i)
+  if (ratesM) {
+    const rb = ratesM[1]
+    // Try to find a table row: "1 hour | incall | outcall"
+    // Look for KES/Ksh values first
+    const rows = rb.split(/<tr[^>]*>/)
+    for (const row of rows) {
+      const text = decodeHtml(row)
+      if (/\b1\s*h(?:our|r)?\b|short/i.test(text)) {
+        const nums = [...text.matchAll(/\b(\d{3,6})\b/g)].map(m => parseInt(m[1], 10)).filter(n => n >= 500 && n <= 200000)
+        if (nums.length >= 2) { price_incall = nums[0]; price_outcall = nums[1] }
+        else if (nums.length === 1) { price_incall = nums[0]; price_outcall = Math.round(nums[0] * 1.3 / 100) * 100 }
+      }
+      if (/overnight|12\s*h/i.test(text)) {
+        const nums = [...text.matchAll(/\b(\d{4,6})\b/g)].map(m => parseInt(m[1], 10)).filter(n => n >= 1000)
+        if (nums.length) price_overnight = nums[0]
+      }
     }
-    // Fallback within block: any span/li text that looks like a service
-    if (services.length === 0) {
-      const liRe = /<(?:li|span)[^>]*>\s*(?:<[^>]+>)*\s*([A-Z][A-Za-z0-9\s()/-]{2,50}?)\s*(?:<\/[^>]+>)*\s*<\/(?:li|span)>/g
-      let lm
-      while ((lm = liRe.exec(block)) !== null) {
-        const raw = decodeHtml(lm[1]).replace(/[✓✔✗✘×]/g, '').trim()
-        if (raw && raw.length > 2 && raw.length < 60 && !services.includes(raw)) services.push(raw)
+    // EUR fallback
+    if (!price_incall) {
+      const hrM = rb.match(/(?:1\s*hour|short)[^<]*?(\d+)\s*EUR[^<]*?(\d+)\s*EUR/i)
+      if (hrM) {
+        price_incall  = Math.round(parseInt(hrM[1], 10) * 145 / 100) * 100
+        price_outcall = Math.round(parseInt(hrM[2], 10) * 145 / 100) * 100
+      }
+    }
+    // KES inline fallback: "1 hour KES 3000 / KES 4000"
+    if (!price_incall) {
+      const kesM = rb.match(/(?:1\s*hour|short)[^<]*?KES?\s*(\d{3,6})[^<]*?(\d{3,6})?/i)
+      if (kesM) {
+        price_incall  = parseInt(kesM[1], 10)
+        price_outcall = kesM[2] ? parseInt(kesM[2], 10) : Math.round(price_incall * 1.3 / 100) * 100
       }
     }
   }
 
-  // Strategy 2: Global scan for lines adjacent to check icons
-  if (services.length === 0) {
-    const globalRe = /(?:✓|✔|class="yes"|fa-check[^>]*>)\s*(?:<[^>]*>)*\s*([A-Za-z][^<✗✘]{3,60}?)(?=\s*<|\s*✓|\s*✔|\s*✗|\s*✘)/gi
-    let gm
-    while ((gm = globalRe.exec(html)) !== null) {
-      const raw = decodeHtml(gm[1]).replace(/[✓✔✗✘×]/g, '').trim()
-      if (raw && raw.length > 2 && raw.length < 60 && !services.includes(raw)) services.push(raw)
-    }
-  }
-
-  // ── Gallery images ────────────────────────────────────────────────────────
+  // Gallery
   const galleryImgs = []
-  // Full-size fancybox hrefs first
   const fullRe = /href="(https:\/\/nairobiraha\.com\/wp-content\/uploads\/[^"]+\.(?:jpg|jpeg|png|webp))" data-fancybox="profile-photo"/gi
   let fm
   while ((fm = fullRe.exec(html)) !== null) {
     const u = fm[1].trim()
     if (!galleryImgs.includes(u)) galleryImgs.push(u)
   }
-  // Thumbnail fallback
   const thumbRe = /data-fancybox="profile-photo"[^>]*>\s*<img[^>]+data-responsive-img-url="([^"]+)"/g
   let tm
   while ((tm = thumbRe.exec(html)) !== null) {
@@ -361,46 +380,276 @@ function parseProfilePage(html) {
     if (!galleryImgs.includes(u)) galleryImgs.push(u)
   }
 
-  // ── Rates table (EUR → KES, 1 EUR ≈ 145 KES) ────────────────────────────
-  const EUR_TO_KES = 145
-  let price_incall = 0, price_outcall = 0, price_overnight = 0
-  // Look for rates in the HTML: "1 hour" row with EUR prices
-  const ratesBlockM = html.match(/RATES?:?([\s\S]{0,3000}?)(?:SERVICES?:|CONTACT|<\/div>\s*<div class="col|<footer)/i)
-  if (ratesBlockM) {
-    const rb = ratesBlockM[1]
-    // Match "1 hour" or "Short" row — first pair of EUR numbers is incall/outcall
-    const hrM = rb.match(/(?:1\s*hour|short[^<]*)\D+?(\d+)\s*EUR[^<]*?(\d+)\s*EUR/i)
-    if (hrM) {
-      price_incall  = Math.round(parseInt(hrM[1], 10) * EUR_TO_KES / 100) * 100
-      price_outcall = Math.round(parseInt(hrM[2], 10) * EUR_TO_KES / 100) * 100
+  return {
+    name, phone, age, city, area, bio, height, ethnicity, bodyType,
+    incall, outcall, price_incall, price_outcall, price_overnight,
+    services, languages, galleryImgs,
+    source: 'nairobiraha',
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SOURCE 2 — skokka.co.ke
+// ══════════════════════════════════════════════════════════════════════════════
+const SKOKKA_BASE = 'https://www.skokka.co.ke'
+
+function parseSkokkaListing(html) {
+  const profiles = []
+  // Skokka listing cards: <article> or <div class="item"> with a link and title
+  const cardRe = /<article[^>]*>[\s\S]*?<a\s+href="([^"]+)"[^>]*>[\s\S]*?<\/article>/g
+  let m
+  while ((m = cardRe.exec(html)) !== null) {
+    const card = m[0]
+    const href = m[1]
+    if (!href || !href.includes('/escort')) continue
+    const url = href.startsWith('http') ? href : `${SKOKKA_BASE}${href}`
+    const titleM = card.match(/<h2[^>]*>([^<]+)<\/h2>|<span[^>]*class="[^"]*title[^"]*"[^>]*>([^<]+)<\/span>|<a[^>]*title="([^"]+)"/)
+    const rawName = titleM ? (titleM[1] || titleM[2] || titleM[3] || '').replace(/<[^>]+>/g, '').trim() : null
+    const imgM = card.match(/data-src="([^"]+\.(?:jpg|jpeg|png|webp))"/) || card.match(/src="([^"]+\.(?:jpg|jpeg|png|webp))"/)
+    const thumbnailUrl = imgM ? imgM[1] : null
+    const locM = card.match(/<span[^>]*(?:location|city)[^>]*>([^<]+)<\/span>|<i[^>]*location[^>]*><\/i>\s*([^<]+)/)
+    const location = locM ? (locM[1] || locM[2] || '').trim() : null
+    if (!rawName || !url || profiles.find(p => p.url === url)) continue
+    profiles.push({ url, rawName, location, thumbnailUrl, site: 'skokka' })
+  }
+  // Fallback: simpler link pattern
+  if (profiles.length === 0) {
+    const linkRe = /href="(\/escorts?\/[^"]+\.htm)"[^>]*>([^<]{3,60})<\/a>/gi
+    let lm
+    while ((lm = linkRe.exec(html)) !== null) {
+      const url = `${SKOKKA_BASE}${lm[1]}`
+      const rawName = lm[2].trim()
+      if (!rawName || profiles.find(p => p.url === url)) continue
+      profiles.push({ url, rawName, location: null, thumbnailUrl: null, site: 'skokka' })
     }
-    // Match "12 hours" or "overnight" row for overnight price
-    const ovM = rb.match(/(?:12\s*hours?|overnight[^<]*)\D+?(\d+)\s*EUR/i)
-    if (ovM) {
-      price_overnight = Math.round(parseInt(ovM[1], 10) * EUR_TO_KES / 100) * 100
-    }
-    // If no EUR found, try plain KES/K/Ksh numbers adjacent to 1hr label
-    if (!price_incall) {
-      const kesM = rb.match(/(?:1\s*hour|short[^<]*)\D+?(?:KES|Ksh?)?\s*(\d{4,6})/i)
-      if (kesM) price_incall = parseInt(kesM[1], 10)
+  }
+  return profiles
+}
+
+function parseSkokkaProfile(html, profileUrl) {
+  // Name — h1 title
+  const nameM = html.match(/<h1[^>]*>([^<]+)<\/h1>/)
+    || html.match(/<meta property="og:title" content="([^"]+)"/)
+  let name = nameM ? decodeHtml(nameM[1]).split(/[,|]/)[0].trim() : null
+  if (!name) return null
+  // Strip phone-like suffixes
+  name = name.replace(/\s*\+?2540?\d{8,9}\s*$/, '').replace(/\s*0\d{9}\s*$/, '').trim()
+  if (name.length < 2) return null
+
+  // Phone — <a href="tel:"> or data-phone or data-tel attribute
+  let phone = null
+  const telM = html.match(/href="tel:(\+?[\d\s()-]+)"/)
+    || html.match(/data-(?:phone|tel|number)="(\+?[\d\s()-]+)"/)
+    || html.match(/(?:phone|mobile|whatsapp)[^>]*>[\s:]*(\+?0?[\d\s()-]{9,15})</)
+  if (telM) phone = normalizePhone(telM[1])
+
+  // If no phone found, try to extract from description text
+  if (!phone) {
+    const descText = decodeHtml(html.match(/<div[^>]*class="[^"]*description[^"]*"[^>]*>([\s\S]{0,1000})<\/div>/i)?.[1] || '')
+    const numM = descText.match(/(?:\+?254|07|01)[\d\s-]{7,11}/)
+    if (numM) phone = normalizePhone(numM[0].replace(/\s/g, ''))
+  }
+
+  // Age — look for "22 years", "Age: 24"
+  const ageM = html.match(/(?:age\s*:?\s*|years\s*old\s*:?\s*)(\d{2})\b/i)
+    || html.match(/\b(1[89]|2\d|3[05])\s*(?:years?|yrs?)/i)
+  const age = ageM ? parseInt(ageM[1], 10) : 0
+
+  // Location
+  const locM = html.match(/<span[^>]*(?:class|itemprop)="[^"]*(?:location|city|area|region)[^"]*"[^>]*>([^<]+)<\/span>/i)
+    || html.match(/(?:Location|City|Area)\s*:?\s*<\/?\w+[^>]*>\s*([A-Za-z][^<,]{2,40})/i)
+    || html.match(/<meta[^>]*property="og:locality"[^>]*content="([^"]+)"/)
+  const rawLoc = locM ? decodeHtml(locM[1]).trim() : ''
+  const { city, area } = normalizeCity(rawLoc || 'Nairobi')
+
+  // Bio / description
+  const descM = html.match(/<div[^>]*class="[^"]*(?:description|about|text|bio)[^"]*"[^>]*>([\s\S]{0,2000}?)<\/div>/i)
+    || html.match(/<meta[^>]*name="description"[^>]*content="([^"]+)"/)
+  const bio = descM ? decodeHtml(descM[1]).slice(0, 1000).trim() || null : null
+
+  // Height
+  const htM = html.match(/(\d{2,3})\s*cm/)
+  const height = htM ? `${htM[1]}cm` : null
+
+  // Body type / ethnicity
+  const ethnicityM = html.match(/(?:ethnicity|nationality|race)\s*:?\s*<?\/?\w*>?\s*([A-Za-z][^<,\n]{2,30})/i)
+  const ethnicity = ethnicityM ? decodeHtml(ethnicityM[1]).trim() : 'African'
+
+  // Incall / outcall
+  const incall  = /\bincall\b/i.test(html) ? 1 : 0
+  const outcall = /\boutcall\b/i.test(html) ? 1 : 0
+
+  // Languages
+  const languages = ['English', 'Swahili']
+  const langWords = ['French', 'Arabic', 'Spanish', 'German', 'Somali', 'Kikuyu', 'Luo']
+  for (const lw of langWords) {
+    if (new RegExp(`\\b${lw}\\b`, 'i').test(html)) languages.push(lw)
+  }
+
+  // Services — Skokka uses tags/pills or list items
+  const services = []
+  const tagRe = /<(?:span|div|a)[^>]*class="[^"]*(?:tag|label|badge|service|category)[^"]*"[^>]*>([^<]{2,50})<\/(?:span|div|a)>/gi
+  let tm
+  while ((tm = tagRe.exec(html)) !== null) {
+    const s = decodeHtml(tm[1]).trim()
+    if (s && s.length > 1 && s.length < 60 && !/\d{4}/.test(s)) services.push(s)
+  }
+  // Also look for services listed in <li> near a "Services" heading
+  const svcHeadM = html.match(/(?:services|offers?)\s*:?([\s\S]{0,2000}?)(?:<h[23]|<div class="(?:price|contact|phone)|<footer)/i)
+  if (svcHeadM) {
+    const liRe = /<li[^>]*>(?:<[^>]+>)*([A-Za-z][^<]{2,50})(?:<\/|<)/g
+    let lm
+    while ((lm = liRe.exec(svcHeadM[1])) !== null) {
+      const s = decodeHtml(lm[1]).trim()
+      if (s && !services.includes(s) && s.length < 60) services.push(s)
     }
   }
 
-  return { name, phone, age, city, area, bio, height, weight, ethnicity, bodyType, incall, outcall, galleryImgs, services, languages, hobbies, sexualOrientation, looks, price_incall, price_outcall, price_overnight }
+  // Rates
+  let price_incall = 0, price_outcall = 0, price_overnight = 0
+  const priceM = html.match(/<[^>]*class="[^"]*price[^"]*"[^>]*>([\s\S]{0,300}?)<\//)
+  if (priceM) {
+    const p = decodeHtml(priceM[1])
+    price_incall = parseKES(p)
+  }
+  // Fallback: scan description for KES amounts
+  if (!price_incall && bio) {
+    const kesM = bio.match(/(?:incall|in-call)\s*(?:KES|Ksh?)?\s*(\d{3,6})/i)
+    if (kesM) price_incall = parseInt(kesM[1], 10)
+    const outM = bio.match(/(?:outcall|out-call)\s*(?:KES|Ksh?)?\s*(\d{3,6})/i)
+    if (outM) price_outcall = parseInt(outM[1], 10)
+    if (!price_outcall && price_incall) price_outcall = Math.round(price_incall * 1.3 / 100) * 100
+  }
+
+  // Gallery
+  const galleryImgs = []
+  const imgRe = /(?:data-src|data-lazy|src)="(https?:\/\/[^"]+\.(?:jpg|jpeg|png|webp))(?:\?[^"]*)?"[^>]*(?:class="[^"]*(?:gallery|photo|image|slide|swiper)[^"]*"|data-fancybox)/gi
+  let gm
+  while ((gm = imgRe.exec(html)) !== null) {
+    const u = gm[1].trim()
+    if (!galleryImgs.includes(u) && !u.includes('placeholder') && !u.includes('logo')) galleryImgs.push(u)
+  }
+  // Fallback: og:image
+  const ogM = html.match(/<meta[^>]*property="og:image"[^>]*content="([^"]+)"/)
+  if (ogM && !galleryImgs.includes(ogM[1])) galleryImgs.push(ogM[1])
+
+  return {
+    name, phone, age, city, area, bio, height, ethnicity, bodyType: null,
+    incall, outcall, price_incall, price_outcall, price_overnight,
+    services, languages, galleryImgs,
+    source: 'skokka',
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SOURCE 3 — locanto.co.ke
+// ══════════════════════════════════════════════════════════════════════════════
+const LOCANTO_BASE = 'https://www.locanto.co.ke'
+
+function parseLocantoListing(html) {
+  const profiles = []
+  const linkRe = /href="(\/[A-Z][^"]*\/ID_\d+[^"]*\.html?)"[^>]*>([^<]{3,60})<\/a>/gi
+  let m
+  while ((m = linkRe.exec(html)) !== null) {
+    const url     = `${LOCANTO_BASE}${m[1]}`
+    const rawName = m[2].trim()
+    if (!rawName || profiles.find(p => p.url === url)) continue
+    profiles.push({ url, rawName, location: null, thumbnailUrl: null, site: 'locanto' })
+  }
+  return profiles
+}
+
+function parseLocantoProfile(html) {
+  const nameM = html.match(/<h1[^>]*itemprop="name"[^>]*>([^<]+)<\/h1>/)
+    || html.match(/<meta[^>]*property="og:title"[^>]*content="([^"]+)"/)
+  let name = nameM ? decodeHtml(nameM[1]).split(/[|–-]/)[0].trim() : null
+  if (!name) return null
+  name = name.replace(/\s*\+?254\d{9}\s*$/, '').replace(/\s*0\d{9}\s*$/, '').trim()
+  if (name.length < 2) return null
+
+  const telM = html.match(/href="tel:(\+?[\d\s()-]+)"/)
+    || html.match(/data-phone="(\+?[\d\s()-]+)"/)
+  const phone = telM ? normalizePhone(telM[1]) : null
+
+  const ageM = html.match(/\b(1[89]|2\d|3[05])\s*(?:years?|yrs?)/i)
+  const age  = ageM ? parseInt(ageM[1], 10) : 0
+
+  const locM = html.match(/(?:Location|City|Area)\s*:?\s*<[^>]+>([^<]{2,30})</)
+    || html.match(/<span[^>]*itemprop="addressLocality"[^>]*>([^<]+)<\/span>/)
+  const rawLoc = locM ? decodeHtml(locM[1]).trim() : 'Nairobi'
+  const { city, area } = normalizeCity(rawLoc)
+
+  const descM = html.match(/<div[^>]*itemprop="description"[^>]*>([\s\S]{0,2000}?)<\/div>/i)
+    || html.match(/<meta[^>]*name="description"[^>]*content="([^"]+)"/)
+  const bio = descM ? decodeHtml(descM[1]).slice(0, 1000).trim() || null : null
+
+  const htM    = html.match(/(\d{2,3})\s*cm/)
+  const height = htM ? `${htM[1]}cm` : null
+
+  const incall  = /\bincall\b/i.test(html) ? 1 : 0
+  const outcall = /\boutcall\b/i.test(html) ? 1 : 0
+  const languages = ['English', 'Swahili']
+
+  const services = []
+  const svcRe = /<li[^>]*>(?:<[^>]+>)*([A-Za-z][^<]{2,50})(?:<\/|<)/g
+  let sm
+  while ((sm = svcRe.exec(html)) !== null) {
+    const s = decodeHtml(sm[1]).trim()
+    if (s && s.length < 60 && !services.includes(s)) services.push(s)
+  }
+
+  let price_incall = 0, price_outcall = 0, price_overnight = 0
+  if (bio) {
+    const kesM = bio.match(/(?:KES|Ksh?|sh)\s*(\d{3,6})/gi)
+    if (kesM && kesM.length >= 1) price_incall  = parseKES(kesM[0])
+    if (kesM && kesM.length >= 2) price_outcall = parseKES(kesM[1])
+  }
+
+  const galleryImgs = []
+  const imgRe = /<meta[^>]*property="og:image"[^>]*content="([^"]+)"/
+  const ogM   = html.match(imgRe)
+  if (ogM) galleryImgs.push(ogM[1])
+
+  return {
+    name, phone, age, city, area, bio, height, ethnicity: 'African', bodyType: null,
+    incall, outcall, price_incall, price_outcall, price_overnight,
+    services, languages, galleryImgs,
+    source: 'locanto',
+  }
+}
+
+// ── Unified listing/profile dispatcher ───────────────────────────────────────
+function parseListing(html, site) {
+  if (site === 'nairobiraha') return parseNairobirahaListing(html)
+  if (site === 'skokka')      return parseSkokkaListing(html)
+  if (site === 'locanto')     return parseLocantoListing(html)
+  return []
+}
+
+function parseProfile(html, site, url) {
+  if (site === 'nairobiraha') return parseNairobirahaProfile(html)
+  if (site === 'skokka')      return parseSkokkaProfile(html, url)
+  if (site === 'locanto')     return parseLocantoProfile(html)
+  return null
 }
 
 // ── DB operations ────────────────────────────────────────────────────────────
-async function escortExists(db, phone) {
-  if (!phone) return false
-  const { rows } = await db.query('SELECT id FROM escorts WHERE phone = $1', [phone])
-  return rows.length > 0
+async function escortExists(db, phone, name) {
+  if (phone) {
+    const { rows } = await db.query('SELECT id FROM escorts WHERE phone = $1', [phone])
+    if (rows.length > 0) return true
+  }
+  if (name) {
+    const { rows } = await db.query('SELECT id FROM escorts WHERE LOWER(name) = LOWER($1)', [name])
+    if (rows.length > 0) return true
+  }
+  return false
 }
 
 async function insertEscort(db, profile, avatarPath) {
   const {
     name, phone, age, city, area, bio, height, ethnicity, bodyType,
-    incall, outcall, price_incall, price_outcall, price_overnight,
-    hobbies, sexualOrientation, looks,
+    incall, outcall, price_incall, price_outcall, price_overnight, source,
   } = profile
   return db.insert(
     `INSERT INTO escorts (
@@ -408,24 +657,21 @@ async function insertEscort(db, profile, avatarPath) {
        height, ethnicity, body_type,
        image, tier, is_active, verified, gender,
        incall, outcall, source_site,
-       price_incall, price_outcall, price_overnight,
-       hobbies, sexual_orientation, looks
+       price_incall, price_outcall, price_overnight
      ) VALUES (
-       $1, $2, $3, $4, $5, $6, $7,
-       $8, $9, $10,
-       $11, $12, $13, $14, $15,
-       $16, $17, $18,
-       $19, $20, $21,
-       $22, $23, $24
+       $1,$2,$3,$4,$5,$6,$7,
+       $8,$9,$10,
+       $11,$12,$13,$14,$15,
+       $16,$17,$18,
+       $19,$20,$21
      )`,
     [
-      name, phone, phone, age || 0,
-      city || 'Nairobi', area || city || 'Nairobi', bio,
-      height, ethnicity, bodyType,
-      avatarPath, 'standard', 1, 0, 'Female',
-      incall, outcall, 'nairobiraha',
+      name, phone || null, phone || null, age || 0,
+      city || 'Nairobi', area || city || 'Nairobi', bio || null,
+      height || null, ethnicity || 'African', bodyType || null,
+      avatarPath || null, 'standard', 1, 0, 'Female',
+      incall || 0, outcall || 0, source || null,
       price_incall || 0, price_outcall || 0, price_overnight || 0,
-      hobbies || null, sexualOrientation || null, looks || null,
     ]
   )
 }
@@ -441,13 +687,78 @@ async function insertGallery(db, escortId, imageUrls) {
   }
 }
 
+async function insertServices(db, escortId, services) {
+  for (const svcName of services) {
+    try {
+      await db.run(
+        `INSERT INTO escort_services (escort_id, name, available)
+         VALUES ($1, $2, 1)
+         ON CONFLICT (escort_id, name) DO NOTHING`,
+        [escortId, svcName]
+      )
+    } catch { /* ignore */ }
+  }
+}
+
+async function insertLanguages(db, escortId, languages) {
+  for (const lang of languages) {
+    try {
+      await db.run(
+        `INSERT INTO escort_languages (escort_id, language)
+         VALUES ($1, $2)
+         ON CONFLICT (escort_id, language) DO NOTHING`,
+        [escortId, lang]
+      )
+    } catch { /* ignore */ }
+  }
+}
+
+// ── Source definitions ───────────────────────────────────────────────────────
+function buildSources() {
+  const sources = []
+
+  // Nairobiraha — all pages + category pages
+  if (!SRC_FILTER || SRC_FILTER === 'nairobiraha') {
+    for (let p = 1; p <= 20; p++) {
+      sources.push({ site: 'nairobiraha', listingUrl: `https://nairobiraha.com/escorts/page/${p}/` })
+    }
+    for (const cat of ['african-escorts','call-girls','nairobi-escorts','mombasa-escorts','vip-escorts','massage','indian-escorts','kisumu-escorts','nakuru-escorts','westlands-escorts','karen-escorts','kilimani-escorts','nairobi-cbd-escorts','eldoret-escorts','cbd-escorts']) {
+      sources.push({ site: 'nairobiraha', listingUrl: `https://nairobiraha.com/${cat}/` })
+    }
+  }
+
+  // Skokka Kenya — multiple city/category pages
+  if (!SRC_FILTER || SRC_FILTER === 'skokka') {
+    for (let p = 1; p <= 15; p++) {
+      sources.push({ site: 'skokka', listingUrl: `https://www.skokka.co.ke/escorts/?page=${p}` })
+    }
+    for (const area of ['nairobi','mombasa','kisumu','nakuru','eldoret','kilimani','westlands','karen']) {
+      for (let p = 1; p <= 5; p++) {
+        sources.push({ site: 'skokka', listingUrl: `https://www.skokka.co.ke/escorts/${area}/?page=${p}` })
+      }
+    }
+  }
+
+  // Locanto Kenya
+  if (!SRC_FILTER || SRC_FILTER === 'locanto') {
+    for (let p = 1; p <= 10; p++) {
+      sources.push({ site: 'locanto', listingUrl: `https://www.locanto.co.ke/ID_5/Services-Personals-Kenya.html?page=${p}` })
+    }
+    for (const city of ['Nairobi','Mombasa','Kisumu','Nakuru']) {
+      sources.push({ site: 'locanto', listingUrl: `https://www.locanto.co.ke/ID_5/${city}-personals.html` })
+    }
+  }
+
+  return sources
+}
+
 // ── Main ─────────────────────────────────────────────────────────────────────
 async function main() {
-  console.log('\n🚀 Wet3Camp Escort Scraper')
-  console.log(`   DB backend: ${IS_MYSQL ? 'MySQL/MariaDB' : 'PostgreSQL'}`)
-  console.log(`   Uploads:    ${UPLOADS_DIR}`)
-  console.log(`   Dry run:    ${DRY_RUN}`)
-  console.log(`   Limit:      ${LIMIT}`)
+  console.log('\n🚀 Wet3Camp Multi-Source Escort Scraper')
+  console.log(`   DB:      ${IS_MYSQL ? 'MySQL/MariaDB' : 'PostgreSQL'}`)
+  console.log(`   Mode:    ${DRY_RUN ? 'DRY RUN' : FAST_MODE ? 'FAST (remote URLs)' : 'FULL (download images)'}`)
+  console.log(`   Source:  ${SRC_FILTER || 'ALL (nairobiraha + skokka + locanto)'}`)
+  console.log(`   Limit:   ${LIMIT}`)
   console.log()
 
   let db
@@ -457,136 +768,132 @@ async function main() {
     console.log('✅ Database connected\n')
   }
 
-  // ── Step 1: collect listing URLs ──────────────────────────────────────────
+  const SOURCES   = buildSources()
+  const seenUrls  = new Set()
+  const seenPhones= new Set()
+  const seenNames = new Set()
   const allProfiles = []
-  const seen = new Set()
 
+  // ── Step 1: collect listing URLs ──────────────────────────────────────────
   for (const source of SOURCES) {
     if (allProfiles.length >= LIMIT) break
-    console.log(`📋 Fetching listing: ${source.listingUrl}`)
-    const html = await fetchPage(source.listingUrl)
-    if (!html) { await sleep(EFFECTIVE_DELAY); continue }
+    process.stdout.write(`📋 [${source.site}] ${source.listingUrl} ... `)
+    const html = await fetchPage(source.listingUrl, source.site === 'skokka' ? SKOKKA_BASE : undefined)
+    if (!html) { console.log('skip'); await sleep(DELAY_MS); continue }
 
-    const profiles = parseListingPage(html)
-    console.log(`   Found ${profiles.length} profiles`)
-    for (const p of profiles) {
-      if (!seen.has(p.url)) { seen.add(p.url); allProfiles.push(p) }
+    const listings = parseListing(html, source.site)
+    let added = 0
+    for (const p of listings) {
+      if (seenUrls.has(p.url)) continue
+      seenUrls.add(p.url)
+      allProfiles.push(p)
+      added++
     }
-    await sleep(EFFECTIVE_DELAY)
+    console.log(`${listings.length} found, ${added} new`)
+    await sleep(DELAY_MS)
   }
 
   const total = Math.min(allProfiles.length, LIMIT)
-  console.log(`\n📦 Total unique profiles to process: ${total}\n`)
+  console.log(`\n📦 Total unique profile URLs collected: ${total}\n`)
 
   // ── Step 2: scrape + import each profile ──────────────────────────────────
   let imported = 0, skipped = 0, errors = 0
 
   for (let i = 0; i < total; i++) {
     const listing = allProfiles[i]
-    const num     = `[${i + 1}/${total}]`
+    const num     = `[${i+1}/${total}]`
+    process.stdout.write(`${num} [${listing.site}] ${listing.rawName.slice(0, 30).padEnd(30)} ... `)
 
-    process.stdout.write(`${num} ${listing.rawName}... `)
+    const referer = listing.site === 'skokka' ? SKOKKA_BASE
+                  : listing.site === 'locanto' ? LOCANTO_BASE : undefined
+    const html = await fetchPage(listing.url, referer)
+    if (!html) { console.log('❌ fetch failed'); errors++; await sleep(DELAY_MS); continue }
 
-    const html = await fetchPage(listing.url)
-    if (!html) { console.log('❌ fetch failed'); errors++; await sleep(EFFECTIVE_DELAY); continue }
+    const profile = parseProfile(html, listing.site, listing.url)
+    if (!profile) { console.log('❌ parse failed'); errors++; await sleep(DELAY_MS); continue }
 
-    const profile = parseProfilePage(html)
-    if (!profile) { console.log('❌ parse failed'); errors++; await sleep(EFFECTIVE_DELAY); continue }
-
-    // Location fallback from listing page
+    // Location fallback
     if (!profile.area && listing.location) {
-      const parts  = listing.location.split(',')
-      profile.area = parts[0].trim()
-      profile.city = profile.area.includes('Nairobi') ? 'Nairobi' : profile.area
+      const loc = normalizeCity(listing.location)
+      profile.city = loc.city; profile.area = loc.area
     }
 
+    // Skip if no name
+    if (!profile.name || profile.name.length < 2) { console.log('❌ no name'); errors++; await sleep(DELAY_MS); continue }
+
     if (DRY_RUN) {
-      console.log(`✓ (dry) ${profile.name} | ${profile.phone} | ${profile.area} | age:${profile.age} | imgs:${profile.galleryImgs.length}`)
+      console.log(`✓ ${profile.name} | ${profile.phone} | ${profile.area} | ${profile.price_incall ? 'KES '+profile.price_incall : 'no rate'} | ${profile.services.length} svcs`)
       imported++; await sleep(300); continue
     }
 
-    // Skip duplicates by phone number
-    if (profile.phone && await escortExists(db, profile.phone)) {
-      console.log(`⏭  already exists`)
+    // Global dedup across sources: skip if phone or name already seen this run
+    if (profile.phone && seenPhones.has(profile.phone)) { console.log('⏭  dup(phone)'); skipped++; await sleep(300); continue }
+    if (seenNames.has(profile.name.toLowerCase()))       { console.log('⏭  dup(name)');  skipped++; await sleep(300); continue }
+
+    // DB dedup
+    if (await escortExists(db, profile.phone, profile.name)) {
+      console.log('⏭  in DB')
+      if (profile.phone) seenPhones.add(profile.phone)
+      seenNames.add(profile.name.toLowerCase())
       skipped++; await sleep(300); continue
     }
 
-    // Download avatar (skip in fast mode — store original URL instead)
+    if (profile.phone) seenPhones.add(profile.phone)
+    seenNames.add(profile.name.toLowerCase())
+
+    // Images
     let avatarPath = null
     const primaryImg = profile.galleryImgs[0] || listing.thumbnailUrl
-    if (primaryImg && !FAST_MODE) {
-      const ext  = primaryImg.match(/\.(jpg|jpeg|png|webp)/i)?.[1] || 'jpg'
-      const name = `scraped_${Date.now()}_${Math.random().toString(36).slice(2, 7)}.${ext}`
-      avatarPath = await downloadImage(primaryImg, name)
-    } else if (primaryImg && FAST_MODE) {
-      // In fast mode use the remote URL directly as the avatar
-      avatarPath = primaryImg
+    if (primaryImg) {
+      if (FAST_MODE) {
+        avatarPath = primaryImg
+      } else {
+        const ext  = primaryImg.match(/\.(jpg|jpeg|png|webp)/i)?.[1] || 'jpg'
+        const fname = `scraped_${Date.now()}_${Math.random().toString(36).slice(2,7)}.${ext}`
+        avatarPath = await downloadImage(primaryImg, fname, referer) || primaryImg
+      }
     }
 
-    // Download extra gallery images (skip in fast mode)
     const galleryPaths = avatarPath ? [avatarPath] : []
-    if (!FAST_MODE) {
-      for (let g = 1; g < Math.min(profile.galleryImgs.length, 5); g++) {
-        const ext  = profile.galleryImgs[g].match(/\.(jpg|jpeg|png|webp)/i)?.[1] || 'jpg'
-        const name = `scraped_${Date.now()}_${Math.random().toString(36).slice(2, 7)}.${ext}`
-        const gp   = await downloadImage(profile.galleryImgs[g], name)
-        if (gp) galleryPaths.push(gp)
-        await sleep(300)
-      }
-    } else {
-      // Fast mode: store remote URLs directly
+    if (FAST_MODE) {
       for (let g = 1; g < Math.min(profile.galleryImgs.length, 6); g++) {
         galleryPaths.push(profile.galleryImgs[g])
+      }
+    } else {
+      for (let g = 1; g < Math.min(profile.galleryImgs.length, 5); g++) {
+        const ext  = profile.galleryImgs[g].match(/\.(jpg|jpeg|png|webp)/i)?.[1] || 'jpg'
+        const fname = `scraped_${Date.now()}_${Math.random().toString(36).slice(2,7)}.${ext}`
+        const gp   = await downloadImage(profile.galleryImgs[g], fname, referer)
+        if (gp) galleryPaths.push(gp)
+        await sleep(300)
       }
     }
 
     try {
       const escortId = await insertEscort(db, profile, avatarPath)
       await insertGallery(db, escortId, galleryPaths)
+      if (profile.services.length)  await insertServices(db, escortId, profile.services)
+      if (profile.languages.length) await insertLanguages(db, escortId, profile.languages)
 
-      // Insert scraped services (upsert — avoid duplicates on re-run)
-      if (profile.services && profile.services.length > 0) {
-        for (const svcName of profile.services) {
-          await db.query(
-            `INSERT INTO escort_services (escort_id, name, available)
-             VALUES ($1, $2, 1)
-             ON CONFLICT (escort_id, name) DO NOTHING`,
-            [escortId, svcName],
-          ).catch(() => {})
-        }
-        process.stdout.write(` [${profile.services.length} svcs]`)
-      }
-
-      // Insert scraped languages
-      if (profile.languages && profile.languages.length > 0) {
-        for (const lang of profile.languages) {
-          await db.query(
-            `INSERT INTO escort_languages (escort_id, language)
-             VALUES ($1, $2)
-             ON CONFLICT (escort_id, language) DO NOTHING`,
-            [escortId, lang],
-          ).catch(() => {})
-        }
-        process.stdout.write(` [${profile.languages.length} langs]`)
-      }
-
-      console.log(`✅ id:${escortId} ${profile.name} | ${profile.phone} | ${profile.area}`)
+      const parts = []
+      if (profile.services.length)                       parts.push(`${profile.services.length} svcs`)
+      if (profile.languages.length)                      parts.push(`${profile.languages.length} langs`)
+      if (profile.price_incall || profile.price_outcall) parts.push(`KES ${profile.price_incall || 0}/${profile.price_outcall || 0}`)
+      console.log(`✅ id:${escortId} ${parts.length ? '['+parts.join(', ')+']' : ''}`)
       imported++
     } catch (err) {
       console.log(`❌ DB error: ${err.message}`)
       errors++
     }
 
-    await sleep(EFFECTIVE_DELAY)
+    await sleep(DELAY_MS)
   }
 
-  if (db) await db.end()
+  console.log(`\n${'─'.repeat(60)}`)
+  console.log(`✅ Done — imported: ${imported} | skipped: ${skipped} | errors: ${errors}`)
+  console.log(`${'─'.repeat(60)}\n`)
 
-  console.log('\n════════════════════════════════════════')
-  console.log(`✅ Imported: ${imported}`)
-  console.log(`⏭  Skipped:  ${skipped}`)
-  console.log(`❌ Errors:   ${errors}`)
-  console.log('════════════════════════════════════════\n')
+  if (!DRY_RUN) await db.end()
 }
 
-main().catch(err => { console.error('Fatal:', err); process.exit(1) })
+main().catch(err => { console.error('\n💥 Fatal error:', err.message); process.exit(1) })

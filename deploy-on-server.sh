@@ -234,6 +234,21 @@ else
 fi
 
 echo ""
+echo "==> [8/8] Running escort scraper in background (real data from all sources)..."
+SCRAPER="$REPO_DIR/artifacts/api-server/scrape-escorts.mjs"
+if [ -f "$SCRAPER" ] && [ -n "$DATABASE_URL" ]; then
+  SCRAPER_LOG="/tmp/wet3camp-scraper.log"
+  DATABASE_URL="$DATABASE_URL" UPLOADS_DIR="$UPLOADS_REAL" \
+    nohup node "$SCRAPER" --fast > "$SCRAPER_LOG" 2>&1 &
+  SCRAPER_PID=$!
+  echo "    Scraper running in background (PID: $SCRAPER_PID)"
+  echo "    Live log: tail -f $SCRAPER_LOG"
+  echo "    When done, new escorts appear in admin panel for approval."
+else
+  echo "    Skipped — SCRAPER not found or DATABASE_URL not set."
+fi
+
+echo ""
 echo "✅ Deploy complete! https://wet3.camp is now live."
 echo ""
 echo "─────────────────────────────────────────────────────────────"
