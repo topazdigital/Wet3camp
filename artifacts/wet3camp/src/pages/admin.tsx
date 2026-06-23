@@ -5,7 +5,7 @@ import { useAuth } from '@/lib/auth-context'
 import {
   Shield, Users, Calendar, BarChart2, Settings, Plus, Trash2, Edit2, CheckCircle2, XCircle,
   AlertTriangle, Lock, Mail, Eye, EyeOff, TrendingUp, Crown, Key, Instagram,
-  Smartphone, Globe, MessageCircle, Bell, Star, Save, RefreshCw, Camera, Radio, WifiOff,
+  Smartphone, Globe, MessageCircle, MessageSquare, Bell, Star, Save, RefreshCw, Camera, Radio, WifiOff,
   DollarSign, MapPin, Award
 } from 'lucide-react'
 import { useSEO } from '@/lib/useSEO'
