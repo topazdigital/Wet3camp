@@ -28,7 +28,7 @@ interface AdminEscort {
   id: string; name: string; city: string; tier: string
   online: boolean | number; is_active: boolean | number; verified: boolean | number
   featured?: boolean | number; price_hourly?: number; bookings_count?: number
-  image?: string
+  image?: string; user_id?: string | number | null
 }
 
 const TABS = ['Overview','Escorts','Claims','Clients','Bookings','Revenue','Moderators','Featured','Blog','API Keys','Settings']
@@ -288,9 +288,27 @@ function ClientsTab() {
                     <span className={`text-[10px] font-bold ${c.is_active?'text-[#28a745]':'text-[#EF4444]'}`}>{c.is_active?'Active':'Inactive'}</span>
                   </td>
                   <td className="px-4 py-3">
-                    {c.role !== 'admin' && (
-                      <button onClick={() => deactivate(c.id)} title="Deactivate" className="p-1.5 text-[#EF4444] rounded-lg hover:bg-dark-bg"><XCircle size={13}/></button>
-                    )}
+                    <div className="flex items-center gap-1">
+                      {c.role !== 'admin' && (
+                        <button
+                          onClick={() => {
+                            const token = localStorage.getItem('w3c_token')
+                            fetch(`/api/admin/impersonate/${c.id}`, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } })
+                              .then(r => r.json()).then(data => {
+                                if (!data.token) { alert(data.message ?? 'Impersonation failed'); return }
+                                const name = c.display_name || c.username || c.email
+                                const url = `/view-as?token=${encodeURIComponent(data.token)}&name=${encodeURIComponent(name)}&role=${c.role}&uid=${c.id}&redirect=/`
+                                window.open(url, '_blank')
+                              }).catch(() => alert('Impersonation failed'))
+                          }}
+                          title="View As User"
+                          className="p-1.5 text-[#2196F3] rounded-lg hover:bg-dark-bg"
+                        ><Eye size={13}/></button>
+                      )}
+                      {c.role !== 'admin' && (
+                        <button onClick={() => deactivate(c.id)} title="Deactivate" className="p-1.5 text-[#EF4444] rounded-lg hover:bg-dark-bg"><XCircle size={13}/></button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -756,6 +774,227 @@ function BulkOnlinePanel({ escorts, onBulkToggle }: { escorts: AdminEscort[]; on
           <span className={`text-xs font-semibold px-3 py-1.5 rounded-xl border ${feedback.startsWith('✓') ? 'text-[#28a745] bg-[#28a745]/10 border-[#28a745]/30' : 'text-[#EF4444] bg-[#EF4444]/10 border-[#EF4444]/30'}`}>
             {feedback}
           </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function EditEscortModal({ escort, onClose, onSaved }: { escort: AdminEscort; onClose: () => void; onSaved: (e: any) => void }) {
+  const [form, setForm] = useState({
+    name: escort.name ?? '',
+    city: escort.city ?? '',
+    area: '',
+    age: '',
+    tier: escort.tier ?? 'standard',
+    bio: '',
+    whatsapp: '',
+    telegram: '',
+    gender: 'Female',
+    price_incall: '',
+    price_outcall: '',
+    price_incall_overnight: '',
+    price_outcall_overnight: '',
+    price_video: '',
+    image: escort.image ?? '',
+  })
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const [photoUploading, setPhotoUploading] = useState(false)
+  const photoRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    adminFetch(`/admin/escorts/${escort.id}`)
+      .then((data: any) => {
+        setForm({
+          name: data.name ?? '',
+          city: data.city ?? '',
+          area: data.area ?? '',
+          age: data.age ? String(data.age) : '',
+          tier: data.tier ?? 'standard',
+          bio: data.bio ?? '',
+          whatsapp: data.whatsapp ?? '',
+          telegram: data.telegram ?? '',
+          gender: data.gender ?? 'Female',
+          price_incall: data.price_incall ? String(data.price_incall) : '',
+          price_outcall: data.price_outcall ? String(data.price_outcall) : '',
+          price_incall_overnight: data.price_incall_overnight ? String(data.price_incall_overnight) : '',
+          price_outcall_overnight: data.price_outcall_overnight ? String(data.price_outcall_overnight) : '',
+          price_video: data.price_video ? String(data.price_video) : '',
+          image: data.image ?? '',
+        })
+      })
+      .catch(() => setError('Could not load escort details.'))
+      .finally(() => setLoading(false))
+  }, [escort.id])
+
+  const compressImage = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onerror = reject
+      reader.onload = () => {
+        const img = new Image()
+        img.onerror = reject
+        img.onload = () => {
+          const scale = Math.min(1, 1200 / Math.max(img.width, img.height))
+          const canvas = document.createElement('canvas')
+          canvas.width = Math.round(img.width * scale)
+          canvas.height = Math.round(img.height * scale)
+          canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height)
+          resolve(canvas.toDataURL('image/jpeg', 0.85))
+        }
+        img.src = reader.result as string
+      }
+      reader.readAsDataURL(file)
+    })
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; if (!file) return
+    setPhotoUploading(true); setError('')
+    try {
+      const base64 = await compressImage(file)
+      const data = await adminFetch('/upload', { method: 'POST', body: JSON.stringify({ data: base64, filename: file.name, type: 'gallery' }) })
+      if (data?.url) setForm(f => ({ ...f, image: data.url }))
+    } catch { setError('Photo upload failed.') }
+    setPhotoUploading(false)
+    e.target.value = ''
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!form.name.trim()) { setError('Name is required.'); return }
+    setSaving(true); setError('')
+    try {
+      const data = await adminFetch(`/admin/escorts/${escort.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          ...form,
+          age: form.age ? parseInt(form.age) : undefined,
+          price_incall:            form.price_incall            ? parseInt(form.price_incall)            : undefined,
+          price_outcall:           form.price_outcall           ? parseInt(form.price_outcall)           : undefined,
+          price_incall_overnight:  form.price_incall_overnight  ? parseInt(form.price_incall_overnight)  : undefined,
+          price_outcall_overnight: form.price_outcall_overnight ? parseInt(form.price_outcall_overnight) : undefined,
+          price_video:             form.price_video             ? parseInt(form.price_video)             : undefined,
+        }),
+      })
+      onSaved(data)
+    } catch (err: any) {
+      setError(err?.message ?? 'Failed to save changes.')
+    }
+    setSaving(false)
+  }
+
+  const inputCls = 'w-full px-3 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted/50 focus:outline-none focus:border-[#8B0000] transition-all'
+  const priceCls = 'w-full px-3 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted/50 focus:outline-none focus:border-[#FFD700] transition-all'
+
+  return (
+    <div className="fixed inset-0 bg-black/70 z-50 flex items-start justify-center p-4 overflow-y-auto" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="bg-card-bg border border-color rounded-2xl w-full max-w-lg my-4">
+        <div className="flex items-center justify-between p-5 border-b border-color">
+          <h3 className="text-sm font-bold text-text-light flex items-center gap-2"><Edit2 size={14} className="text-[#8B0000]"/>Edit — {escort.name}</h3>
+          <button onClick={onClose} className="p-1.5 text-text-muted hover:text-text-light rounded-lg"><XCircle size={16}/></button>
+        </div>
+        {loading ? (
+          <div className="flex items-center justify-center py-16 gap-2 text-text-muted">
+            <div className="w-5 h-5 border-2 border-text-muted/30 border-t-text-muted rounded-full animate-spin"/>
+            <span className="text-sm">Loading…</span>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="p-5 space-y-4">
+            {error && <p className="text-xs text-[#EF4444] bg-[#EF4444]/10 px-3 py-2 rounded-lg">{error}</p>}
+
+            {/* Profile Photo */}
+            <div>
+              <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-2">Profile Photo</label>
+              <div className="flex items-center gap-3">
+                {form.image ? (
+                  <div className="relative w-16 h-16 rounded-xl overflow-hidden border border-[#28a745]/40 flex-shrink-0">
+                    <img src={form.image} alt="Preview" className="w-full h-full object-cover"/>
+                    <button type="button" onClick={() => setForm(f => ({ ...f, image: '' }))} className="absolute top-0.5 right-0.5 w-5 h-5 bg-black/70 rounded-full flex items-center justify-center text-white hover:bg-red-600 transition-colors"><XCircle size={10}/></button>
+                  </div>
+                ) : (
+                  <div className="w-16 h-16 rounded-xl border border-dashed border-color bg-dark-bg flex items-center justify-center text-text-muted flex-shrink-0"><Camera size={18}/></div>
+                )}
+                <label className={`flex-1 flex items-center justify-center gap-2 py-2.5 border border-dashed rounded-xl text-xs font-semibold cursor-pointer transition-all ${photoUploading ? 'border-color text-text-muted opacity-60' : 'border-[#8B0000]/40 text-text-muted hover:border-[#8B0000] hover:text-text-light'}`}>
+                  <input ref={photoRef} type="file" accept="image/*" className="hidden" disabled={photoUploading} onChange={handlePhotoUpload}/>
+                  {photoUploading ? <><div className="w-3 h-3 border-2 border-text-muted/30 border-t-text-muted rounded-full animate-spin"/>Uploading…</> : <><Camera size={13}/>{form.image ? 'Change Photo' : 'Upload Photo'}</>}
+                </label>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Name *</label>
+                <input value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="e.g. Amara K." className={inputCls}/>
+              </div>
+              <div>
+                <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Gender</label>
+                <select value={form.gender} onChange={e=>setForm(f=>({...f,gender:e.target.value}))} className={inputCls}>
+                  {['Female','Male','Trans Woman','Trans Man','Non-Binary'].map(g=><option key={g}>{g}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">City</label>
+                <input value={form.city} onChange={e=>setForm(f=>({...f,city:e.target.value}))} placeholder="e.g. Nairobi" className={inputCls}/>
+              </div>
+              <div>
+                <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Area / Estate</label>
+                <input value={form.area} onChange={e=>setForm(f=>({...f,area:e.target.value}))} placeholder="e.g. Westlands" className={inputCls}/>
+              </div>
+              <div>
+                <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Age</label>
+                <input type="number" min="18" max="70" value={form.age} onChange={e=>setForm(f=>({...f,age:e.target.value}))} placeholder="e.g. 24" className={inputCls}/>
+              </div>
+              <div>
+                <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Tier</label>
+                <select value={form.tier} onChange={e=>setForm(f=>({...f,tier:e.target.value}))} className={inputCls}>
+                  {['standard','premium','vip','elite'].map(t=><option key={t} value={t}>{t.charAt(0).toUpperCase()+t.slice(1)}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Bio</label>
+              <textarea rows={3} value={form.bio} onChange={e=>setForm(f=>({...f,bio:e.target.value}))} placeholder="Short profile bio…" className={inputCls + ' resize-none'}/>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">WhatsApp</label>
+                <input value={form.whatsapp} onChange={e=>setForm(f=>({...f,whatsapp:e.target.value}))} placeholder="+254712345678" className={inputCls}/>
+              </div>
+              <div>
+                <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Telegram</label>
+                <input value={form.telegram} onChange={e=>setForm(f=>({...f,telegram:e.target.value}))} placeholder="@handle" className={inputCls}/>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-2">Rates (KES)</label>
+              <div className="grid grid-cols-2 gap-2.5">
+                {[
+                  { label: 'Incall / hr', key: 'price_incall' as const },
+                  { label: 'Outcall / hr', key: 'price_outcall' as const },
+                  { label: 'Incall Overnight', key: 'price_incall_overnight' as const },
+                  { label: 'Outcall Overnight', key: 'price_outcall_overnight' as const },
+                  { label: 'Video Call', key: 'price_video' as const },
+                ].map(({ label, key }) => (
+                  <div key={key}>
+                    <label className="text-[9px] text-text-muted uppercase tracking-widest block mb-1">{label}</label>
+                    <input type="number" min="0" value={form[key]} onChange={e=>setForm(f=>({...f,[key]:e.target.value}))} placeholder="0" className={priceCls}/>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button type="button" onClick={onClose} className="flex-1 py-2.5 border border-color text-text-muted text-sm rounded-xl hover:border-text-muted/50 transition-all">Cancel</button>
+              <button type="submit" disabled={saving} className="flex-1 py-2.5 bg-[#8B0000] hover:bg-[#a00000] text-white text-sm font-bold rounded-xl disabled:opacity-60 flex items-center justify-center gap-2 transition-all">
+                {saving ? <><div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"/>Saving…</> : <><Save size={13}/>Save Changes</>}
+              </button>
+            </div>
+          </form>
         )}
       </div>
     </div>
@@ -1236,6 +1475,7 @@ function EscortsTab() {
   const [cleanupLoading, setCleanupLoading] = useState(false)
   const [cleanupMsg, setCleanupMsg] = useState('')
   const [showAddModal, setShowAddModal] = useState(false)
+  const [editEscort, setEditEscort] = useState<AdminEscort | null>(null)
   const [bulkApproveLoading, setBulkApproveLoading] = useState(false)
   const [bulkApproveMsg, setBulkApproveMsg] = useState('')
 
@@ -1503,7 +1743,22 @@ function EscortsTab() {
                           </>
                         ) : (
                           <>
-                            <button className="p-1.5 text-text-muted hover:text-text-light rounded-lg hover:bg-dark-bg" title="Edit"><Edit2 size={13}/></button>
+                            <button onClick={() => setEditEscort(e)} className="p-1.5 text-text-muted hover:text-text-light rounded-lg hover:bg-dark-bg" title="Edit"><Edit2 size={13}/></button>
+                            <button
+                              onClick={() => {
+                                const uid = e.user_id ? String(e.user_id) : null
+                                if (!uid) { alert('This escort has no linked user account.'); return }
+                                const token = localStorage.getItem('w3c_token')
+                                fetch(`/api/admin/impersonate/${uid}`, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } })
+                                  .then(r => r.json()).then(data => {
+                                    if (!data.token) { alert(data.message ?? 'Impersonation failed'); return }
+                                    const url = `/view-as?token=${encodeURIComponent(data.token)}&name=${encodeURIComponent(e.name)}&role=escort&uid=${uid}&redirect=/my-profile`
+                                    window.open(url, '_blank')
+                                  }).catch(() => alert('Impersonation failed'))
+                              }}
+                              className="p-1.5 text-[#2196F3] hover:bg-dark-bg rounded-lg"
+                              title="View As Escort"
+                            ><Eye size={13}/></button>
                             {Boolean(e.is_active) && (
                               <button
                                 onClick={() => handleReject(e.id)}
@@ -1537,6 +1792,16 @@ function EscortsTab() {
           </div>
         )}
       </div>
+      {editEscort && (
+        <EditEscortModal
+          escort={editEscort}
+          onClose={() => setEditEscort(null)}
+          onSaved={updated => {
+            setEscorts(prev => prev.map(e => e.id === updated.id ? { ...e, ...updated } : e))
+            setEditEscort(null)
+          }}
+        />
+      )}
       {showAddModal && (
         <AddEscortModal
           onClose={() => setShowAddModal(false)}

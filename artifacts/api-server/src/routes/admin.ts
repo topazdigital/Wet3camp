@@ -311,6 +311,18 @@ router.patch('/admin/escorts/:id/reject', requireAuth, requireAdmin, async (req:
   }
 })
 
+router.get('/admin/escorts/:id', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const pool = getPool()
+    if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
+    const [[escort]] = await pool.query<any[]>('SELECT * FROM escorts WHERE id = ?', [req.params!.id])
+    if (!escort) { res.status(404).json({ message: 'Escort not found' }); return }
+    res.json({ ...escort, id: String(escort.id) })
+  } catch (err: any) {
+    res.status(500).json({ message: 'Failed to fetch escort', detail: err?.message ?? '' })
+  }
+})
+
 router.patch('/admin/escorts/:id', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
   try {
     const pool = getPool()

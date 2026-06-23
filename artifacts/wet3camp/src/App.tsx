@@ -48,6 +48,7 @@ const TierBenefits    = lazy(() => import("@/pages/tier-benefits"))
 const ClaimProfile    = lazy(() => import("@/pages/claim-profile"))
 const LiveStream      = lazy(() => import("@/pages/live-stream"))
 const PaymentHistory  = lazy(() => import("@/pages/payment-history"))
+const ViewAs          = lazy(() => import("@/pages/view-as"))
 
 // ── Global QueryClient — aggressive caching + no pointless refetches ─────────
 const queryClient = new QueryClient({
@@ -129,6 +130,7 @@ function Router() {
         <Route path="/claim/:id" component={ClaimProfile} />
         <Route path="/live/:escortId" component={LiveStream} />
         <Route path="/payment-history">{() => <ProtectedRoute component={PaymentHistory} />}</Route>
+        <Route path="/view-as" component={ViewAs} />
         <Route component={AtProfileRoute} />
       </Switch>
     </Suspense>
@@ -145,6 +147,7 @@ function App() {
             <FavoritesProvider>
             <FollowProvider>
               <SidebarProvider>
+                <ImpersonationBanner />
                 <Router />
                 <BottomNav />
               </SidebarProvider>
