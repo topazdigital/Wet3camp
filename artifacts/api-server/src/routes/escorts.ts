@@ -224,8 +224,8 @@ router.get('/escorts/:id', async (req, res) => {
 
     const escortId = String(row.id)
     const [gallery]   = await pool.query<any[]>('SELECT image_url FROM escort_gallery WHERE escort_id = ? ORDER BY sort_order', [escortId])
-    const [services]  = await pool.query<any[]>('SELECT name, available FROM escort_services WHERE escort_id = ?', [escortId])
-    const [languages] = await pool.query<any[]>('SELECT language FROM escort_languages WHERE escort_id = ?', [escortId])
+    const [services]  = await pool.query<any[]>('SELECT name, MAX(available) AS available FROM escort_services WHERE escort_id = ? GROUP BY name ORDER BY name', [escortId])
+    const [languages] = await pool.query<any[]>('SELECT DISTINCT language FROM escort_languages WHERE escort_id = ?', [escortId])
 
     const [[followerRow]] = await pool.query<any[]>(
       'SELECT COUNT(*) AS cnt FROM user_follows WHERE escort_id = ?',
