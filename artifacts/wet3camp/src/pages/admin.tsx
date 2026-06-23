@@ -1899,6 +1899,21 @@ function AdminDashboard() {
                 </div>
               </div>
 
+              {/* Africa's Talking SMS */}
+              <div className="bg-card-bg border border-color rounded-2xl p-5">
+                <div className="flex items-center gap-2 mb-1">
+                  <MessageSquare size={16} className="text-[#22c55e]" />
+                  <h3 className="text-sm font-bold text-text-light">Africa's Talking (SMS)</h3>
+                  <a href="https://account.africastalking.com" target="_blank" rel="noopener noreferrer" className="ml-auto text-[10px] text-[#FFD700] hover:underline">Dashboard ↗</a>
+                </div>
+                <p className="text-[11px] text-text-muted mb-4">Used to send OTP codes when escorts claim their profile via phone number verification.</p>
+                <div className="space-y-4">
+                  <TextSettingField label="AT Username" placeholder="sandbox  (or your production app name)" settingKey="at_username" hint="Use 'sandbox' for testing, or your app/team name for live" />
+                  <ApiKeyField label="AT API Key" placeholder="atsk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" icon={Key} settingKey="at_api_key" hint="Settings → API Key inside your Sandbox or Team app on AT dashboard" />
+                  <TextSettingField label="Sender ID (optional)" placeholder="WET3CAMP" settingKey="at_sender_id" hint="Custom SMS sender name — leave blank to use default AT short code. Requires approval from AT." />
+                </div>
+              </div>
+
               {/* Telegram */}
               <div className="bg-card-bg border border-color rounded-2xl p-5">
                 <div className="flex items-center gap-2 mb-4">

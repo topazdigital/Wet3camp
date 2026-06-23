@@ -507,6 +507,41 @@ export async function sendPasswordResetEmail(email: string, token: string) {
   })
 }
 
+// ─── Africa's Talking SMS ─────────────────────────────────────────────────────
+
+export async function sendSmsOtp(
+  phone: string,
+  code: string,
+  name: string,
+  credentials: { apiKey: string; username: string; senderId?: string }
+): Promise<boolean> {
+  try {
+    // Normalise to E.164 (+254XXXXXXXXX)
+    let e164 = phone.trim()
+    if (!e164.startsWith('+')) {
+      e164 = e164.startsWith('0') ? `+254${e164.slice(1)}` : `+254${e164}`
+    }
+    // africastalking is CommonJS — use createRequire
+    const { createRequire } = await import('module')
+    const require = createRequire(import.meta.url)
+    const AT = require('africastalking')
+    const at = AT({ apiKey: credentials.apiKey, username: credentials.username })
+    const message = `Wet3Camp: Hi ${name}, your verification code is ${code}. Valid 10 mins. Do NOT share it.`
+    const result = await at.SMS.send({
+      to: [e164],
+      message,
+      ...(credentials.senderId ? { from: credentials.senderId } : {}),
+    })
+    const recipients: any[] = result?.SMSMessageData?.Recipients ?? []
+    const ok = recipients.some((r: any) => r.status === 'Success' || r.statusCode === 101)
+    if (!ok) console.warn('[SMS OTP] AT recipients:', JSON.stringify(recipients))
+    return ok
+  } catch (err) {
+    console.error('[SMS OTP] Africa\'s Talking error:', err)
+    return false
+  }
+}
+
 // ─── OTP ─────────────────────────────────────────────────────────────────────
 
 export async function sendOtpEmail(email: string, otp: string, name?: string) {

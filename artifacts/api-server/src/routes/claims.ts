@@ -26,27 +26,35 @@ router.post('/escorts/:id/claim/send-otp', requireAuth, async (req: AuthRequest,
     const expires = Date.now() + 10 * 60 * 1000 // 10 minutes
     claimOtpStore.set(escort.phone, { code, expires, escortId })
 
-    // Try to send via SMTP-based SMS gateway or log to console in dev
-    const [[smtpRow]] = await pool.query<any[]>("SELECT value FROM platform_settings WHERE `key` = 'smtp_host'").catch(() => [[null]])
-    const smtpConfigured = !!(smtpRow as any)?.value
+    // Read Africa's Talking credentials from platform_settings
+    const [[atKeyRow]]  = await pool.query<any[]>("SELECT value FROM platform_settings WHERE `key` = 'at_api_key'").catch(() => [[null]])
+    const [[atUserRow]] = await pool.query<any[]>("SELECT value FROM platform_settings WHERE `key` = 'at_username'").catch(() => [[null]])
+    const [[atSenderRow]] = await pool.query<any[]>("SELECT value FROM platform_settings WHERE `key` = 'at_sender_id'").catch(() => [[null]])
+    const atApiKey   = (atKeyRow  as any)?.value?.trim()
+    const atUsername = (atUserRow as any)?.value?.trim()
+    const atSenderId = (atSenderRow as any)?.value?.trim() || undefined
 
-    if (!smtpConfigured || process.env.NODE_ENV !== 'production') {
-      // Dev mode — log the code
-      console.log(`[CLAIM OTP] ${escort.phone} → ${code}`)
-    } else {
-      // Production: send via mailer
+    let smsSent = false
+    if (atApiKey && atUsername) {
       try {
-        const { sendClaimOtp } = await import('../lib/mailer.js')
-        await (sendClaimOtp as any)(escort.phone, escort.name, code)
-      } catch (mailErr) {
-        console.warn('[CLAIM OTP] Mail send failed:', mailErr)
+        const { sendSmsOtp } = await import('../lib/mailer.js')
+        smsSent = await sendSmsOtp(escort.phone, code, escort.name, { apiKey: atApiKey, username: atUsername, senderId: atSenderId })
+      } catch (smsErr) {
+        console.warn('[CLAIM OTP] SMS send failed:', smsErr)
       }
+    }
+
+    if (!smsSent) {
+      // Fallback: log code (dev) or warn (prod — admin needs to configure AT)
+      console.log(`[CLAIM OTP] ${escort.phone} → ${code}${smsSent === false && atApiKey ? ' (AT delivery failed)' : ' (AT not configured)'}`)
     }
 
     res.json({
       success: true,
-      message: `Verification code sent to ${escort.phone.replace(/(\+\d{3})\d+(\d{3})/, '$1****$2')}.`,
-      // Return code in dev so testers can proceed without real SMS
+      message: smsSent
+        ? `Verification code sent via SMS to ${escort.phone.replace(/(\+\d{3})\d+(\d{3})/, '$1****$2')}.`
+        : `Verification code generated. Check server logs (SMS not configured).`,
+      // Always return code in non-production for easy testing
       ...(process.env.NODE_ENV !== 'production' ? { dev_code: code } : {}),
     })
   } catch (err: any) {
