@@ -27,10 +27,13 @@ const UPLOADS_DIR  = process.env.UPLOADS_DIR || path.join(__dirname, 'uploads')
 const DELAY_MS     = 1200
 const USER_AGENT   = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
 
-const args    = process.argv.slice(2)
-const DRY_RUN = args.includes('--dry-run')
-const LIMIT   = parseInt(args.find(a => a.startsWith('--limit='))?.split('=')[1] || '9999', 10)
-const IS_MYSQL = DATABASE_URL?.startsWith('mysql://')
+const args      = process.argv.slice(2)
+const DRY_RUN   = args.includes('--dry-run')
+const FAST_MODE = args.includes('--fast')   // skip image downloads, shorter delays
+const LIMIT     = parseInt(args.find(a => a.startsWith('--limit='))?.split('=')[1] || '9999', 10)
+const IS_MYSQL  = DATABASE_URL?.startsWith('mysql://')
+
+const EFFECTIVE_DELAY = FAST_MODE ? 600 : 1200
 
 // Listing pages to scrape — add more as needed
 const SOURCES = [
@@ -462,14 +465,14 @@ async function main() {
     if (allProfiles.length >= LIMIT) break
     console.log(`📋 Fetching listing: ${source.listingUrl}`)
     const html = await fetchPage(source.listingUrl)
-    if (!html) { await sleep(DELAY_MS); continue }
+    if (!html) { await sleep(EFFECTIVE_DELAY); continue }
 
     const profiles = parseListingPage(html)
     console.log(`   Found ${profiles.length} profiles`)
     for (const p of profiles) {
       if (!seen.has(p.url)) { seen.add(p.url); allProfiles.push(p) }
     }
-    await sleep(DELAY_MS)
+    await sleep(EFFECTIVE_DELAY)
   }
 
   const total = Math.min(allProfiles.length, LIMIT)
@@ -485,10 +488,10 @@ async function main() {
     process.stdout.write(`${num} ${listing.rawName}... `)
 
     const html = await fetchPage(listing.url)
-    if (!html) { console.log('❌ fetch failed'); errors++; await sleep(DELAY_MS); continue }
+    if (!html) { console.log('❌ fetch failed'); errors++; await sleep(EFFECTIVE_DELAY); continue }
 
     const profile = parseProfilePage(html)
-    if (!profile) { console.log('❌ parse failed'); errors++; await sleep(DELAY_MS); continue }
+    if (!profile) { console.log('❌ parse failed'); errors++; await sleep(EFFECTIVE_DELAY); continue }
 
     // Location fallback from listing page
     if (!profile.area && listing.location) {
@@ -508,23 +511,33 @@ async function main() {
       skipped++; await sleep(300); continue
     }
 
-    // Download avatar
+    // Download avatar (skip in fast mode — store original URL instead)
     let avatarPath = null
     const primaryImg = profile.galleryImgs[0] || listing.thumbnailUrl
-    if (primaryImg) {
+    if (primaryImg && !FAST_MODE) {
       const ext  = primaryImg.match(/\.(jpg|jpeg|png|webp)/i)?.[1] || 'jpg'
       const name = `scraped_${Date.now()}_${Math.random().toString(36).slice(2, 7)}.${ext}`
       avatarPath = await downloadImage(primaryImg, name)
+    } else if (primaryImg && FAST_MODE) {
+      // In fast mode use the remote URL directly as the avatar
+      avatarPath = primaryImg
     }
 
-    // Download extra gallery images (up to 4 more = 5 total)
+    // Download extra gallery images (skip in fast mode)
     const galleryPaths = avatarPath ? [avatarPath] : []
-    for (let g = 1; g < Math.min(profile.galleryImgs.length, 5); g++) {
-      const ext  = profile.galleryImgs[g].match(/\.(jpg|jpeg|png|webp)/i)?.[1] || 'jpg'
-      const name = `scraped_${Date.now()}_${Math.random().toString(36).slice(2, 7)}.${ext}`
-      const gp   = await downloadImage(profile.galleryImgs[g], name)
-      if (gp) galleryPaths.push(gp)
-      await sleep(300)
+    if (!FAST_MODE) {
+      for (let g = 1; g < Math.min(profile.galleryImgs.length, 5); g++) {
+        const ext  = profile.galleryImgs[g].match(/\.(jpg|jpeg|png|webp)/i)?.[1] || 'jpg'
+        const name = `scraped_${Date.now()}_${Math.random().toString(36).slice(2, 7)}.${ext}`
+        const gp   = await downloadImage(profile.galleryImgs[g], name)
+        if (gp) galleryPaths.push(gp)
+        await sleep(300)
+      }
+    } else {
+      // Fast mode: store remote URLs directly
+      for (let g = 1; g < Math.min(profile.galleryImgs.length, 6); g++) {
+        galleryPaths.push(profile.galleryImgs[g])
+      }
     }
 
     try {
@@ -536,12 +549,25 @@ async function main() {
         for (const svcName of profile.services) {
           await db.query(
             `INSERT INTO escort_services (escort_id, name, available)
-             VALUES ($1, $2, true)
+             VALUES ($1, $2, 1)
              ON CONFLICT (escort_id, name) DO NOTHING`,
             [escortId, svcName],
           ).catch(() => {})
         }
-        process.stdout.write(` [${profile.services.length} services]`)
+        process.stdout.write(` [${profile.services.length} svcs]`)
+      }
+
+      // Insert scraped languages
+      if (profile.languages && profile.languages.length > 0) {
+        for (const lang of profile.languages) {
+          await db.query(
+            `INSERT INTO escort_languages (escort_id, language)
+             VALUES ($1, $2)
+             ON CONFLICT (escort_id, language) DO NOTHING`,
+            [escortId, lang],
+          ).catch(() => {})
+        }
+        process.stdout.write(` [${profile.languages.length} langs]`)
       }
 
       console.log(`✅ id:${escortId} ${profile.name} | ${profile.phone} | ${profile.area}`)
@@ -551,7 +577,7 @@ async function main() {
       errors++
     }
 
-    await sleep(DELAY_MS)
+    await sleep(EFFECTIVE_DELAY)
   }
 
   if (db) await db.end()
