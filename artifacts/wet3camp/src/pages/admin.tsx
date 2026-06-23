@@ -28,6 +28,7 @@ interface AdminEscort {
   id: string; name: string; city: string; tier: string
   online: boolean | number; is_active: boolean | number; verified: boolean | number
   featured?: boolean | number; price_hourly?: number; bookings_count?: number
+  image?: string
 }
 
 const TABS = ['Overview','Escorts','Claims','Clients','Bookings','Revenue','Moderators','Featured','Blog','API Keys','Settings']
@@ -1324,6 +1325,16 @@ function EscortsTab() {
     setActionLoading(null)
   }
 
+  const handleDeleteForever = async (id: string, name: string) => {
+    if (!window.confirm(`⚠️ PERMANENTLY DELETE "${name}"?\n\nThis removes the escort and ALL their data (gallery, services, languages) from the database forever.\n\nThis CANNOT be undone.`)) return
+    setActionLoading(id + '_delete')
+    try {
+      await adminFetch(`/admin/escorts/${id}`, { method: 'DELETE' })
+      setEscorts(prev => prev.filter(e => e.id !== id))
+    } catch {}
+    setActionLoading(null)
+  }
+
   const pendingCount = escorts.filter(e => !Boolean(e.is_active) && !Boolean(e.verified)).length
 
   const filtered = escorts.filter(e => {
@@ -1411,14 +1422,22 @@ function EscortsTab() {
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead className="bg-dark-bg border-b border-color">
-                <tr>{['Name','City','Tier','Active','Online Now','Verified','Featured','Actions'].map(h=><th key={h} className="px-4 py-3 text-left font-semibold text-text-muted">{h}</th>)}</tr>
+                <tr>{['Photo','Name','City','Tier','Active','Online Now','Verified','Featured','Actions'].map(h=><th key={h} className="px-4 py-3 text-left font-semibold text-text-muted">{h}</th>)}</tr>
               </thead>
               <tbody>
                 {filtered.length === 0 && (
-                  <tr><td colSpan={8} className="px-4 py-10 text-center text-text-muted">No escorts found.</td></tr>
+                  <tr><td colSpan={9} className="px-4 py-10 text-center text-text-muted">No escorts found.</td></tr>
                 )}
                 {filtered.map(e => (
                   <tr key={e.id} className="border-b border-color/40 hover:bg-dark-bg transition-colors">
+                    <td className="px-2 py-2">
+                      {e.image
+                        ? <img src={e.image} alt={e.name} className="w-10 h-10 rounded-lg object-cover border border-color" onError={ev => { ev.currentTarget.style.display = 'none'; const fb = ev.currentTarget.parentElement?.querySelector<HTMLElement>('.img-fb'); if (fb) fb.style.display = 'flex' }} />
+                        : null}
+                      <div className="img-fb w-10 h-10 rounded-lg bg-[#8B0000]/20 border border-color items-center justify-center text-sm font-black text-[#8B0000]" style={{ display: e.image ? 'none' : 'flex' }}>
+                        {(e.name || '?').charAt(0).toUpperCase()}
+                      </div>
+                    </td>
                     <td className="px-4 py-3 font-semibold text-text-light">{e.name}</td>
                     <td className="px-4 py-3 text-text-muted">{e.city || '—'}</td>
                     <td className="px-4 py-3">
@@ -1484,10 +1503,29 @@ function EscortsTab() {
                           </>
                         ) : (
                           <>
-                            <button className="p-1.5 text-text-muted hover:text-text-light rounded-lg hover:bg-dark-bg"><Edit2 size={13}/></button>
+                            <button className="p-1.5 text-text-muted hover:text-text-light rounded-lg hover:bg-dark-bg" title="Edit"><Edit2 size={13}/></button>
                             {Boolean(e.is_active) && (
-                              <button onClick={() => handleReject(e.id)} disabled={actionLoading === e.id + '_reject'} className="p-1.5 text-[#EF4444] rounded-lg hover:bg-dark-bg disabled:opacity-50" title="Deactivate"><Trash2 size={13}/></button>
+                              <button
+                                onClick={() => handleReject(e.id)}
+                                disabled={actionLoading === e.id + '_reject'}
+                                className="p-1.5 text-[#FF9800] rounded-lg hover:bg-dark-bg disabled:opacity-50"
+                                title="Deactivate (reversible)"
+                              >
+                                {actionLoading === e.id + '_reject'
+                                  ? <div className="w-3.5 h-3.5 border border-[#FF9800]/40 border-t-[#FF9800] rounded-full animate-spin" />
+                                  : <XCircle size={13}/>}
+                              </button>
                             )}
+                            <button
+                              onClick={() => handleDeleteForever(e.id, e.name)}
+                              disabled={actionLoading === e.id + '_delete'}
+                              className="p-1.5 text-[#EF4444] bg-[#EF4444]/10 rounded-lg hover:bg-[#EF4444]/20 disabled:opacity-50"
+                              title="Delete Forever — removes from database permanently"
+                            >
+                              {actionLoading === e.id + '_delete'
+                                ? <div className="w-3.5 h-3.5 border border-[#EF4444]/40 border-t-[#EF4444] rounded-full animate-spin" />
+                                : <Trash2 size={13}/>}
+                            </button>
                           </>
                         )}
                       </div>
