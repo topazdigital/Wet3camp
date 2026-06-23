@@ -49,6 +49,24 @@ export default defineConfig(async ({ mode }) => {
     build: {
       outDir: path.resolve(import.meta.dirname, "dist/public"),
       emptyOutDir: true,
+      // Split vendor libraries so the app shell is tiny and browsers cache libs separately
+      rollupOptions: {
+        output: {
+          manualChunks(id: string) {
+            if (!id.includes('node_modules')) return
+            // Core React — rarely changes, cache forever
+            if (id.includes('react-dom') || id.includes('/react/') || id.includes('react/jsx')) return 'vendor-react'
+            // Data fetching — changes rarely
+            if (id.includes('@tanstack/react-query') || id.includes('@tanstack/query')) return 'vendor-query'
+            // Icons — big but static
+            if (id.includes('lucide-react')) return 'vendor-icons'
+            // Router
+            if (id.includes('wouter')) return 'vendor-router'
+            // Everything else (zod, date-fns, etc.)
+            return 'vendor-misc'
+          },
+        },
+      },
     },
     server: {
       port,

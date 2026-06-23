@@ -166,6 +166,8 @@ export default function InfiniteEscortGrid({
                         alt={escort.name}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-400"
                         loading={idx < 12 ? 'eager' : 'lazy'}
+                        decoding="async"
+                        fetchPriority={idx < 4 ? 'high' : 'auto'}
                         onError={(ev) => {
                           ev.currentTarget.style.display = 'none'
                           const fb = ev.currentTarget.parentElement?.querySelector<HTMLElement>('.img-fallback')

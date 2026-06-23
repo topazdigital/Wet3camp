@@ -96,6 +96,8 @@ export default function FeaturedCarousel() {
                       src={e.image}
                       alt={e.name}
                       draggable={false}
+                      loading="lazy"
+                      decoding="async"
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       onError={(ev) => {
                         ev.currentTarget.style.display = 'none'

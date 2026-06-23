@@ -249,6 +249,14 @@ else
 fi
 
 echo ""
+echo "==> [9/9] Setting up nightly scraper cron job (3 AM Nairobi time = midnight UTC)..."
+SCRAPER_CRON="0 0 * * * source /home/admin/api-server/env && cd /home/admin/wet3camp-build/artifacts/api-server && DATABASE_URL=\"\$DATABASE_URL\" UPLOADS_DIR=\"/home/admin/wet3camp-build/artifacts/api-server/uploads\" /usr/bin/env node scrape-escorts.mjs --fast >> /tmp/wet3camp-scraper-cron.log 2>&1"
+# Remove any old scraper cron lines, then append the fresh one
+( crontab -l 2>/dev/null | grep -v 'scrape-escorts' ; echo "$SCRAPER_CRON" ) | crontab -
+echo "    Cron installed — runs every night at 00:00 UTC (03:00 EAT)."
+echo "    View cron log: tail -f /tmp/wet3camp-scraper-cron.log"
+
+echo ""
 echo "✅ Deploy complete! https://wet3.camp is now live."
 echo ""
 echo "─────────────────────────────────────────────────────────────"

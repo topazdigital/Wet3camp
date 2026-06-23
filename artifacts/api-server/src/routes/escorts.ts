@@ -129,7 +129,7 @@ router.get('/escorts', async (req, res) => {
     const [[{ online_count }]]= await pool.query<any[]>(`SELECT COUNT(*) AS online_count FROM escorts e WHERE e.is_active=1 AND e.online=1`)
     const [[{ cities }]]      = await pool.query<any[]>(`SELECT COUNT(DISTINCT city) AS cities FROM escorts WHERE is_active=1`)
 
-    res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300')
+    res.setHeader('Cache-Control', 'public, max-age=300, stale-while-revalidate=3600')
     res.json({
       data:  rows.map(mapEscort),
       total: Number(total ?? 0),
