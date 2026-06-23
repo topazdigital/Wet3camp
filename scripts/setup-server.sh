@@ -88,9 +88,30 @@ PORT=$API_PORT pm2 reload "$PM2_APP" --update-env 2>/dev/null \
 
 pm2 save
 
+# ── 7. Auto-run scraper in background (adds new profiles from live sites) ─────
+echo ""
+echo "▶ [7/7] Starting escort scraper in background..."
+if [ -n "${DATABASE_URL:-}" ]; then
+  # Scraper is already running — skip to avoid overlap
+  if pgrep -f "scrape-escorts.mjs" > /dev/null 2>&1; then
+    echo "  Scraper already running — skipping."
+  else
+    cd "$API_DIR" && nohup node scrape-escorts.mjs --fast \
+      > /tmp/scraper-$(date +%Y%m%d-%H%M%S).log 2>&1 &
+    echo "  Scraper started in background (PID $!)"
+    echo "  Logs: /tmp/scraper-*.log"
+    cd "$PROJECT_DIR"
+  fi
+else
+  echo "  DATABASE_URL not set — skipping scraper (set it in environment)"
+fi
+
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "✅  Deploy complete!"
 echo "   Site: https://wet3.camp"
 echo "   API:  http://127.0.0.1:$API_PORT  (PM2: $PM2_APP)"
+echo ""
+echo "   To update services/languages/rates for existing escorts:"
+echo "   node $API_DIR/scrape-escorts.mjs --update"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

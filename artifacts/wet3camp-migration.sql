@@ -91,7 +91,8 @@ ALTER TABLE escorts
   ADD COLUMN IF NOT EXISTS `price_outcall_overnight` int(10) UNSIGNED NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS `incall`      tinyint(1)   NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS `outcall`     tinyint(1)   NOT NULL DEFAULT 0,
-  ADD COLUMN IF NOT EXISTS `source_site` varchar(100)          DEFAULT NULL;
+  ADD COLUMN IF NOT EXISTS `source_site` varchar(100)          DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS `source_url`  varchar(500)          DEFAULT NULL;
 
 -- =============================================================================
 -- 3. Create platform_settings table (Admin → Settings & API Keys tabs)
