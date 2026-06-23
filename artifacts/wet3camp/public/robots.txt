@@ -1,19 +1,8 @@
 User-agent: *
 Allow: /
-Crawl-delay: 5
 
-# Private/account areas — do not index
-Disallow: /admin
-Disallow: /my-profile
-Disallow: /messages
-Disallow: /bookings
-Disallow: /booking
-Disallow: /account
-Disallow: /auth/
-Disallow: /api/
-Disallow: /pending-approval
-
-# Allow important public pages explicitly
+# Escort profile slug routes (e.g. /@jamila, /profile/42)
+Allow: /@
 Allow: /profile/
 Allow: /blog/
 Allow: /search
@@ -29,21 +18,38 @@ Allow: /shop
 Allow: /live
 Allow: /feeds
 Allow: /exclusive
+Allow: /adverts
 
-# Search engine specific settings
+# Private/account areas — do not index
+Disallow: /admin
+Disallow: /my-profile
+Disallow: /messages
+Disallow: /bookings
+Disallow: /booking
+Disallow: /account
+Disallow: /auth/
+Disallow: /api/
+Disallow: /pending-approval
+Disallow: /featured-upgrade
+Disallow: /choose-role
+
+# Googlebot — minimal delay, let it crawl fast
 User-agent: Googlebot
 Allow: /
-Crawl-delay: 2
+Crawl-delay: 1
 
 User-agent: Bingbot
 Allow: /
-Crawl-delay: 5
+Crawl-delay: 3
 
 User-agent: Slurp
 Allow: /
 Crawl-delay: 10
 
-# Sitemaps
+# All sitemaps
 Sitemap: https://wet3.camp/sitemap.xml
+Sitemap: https://wet3.camp/sitemap-main.xml
 Sitemap: https://wet3.camp/sitemap-escorts.xml
+Sitemap: https://wet3.camp/sitemap-cities.xml
+Sitemap: https://wet3.camp/sitemap-services.xml
 Sitemap: https://wet3.camp/sitemap-blog.xml
