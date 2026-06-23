@@ -131,10 +131,12 @@ export default function Home() {
     canonicalPath: '/',
   })
   const [activeCategory, setActiveCategory] = useState('all')
+  const [activeService, setActiveService] = useState('')
   const [detectedCity, setDetectedCity] = useState<string | null>(null)
   const [geoState, setGeoState] = useState<'idle' | 'loading' | 'done' | 'denied'>('idle')
   const [stats, setStats] = useState<{ total: number; verified: number; online: number; cities: number } | null>(null)
   const [popularCities, setPopularCities] = useState<string[]>([])
+  const [popularServices, setPopularServices] = useState<string[]>([])
 
   useEffect(() => {
     api.escorts.meta()
@@ -153,6 +155,13 @@ export default function Home() {
           setPopularCities(cities)
         }
       })
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    fetch('/api/services/popular')
+      .then(r => r.json())
+      .then(data => { if (Array.isArray(data)) setPopularServices(data.slice(0, 14).map((s: any) => s.name ?? s)) })
       .catch(() => {})
   }, [])
 
@@ -282,9 +291,9 @@ export default function Home() {
               {allCategories.map(cat => (
                 <button
                   key={cat.value}
-                  onClick={() => setActiveCategory(cat.value)}
+                  onClick={() => { setActiveCategory(cat.value); setActiveService('') }}
                   className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold flex-shrink-0 transition-all ${
-                    activeCategory === cat.value
+                    activeCategory === cat.value && !activeService
                       ? 'bg-[#8B0000] text-white shadow-md shadow-[#8B0000]/30'
                       : 'bg-card-bg border border-color text-text-muted hover:border-text-muted hover:text-text-light'
                   }`}
@@ -296,7 +305,37 @@ export default function Home() {
             </div>
           </div>
 
-          <InfiniteEscortGrid activeCategory={activeCategory} priorityCity={detectedCity || 'Nairobi'} />
+          {/* Service Chips */}
+          {popularServices.length > 0 && (
+            <div className="px-3 sm:px-5 py-2 border-b border-color bg-dark-bg/40">
+              <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide pb-0.5">
+                <span className="text-[9px] text-text-muted uppercase tracking-widest flex-shrink-0 mr-1">Services:</span>
+                {activeService && (
+                  <button
+                    onClick={() => setActiveService('')}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold flex-shrink-0 bg-[#8B0000] text-white"
+                  >
+                    ✕ Clear
+                  </button>
+                )}
+                {popularServices.map(svc => (
+                  <button
+                    key={svc}
+                    onClick={() => { setActiveService(activeService === svc ? '' : svc); setActiveCategory('all') }}
+                    className={`px-2.5 py-1 rounded-full text-[10px] font-semibold flex-shrink-0 transition-all border ${
+                      activeService === svc
+                        ? 'bg-[#FFD700]/20 border-[#FFD700]/60 text-[#FFD700]'
+                        : 'bg-card-bg border-color text-text-muted hover:border-[#FFD700]/40 hover:text-text-light'
+                    }`}
+                  >
+                    {svc}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <InfiniteEscortGrid activeCategory={activeCategory} priorityCity={detectedCity || 'Nairobi'} activeService={activeService} />
         </div>
       </div>
     </main>

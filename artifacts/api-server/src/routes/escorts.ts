@@ -34,6 +34,26 @@ function mapEscort(row: any) {
   }
 }
 
+// ── GET /services/popular ─────────────────────────────────────────────────────
+router.get('/services/popular', async (_req, res) => {
+  const pool = getPool()
+  if (!pool) { res.json([]); return }
+  try {
+    const [rows] = await pool.query<any[]>(
+      `SELECT es.name, COUNT(*) AS cnt
+       FROM escort_services es
+       JOIN escorts e ON e.id = es.escort_id AND e.is_active = 1
+       GROUP BY es.name
+       ORDER BY cnt DESC
+       LIMIT 20`
+    )
+    res.setHeader('Cache-Control', 'public, max-age=300')
+    res.json((rows as any[]).map((r: any) => ({ name: r.name, count: Number(r.cnt) })))
+  } catch {
+    res.json([])
+  }
+})
+
 // ── GET /escorts ──────────────────────────────────────────────────────────────
 router.get('/escorts', async (req, res) => {
   try {

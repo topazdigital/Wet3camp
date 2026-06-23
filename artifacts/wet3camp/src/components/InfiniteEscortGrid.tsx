@@ -49,16 +49,18 @@ function SkeletonCard() {
 export default function InfiniteEscortGrid({
   activeCategory = 'all',
   priorityCity = 'Nairobi',
+  activeService = '',
 }: {
   activeCategory?: string
   priorityCity?: string
+  activeService?: string
 }) {
   const { isFollowing, toggleFollow } = useFollow()
   const { user } = useAuth()
   const { isFavorite, toggleFavorite } = useFavorites()
   const { isOnline } = useOnlineStatus()
 
-  const { escorts: apiEscorts, fromApi, isLoading } = useAllEscorts()
+  const { escorts: apiEscorts, fromApi, isLoading } = useAllEscorts({ service: activeService || undefined })
 
   const allEscorts = React.useMemo(() => {
     if (!fromApi) return []

@@ -46,10 +46,11 @@ function toAppEscort(e: ApiEscort) {
   }
 }
 
-export function useAllEscorts() {
+export function useAllEscorts(params?: { service?: string }) {
+  const svc = params?.service ?? ''
   const { data, isLoading, isError } = useQuery({
-    queryKey:  ['escorts', 'all'],
-    queryFn:   () => api.escorts.list({ limit: 200 }),
+    queryKey:  ['escorts', 'all', svc],
+    queryFn:   () => api.escorts.list({ limit: 200, ...(svc ? { service: svc } : {}) } as any),
     staleTime: 5 * 60 * 1000,
     retry:     1,
   })
