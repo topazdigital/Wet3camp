@@ -1,4 +1,4 @@
-import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
+import { Switch, Route, Router as WouterRouter, Redirect, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { SidebarProvider } from "@/lib/sidebar-context";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
@@ -57,6 +57,12 @@ function ProtectedRoute({ component: Component, adminOnly = false }: { component
   return <Component />;
 }
 
+function AtProfileRoute() {
+  const [location] = useLocation();
+  if (location.startsWith('/@')) return <Profile />;
+  return <NotFound />;
+}
+
 function Router() {
   return (
     <Switch>
@@ -81,7 +87,6 @@ function Router() {
       <Route path="/my-profile">{() => <ProtectedRoute component={MyProfile} />}</Route>
       <Route path="/profile" component={Profile} />
       <Route path="/profile/:slug" component={Profile} />
-      <Route path="/@:slug" component={Profile} />
       <Route path="/register" component={Register} />
       <Route path="/reviews" component={Reviews} />
       <Route path="/rooms" component={Rooms} />
@@ -100,7 +105,7 @@ function Router() {
       <Route path="/claim/:id" component={ClaimProfile} />
       <Route path="/live/:escortId" component={LiveStream} />
       <Route path="/payment-history">{() => <ProtectedRoute component={PaymentHistory} />}</Route>
-      <Route component={NotFound} />
+      <Route component={AtProfileRoute} />
     </Switch>
   );
 }

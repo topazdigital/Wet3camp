@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Heart, Share2, MessageCircle, MessageSquare, MapPin, Star, Check, X, Calendar, Clock, CheckCircle2, ChevronLeft, Flame, Shield, Eye, Ruler, UserPlus, UserCheck, Users } from 'lucide-react'
 import Sidebar from '@/components/Sidebar'
 import Header from '@/components/Header'
-import { Link, useRoute } from 'wouter'
+import { Link, useRoute, useLocation } from 'wouter'
 import { useEscort } from '@/hooks/useEscorts'
 import { useAuth } from '@/lib/auth-context'
 import { useFollow } from '@/lib/follow-context'
@@ -35,11 +35,12 @@ function tgLink(name: string) {
 
 export default function ProfilePage() {
   const [, params]    = useRoute('/profile/:slug')
-  const [, paramsAt]  = useRoute('/@:slug')
+  const [location]    = useLocation()
   const { isLoggedIn, user } = useAuth()
   const { isFollowing, toggleFollow, followerCount } = useFollow()
 
-  const slug = params?.slug ?? paramsAt?.slug
+  const atSlug = location.match(/^\/@([^/?#]+)/)?.[1]
+  const slug = params?.slug ?? atSlug
   const { escort: apiEscort, isLoading } = useEscort(slug)
   const escort = (apiEscort as any) ?? null
 

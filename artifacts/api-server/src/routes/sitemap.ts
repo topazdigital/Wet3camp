@@ -141,12 +141,13 @@ router.get('/sitemap-escorts.xml', async (_req, res) => {
         const lastmod = e.updated_at
           ? new Date(e.updated_at).toISOString().split('T')[0]
           : new Date().toISOString().split('T')[0]
-        // Include both ID-based and name-slug URLs for maximum coverage
+        // Use /@slug as canonical URL (matches app routing)
         const slug = (e.name as string).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
-        escortLines.push(url(`${BASE}/profile/${e.id}`, lastmod, 'daily', '0.8'))
-        if (slug && slug !== String(e.id)) {
-          escortLines.push(url(`${BASE}/profile/${slug}`, lastmod, 'daily', '0.7'))
+        if (slug) {
+          escortLines.push(url(`${BASE}/@${slug}`, lastmod, 'daily', '0.8'))
         }
+        // Keep /profile/:id as fallback for backwards compatibility
+        escortLines.push(url(`${BASE}/profile/${e.id}`, lastmod, 'daily', '0.6'))
       }
     } catch (err) {
       console.error('[sitemap-escorts] DB error:', err)
