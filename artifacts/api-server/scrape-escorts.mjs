@@ -825,23 +825,22 @@ async function updateEscortRates(db, escortId, { price_incall, price_outcall, pr
 // ── Source definitions ────────────────────────────────────────────────────────
 function buildNairobirahaListingUrls() {
   const urls = []
-  // Paginated main listing
-  for (let p = 1; p <= 30; p++) {
+  // Paginated main listing — nairobiraha has ~3 pages; cap at 10, break-on-empty handles the rest
+  for (let p = 1; p <= 10; p++) {
     urls.push(`${NAIROBIRAHA_BASE}/escorts/page/${p}/`)
   }
-  // Category pages — cover all major topics to capture unique profiles
+  // CONFIRMED-WORKING category slugs only (verified from live scrape — all others 404)
   const categories = [
-    'african-escorts','call-girls','nairobi-escorts','mombasa-escorts',
-    'vip-escorts','massage','indian-escorts','kisumu-escorts','nakuru-escorts',
-    'westlands-escorts','karen-escorts','kilimani-escorts','nairobi-cbd-escorts',
-    'eldoret-escorts','cbd-escorts','mombasa-cbd-escorts','kenyan-escorts',
-    'bbw-escorts','milf-escorts','young-escorts','mature-escorts',
-    'apartment-escorts','hotel-escorts','executive-escorts',
+    'call-girls',       // confirmed 200
+    'nairobi-escorts',  // confirmed 200, pages 1-4
+    'vip-escorts',      // confirmed 200, pages 1-5
+    'massage',          // confirmed 200, pages 1-5
+    'kenyan-escorts',   // confirmed 200, pages 1-5
+    'african-escorts',  // likely valid
   ]
   for (const cat of categories) {
     urls.push(`${NAIROBIRAHA_BASE}/${cat}/`)
-    // Some categories have pagination too
-    for (let p = 2; p <= 5; p++) {
+    for (let p = 2; p <= 4; p++) {
       urls.push(`${NAIROBIRAHA_BASE}/${cat}/page/${p}/`)
     }
   }
