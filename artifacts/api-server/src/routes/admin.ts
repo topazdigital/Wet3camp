@@ -787,4 +787,52 @@ router.get('/admin/health', requireAuth, requireAdmin, async (_req: AuthRequest,
   res.status(allOk ? 200 : 207).json({ ok: allOk, status, ts: new Date().toISOString() })
 })
 
+// ── GET /admin/reports ────────────────────────────────────────────────────────
+router.get('/admin/reports', requireAuth, requireAdmin, async (_req: AuthRequest, res) => {
+  const pool = getPool()
+  if (!pool) { res.status(503).json({ message: 'No DB' }); return }
+  try {
+    await pool.query(`CREATE TABLE IF NOT EXISTS profile_reports (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      escort_id INT NOT NULL,
+      reporter_id INT NULL,
+      reason VARCHAR(100) NOT NULL,
+      details TEXT,
+      status VARCHAR(20) NOT NULL DEFAULT 'pending',
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_pr_escort (escort_id),
+      INDEX idx_pr_status (status)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`).catch(() => {})
+    const [rows] = await pool.query<any[]>(`
+      SELECT r.*, e.name AS escort_name, e.city AS escort_city,
+             u.display_name AS reporter_name, u.email AS reporter_email
+      FROM profile_reports r
+      LEFT JOIN escorts e ON e.id = r.escort_id
+      LEFT JOIN users u ON u.id = r.reporter_id
+      ORDER BY r.created_at DESC
+      LIMIT 200
+    `)
+    res.json(Array.isArray(rows) ? rows : [])
+  } catch (err: any) {
+    console.error('[admin/reports]', err?.message)
+    res.json([])
+  }
+})
+
+// ── PATCH /admin/reports/:id ──────────────────────────────────────────────────
+router.patch('/admin/reports/:id', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  const pool = getPool()
+  if (!pool) { res.status(503).json({ message: 'No DB' }); return }
+  const { status } = req.body as { status: string }
+  if (!['reviewed', 'dismissed', 'actioned'].includes(status)) {
+    res.status(400).json({ message: 'Invalid status' }); return
+  }
+  try {
+    await pool.query('UPDATE profile_reports SET status = ? WHERE id = ?', [status, req.params.id])
+    res.json({ ok: true })
+  } catch (err: any) {
+    res.status(500).json({ message: err?.message })
+  }
+})
+
 export default router

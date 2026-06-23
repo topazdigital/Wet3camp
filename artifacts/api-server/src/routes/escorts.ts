@@ -268,6 +268,34 @@ router.get('/escorts/:id', async (req, res) => {
   }
 })
 
+// ── POST /escorts/:id/report ──────────────────────────────────────────────────
+router.post('/escorts/:id/report', async (req, res) => {
+  const pool = getPool()
+  if (!pool) { res.status(503).json({ message: 'No DB' }); return }
+  const { reason, details } = req.body as { reason?: string; details?: string }
+  if (!reason) { res.status(400).json({ message: 'Reason is required' }); return }
+  const reporterId = (req as any).user?.id ?? null
+  try {
+    await pool.query(`CREATE TABLE IF NOT EXISTS profile_reports (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      escort_id INT NOT NULL,
+      reporter_id INT NULL,
+      reason VARCHAR(100) NOT NULL,
+      details TEXT,
+      status VARCHAR(20) NOT NULL DEFAULT 'pending',
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`).catch(() => {})
+    await pool.query(
+      'INSERT INTO profile_reports (escort_id, reporter_id, reason, details, status, created_at) VALUES (?, ?, ?, ?, \'pending\', NOW())',
+      [req.params.id, reporterId, reason, details ?? null]
+    )
+    res.json({ ok: true, message: 'Report submitted. Our team will review it shortly.' })
+  } catch (err: any) {
+    console.error('[report]', err?.message)
+    res.status(500).json({ message: 'Failed to submit report' })
+  }
+})
+
 // ── POST /escorts/:id/claim ───────────────────────────────────────────────────
 router.post('/escorts/:id/claim', async (req, res) => {
   const pool = getPool()
