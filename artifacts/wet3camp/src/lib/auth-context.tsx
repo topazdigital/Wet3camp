@@ -26,6 +26,7 @@ const AuthContext = createContext<AuthCtx>({
 })
 
 const KEY = 'w3c_user'
+const SS_KEY = 'w3c_ss_user'
 
 function apiUserToAuthUser(u: ApiUser): AuthUser {
   return {
@@ -41,18 +42,30 @@ function apiUserToAuthUser(u: ApiUser): AuthUser {
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(() => {
-    try { const s = localStorage.getItem(KEY); return s ? JSON.parse(s) : null } catch { return null }
+    try {
+      const ss = sessionStorage.getItem(SS_KEY)
+      if (ss) return JSON.parse(ss)
+      const s = localStorage.getItem(KEY)
+      return s ? JSON.parse(s) : null
+    } catch { return null }
   })
+
+  const isImpersonating = !!sessionStorage.getItem(SS_KEY)
 
   const login = useCallback((u: AuthUser) => {
     setUser(u)
-    try { localStorage.setItem(KEY, JSON.stringify(u)) } catch {}
-  }, [])
+    if (isImpersonating) {
+      try { sessionStorage.setItem(SS_KEY, JSON.stringify(u)) } catch {}
+    } else {
+      try { localStorage.setItem(KEY, JSON.stringify(u)) } catch {}
+    }
+  }, [isImpersonating])
 
   const logout = useCallback(() => {
     setUser(null)
     clearToken()
     try { localStorage.removeItem(KEY) } catch {}
+    try { sessionStorage.removeItem(SS_KEY) } catch {}
   }, [])
 
   // On mount, refresh approved status from server so approved escorts

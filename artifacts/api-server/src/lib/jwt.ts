@@ -11,11 +11,11 @@ function getSecret(): Uint8Array {
   return new TextEncoder().encode(secret)
 }
 
-export async function signToken(payload: Record<string, unknown>): Promise<string> {
+export async function signToken(payload: Record<string, unknown>, expiresIn = '30d'): Promise<string> {
   return new SignJWT(payload)
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
-    .setExpirationTime('30d')
+    .setExpirationTime(expiresIn)
     .sign(getSecret())
 }
 

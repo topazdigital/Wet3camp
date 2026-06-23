@@ -8,6 +8,7 @@ import { NotificationsProvider } from "@/lib/notifications-context";
 import { BookingsProvider } from "@/lib/bookings-context"
 import { FavoritesProvider } from "@/lib/favorites-context";
 import BottomNav from "@/components/BottomNav";
+import { ImpersonationBanner } from "@/pages/view-as";
 
 // ── Lazy-load every page — each becomes its own JS chunk loaded on demand ─────
 const NotFound        = lazy(() => import("@/pages/not-found"))

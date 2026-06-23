@@ -3,6 +3,7 @@ import { getPool } from '../lib/db.js'
 import { requireAuth, type AuthRequest } from '../middlewares/requireAuth.js'
 import { setEscortOnline } from '../lib/online-store.js'
 import { sendEscortApprovedEmail, sendEscortRejectedEmail, sendTelegramNotification } from '../lib/mailer.js'
+import { signToken } from '../lib/jwt.js'
 
 const router = Router()
 
@@ -310,6 +311,42 @@ router.patch('/admin/escorts/:id/reject', requireAuth, requireAdmin, async (req:
   }
 })
 
+router.patch('/admin/escorts/:id', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const pool = getPool()
+    if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
+    const {
+      name, city, area, age, tier, bio, whatsapp, telegram, gender, image,
+      price_incall, price_outcall, price_incall_overnight, price_outcall_overnight, price_video
+    } = req.body as Record<string, any>
+    const fields: string[] = []
+    const vals: any[] = []
+    if (name     !== undefined) { fields.push('name = ?');                    vals.push(String(name).trim() || null) }
+    if (city     !== undefined) { fields.push('city = ?');                    vals.push(city || null) }
+    if (area     !== undefined) { fields.push('area = ?');                    vals.push(area || null) }
+    if (age      !== undefined) { fields.push('age = ?');                     vals.push(age ? parseInt(age) : null) }
+    if (tier     !== undefined) { fields.push('tier = ?');                    vals.push(tier || null) }
+    if (bio      !== undefined) { fields.push('bio = ?');                     vals.push(bio || null) }
+    if (whatsapp !== undefined) { fields.push('whatsapp = ?');                vals.push(whatsapp || null) }
+    if (telegram !== undefined) { fields.push('telegram = ?');                vals.push(telegram || null) }
+    if (gender   !== undefined) { fields.push('gender = ?');                  vals.push(gender || null) }
+    if (image    !== undefined) { fields.push('image = ?');                   vals.push(image || null) }
+    if (price_incall            !== undefined) { fields.push('price_incall = ?');            vals.push(parseInt(price_incall) || 0) }
+    if (price_outcall           !== undefined) { fields.push('price_outcall = ?');           vals.push(parseInt(price_outcall) || 0) }
+    if (price_incall_overnight  !== undefined) { fields.push('price_incall_overnight = ?');  vals.push(parseInt(price_incall_overnight) || 0) }
+    if (price_outcall_overnight !== undefined) { fields.push('price_outcall_overnight = ?'); vals.push(parseInt(price_outcall_overnight) || 0) }
+    if (price_video             !== undefined) { fields.push('price_video = ?');             vals.push(parseInt(price_video) || 0) }
+    if (fields.length === 0) { res.status(400).json({ message: 'No fields to update' }); return }
+    vals.push(req.params!.id)
+    await pool.query(`UPDATE escorts SET ${fields.join(', ')} WHERE id = ?`, vals)
+    const [[escort]] = await pool.query<any[]>('SELECT * FROM escorts WHERE id = ?', [req.params!.id])
+    res.json({ ...escort, id: String(escort.id) })
+  } catch (err: any) {
+    console.error('[PATCH /admin/escorts/:id]', err?.message ?? err)
+    res.status(500).json({ message: 'Failed to update escort', detail: err?.message ?? '' })
+  }
+})
+
 router.delete('/admin/escorts/:id', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
   try {
     const pool = getPool()
@@ -321,6 +358,26 @@ router.delete('/admin/escorts/:id', requireAuth, requireAdmin, async (req: AuthR
     res.json({ success: true })
   } catch {
     res.status(500).json({ message: 'Failed to delete escort' })
+  }
+})
+
+router.post('/admin/impersonate/:userId', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const pool = getPool()
+    if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
+    const [[user]] = await pool.query<any[]>(
+      "SELECT id, email, role, COALESCE(display_name, username, email) AS name FROM users WHERE id = ? LIMIT 1",
+      [req.params!.id]
+    )
+    if (!user) { res.status(404).json({ message: 'User not found' }); return }
+    const token = await signToken(
+      { id: user.id, role: user.role, email: user.email, impersonating: true, impersonatedBy: req.userId ?? 'admin' },
+      '2h'
+    )
+    res.json({ token, user: { id: String(user.id), name: user.name || user.email, email: user.email, role: user.role } })
+  } catch (err: any) {
+    console.error('[POST /admin/impersonate]', err?.message ?? err)
+    res.status(500).json({ message: 'Failed to create impersonation token' })
   }
 })
 
