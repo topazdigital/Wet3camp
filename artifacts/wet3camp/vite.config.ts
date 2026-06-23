@@ -54,15 +54,22 @@ export default defineConfig(async ({ mode }) => {
         output: {
           manualChunks(id: string) {
             if (!id.includes('node_modules')) return
-            // Core React — rarely changes, cache forever
-            if (id.includes('react-dom') || id.includes('/react/') || id.includes('react/jsx')) return 'vendor-react'
+            // Core React ecosystem — scheduler is react-dom's peer; all must share
+            // the same chunk to avoid circular dependencies between vendor chunks
+            if (
+              id.includes('/react-dom/') ||
+              id.includes('/node_modules/react/') ||
+              id.includes('react/jsx-runtime') ||
+              id.includes('react/jsx-dev-runtime') ||
+              id.includes('/scheduler/')
+            ) return 'vendor-react'
             // Data fetching — changes rarely
             if (id.includes('@tanstack/react-query') || id.includes('@tanstack/query')) return 'vendor-query'
             // Icons — big but static
             if (id.includes('lucide-react')) return 'vendor-icons'
             // Router
             if (id.includes('wouter')) return 'vendor-router'
-            // Everything else (zod, date-fns, etc.)
+            // Everything else (zod, date-fns, framer-motion, etc.)
             return 'vendor-misc'
           },
         },
