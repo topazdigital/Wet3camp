@@ -6,8 +6,6 @@ import { FollowProvider } from "@/lib/follow-context"
 import { NotificationsProvider } from "@/lib/notifications-context";
 import { BookingsProvider } from "@/lib/bookings-context"
 import { FavoritesProvider } from "@/lib/favorites-context";
-import Booking  from "@/pages/booking";
-import Bookings from "@/pages/bookings";
 import BottomNav from "@/components/BottomNav";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
@@ -82,8 +80,8 @@ function Router() {
       <Route path="/login" component={Login} />
       <Route path="/forgot-password" component={ForgotPassword} />
       <Route path="/messages">{() => <ProtectedRoute component={Messages} />}</Route>
-      <Route path="/booking">{()  => <ProtectedRoute component={Booking}  />}</Route>
-      <Route path="/bookings">{() => <ProtectedRoute component={Bookings} />}</Route>
+      <Route path="/booking">{() => <Redirect to="/" />}</Route>
+      <Route path="/bookings">{() => <Redirect to="/" />}</Route>
       <Route path="/my-profile">{() => <ProtectedRoute component={MyProfile} />}</Route>
       <Route path="/profile" component={Profile} />
       <Route path="/profile/:slug" component={Profile} />

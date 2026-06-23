@@ -255,9 +255,7 @@ export default function InfiniteEscortGrid({
       )}
 
       {!hasMore && shown.length > 0 && (
-        <div className="text-center py-6 text-text-muted text-xs">
-          — All {shown.length} escorts shown —
-        </div>
+        <div className="py-6" />
       )}
     </div>
   )

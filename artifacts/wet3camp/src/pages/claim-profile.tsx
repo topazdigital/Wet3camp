@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useRoute, useLocation } from 'wouter'
 import Header from '@/components/Header'
 import Sidebar from '@/components/Sidebar'
-import { Shield, Phone, CheckCircle2, Clock, XCircle, ChevronRight, AlertTriangle } from 'lucide-react'
+import { Shield, Phone, Mail, Video, CheckCircle2, Clock, XCircle, ChevronRight, AlertTriangle, Camera } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { useSEO } from '@/lib/useSEO'
 
@@ -21,7 +21,8 @@ async function apiFetch(path: string, opts?: RequestInit) {
   return data
 }
 
-type Step = 'info' | 'otp-sent' | 'verified' | 'submitted' | 'status'
+type Method = 'sms' | 'email' | 'video'
+type Step = 'choose-method' | 'otp-sent' | 'email-sent' | 'video-record' | 'verified' | 'submitted' | 'status'
 
 export default function ClaimProfile() {
   useSEO({ title: 'Claim Your Profile — Wet3Camp', canonicalPath: '/claim' })
@@ -32,15 +33,22 @@ export default function ClaimProfile() {
   const { user } = useAuth()
 
   const [escort, setEscort] = useState<any>(null)
-  const [step, setStep]     = useState<Step>('info')
-  const [otp, setOtp]       = useState('')
+  const [step, setStep] = useState<Step>('choose-method')
+  const [method, setMethod] = useState<Method>('sms')
+  const [otp, setOtp] = useState('')
+  const [email, setEmail] = useState('')
   const [message, setMessage] = useState('')
   const [existingStatus, setExistingStatus] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const [error, setError]   = useState('')
-  const [info, setInfo]     = useState('')
+  const [error, setError] = useState('')
+  const [info, setInfo] = useState('')
+  const [videoBlob, setVideoBlob] = useState<Blob | null>(null)
+  const [videoUrl, setVideoUrl] = useState<string | null>(null)
+  const [recording, setRecording] = useState(false)
+  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // Load escort profile
   useEffect(() => {
     if (!escortId) return
     apiFetch(`/escorts/${escortId}`)
@@ -48,7 +56,6 @@ export default function ClaimProfile() {
       .catch(() => setError('Profile not found.'))
   }, [escortId])
 
-  // Check existing claim status
   useEffect(() => {
     if (!escortId || !user) return
     apiFetch(`/escorts/${escortId}/claim-status`)
@@ -86,12 +93,13 @@ export default function ClaimProfile() {
     )
   }
 
+  // ── SMS / OTP flow ──────────────────────────────────────────────────────────
   const sendOtp = async () => {
     setLoading(true); setError('')
     try {
       await apiFetch(`/escorts/${escortId}/claim/send-otp`, { method: 'POST' })
       setStep('otp-sent')
-      setInfo(`A verification code was sent to the phone number on this profile. Enter it below to prove this is you.`)
+      setInfo(`A verification code was sent to the phone number on this profile.`)
     } catch (e: any) {
       setError(e.message)
     }
@@ -111,6 +119,78 @@ export default function ClaimProfile() {
     setLoading(false)
   }
 
+  // ── Email flow ──────────────────────────────────────────────────────────────
+  const submitEmailClaim = async () => {
+    if (!email.trim()) { setError('Enter your email address'); return }
+    setLoading(true); setError('')
+    try {
+      await apiFetch(`/escorts/${escortId}/claim`, {
+        method: 'POST',
+        body: JSON.stringify({ message: `Email verification claim. Email: ${email}. ${message}`, otp_verified: false }),
+      })
+      setStep('submitted')
+    } catch (e: any) {
+      setError(e.message)
+    }
+    setLoading(false)
+  }
+
+  // ── Video flow ──────────────────────────────────────────────────────────────
+  const startRecording = async () => {
+    setError('')
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+        videoRef.current.play()
+      }
+      const recorder = new MediaRecorder(stream)
+      const chunks: Blob[] = []
+      recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data) }
+      recorder.onstop = () => {
+        const blob = new Blob(chunks, { type: 'video/webm' })
+        setVideoBlob(blob)
+        setVideoUrl(URL.createObjectURL(blob))
+        stream.getTracks().forEach(t => t.stop())
+        if (videoRef.current) videoRef.current.srcObject = null
+      }
+      recorder.start()
+      setMediaRecorder(recorder)
+      setRecording(true)
+    } catch {
+      setError('Camera access denied. Please allow camera permissions or upload a video instead.')
+    }
+  }
+
+  const stopRecording = () => {
+    mediaRecorder?.stop()
+    setRecording(false)
+    setMediaRecorder(null)
+  }
+
+  const handleVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setVideoBlob(file)
+    setVideoUrl(URL.createObjectURL(file))
+  }
+
+  const submitVideoClaim = async () => {
+    if (!videoBlob) { setError('Please record or upload a video first.'); return }
+    setLoading(true); setError('')
+    try {
+      await apiFetch(`/escorts/${escortId}/claim`, {
+        method: 'POST',
+        body: JSON.stringify({ message: `Video verification claim submitted. ${message}`, otp_verified: false }),
+      })
+      setStep('submitted')
+    } catch (e: any) {
+      setError(e.message)
+    }
+    setLoading(false)
+  }
+
+  // ── Final claim submit (after OTP verified) ─────────────────────────────────
   const submitClaim = async () => {
     setLoading(true); setError('')
     try {
@@ -132,6 +212,9 @@ export default function ClaimProfile() {
     approved: <CheckCircle2 size={36} className="text-[#28a745]" />,
     rejected: <XCircle size={36} className="text-[#8B0000]" />,
   }
+
+  const hasPhone = !!escort?.phone
+  const hasEmail = !!(escort as any)?.email
 
   return (
     <main className="min-h-screen bg-dark-bg flex flex-col lg:flex-row">
@@ -193,8 +276,8 @@ export default function ClaimProfile() {
             </div>
           )}
 
-          {/* STEP: Info / Start */}
-          {step === 'info' && !escort?.user_id && existingStatus === null && (
+          {/* STEP: Choose verification method */}
+          {step === 'choose-method' && !escort?.user_id && existingStatus === null && (
             <div>
               <div className="mb-6">
                 <div className="flex items-center gap-2 mb-3">
@@ -202,39 +285,78 @@ export default function ClaimProfile() {
                   <h1 className="text-lg font-bold text-text-light">Claim This Profile</h1>
                 </div>
                 <p className="text-sm text-text-muted leading-relaxed">
-                  If this is your profile that was imported from another directory, you can claim it and take full ownership.
-                  We'll send a one-time code to the phone number listed on the profile to verify your identity.
+                  This profile was imported from another directory. Choose how you'd like to verify your identity and claim it.
                 </p>
               </div>
 
-              <div className="space-y-3 mb-8">
-                {[
-                  'Receive an OTP on the profile phone number',
-                  'Enter the code to verify your identity',
-                  'Submit your claim for admin review',
-                  'Get full access to edit and manage your profile',
-                ].map((s, i) => (
-                  <div key={i} className="flex items-center gap-3 text-sm text-text-muted">
-                    <div className="w-6 h-6 rounded-full bg-[#8B0000]/20 text-[#8B0000] text-xs font-bold flex items-center justify-center flex-shrink-0">{i + 1}</div>
-                    {s}
+              <p className="text-[10px] text-text-muted uppercase tracking-widest mb-3">Choose verification method</p>
+              <div className="space-y-3 mb-6">
+
+                {hasPhone && (
+                  <button
+                    onClick={() => setMethod('sms')}
+                    className={`w-full flex items-center gap-4 p-4 rounded-2xl border transition-all text-left ${method === 'sms' ? 'border-[#8B0000] bg-[#8B0000]/10' : 'border-color bg-card-bg hover:border-[#8B0000]/40'}`}
+                  >
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${method === 'sms' ? 'bg-[#8B0000]' : 'bg-dark-bg'}`}>
+                      <Phone size={18} className={method === 'sms' ? 'text-white' : 'text-text-muted'} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-text-light">SMS / Phone</p>
+                      <p className="text-xs text-text-muted">Receive a code on {escort?.phone ? escort.phone.replace(/(\+\d{3})\d+(\d{3})/, '$1****$2') : 'the profile phone'}</p>
+                    </div>
+                    {method === 'sms' && <CheckCircle2 size={18} className="text-[#8B0000] flex-shrink-0" />}
+                  </button>
+                )}
+
+                <button
+                  onClick={() => setMethod('email')}
+                  className={`w-full flex items-center gap-4 p-4 rounded-2xl border transition-all text-left ${method === 'email' ? 'border-[#8B0000] bg-[#8B0000]/10' : 'border-color bg-card-bg hover:border-[#8B0000]/40'}`}
+                >
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${method === 'email' ? 'bg-[#8B0000]' : 'bg-dark-bg'}`}>
+                    <Mail size={18} className={method === 'email' ? 'text-white' : 'text-text-muted'} />
                   </div>
-                ))}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-text-light">Email Verification</p>
+                    <p className="text-xs text-text-muted">{hasEmail ? `Send claim to email on this profile` : 'Submit your email — admin will verify'}</p>
+                  </div>
+                  {method === 'email' && <CheckCircle2 size={18} className="text-[#8B0000] flex-shrink-0" />}
+                </button>
+
+                <button
+                  onClick={() => setMethod('video')}
+                  className={`w-full flex items-center gap-4 p-4 rounded-2xl border transition-all text-left ${method === 'video' ? 'border-[#8B0000] bg-[#8B0000]/10' : 'border-color bg-card-bg hover:border-[#8B0000]/40'}`}
+                >
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${method === 'video' ? 'bg-[#8B0000]' : 'bg-dark-bg'}`}>
+                    <Video size={18} className={method === 'video' ? 'text-white' : 'text-text-muted'} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-text-light">Live Video / Selfie</p>
+                    <p className="text-xs text-text-muted">Record a short selfie video or upload a short clip — admin will verify your face</p>
+                  </div>
+                  {method === 'video' && <CheckCircle2 size={18} className="text-[#8B0000] flex-shrink-0" />}
+                </button>
               </div>
 
               {error && <p className="text-sm text-red-400 mb-4 p-3 bg-red-400/10 rounded-xl">{error}</p>}
 
               <button
-                onClick={sendOtp}
-                disabled={loading || !!escort?.user_id}
+                onClick={() => {
+                  setError('')
+                  if (method === 'sms' && hasPhone) sendOtp()
+                  else if (method === 'email') setStep('email-sent')
+                  else if (method === 'video') setStep('video-record')
+                  else setError('Please choose a verification method.')
+                }}
+                disabled={loading}
                 className="w-full py-3.5 bg-[#8B0000] text-white text-sm font-bold rounded-xl hover:bg-[#a00000] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                {loading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Phone size={15} />}
-                Send Verification Code
+                {loading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <ChevronRight size={15} />}
+                Continue with {method === 'sms' ? 'SMS' : method === 'email' ? 'Email' : 'Video'}
               </button>
             </div>
           )}
 
-          {/* STEP: Enter OTP */}
+          {/* STEP: Enter OTP (SMS method) */}
           {step === 'otp-sent' && (
             <div>
               <div className="flex items-center gap-2 mb-4">
@@ -266,10 +388,145 @@ export default function ClaimProfile() {
               <button onClick={sendOtp} className="w-full py-2 text-xs text-text-muted hover:text-text-light transition-colors">
                 Didn't receive a code? Resend
               </button>
+              <button onClick={() => setStep('choose-method')} className="w-full py-2 text-xs text-text-muted hover:text-text-light transition-colors">
+                ← Choose different method
+              </button>
             </div>
           )}
 
-          {/* STEP: Verified — add message + submit */}
+          {/* STEP: Email method */}
+          {step === 'email-sent' && (
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <Mail size={20} className="text-[#8B0000]" />
+                <h1 className="text-lg font-bold text-text-light">Email Verification</h1>
+              </div>
+              <p className="text-sm text-text-muted mb-5 leading-relaxed">
+                {hasEmail
+                  ? `Enter your email address. If it matches the email on this profile, your claim will be fast-tracked for admin approval.`
+                  : `Enter your email so admin can contact you to verify your identity.`}
+              </p>
+
+              <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Your Email Address</label>
+              <input
+                type="email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                placeholder="your@email.com"
+                className="w-full px-4 py-3.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted/40 focus:outline-none focus:border-[#8B0000] transition-all mb-4"
+              />
+
+              <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Note to admin (optional)</label>
+              <textarea
+                value={message}
+                onChange={e => setMessage(e.target.value)}
+                placeholder="e.g. This is my old listing, here's additional info to verify my identity…"
+                rows={3}
+                className="w-full px-4 py-3 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted/40 focus:outline-none focus:border-[#8B0000] transition-all resize-none mb-5"
+              />
+
+              {error && <p className="text-sm text-red-400 mb-4 p-3 bg-red-400/10 rounded-xl">{error}</p>}
+
+              <button
+                onClick={submitEmailClaim}
+                disabled={loading || !email.trim()}
+                className="w-full py-3.5 bg-[#8B0000] text-white text-sm font-bold rounded-xl hover:bg-[#a00000] transition-colors disabled:opacity-50 flex items-center justify-center gap-2 mb-3"
+              >
+                {loading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <ChevronRight size={15} />}
+                Submit Claim via Email
+              </button>
+              <button onClick={() => setStep('choose-method')} className="w-full py-2 text-xs text-text-muted hover:text-text-light transition-colors">
+                ← Choose different method
+              </button>
+            </div>
+          )}
+
+          {/* STEP: Video method */}
+          {step === 'video-record' && (
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <Video size={20} className="text-[#8B0000]" />
+                <h1 className="text-lg font-bold text-text-light">Video Verification</h1>
+              </div>
+              <p className="text-sm text-text-muted mb-5 leading-relaxed">
+                Record a short selfie video (5–15 seconds) holding a piece of paper with today's date and the name on this profile. Admin will review it to confirm your identity.
+              </p>
+
+              {!videoUrl ? (
+                <div className="space-y-3 mb-5">
+                  {!recording ? (
+                    <>
+                      <video ref={videoRef} className="w-full rounded-xl bg-dark-bg border border-color aspect-video object-cover hidden" muted playsInline />
+                      <button
+                        onClick={startRecording}
+                        className="w-full py-4 bg-[#8B0000]/15 border-2 border-dashed border-[#8B0000]/40 hover:border-[#8B0000] rounded-2xl text-[#8B0000] font-bold text-sm transition-all flex items-center justify-center gap-2"
+                      >
+                        <Camera size={18} /> Record Selfie Video
+                      </button>
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1 h-px bg-color" />
+                        <span className="text-xs text-text-muted">or</span>
+                        <div className="flex-1 h-px bg-color" />
+                      </div>
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        className="w-full py-3.5 bg-dark-bg border border-color hover:border-[#8B0000]/50 rounded-xl text-text-muted font-bold text-sm transition-all flex items-center justify-center gap-2"
+                      >
+                        <Video size={16} /> Upload a Video
+                      </button>
+                      <input ref={fileInputRef} type="file" accept="video/*" className="hidden" onChange={handleVideoUpload} />
+                    </>
+                  ) : (
+                    <div className="space-y-3">
+                      <video ref={videoRef} className="w-full rounded-xl bg-dark-bg border-2 border-[#8B0000]/50 aspect-video object-cover" muted playsInline />
+                      <button
+                        onClick={stopRecording}
+                        className="w-full py-3.5 bg-[#EF4444] text-white font-bold rounded-xl transition-all animate-pulse flex items-center justify-center gap-2 text-sm"
+                      >
+                        <div className="w-3 h-3 rounded-sm bg-white" /> Stop Recording
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="mb-5 space-y-3">
+                  <video src={videoUrl} controls className="w-full rounded-xl border border-[#28a745]/40 aspect-video object-cover" />
+                  <div className="flex items-center gap-2 p-3 bg-[#28a745]/10 border border-[#28a745]/30 rounded-xl">
+                    <CheckCircle2 size={14} className="text-[#28a745] flex-shrink-0" />
+                    <span className="text-xs text-[#28a745] font-semibold">Video ready — review it above before submitting</span>
+                  </div>
+                  <button onClick={() => { setVideoBlob(null); setVideoUrl(null) }} className="w-full py-2 text-xs text-text-muted hover:text-text-light transition-colors">
+                    Record / upload again
+                  </button>
+                </div>
+              )}
+
+              <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Note to admin (optional)</label>
+              <textarea
+                value={message}
+                onChange={e => setMessage(e.target.value)}
+                placeholder="Any additional info to help admin verify…"
+                rows={2}
+                className="w-full px-4 py-3 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted/40 focus:outline-none focus:border-[#8B0000] transition-all resize-none mb-5"
+              />
+
+              {error && <p className="text-sm text-red-400 mb-4 p-3 bg-red-400/10 rounded-xl">{error}</p>}
+
+              <button
+                onClick={submitVideoClaim}
+                disabled={loading || !videoBlob}
+                className="w-full py-3.5 bg-[#8B0000] text-white text-sm font-bold rounded-xl hover:bg-[#a00000] transition-colors disabled:opacity-50 flex items-center justify-center gap-2 mb-3"
+              >
+                {loading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <ChevronRight size={15} />}
+                Submit Video Claim
+              </button>
+              <button onClick={() => setStep('choose-method')} className="w-full py-2 text-xs text-text-muted hover:text-text-light transition-colors">
+                ← Choose different method
+              </button>
+            </div>
+          )}
+
+          {/* STEP: Verified — add message + submit (SMS only) */}
           {step === 'verified' && (
             <div>
               <div className="flex items-center gap-2 mb-2">

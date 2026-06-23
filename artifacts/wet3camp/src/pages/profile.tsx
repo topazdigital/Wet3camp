@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Heart, Share2, MessageCircle, MessageSquare, MapPin, Star, Check, X, Calendar, Clock, CheckCircle2, ChevronLeft, Flame, Shield, Eye, Ruler, UserPlus, UserCheck, Users } from 'lucide-react'
+import { Heart, Share2, MessageCircle, MessageSquare, MapPin, Star, Check, X, CheckCircle2, ChevronLeft, Flame, Shield, Eye, Ruler, UserPlus, UserCheck, Users, Phone } from 'lucide-react'
 import Sidebar from '@/components/Sidebar'
 import Header from '@/components/Header'
 import { Link, useRoute, useLocation } from 'wouter'
@@ -7,7 +7,6 @@ import { useEscort } from '@/hooks/useEscorts'
 import { useAuth } from '@/lib/auth-context'
 import { useFollow } from '@/lib/follow-context'
 import { useSEO } from '@/lib/useSEO'
-import BookingModal from '@/components/BookingModal'
 import { api } from '@/lib/api'
 import type { ApiEscort } from '@/lib/api'
 import { getSlug } from '@/data/escorts'
@@ -132,7 +131,6 @@ export default function ProfilePage() {
   })
 
   const [liked, setLiked] = useState(false)
-  const [bookingOpen, setBookingOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<'about' | 'services' | 'reviews'>('about')
   const [selectedImg, setSelectedImg] = useState<string | null>(null)
   const [mainImg, setMainImg] = useState<string | null>(escort?.image ?? null)
@@ -478,28 +476,45 @@ export default function ProfilePage() {
                       Telegram
                     </a>
 
+                    {escort.phone && (
+                      <div className="flex gap-2 mb-1">
+                        <a href={`tel:${escort.phone}`} className="flex-1 py-3 bg-dark-bg border border-color text-text-light font-bold rounded-xl transition-all hover:border-[#28a745]/50 flex items-center justify-center gap-2 text-sm">
+                          <Phone size={14} className="text-[#28a745]" /> Call
+                        </a>
+                        <a href={`sms:${escort.phone}`} className="flex-1 py-3 bg-dark-bg border border-color text-text-light font-bold rounded-xl transition-all hover:border-[#25D366]/50 flex items-center justify-center gap-2 text-sm">
+                          <MessageCircle size={14} className="text-[#25D366]" /> SMS
+                        </a>
+                      </div>
+                    )}
+                    {escort.phone && (
+                      <div className="px-3 py-2 bg-dark-bg/60 rounded-xl border border-color/50 text-center mb-1">
+                        <p className="text-[9px] text-text-muted mb-0.5">Phone / WhatsApp</p>
+                        <a href={`tel:${escort.phone}`} className="text-sm font-black text-text-light hover:text-[#25D366] transition-colors">{escort.phone}</a>
+                      </div>
+                    )}
                     {isOwnProfile ? (
                       <Link href="/my-profile" className="w-full py-3 bg-gradient-to-r from-[#8B0000] to-[#a00000] text-white font-black rounded-xl transition-all shadow-lg shadow-[#8B0000]/30 flex items-center justify-center gap-2 text-sm hover:shadow-[#8B0000]/50 active:scale-[0.98]">Edit My Profile</Link>
-                    ) : isLoggedIn ? (
-                      <>
-                        <button onClick={() => setBookingOpen(true)} className="w-full py-3 bg-gradient-to-r from-[#8B0000] to-[#a00000] text-white font-black rounded-xl transition-all shadow-lg shadow-[#8B0000]/30 flex items-center justify-center gap-2 text-sm hover:shadow-[#8B0000]/50 active:scale-[0.98]">
-                          <Calendar size={14} /> Book {escort.name.split(' ')[0]} Now
-                        </button>
-                        <Link href="/messages" className="w-full py-2.5 bg-card-bg border border-color text-text-light font-semibold rounded-xl transition-all hover:border-[#FFD700]/50 flex items-center justify-center gap-2 text-sm"><MessageCircle size={14} /> Send Platform Message</Link>
-                        <button onClick={() => toggleFollow(escort.id)} className={`w-full py-2.5 border rounded-xl font-medium text-sm transition-all flex items-center justify-center gap-2 ${following ? 'bg-[#8B0000]/10 border-[#8B0000]/40 text-[#8B0000]' : 'bg-dark-bg border-color text-text-muted hover:border-text-muted'}`}>
-                          {following ? <><UserCheck size={13} /> Following</> : <><Users size={13} /> Follow {escort.name.split(' ')[0]}</>}
-                        </button>
-                        <button onClick={() => setLiked(v => !v)} className={`w-full py-2.5 border rounded-xl font-medium text-sm transition-all flex items-center justify-center gap-2 ${liked ? 'bg-[#E91E63]/10 border-[#E91E63]/40 text-[#E91E63]' : 'bg-dark-bg border-color text-text-muted hover:border-text-muted'}`}>
-                          <Heart size={13} className={liked ? 'fill-[#E91E63]' : ''} /> {liked ? 'Saved' : 'Save to Favorites'}
-                        </button>
-                      </>
                     ) : (
-                      <div className="pt-1 border-t border-color space-y-2">
-                        <Link href={`/login?redirect=/profile/${escort.id}`} className="w-full py-3.5 bg-gradient-to-r from-[#8B0000] to-[#a00000] text-white font-black rounded-xl transition-all shadow-lg shadow-[#8B0000]/30 flex items-center justify-center gap-2 text-sm hover:shadow-[#8B0000]/50 active:scale-[0.98]">
-                          <MessageCircle size={14} /> Message {escort.name.split(' ')[0]}
-                        </Link>
-                        <Link href={`/login?redirect=/profile/${escort.id}`} className="w-full py-2 bg-card-bg border border-color text-text-muted text-xs font-semibold rounded-xl flex items-center justify-center transition-all hover:border-text-muted">Sign in to book or save</Link>
-                      </div>
+                      <>
+                        {isLoggedIn && (
+                          <>
+                            <Link href="/messages" className="w-full py-2.5 bg-card-bg border border-color text-text-light font-semibold rounded-xl transition-all hover:border-[#FFD700]/50 flex items-center justify-center gap-2 text-sm"><MessageCircle size={14} /> Send Platform Message</Link>
+                            <button onClick={() => toggleFollow(escort.id)} className={`w-full py-2.5 border rounded-xl font-medium text-sm transition-all flex items-center justify-center gap-2 ${following ? 'bg-[#8B0000]/10 border-[#8B0000]/40 text-[#8B0000]' : 'bg-dark-bg border-color text-text-muted hover:border-text-muted'}`}>
+                              {following ? <><UserCheck size={13} /> Following</> : <><Users size={13} /> Follow {escort.name.split(' ')[0]}</>}
+                            </button>
+                            <button onClick={() => setLiked(v => !v)} className={`w-full py-2.5 border rounded-xl font-medium text-sm transition-all flex items-center justify-center gap-2 ${liked ? 'bg-[#E91E63]/10 border-[#E91E63]/40 text-[#E91E63]' : 'bg-dark-bg border-color text-text-muted hover:border-text-muted'}`}>
+                              <Heart size={13} className={liked ? 'fill-[#E91E63]' : ''} /> {liked ? 'Saved' : 'Save to Favorites'}
+                            </button>
+                          </>
+                        )}
+                        {!isLoggedIn && (
+                          <div className="pt-1 border-t border-color space-y-2">
+                            <Link href={`/login?redirect=/profile/${escort.id}`} className="w-full py-3.5 bg-gradient-to-r from-[#8B0000] to-[#a00000] text-white font-black rounded-xl transition-all shadow-lg shadow-[#8B0000]/30 flex items-center justify-center gap-2 text-sm hover:shadow-[#8B0000]/50 active:scale-[0.98]">
+                              <MessageCircle size={14} /> Message {escort.name.split(' ')[0]}
+                            </Link>
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
@@ -535,20 +550,6 @@ export default function ProfilePage() {
         </>}
       </div>
 
-      {escort && (
-        <BookingModal
-          open={bookingOpen}
-          onClose={() => setBookingOpen(false)}
-          escort={{
-            id: escort.id,
-            name: escort.name,
-            avatar: escort.image,
-            tier: escort.tier,
-            city: escort.city,
-            pricing: { hourly: escort.pricing?.incall || escort.pricing?.hourly || 0, overnight: escort.pricing?.incallOvernight || escort.pricing?.overnight || 0 },
-          }}
-        />
-      )}
     </div>
   )
 }
