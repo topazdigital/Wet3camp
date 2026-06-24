@@ -60,6 +60,7 @@ NODE_ENV = "development"
 BASE_PATH = "/"
 APP_URL = "https://c5a150d4-ef03-474e-a2d3-f46135a51966-00-3kco7btl0yjd8.picard.replit.dev"
 SITE_URL = "https://c5a150d4-ef03-474e-a2d3-f46135a51966-00-3kco7btl0yjd8.picard.replit.dev"
+PORT = "8080"
 
 [nix]
 channel = "stable-25_05"
