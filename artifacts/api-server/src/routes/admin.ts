@@ -507,48 +507,58 @@ router.get('/admin/check-email-dns', requireAuth, requireAdmin, async (_req: Aut
       serverIp = ipData.ip ?? ''
     } catch {}
 
+    // Use Google + Cloudflare DNS directly to bypass any server-side caching
+    const resolver = new dns.Resolver()
+    resolver.setServers(['8.8.8.8', '1.1.1.1'])
+
     // Check SPF TXT record
     let spfRecord = ''
     try {
-      const txtRecords = await dns.resolveTxt(domain)
-      for (const record of txtRecords) {
-        const txt = record.join('')
-        if (txt.startsWith('v=spf1')) { spfRecord = txt; break }
+      const txtRecords = await resolver.resolveTxt(domain)
+      const spfRecords = txtRecords.map(r => r.join('')).filter(t => t.startsWith('v=spf1'))
+      if (spfRecords.length > 1) {
+        spfRecord = `MULTIPLE_SPF:${spfRecords.join(' | ')}`
+      } else if (spfRecords.length === 1) {
+        spfRecord = spfRecords[0]
       }
     } catch {}
 
-    const spfHasIp = serverIp ? spfRecord.includes(serverIp) : false
-    const spfHasAll = spfRecord.includes('~all') || spfRecord.includes('+all') || spfRecord.includes('-all')
+    const hasMultipleSPF = spfRecord.startsWith('MULTIPLE_SPF:')
+    const spfHasIp = !hasMultipleSPF && serverIp ? spfRecord.includes(serverIp) : false
+    const spfHasAll = !hasMultipleSPF && (spfRecord.includes('~all') || spfRecord.includes('+all') || spfRecord.includes('-all'))
 
-    // Check DKIM record (standard selector)
+    // Check DKIM record — try all common selectors including DirectAdmin's 'x'
     let dkimFound = false
-    for (const selector of ['mail', 'default', 'dkim', 'smtp']) {
+    let dkimSelector = ''
+    for (const selector of ['x', 'mail', 'default', 'dkim', 'smtp', 'email', 'selector1', 'selector2']) {
       try {
-        const dkimRecords = await dns.resolveTxt(`${selector}._domainkey.${domain}`)
-        if (dkimRecords.length > 0) { dkimFound = true; break }
+        const dkimRecords = await resolver.resolveTxt(`${selector}._domainkey.${domain}`)
+        if (dkimRecords.length > 0) { dkimFound = true; dkimSelector = selector; break }
       } catch {}
     }
 
     // Check MX
     let mxHost = ''
     try {
-      const mx = await dns.resolveMx(domain)
+      const mx = await resolver.resolveMx(domain)
       if (mx.length > 0) mxHost = mx.sort((a, b) => a.priority - b.priority)[0].exchange
     } catch {}
 
-    const ok = !!spfRecord && (spfHasIp || spfHasAll) && dkimFound
+    const ok = !hasMultipleSPF && !!spfRecord && (spfHasIp || spfHasAll) && dkimFound
     let fix = ''
-    if (!spfRecord) {
+    if (hasMultipleSPF) {
+      fix = `⚠️ You have MULTIPLE SPF records — this is invalid and causes Gmail to reject your emails. Delete all TXT records starting with "v=spf1" and add just ONE:\n\nv=spf1 ip4:${serverIp} a mx ~all`
+    } else if (!spfRecord) {
       fix = `⚠️ No SPF record found for ${domain}. Add this TXT record in your DNS:\n\nv=spf1 ip4:${serverIp} a mx ~all\n\nThis is why Gmail silently drops your emails.`
-    } else if (!spfHasIp && serverIp) {
+    } else if (!spfHasIp && !spfHasAll && serverIp) {
       fix = `⚠️ SPF exists but doesn't include your server IP (${serverIp}). Update the TXT record to:\n\nv=spf1 ip4:${serverIp} a mx ~all`
     } else if (!dkimFound) {
-      fix = `⚠️ DKIM not found for ${domain}. Enable DKIM in DirectAdmin → Email Manager → DKIM for ${domain}. Gmail increasingly requires DKIM.`
+      fix = `⚠️ SPF ✓ — but DKIM not found for ${domain}. In DirectAdmin → Email Manager → select ${domain} → click "Enable DKIM". Then add the TXT record it generates to your DNS.`
     } else {
-      fix = `✓ SPF and DKIM look correct for ${domain}. If emails still fail, check DirectAdmin spam filters.`
+      fix = `✓ SPF and DKIM are correctly configured for ${domain} (DKIM selector: ${dkimSelector}). Your emails should now deliver to Gmail. If not, wait 5 minutes for DNS to fully propagate and test again.`
     }
 
-    res.json({ domain, serverIp, spf: { found: !!spfRecord, record: spfRecord, serverIncluded: spfHasIp }, dkim: { found: dkimFound }, mx: mxHost, ok, fix })
+    res.json({ domain, serverIp, spf: { found: !hasMultipleSPF && !!spfRecord, record: spfRecord, serverIncluded: spfHasIp }, dkim: { found: dkimFound, selector: dkimSelector }, mx: mxHost, ok, fix })
   } catch (err: any) {
     res.status(500).json({ error: err.message ?? String(err) })
   }
