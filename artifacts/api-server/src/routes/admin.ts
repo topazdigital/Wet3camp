@@ -408,9 +408,13 @@ async function sendTestEmailTo(to: string, cfg: { host?: string; port: number; u
     auth: { user: cfg.user, pass: cfg.pass },
     tls: { rejectUnauthorized: false },
     connectionTimeout: 10000,
+    socketTimeout: 10000,
   })
+
+  // Verify SMTP connection first — throws if host unreachable or auth fails
   await transporter.verify()
-  await transporter.sendMail({
+
+  const info = await transporter.sendMail({
     from: `"Wet3.camp" <${cfg.user}>`,
     to,
     subject: '✓ Wet3.camp Email Delivery Test',
@@ -421,7 +425,7 @@ async function sendTestEmailTo(to: string, cfg: { host?: string; port: number; u
 </div>
 <div style="padding:28px;">
   <h2 style="margin:0 0 8px;font-size:18px;color:#fff;">✓ Email Delivery Working</h2>
-  <p style="margin:0 0 16px;font-size:13px;color:#aaa;">This is a test email from the Wet3.camp admin panel. If you received this, email delivery to <strong style="color:#fff;">${to}</strong> is working correctly.</p>
+  <p style="margin:0 0 16px;font-size:13px;color:#aaa;">If you received this, email delivery to <strong style="color:#fff;">${to}</strong> is working correctly.</p>
   <div style="background:#1a0000;border:1px solid #2a0000;border-radius:8px;padding:14px;font-size:11px;color:#666;">
     <div>Sent: ${new Date().toISOString()}</div>
     <div>SMTP Host: ${cfg.host}:${cfg.port}</div>
@@ -429,6 +433,22 @@ async function sendTestEmailTo(to: string, cfg: { host?: string; port: number; u
   </div>
 </div></div>`,
   })
+
+  console.log('[test-email] SMTP response:', info.response)
+  console.log('[test-email] Accepted:', info.accepted)
+  console.log('[test-email] Rejected:', info.rejected)
+
+  // If the SMTP server explicitly rejected the recipient, treat as failure
+  if (info.rejected && info.rejected.length > 0) {
+    throw new Error(`SMTP server rejected recipient: ${info.rejected.join(', ')}. Server response: ${info.response}`)
+  }
+
+  return {
+    response: info.response,
+    accepted: info.accepted,
+    rejected: info.rejected,
+    messageId: info.messageId,
+  }
 }
 
 router.post('/admin/test-email', requireAuth, requireAdmin, async (_req: AuthRequest, res) => {
@@ -440,8 +460,8 @@ router.post('/admin/test-email', requireAuth, requireAdmin, async (_req: AuthReq
     return
   }
   try {
-    await sendTestEmailTo(cfg.user!, cfg)
-    res.json({ success: true, message: `Test email sent to ${cfg.user}` })
+    const info = await sendTestEmailTo(cfg.user!, cfg)
+    res.json({ success: true, message: `Test email accepted by ${cfg.host} for ${cfg.user}. Server: ${info.response}` })
   } catch (err: any) {
     res.status(500).json({ success: false, message: `SMTP error: ${err.message ?? err}` })
   }
@@ -461,8 +481,11 @@ router.post('/admin/test-email-to', requireAuth, requireAdmin, async (req: AuthR
     return
   }
   try {
-    await sendTestEmailTo(to, cfg)
-    res.json({ success: true, message: `Test email sent to ${to} via ${cfg.host}` })
+    const info = await sendTestEmailTo(to, cfg)
+    res.json({
+      success: true,
+      message: `SMTP accepted the email for ${to}. Server response: ${info.response}. If it doesn't arrive, check spam or the mail server's outbound relay.`,
+    })
   } catch (err: any) {
     res.status(500).json({ success: false, message: `SMTP error: ${err.message ?? err}` })
   }
