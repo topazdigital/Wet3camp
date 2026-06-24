@@ -262,12 +262,20 @@ export default function RegisterPage() {
     if (!email) { setError('Enter your email address first.'); return }
     if (!email.includes('@')) { setError('Enter a valid email address.'); return }
     try {
-      await fetch('/api/auth/send-otp', {
+      const res = await fetch('/api/auth/send-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       })
-    } catch {}
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        setError(data.message || 'Failed to send verification email. Please try again.')
+        return
+      }
+    } catch {
+      setError('Network error. Please check your connection and try again.')
+      return
+    }
     setOtpSent(true); setOtpTimer(60); setOtpDigits(['','','','','',''])
     setError('')
   }

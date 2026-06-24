@@ -262,27 +262,32 @@ router.get('/auth/check', async (req, res) => {
   }
 })
 
+function isPlaceholder(v: string | undefined) {
+  return !v || v === 'CHANGE_ME' || v.startsWith('CHANGE_') || v === 'your_smtp_password'
+}
+
 async function getSmtpCfg() {
-  const cfg = {
-    host: process.env.SMTP_HOST,
+  const cfg: { host?: string; port: number; user?: string; pass?: string } = {
+    host: isPlaceholder(process.env.SMTP_HOST) ? undefined : process.env.SMTP_HOST,
     port: parseInt(process.env.SMTP_PORT ?? '587'),
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
+    user: isPlaceholder(process.env.SMTP_USER) ? undefined : process.env.SMTP_USER,
+    pass: isPlaceholder(process.env.SMTP_PASS) ? undefined : process.env.SMTP_PASS,
   }
   if (!cfg.host || !cfg.user || !cfg.pass) {
     const pool = getPool()
     if (pool) {
       const [rows] = await pool.query<any[]>(
-        "SELECT `key`, `value` FROM platform_settings WHERE `key` IN ('smtp_host','smtp_port','smtp_user','smtp_pass')"
+        "SELECT `key`, value FROM platform_settings WHERE `key` IN ('smtp_host','smtp_port','smtp_user','smtp_pass')"
       ).catch(() => [[]] as any)
       for (const r of rows as any[]) {
-        if (r.key === 'smtp_host' && r.value) cfg.host = r.value
+        if (r.key === 'smtp_host' && r.value && !isPlaceholder(r.value)) cfg.host = r.value
         if (r.key === 'smtp_port' && r.value) cfg.port = parseInt(r.value)
-        if (r.key === 'smtp_user' && r.value) cfg.user = r.value
-        if (r.key === 'smtp_pass' && r.value) cfg.pass = r.value
+        if (r.key === 'smtp_user' && r.value && !isPlaceholder(r.value)) cfg.user = r.value
+        if (r.key === 'smtp_pass' && r.value && !isPlaceholder(r.value)) cfg.pass = r.value
       }
     }
   }
+  console.log(`[smtp-cfg] host=${cfg.host ?? 'NONE'} user=${cfg.user ?? 'NONE'} pass=${cfg.pass ? '***' : 'NONE'}`)
   return cfg
 }
 
@@ -310,6 +315,7 @@ router.post('/auth/send-otp', async (req, res) => {
         tls: { rejectUnauthorized: false },
         connectionTimeout: 10000,
       })
+      await transporter.verify()
       await transporter.sendMail({
         from: `"Wet3.camp" <${cfg.user}>`,
         to: email,

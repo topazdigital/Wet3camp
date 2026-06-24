@@ -1,30 +1,54 @@
 import nodemailer from 'nodemailer'
+import { getPool } from './db.js'
 
 const SITE      = 'https://wet3.camp'
 const FROM_NAME = 'Wet3.camp'
 
-function createTransport() {
-  const host = process.env.SMTP_HOST
-  const port = parseInt(process.env.SMTP_PORT ?? '587', 10)
-  const user = process.env.SMTP_USER
-  const pass = process.env.SMTP_PASS
-  if (!host || !user || !pass || pass === 'CHANGE_ME') return null
-  return nodemailer.createTransport({
-    host, port,
-    secure: port === 465,
-    auth: { user, pass },
-    tls: { rejectUnauthorized: false },
-  })
+function isPlaceholder(v: string | undefined): boolean {
+  return !v || v === 'CHANGE_ME' || v.startsWith('CHANGE_') || v === 'your_smtp_password'
 }
 
-function from() {
-  return `"${FROM_NAME}" <${process.env.SMTP_USER}>`
+async function getSmtpSettings(): Promise<{ host?: string; port: number; user?: string; pass?: string }> {
+  const cfg: { host?: string; port: number; user?: string; pass?: string } = {
+    host: isPlaceholder(process.env.SMTP_HOST) ? undefined : process.env.SMTP_HOST,
+    port: parseInt(process.env.SMTP_PORT ?? '587', 10),
+    user: isPlaceholder(process.env.SMTP_USER) ? undefined : process.env.SMTP_USER,
+    pass: isPlaceholder(process.env.SMTP_PASS) ? undefined : process.env.SMTP_PASS,
+  }
+  if (!cfg.host || !cfg.user || !cfg.pass) {
+    try {
+      const pool = getPool()
+      if (pool) {
+        const [rows] = await pool.query<any[]>(
+          "SELECT `key`, value FROM platform_settings WHERE `key` IN ('smtp_host','smtp_port','smtp_user','smtp_pass')"
+        ).catch(() => [[]] as any)
+        for (const r of (rows as any[])) {
+          if (r.key === 'smtp_host' && !isPlaceholder(r.value)) cfg.host = r.value
+          if (r.key === 'smtp_port' && r.value) cfg.port = parseInt(r.value)
+          if (r.key === 'smtp_user' && !isPlaceholder(r.value)) cfg.user = r.value
+          if (r.key === 'smtp_pass' && !isPlaceholder(r.value)) cfg.pass = r.value
+        }
+      }
+    } catch {}
+  }
+  return cfg
+}
+
+async function createTransportAsync() {
+  const cfg = await getSmtpSettings()
+  if (!cfg.host || !cfg.user || !cfg.pass) return null
+  return { transport: nodemailer.createTransport({
+    host: cfg.host, port: cfg.port,
+    secure: cfg.port === 465,
+    auth: { user: cfg.user, pass: cfg.pass },
+    tls: { rejectUnauthorized: false },
+  }), from: `"${FROM_NAME}" <${cfg.user}>` }
 }
 
 async function send(opts: { to: string; subject: string; text: string; html?: string }) {
-  const t = createTransport()
+  const t = await createTransportAsync()
   if (!t) return
-  await t.sendMail({ from: from(), ...opts }).catch(() => {})
+  await t.transport.sendMail({ from: t.from, ...opts }).catch(() => {})
 }
 
 // ─── Shared HTML template ─────────────────────────────────────────────────────
