@@ -31,7 +31,7 @@ interface AdminEscort {
   image?: string; user_id?: string | number | null
 }
 
-const TABS = ['Overview','Escorts','Claims','Clients','Bookings','Revenue','Moderators','Featured','Blog','API Keys','Settings']
+const TABS = ['Overview','Escorts','Claims','Clients','Bookings','Revenue','Moderators','Featured','Blog','API Keys','Settings','Reports']
 
 interface Moderator { id: number; name: string; email: string; role: string; level: 1|2|3; status: 'active'|'inactive'; createdAt: string }
 
@@ -1229,6 +1229,103 @@ function AddEscortModal({ onClose, onCreated }: { onClose: () => void; onCreated
   )
 }
 
+function ReportsTab() {
+  const [reports, setReports] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [updating, setUpdating] = useState<number | null>(null)
+
+  useEffect(() => {
+    setLoading(true)
+    adminFetch('/admin/reports')
+      .then((data: any[]) => setReports(Array.isArray(data) ? data : []))
+      .catch(() => setReports([]))
+      .finally(() => setLoading(false))
+  }, [])
+
+  const updateStatus = async (id: number, status: string) => {
+    setUpdating(id)
+    try {
+      await adminFetch(`/admin/reports/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) })
+      setReports(p => p.map(r => r.id === id ? { ...r, status } : r))
+    } catch {}
+    setUpdating(null)
+  }
+
+  const statusColor: Record<string, string> = {
+    pending: '#FFD700',
+    reviewed: '#2196F3',
+    dismissed: '#6B7280',
+    actioned: '#EF4444',
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-text-muted">Profile reports submitted by users. Review and take action as needed.</p>
+        <span className="px-3 py-1 bg-[#EF4444]/10 border border-[#EF4444]/20 text-[#EF4444] text-xs font-bold rounded-xl">
+          {reports.filter(r => r.status === 'pending').length} pending
+        </span>
+      </div>
+      {loading ? (
+        <div className="text-center py-10 text-xs text-text-muted">Loading reports…</div>
+      ) : reports.length === 0 ? (
+        <div className="text-center py-10 text-xs text-text-muted">No reports yet.</div>
+      ) : (
+        <div className="bg-card-bg border border-color rounded-2xl overflow-hidden">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-color bg-dark-bg">
+                {['Escort','Reporter','Reason','Details','Status','Date','Actions'].map(h => (
+                  <th key={h} className="px-3 py-2.5 text-left text-[10px] font-bold text-text-muted uppercase tracking-wider">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {reports.map((r, i) => (
+                <tr key={r.id} className={`border-b border-color hover:bg-dark-bg/50 transition-colors ${i % 2 === 0 ? '' : 'bg-dark-bg/20'}`}>
+                  <td className="px-3 py-2.5">
+                    <p className="font-semibold text-text-light">{r.escort_name ?? `#${r.escort_id}`}</p>
+                    {r.escort_city && <p className="text-[10px] text-text-muted">{r.escort_city}</p>}
+                  </td>
+                  <td className="px-3 py-2.5 text-text-muted">
+                    {r.reporter_name ? <><p>{r.reporter_name}</p><p className="text-[10px]">{r.reporter_email}</p></> : <span className="italic">Anonymous</span>}
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <span className="px-2 py-0.5 bg-[#EF4444]/10 text-[#EF4444] border border-[#EF4444]/20 rounded-lg text-[10px] font-bold whitespace-nowrap">{r.reason}</span>
+                  </td>
+                  <td className="px-3 py-2.5 text-text-muted max-w-[150px]">
+                    <p className="truncate" title={r.details ?? ''}>{r.details || <span className="italic text-[10px]">—</span>}</p>
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold border" style={{ color: statusColor[r.status] ?? '#fff', borderColor: (statusColor[r.status] ?? '#fff') + '44', background: (statusColor[r.status] ?? '#fff') + '11' }}>
+                      {r.status}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2.5 text-text-muted text-[10px] whitespace-nowrap">
+                    {r.created_at ? new Date(r.created_at).toLocaleDateString() : '—'}
+                  </td>
+                  <td className="px-3 py-2.5">
+                    {r.status === 'pending' && (
+                      <div className="flex gap-1">
+                        <button disabled={updating === r.id} onClick={() => updateStatus(r.id, 'reviewed')} className="px-2 py-1 bg-[#2196F3]/10 border border-[#2196F3]/30 text-[#2196F3] text-[10px] font-bold rounded-lg hover:bg-[#2196F3]/20 transition-colors disabled:opacity-50">Review</button>
+                        <button disabled={updating === r.id} onClick={() => updateStatus(r.id, 'actioned')} className="px-2 py-1 bg-[#EF4444]/10 border border-[#EF4444]/30 text-[#EF4444] text-[10px] font-bold rounded-lg hover:bg-[#EF4444]/20 transition-colors disabled:opacity-50">Action</button>
+                        <button disabled={updating === r.id} onClick={() => updateStatus(r.id, 'dismissed')} className="px-2 py-1 bg-dark-bg border border-color text-text-muted text-[10px] font-bold rounded-lg hover:border-text-muted transition-colors disabled:opacity-50">Dismiss</button>
+                      </div>
+                    )}
+                    {r.status !== 'pending' && (
+                      <button disabled={updating === r.id} onClick={() => updateStatus(r.id, 'pending')} className="px-2 py-1 bg-dark-bg border border-color text-text-muted text-[10px] rounded-lg hover:border-text-muted transition-colors disabled:opacity-50">Reopen</button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function ClaimsTab() {
   const [claims, setClaims] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -1949,6 +2046,9 @@ function AdminDashboard() {
 
           {/* ── BOOKINGS ── */}
           {activeTab === 'Bookings' && <BookingsTab />}
+
+          {/* ── REPORTS ── */}
+          {activeTab === 'Reports' && <ReportsTab />}
 
           {/* ── REVENUE ── */}
           {activeTab === 'Revenue' && <RevenueDashboard />}

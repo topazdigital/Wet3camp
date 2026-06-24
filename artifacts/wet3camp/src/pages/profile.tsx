@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Heart, Share2, MessageCircle, MessageSquare, MapPin, Star, Check, X, CheckCircle2, ChevronLeft, Flame, Shield, Eye, Ruler, UserPlus, UserCheck, Users, Phone } from 'lucide-react'
+import { Heart, Share2, MessageCircle, MessageSquare, MapPin, Star, Check, X, CheckCircle2, ChevronLeft, Flame, Shield, Eye, Ruler, UserPlus, UserCheck, Users, Phone, Flag } from 'lucide-react'
 import Sidebar from '@/components/Sidebar'
 import Header from '@/components/Header'
 import { Link, useRoute, useLocation } from 'wouter'
@@ -136,10 +136,31 @@ export default function ProfilePage() {
   const [mainImg, setMainImg] = useState<string | null>(escort?.image ?? null)
   const [showShare, setShowShare] = useState(false)
   const [shareCopied, setShareCopied] = useState(false)
+  const [showReport, setShowReport] = useState(false)
+  const [reportReason, setReportReason] = useState('')
+  const [reportDetails, setReportDetails] = useState('')
+  const [reportSending, setReportSending] = useState(false)
+  const [reportDone, setReportDone] = useState(false)
   const tier = TIER_STYLE[(escort?.tier as string)] ?? TIER_STYLE.Standard
   const following = isFollowing(escort?.id ?? '')
   const [claimSent] = useState(false)
   const [claimLoading] = useState(false)
+
+  const REPORT_REASONS = ['Fake photos', 'Wrong contact info', 'Scammer / fraud', 'Harassment', 'Under 18 concern', 'Other']
+
+  const submitReport = async () => {
+    if (!reportReason) return
+    setReportSending(true)
+    try {
+      await fetch(`/api/escorts/${escort.id}/report`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: reportReason, details: reportDetails || undefined }),
+      })
+      setReportDone(true)
+    } catch {}
+    setReportSending(false)
+  }
 
   const profileUrl = escort ? `https://wet3.camp/@${getSlug(escort.name)}` : ''
 
@@ -626,6 +647,11 @@ export default function ProfilePage() {
                       <li key={tip} className="flex items-start gap-1.5 text-[10px] text-text-muted"><Check size={9} className="text-[#28a745] mt-0.5 flex-shrink-0" />{tip}</li>
                     ))}
                   </ul>
+                  {!isOwnProfile && (
+                    <button onClick={() => { setShowReport(true); setReportDone(false); setReportReason(''); setReportDetails('') }} className="mt-3 flex items-center gap-1.5 text-[10px] text-text-muted hover:text-[#EF4444] transition-colors w-full justify-center border-t border-color pt-2.5">
+                      <Flag size={9} /> Report this profile
+                    </button>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">
@@ -649,6 +675,52 @@ export default function ProfilePage() {
         <div className="h-8" />
         </>}
       </div>
+
+      {/* ── Report Profile Modal ── */}
+      {showReport && escort && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.85)' }}>
+          <div className="w-full max-w-sm bg-card-bg border border-color rounded-2xl overflow-hidden shadow-2xl">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-color">
+              <div className="flex items-center gap-2"><Flag size={14} className="text-[#EF4444]" /><span className="text-sm font-bold text-text-light">Report Profile</span></div>
+              <button onClick={() => setShowReport(false)} className="text-text-muted hover:text-text-light transition-colors"><X size={16} /></button>
+            </div>
+            <div className="p-5">
+              {reportDone ? (
+                <div className="text-center py-4">
+                  <CheckCircle2 size={36} className="text-[#28a745] mx-auto mb-3" />
+                  <p className="text-sm font-bold text-text-light mb-1">Report Submitted</p>
+                  <p className="text-xs text-text-muted mb-4">Thank you. Our team will review this profile.</p>
+                  <button onClick={() => setShowReport(false)} className="px-6 py-2 bg-[#8B0000] text-white text-xs font-bold rounded-xl">Close</button>
+                </div>
+              ) : (
+                <>
+                  <p className="text-xs text-text-muted mb-3">Select the reason for reporting <strong className="text-text-light">{escort.name}</strong>:</p>
+                  <div className="space-y-2 mb-4">
+                    {REPORT_REASONS.map(r => (
+                      <button key={r} onClick={() => setReportReason(r)} className={`w-full text-left px-3 py-2 rounded-xl text-xs border transition-all ${reportReason === r ? 'bg-[#EF4444]/10 border-[#EF4444]/50 text-[#EF4444] font-semibold' : 'bg-dark-bg border-color text-text-muted hover:border-text-muted'}`}>
+                        {reportReason === r ? '● ' : '○ '}{r}
+                      </button>
+                    ))}
+                  </div>
+                  <textarea
+                    value={reportDetails}
+                    onChange={e => setReportDetails(e.target.value)}
+                    placeholder="Additional details (optional)…"
+                    rows={3}
+                    className="w-full bg-dark-bg border border-color rounded-xl px-3 py-2 text-xs text-text-light placeholder-text-muted resize-none focus:outline-none focus:border-[#EF4444]/40 mb-4"
+                  />
+                  <div className="flex gap-2">
+                    <button onClick={() => setShowReport(false)} className="flex-1 py-2.5 border border-color text-text-muted text-xs rounded-xl hover:border-text-muted transition-all">Cancel</button>
+                    <button onClick={submitReport} disabled={!reportReason || reportSending} className="flex-1 py-2.5 bg-[#EF4444] text-white text-xs font-bold rounded-xl disabled:opacity-50 transition-all hover:bg-[#dc2626]">
+                      {reportSending ? 'Submitting…' : 'Submit Report'}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   )

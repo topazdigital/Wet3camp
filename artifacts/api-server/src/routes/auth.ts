@@ -262,6 +262,30 @@ router.get('/auth/check', async (req, res) => {
   }
 })
 
+async function getSmtpCfg() {
+  const cfg = {
+    host: process.env.SMTP_HOST,
+    port: parseInt(process.env.SMTP_PORT ?? '587'),
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  }
+  if (!cfg.host || !cfg.user || !cfg.pass) {
+    const pool = getPool()
+    if (pool) {
+      const [rows] = await pool.query<any[]>(
+        "SELECT `key`, `value` FROM platform_settings WHERE `key` IN ('smtp_host','smtp_port','smtp_user','smtp_pass')"
+      ).catch(() => [[]] as any)
+      for (const r of rows as any[]) {
+        if (r.key === 'smtp_host' && r.value) cfg.host = r.value
+        if (r.key === 'smtp_port' && r.value) cfg.port = parseInt(r.value)
+        if (r.key === 'smtp_user' && r.value) cfg.user = r.value
+        if (r.key === 'smtp_pass' && r.value) cfg.pass = r.value
+      }
+    }
+  }
+  return cfg
+}
+
 router.post('/auth/send-otp', async (req, res) => {
   const { email } = req.body as { email?: string }
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -271,30 +295,52 @@ router.post('/auth/send-otp', async (req, res) => {
   const code = Math.floor(100000 + Math.random() * 900000).toString()
   const expires = Date.now() + 10 * 60 * 1000
   otpStore.set(emailKey, { code, expires })
-  const smtpConfigured = !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS)
+
+  const cfg = await getSmtpCfg()
+  const smtpConfigured = !!(cfg.host && cfg.user && cfg.pass)
+
   if (smtpConfigured) {
     try {
       const nodemailer = await import('nodemailer')
       const transporter = nodemailer.default.createTransport({
-        host: process.env.SMTP_HOST,
-        port: parseInt(process.env.SMTP_PORT ?? '587'),
-        secure: process.env.SMTP_SECURE === 'true',
-        auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+        host: cfg.host,
+        port: cfg.port,
+        secure: cfg.port === 465,
+        auth: { user: cfg.user, pass: cfg.pass },
+        tls: { rejectUnauthorized: false },
+        connectionTimeout: 10000,
       })
       await transporter.sendMail({
-        from: `"Wet3 Camp" <${process.env.SMTP_USER}>`,
+        from: `"Wet3.camp" <${cfg.user}>`,
         to: email,
-        subject: 'Your Wet3 Camp verification code',
-        html: `<p>Your verification code is: <strong style="font-size:24px;letter-spacing:4px">${code}</strong></p><p>Valid for 10 minutes.</p>`,
+        subject: 'Your Wet3.camp verification code',
+        html: `<!DOCTYPE html><html><body style="margin:0;padding:24px;background:#080000;font-family:Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;margin:0 auto;background:#0d0000;border:1px solid #2a0000;border-radius:14px;overflow:hidden;">
+<tr><td style="background:linear-gradient(135deg,#1a0000,#0d0000);padding:24px 32px;border-bottom:2px solid #8B0000;">
+  <span style="font-size:20px;font-weight:900;color:#fff;">Wet3<span style="color:#FFD700;">Camp</span></span>
+  <div style="font-size:9px;color:#666;letter-spacing:2px;margin-top:2px;">PREMIUM ESCORT PLATFORM</div>
+</td></tr>
+<tr><td style="padding:32px;">
+  <h2 style="margin:0 0 8px;font-size:20px;color:#fff;">Verify Your Email</h2>
+  <p style="margin:0 0 24px;font-size:13px;color:#888;">Enter this code to complete your registration. It expires in 10 minutes.</p>
+  <div style="background:#1a0000;border:2px solid #8B0000;border-radius:12px;padding:20px;text-align:center;margin:0 0 24px;">
+    <span style="font-size:36px;font-weight:900;color:#FFD700;letter-spacing:10px;">${code}</span>
+  </div>
+  <p style="margin:0;font-size:11px;color:#555;">If you didn't request this, ignore this email. Do not share this code with anyone.</p>
+</td></tr>
+<tr><td style="padding:16px 32px;background:#0a0000;border-top:1px solid #1a0000;">
+  <p style="margin:0;font-size:10px;color:#444;text-align:center;">© 2026 Wet3.camp — Kenya's #1 Premium Escort Platform</p>
+</td></tr>
+</table></body></html>`,
       })
-    } catch (err) {
-      console.error('[send-otp] Email send failed:', err)
+      console.log(`[OTP] Code sent to ${emailKey} via ${cfg.host}`)
+    } catch (err: any) {
+      console.error('[send-otp] Email send failed:', err?.message ?? err)
+      res.status(500).json({ message: 'Failed to send verification email. Please try again or contact support.' }); return
     }
   } else {
-    console.log(`[OTP] Demo mode — code for ${emailKey}: ${code}`)
-  }
-  if (!smtpConfigured) {
-    res.status(503).json({ message: 'Email service is not configured on this server. Please contact support to enable OTP verification.' }); return
+    console.log(`[OTP] SMTP not configured — code for ${emailKey}: ${code}`)
+    res.status(503).json({ message: 'Email verification is not configured. Please contact support.' }); return
   }
   res.json({ message: 'Verification code sent to your email.' })
 })
