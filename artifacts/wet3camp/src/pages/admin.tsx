@@ -524,6 +524,8 @@ function SmtpTestButton() {
   const [status, setStatus] = useState<'idle'|'loading'|'ok'|'err'>('idle')
   const [msg, setMsg] = useState('')
   const [toEmail, setToEmail] = useState('')
+  const [dns, setDns] = useState<any>(null)
+  const [dnsLoading, setDnsLoading] = useState(false)
 
   const send = async (recipient?: string) => {
     setStatus('loading'); setMsg('')
@@ -541,8 +543,19 @@ function SmtpTestButton() {
     setTimeout(() => setStatus('idle'), 8000)
   }
 
+  const checkDns = async () => {
+    setDnsLoading(true); setDns(null)
+    try {
+      const data = await adminFetch('/admin/check-email-dns')
+      setDns(data)
+    } catch (e: any) {
+      setDns({ error: e?.message ?? 'DNS check failed' })
+    }
+    setDnsLoading(false)
+  }
+
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       <div className="flex items-center gap-2">
         <button
           onClick={() => send()}
@@ -568,6 +581,40 @@ function SmtpTestButton() {
         </button>
       </div>
       {msg && <p className={`text-[10px] ${status==='ok'?'text-[#28a745]':'text-[#EF4444]'}`}>{msg}</p>}
+
+      {/* DNS Deliverability Check */}
+      <div className="border-t border-[#1a0000] pt-3">
+        <button
+          onClick={checkDns}
+          disabled={dnsLoading}
+          className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold bg-[#0a1a2a] text-[#4fc3f7] border border-[#1a3a5a]/40 hover:bg-[#0d2236] transition-all whitespace-nowrap"
+        >
+          {dnsLoading ? <div className="w-3 h-3 border-2 border-[#4fc3f7]/30 border-t-[#4fc3f7] rounded-full animate-spin" /> : <Globe size={12}/>}
+          {dnsLoading ? 'Checking DNS…' : '🔍 Check Email Deliverability (SPF/DKIM)'}
+        </button>
+        {dns && !dns.error && (
+          <div className="mt-2 bg-[#080e14] border border-[#1a3a5a]/40 rounded-xl p-3 space-y-2 text-[10px]">
+            <div className="flex items-center justify-between">
+              <span className="text-[#aaa]">Domain: <strong className="text-white">{dns.domain}</strong></span>
+              <span className="text-[#aaa]">Server IP: <strong className="text-white">{dns.serverIp}</strong></span>
+            </div>
+            <div className="flex gap-3">
+              <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${dns.spf?.found ? (dns.spf?.serverIncluded ? 'bg-green-900 text-green-300' : 'bg-yellow-900 text-yellow-300') : 'bg-red-900 text-red-300'}`}>
+                SPF {dns.spf?.found ? (dns.spf?.serverIncluded ? '✓ OK' : '⚠ IP missing') : '✕ MISSING'}
+              </span>
+              <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${dns.dkim?.found ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'}`}>
+                DKIM {dns.dkim?.found ? '✓ OK' : '✕ MISSING'}
+              </span>
+              <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${dns.mx ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'}`}>
+                MX {dns.mx ? '✓ OK' : '✕ MISSING'}
+              </span>
+            </div>
+            {dns.spf?.record && <p className="text-[#666] font-mono break-all">Current SPF: {dns.spf.record}</p>}
+            <p className={`whitespace-pre-wrap leading-relaxed ${dns.ok ? 'text-green-400' : 'text-yellow-300'}`}>{dns.fix}</p>
+          </div>
+        )}
+        {dns?.error && <p className="mt-1 text-[10px] text-red-400">{dns.error}</p>}
+      </div>
     </div>
   )
 }

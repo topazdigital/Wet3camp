@@ -491,6 +491,69 @@ router.post('/admin/test-email-to', requireAuth, requireAdmin, async (req: AuthR
   }
 })
 
+router.get('/admin/check-email-dns', requireAuth, requireAdmin, async (_req: AuthRequest, res) => {
+  try {
+    const { promises: dns } = await import('dns')
+    const pool = getPool()
+    const cfg = await getSmtpConfig(pool)
+    const user = cfg.user ?? ''
+    const domain = user.includes('@') ? user.split('@')[1] : 'wet3.camp'
+
+    // Get server's outbound IP
+    let serverIp = ''
+    try {
+      const ipRes = await fetch('https://api.ipify.org?format=json', { signal: AbortSignal.timeout(4000) })
+      const ipData = await ipRes.json() as any
+      serverIp = ipData.ip ?? ''
+    } catch {}
+
+    // Check SPF TXT record
+    let spfRecord = ''
+    try {
+      const txtRecords = await dns.resolveTxt(domain)
+      for (const record of txtRecords) {
+        const txt = record.join('')
+        if (txt.startsWith('v=spf1')) { spfRecord = txt; break }
+      }
+    } catch {}
+
+    const spfHasIp = serverIp ? spfRecord.includes(serverIp) : false
+    const spfHasAll = spfRecord.includes('~all') || spfRecord.includes('+all') || spfRecord.includes('-all')
+
+    // Check DKIM record (standard selector)
+    let dkimFound = false
+    for (const selector of ['mail', 'default', 'dkim', 'smtp']) {
+      try {
+        const dkimRecords = await dns.resolveTxt(`${selector}._domainkey.${domain}`)
+        if (dkimRecords.length > 0) { dkimFound = true; break }
+      } catch {}
+    }
+
+    // Check MX
+    let mxHost = ''
+    try {
+      const mx = await dns.resolveMx(domain)
+      if (mx.length > 0) mxHost = mx.sort((a, b) => a.priority - b.priority)[0].exchange
+    } catch {}
+
+    const ok = !!spfRecord && (spfHasIp || spfHasAll) && dkimFound
+    let fix = ''
+    if (!spfRecord) {
+      fix = `⚠️ No SPF record found for ${domain}. Add this TXT record in your DNS:\n\nv=spf1 ip4:${serverIp} a mx ~all\n\nThis is why Gmail silently drops your emails.`
+    } else if (!spfHasIp && serverIp) {
+      fix = `⚠️ SPF exists but doesn't include your server IP (${serverIp}). Update the TXT record to:\n\nv=spf1 ip4:${serverIp} a mx ~all`
+    } else if (!dkimFound) {
+      fix = `⚠️ DKIM not found for ${domain}. Enable DKIM in DirectAdmin → Email Manager → DKIM for ${domain}. Gmail increasingly requires DKIM.`
+    } else {
+      fix = `✓ SPF and DKIM look correct for ${domain}. If emails still fail, check DirectAdmin spam filters.`
+    }
+
+    res.json({ domain, serverIp, spf: { found: !!spfRecord, record: spfRecord, serverIncluded: spfHasIp }, dkim: { found: dkimFound }, mx: mxHost, ok, fix })
+  } catch (err: any) {
+    res.status(500).json({ error: err.message ?? String(err) })
+  }
+})
+
 router.post('/admin/test-connections', requireAuth, requireAdmin, async (_req: AuthRequest, res) => {
   res.setHeader('Content-Type', 'application/json')
   const results: Record<string, { ok: boolean; message: string }> = {}
