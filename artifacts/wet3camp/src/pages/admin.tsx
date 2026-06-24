@@ -523,26 +523,50 @@ function PendingApprovals() {
 function SmtpTestButton() {
   const [status, setStatus] = useState<'idle'|'loading'|'ok'|'err'>('idle')
   const [msg, setMsg] = useState('')
-  const test = async () => {
+  const [toEmail, setToEmail] = useState('')
+
+  const send = async (recipient?: string) => {
     setStatus('loading'); setMsg('')
     try {
-      const data = await adminFetch('/admin/test-email', { method: 'POST' })
+      let data: any
+      if (recipient) {
+        data = await adminFetch('/admin/test-email-to', { method: 'POST', body: JSON.stringify({ to: recipient }) })
+      } else {
+        data = await adminFetch('/admin/test-email', { method: 'POST' })
+      }
       setStatus('ok'); setMsg(data.message ?? 'Test email sent!')
     } catch (e: any) {
       setStatus('err'); setMsg(e?.message ?? 'SMTP test failed.')
     }
-    setTimeout(() => setStatus('idle'), 6000)
+    setTimeout(() => setStatus('idle'), 8000)
   }
+
   return (
-    <div className="flex items-center gap-3">
-      <button
-        onClick={test}
-        disabled={status === 'loading'}
-        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${status==='ok'?'bg-[#28a745] text-white':status==='err'?'bg-[#EF4444] text-white':'bg-[#FF9800]/20 text-[#FF9800] border border-[#FF9800]/30 hover:bg-[#FF9800]/30'}`}
-      >
-        {status==='loading' ? <div className="w-3 h-3 border-2 border-[#FF9800]/30 border-t-[#FF9800] rounded-full animate-spin" /> : <Mail size={12}/>}
-        {status==='loading'?'Sending…':status==='ok'?'✓ Email Sent':status==='err'?'✕ Failed':'Send Test Email'}
-      </button>
+    <div className="space-y-2">
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => send()}
+          disabled={status === 'loading'}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${status==='ok'?'bg-[#28a745] text-white':status==='err'?'bg-[#EF4444] text-white':'bg-[#FF9800]/20 text-[#FF9800] border border-[#FF9800]/30 hover:bg-[#FF9800]/30'}`}
+        >
+          {status==='loading' ? <div className="w-3 h-3 border-2 border-[#FF9800]/30 border-t-[#FF9800] rounded-full animate-spin" /> : <Mail size={12}/>}
+          {status==='loading'?'Sending…':status==='ok'?'✓ Sent':status==='err'?'✕ Failed':'Test (self)'}
+        </button>
+        <input
+          type="email"
+          value={toEmail}
+          onChange={e => setToEmail(e.target.value)}
+          placeholder="or send to another email…"
+          className="flex-1 bg-[#1a0000] border border-[#2a0000] rounded-xl px-3 py-2 text-xs text-white placeholder-[#444] focus:outline-none focus:border-[#8B0000]"
+        />
+        <button
+          onClick={() => { if (toEmail.includes('@')) send(toEmail) }}
+          disabled={status === 'loading' || !toEmail.includes('@')}
+          className="flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-bold bg-[#8B0000]/30 text-[#ff6b6b] border border-[#8B0000]/40 hover:bg-[#8B0000]/50 disabled:opacity-40 transition-all whitespace-nowrap"
+        >
+          <Mail size={11}/> Send
+        </button>
+      </div>
       {msg && <p className={`text-[10px] ${status==='ok'?'text-[#28a745]':'text-[#EF4444]'}`}>{msg}</p>}
     </div>
   )

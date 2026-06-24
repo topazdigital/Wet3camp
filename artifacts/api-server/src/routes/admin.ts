@@ -14,22 +14,26 @@ function requireAdmin(req: AuthRequest, res: any, next: any) {
   next()
 }
 
+function isSmtpPlaceholder(v: string | undefined) {
+  return !v || v === 'CHANGE_ME' || v.startsWith('CHANGE_') || v === 'your_smtp_password'
+}
+
 async function getSmtpConfig(pool: ReturnType<typeof getPool>): Promise<{ host?: string; port: number; user?: string; pass?: string }> {
-  const cfg = {
-    host: process.env.SMTP_HOST,
+  const cfg: { host?: string; port: number; user?: string; pass?: string } = {
+    host: isSmtpPlaceholder(process.env.SMTP_HOST) ? undefined : process.env.SMTP_HOST,
     port: parseInt(process.env.SMTP_PORT ?? '587'),
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
+    user: isSmtpPlaceholder(process.env.SMTP_USER) ? undefined : process.env.SMTP_USER,
+    pass: isSmtpPlaceholder(process.env.SMTP_PASS) ? undefined : process.env.SMTP_PASS,
   }
   if ((!cfg.host || !cfg.user || !cfg.pass) && pool) {
     const [rows] = await pool.query<any[]>(
-      "SELECT `key`, `value` FROM platform_settings WHERE `key` IN ('smtp_host','smtp_port','smtp_user','smtp_pass')"
+      "SELECT `key`, value FROM platform_settings WHERE `key` IN ('smtp_host','smtp_port','smtp_user','smtp_pass')"
     ).catch(() => [[]] as any)
     for (const r of rows as any[]) {
-      if (r.key === 'smtp_host' && r.value) cfg.host = r.value
+      if (r.key === 'smtp_host' && !isSmtpPlaceholder(r.value)) cfg.host = r.value
       if (r.key === 'smtp_port' && r.value) cfg.port = parseInt(r.value)
-      if (r.key === 'smtp_user' && r.value) cfg.user = r.value
-      if (r.key === 'smtp_pass' && r.value) cfg.pass = r.value
+      if (r.key === 'smtp_user' && !isSmtpPlaceholder(r.value)) cfg.user = r.value
+      if (r.key === 'smtp_pass' && !isSmtpPlaceholder(r.value)) cfg.pass = r.value
     }
   }
   return cfg
@@ -393,6 +397,38 @@ router.post('/admin/impersonate/:userId', requireAuth, requireAdmin, async (req:
   }
 })
 
+async function sendTestEmailTo(to: string, cfg: { host?: string; port: number; user?: string; pass?: string }) {
+  const nodemailer = await import('nodemailer')
+  const transporter = nodemailer.default.createTransport({
+    host: cfg.host,
+    port: cfg.port,
+    secure: cfg.port === 465,
+    auth: { user: cfg.user, pass: cfg.pass },
+    tls: { rejectUnauthorized: false },
+    connectionTimeout: 10000,
+  })
+  await transporter.verify()
+  await transporter.sendMail({
+    from: `"Wet3.camp" <${cfg.user}>`,
+    to,
+    subject: '✓ Wet3.camp Email Delivery Test',
+    html: `<div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;background:#0d0000;border:1px solid #2a0000;border-radius:12px;overflow:hidden;">
+<div style="background:linear-gradient(135deg,#1a0000,#0d0000);padding:20px 28px;border-bottom:2px solid #8B0000;">
+  <span style="font-size:18px;font-weight:900;color:#fff;">Wet3<span style="color:#FFD700;">Camp</span></span>
+  <div style="font-size:9px;color:#666;letter-spacing:2px;margin-top:2px;">EMAIL DELIVERY TEST</div>
+</div>
+<div style="padding:28px;">
+  <h2 style="margin:0 0 8px;font-size:18px;color:#fff;">✓ Email Delivery Working</h2>
+  <p style="margin:0 0 16px;font-size:13px;color:#aaa;">This is a test email from the Wet3.camp admin panel. If you received this, email delivery to <strong style="color:#fff;">${to}</strong> is working correctly.</p>
+  <div style="background:#1a0000;border:1px solid #2a0000;border-radius:8px;padding:14px;font-size:11px;color:#666;">
+    <div>Sent: ${new Date().toISOString()}</div>
+    <div>SMTP Host: ${cfg.host}:${cfg.port}</div>
+    <div>From: ${cfg.user}</div>
+  </div>
+</div></div>`,
+  })
+}
+
 router.post('/admin/test-email', requireAuth, requireAdmin, async (_req: AuthRequest, res) => {
   res.setHeader('Content-Type', 'application/json')
   const pool = getPool()
@@ -402,23 +438,29 @@ router.post('/admin/test-email', requireAuth, requireAdmin, async (_req: AuthReq
     return
   }
   try {
-    const nodemailer = await import('nodemailer')
-    const transporter = nodemailer.default.createTransport({
-      host: cfg.host,
-      port: cfg.port,
-      secure: cfg.port === 465,
-      auth: { user: cfg.user, pass: cfg.pass },
-      tls: { rejectUnauthorized: false },
-      connectionTimeout: 8000,
-    })
-    await transporter.verify()
-    await transporter.sendMail({
-      from: `"Wet3 Camp Admin" <${cfg.user}>`,
-      to: cfg.user,
-      subject: '✓ Wet3 Camp SMTP Test',
-      html: `<div style="font-family:sans-serif;max-width:500px"><h2 style="color:#8B0000">Wet3 Camp SMTP Test ✓</h2><p>Your SMTP configuration is working correctly!</p><p style="color:#999;font-size:12px">Sent: ${new Date().toISOString()}<br>Host: ${cfg.host}:${cfg.port}</p></div>`,
-    })
+    await sendTestEmailTo(cfg.user!, cfg)
     res.json({ success: true, message: `Test email sent to ${cfg.user}` })
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: `SMTP error: ${err.message ?? err}` })
+  }
+})
+
+router.post('/admin/test-email-to', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  res.setHeader('Content-Type', 'application/json')
+  const { to } = req.body as { to?: string }
+  if (!to || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
+    res.status(400).json({ success: false, message: 'Valid recipient email address required.' })
+    return
+  }
+  const pool = getPool()
+  const cfg = await getSmtpConfig(pool)
+  if (!cfg.host || !cfg.user || !cfg.pass) {
+    res.status(400).json({ success: false, message: 'SMTP not configured. Save SMTP credentials in the API Keys tab first.' })
+    return
+  }
+  try {
+    await sendTestEmailTo(to, cfg)
+    res.json({ success: true, message: `Test email sent to ${to} via ${cfg.host}` })
   } catch (err: any) {
     res.status(500).json({ success: false, message: `SMTP error: ${err.message ?? err}` })
   }
