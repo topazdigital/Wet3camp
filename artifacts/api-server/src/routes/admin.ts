@@ -19,13 +19,11 @@ function isSmtpPlaceholder(v: string | undefined) {
 }
 
 async function getSmtpConfig(pool: ReturnType<typeof getPool>): Promise<{ host?: string; port: number; user?: string; pass?: string }> {
+  // DB (admin panel) always wins — env vars are only used as a last-resort fallback.
   const cfg: { host?: string; port: number; user?: string; pass?: string } = {
-    host: isSmtpPlaceholder(process.env.SMTP_HOST) ? undefined : process.env.SMTP_HOST,
     port: parseInt(process.env.SMTP_PORT ?? '587'),
-    user: isSmtpPlaceholder(process.env.SMTP_USER) ? undefined : process.env.SMTP_USER,
-    pass: isSmtpPlaceholder(process.env.SMTP_PASS) ? undefined : process.env.SMTP_PASS,
   }
-  if ((!cfg.host || !cfg.user || !cfg.pass) && pool) {
+  if (pool) {
     const [rows] = await pool.query<any[]>(
       "SELECT `key`, value FROM platform_settings WHERE `key` IN ('smtp_host','smtp_port','smtp_user','smtp_pass')"
     ).catch(() => [[]] as any)
@@ -36,6 +34,10 @@ async function getSmtpConfig(pool: ReturnType<typeof getPool>): Promise<{ host?:
       if (r.key === 'smtp_pass' && !isSmtpPlaceholder(r.value)) cfg.pass = r.value
     }
   }
+  // Fall back to env vars only when DB has no value
+  if (!cfg.host && !isSmtpPlaceholder(process.env.SMTP_HOST)) cfg.host = process.env.SMTP_HOST
+  if (!cfg.user && !isSmtpPlaceholder(process.env.SMTP_USER)) cfg.user = process.env.SMTP_USER
+  if (!cfg.pass && !isSmtpPlaceholder(process.env.SMTP_PASS)) cfg.pass = process.env.SMTP_PASS
   return cfg
 }
 
