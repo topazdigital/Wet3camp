@@ -507,14 +507,29 @@ router.get('/admin/check-email-dns', requireAuth, requireAdmin, async (_req: Aut
       serverIp = ipData.ip ?? ''
     } catch {}
 
-    // Use Google + Cloudflare DNS directly to bypass any server-side caching
-    const resolver = new dns.Resolver()
-    resolver.setServers(['8.8.8.8', '1.1.1.1'])
+    // Step 1: find the authoritative nameserver for this domain
+    // using Google as a bootstrap to find the NS, then query NS directly
+    // This bypasses ALL caching (Google negative cache, server local cache)
+    const bootstrapResolver = new dns.Resolver()
+    bootstrapResolver.setServers(['8.8.8.8'])
 
-    // Check SPF TXT record
+    let authResolver = bootstrapResolver
+    try {
+      const nsNames = await bootstrapResolver.resolveNs(domain)
+      if (nsNames.length > 0) {
+        // Resolve the NS hostname to an IP
+        const nsIps = await bootstrapResolver.resolve4(nsNames[0])
+        if (nsIps.length > 0) {
+          authResolver = new dns.Resolver()
+          authResolver.setServers([nsIps[0]])
+        }
+      }
+    } catch {}
+
+    // Check SPF TXT record — query authoritative NS directly
     let spfRecord = ''
     try {
-      const txtRecords = await resolver.resolveTxt(domain)
+      const txtRecords = await authResolver.resolveTxt(domain)
       const spfRecords = txtRecords.map(r => r.join('')).filter(t => t.startsWith('v=spf1'))
       if (spfRecords.length > 1) {
         spfRecord = `MULTIPLE_SPF:${spfRecords.join(' | ')}`
@@ -527,12 +542,12 @@ router.get('/admin/check-email-dns', requireAuth, requireAdmin, async (_req: Aut
     const spfHasIp = !hasMultipleSPF && serverIp ? spfRecord.includes(serverIp) : false
     const spfHasAll = !hasMultipleSPF && (spfRecord.includes('~all') || spfRecord.includes('+all') || spfRecord.includes('-all'))
 
-    // Check DKIM record — try all common selectors including DirectAdmin's 'x'
+    // Check DKIM — try all common selectors including DirectAdmin's 'x'
     let dkimFound = false
     let dkimSelector = ''
     for (const selector of ['x', 'mail', 'default', 'dkim', 'smtp', 'email', 'selector1', 'selector2']) {
       try {
-        const dkimRecords = await resolver.resolveTxt(`${selector}._domainkey.${domain}`)
+        const dkimRecords = await authResolver.resolveTxt(`${selector}._domainkey.${domain}`)
         if (dkimRecords.length > 0) { dkimFound = true; dkimSelector = selector; break }
       } catch {}
     }
@@ -540,7 +555,7 @@ router.get('/admin/check-email-dns', requireAuth, requireAdmin, async (_req: Aut
     // Check MX
     let mxHost = ''
     try {
-      const mx = await resolver.resolveMx(domain)
+      const mx = await authResolver.resolveMx(domain)
       if (mx.length > 0) mxHost = mx.sort((a, b) => a.priority - b.priority)[0].exchange
     } catch {}
 
