@@ -47,8 +47,10 @@ async function createTransportAsync() {
 
 async function send(opts: { to: string; subject: string; text: string; html?: string }) {
   const t = await createTransportAsync()
-  if (!t) return
-  await t.transport.sendMail({ from: t.from, ...opts }).catch(() => {})
+  if (!t) { console.error('[mailer] SMTP not configured — email not sent to', opts.to); return }
+  await t.transport.sendMail({ from: t.from, ...opts }).catch((err: any) => {
+    console.error('[mailer] sendMail failed:', err?.message ?? err)
+  })
 }
 
 // ─── Shared HTML template ─────────────────────────────────────────────────────

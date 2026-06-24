@@ -267,26 +267,26 @@ function isPlaceholder(v: string | undefined) {
 }
 
 async function getSmtpCfg() {
+  // DB (admin panel) always wins — env vars are only used as a last-resort fallback.
   const cfg: { host?: string; port: number; user?: string; pass?: string } = {
-    host: isPlaceholder(process.env.SMTP_HOST) ? undefined : process.env.SMTP_HOST,
     port: parseInt(process.env.SMTP_PORT ?? '587'),
-    user: isPlaceholder(process.env.SMTP_USER) ? undefined : process.env.SMTP_USER,
-    pass: isPlaceholder(process.env.SMTP_PASS) ? undefined : process.env.SMTP_PASS,
   }
-  if (!cfg.host || !cfg.user || !cfg.pass) {
-    const pool = getPool()
-    if (pool) {
-      const [rows] = await pool.query<any[]>(
-        "SELECT `key`, value FROM platform_settings WHERE `key` IN ('smtp_host','smtp_port','smtp_user','smtp_pass')"
-      ).catch(() => [[]] as any)
-      for (const r of rows as any[]) {
-        if (r.key === 'smtp_host' && r.value && !isPlaceholder(r.value)) cfg.host = r.value
-        if (r.key === 'smtp_port' && r.value) cfg.port = parseInt(r.value)
-        if (r.key === 'smtp_user' && r.value && !isPlaceholder(r.value)) cfg.user = r.value
-        if (r.key === 'smtp_pass' && r.value && !isPlaceholder(r.value)) cfg.pass = r.value
-      }
+  const pool = getPool()
+  if (pool) {
+    const [rows] = await pool.query<any[]>(
+      "SELECT `key`, value FROM platform_settings WHERE `key` IN ('smtp_host','smtp_port','smtp_user','smtp_pass')"
+    ).catch(() => [[]] as any)
+    for (const r of rows as any[]) {
+      if (r.key === 'smtp_host' && r.value && !isPlaceholder(r.value)) cfg.host = r.value
+      if (r.key === 'smtp_port' && r.value) cfg.port = parseInt(r.value)
+      if (r.key === 'smtp_user' && r.value && !isPlaceholder(r.value)) cfg.user = r.value
+      if (r.key === 'smtp_pass' && r.value && !isPlaceholder(r.value)) cfg.pass = r.value
     }
   }
+  // Fall back to env vars only when DB has no value
+  if (!cfg.host && !isPlaceholder(process.env.SMTP_HOST)) cfg.host = process.env.SMTP_HOST
+  if (!cfg.user && !isPlaceholder(process.env.SMTP_USER)) cfg.user = process.env.SMTP_USER
+  if (!cfg.pass && !isPlaceholder(process.env.SMTP_PASS)) cfg.pass = process.env.SMTP_PASS
   console.log(`[smtp-cfg] host=${cfg.host ?? 'NONE'} user=${cfg.user ?? 'NONE'} pass=${cfg.pass ? '***' : 'NONE'}`)
   return cfg
 }
