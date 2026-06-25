@@ -28,12 +28,24 @@ const MOMBASA_AREAS = [
 
 // ── High-demand escort services for SEO ───────────────────────────────────────
 const ESCORT_SERVICES = [
-  'massage', 'gfe', 'girlfriend-experience', 'bdsm', 'dominatrix',
-  'anal', 'oral', 'overnight', 'roleplay', 'striptease',
-  'body-slide', 'domination', 'submission', 'threesome', 'duo',
-  'webcam', 'video-call', 'outcall', 'incall', 'erotic-massage',
-  'sensual-massage', 'foot-fetish', 'golden-shower', 'squirting',
-  'deep-throat', 'bbw', 'milf', 'petite', 'busty', 'curvy',
+  'massage', 'erotic-massage', 'sensual-massage', 'tantric-massage', 'nuru-massage',
+  'body-slide', 'body-rub', 'four-hands-massage', 'happy-ending',
+  'gfe', 'girlfriend-experience', 'pse', 'porn-star-experience', 'bfe', 'boyfriend-experience',
+  'bdsm', 'dominatrix', 'submissive', 'bondage', 'shibari', 'rope-bondage',
+  'anal', 'anal-sex', 'oral', 'blowjob', 'deep-throat', 'rimming', 'rimjob',
+  'handjob', 'fingering', '69', 'full-service', 'creampie', 'squirting',
+  'cum-on-face', 'cum-in-mouth', 'prostate-massage',
+  'overnight', 'incall', 'outcall', 'roleplay', 'role-play', 'fantasy', 'cosplay',
+  'striptease', 'strip-tease', 'lap-dance', 'duo', 'threesome', 'ffm', 'mmf',
+  'group', 'orgy', 'gangbang', 'dp', 'double-penetration', 'swinging', 'cuckolding',
+  'exhibitionism', 'couples', 'webcam', 'camgirl', 'video-call', 'sexting',
+  'onlyfans', 'custom-videos', 'nude-photos', 'phone-sex', 'live-shows',
+  'foot-fetish', 'golden-shower', 'watersports', 'pegging', 'strap-on',
+  'face-sitting', 'humiliation', 'spanking', 'wax-play', 'latex', 'leather',
+  'cross-dressing', 'fisting', 'fetish',
+  'dinner-dates', 'travel-escort', 'events', 'hotel-visits', 'weekend-trips',
+  'dancing-partner', 'airport-pickup', 'social-companion', 'party-companion',
+  'bbw', 'milf', 'petite', 'busty', 'curvy', 'mature', 'young', 'teen-18',
 ]
 
 const STATIC_PAGES = [

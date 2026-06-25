@@ -16,11 +16,35 @@ const HEIGHTS      = ["4'10\"","4'11\"","5'0\"","5'1\"","5'2\"","5'3\"","5'4\"",
 const HAIR_COLORS  = ['Black', 'Dark Brown', 'Brown', 'Auburn', 'Blonde', 'Red', 'Natural', 'Braids', 'Locs', 'Coloured / Dyed']
 const LANGUAGES    = ['English','Swahili','French','Arabic','Hindi','Luo','Kikuyu','Kalenjin','Kamba','German','Spanish','Italian','Somali','Oromo','Luganda']
 const SERVICE_CATEGORIES: Record<string, string[]> = {
-  'Escort Services': ['Dinner Dates', 'Travel Escort', 'Events & Functions', 'Hotel Visits', 'Weekend Trips', 'Dancing Partner', 'Virtual Escort', 'Video Calls'],
-  'Physical':    ['In-Call', 'Out-Call', 'Overnight', 'Erotic Massage', 'Body Rub', 'Tantric Massage', 'Body Slide', 'Strip Tease', 'Lap Dance'],
-  'Experience':  ['GFE (Girlfriend Experience)', 'PSE (Porn Star Experience)', 'Role Play', 'Fantasy / Cosplay', 'Couples Welcome', 'Threesome (FFM)', 'Threesome (MMF)', 'Group / Orgy'],
-  'BDSM & Kink': ['BDSM', 'Dominatrix', 'Submissive', 'Bondage', 'Foot Fetish', 'Spanking', 'Fetish Services', 'Golden Shower', 'Pegging'],
-  'Online':      ['Webcam / Camgirl', 'Sexting', 'Custom Videos', 'OnlyFans Management'],
+  'Escort Services': [
+    'Dinner Dates', 'Travel Escort', 'Events & Functions', 'Hotel Visits', 'Weekend Trips',
+    'Dancing Partner', 'Virtual Escort', 'Video Calls', 'Airport Pickup', 'Social Companion',
+    'Party Companion', 'Photoshoot Companion', 'Business Travel',
+  ],
+  'Physical': [
+    'In-Call', 'Out-Call', 'Overnight', 'Erotic Massage', 'Body Rub', 'Tantric Massage',
+    'Body Slide', 'Nuru Massage', 'Sensual Massage', 'Four Hands Massage', 'Happy Ending',
+    'Strip Tease', 'Lap Dance', 'Full Service', 'Oral Sex (Blowjob)', 'Deep Throat',
+    'Anal Sex', 'Rimming', 'Handjob', 'Fingering', '69 Position', 'Prostate Massage',
+    'Squirting', 'Cum on Face (COF)', 'Cum in Mouth (CIM)', 'Creampie',
+  ],
+  'Experience': [
+    'GFE (Girlfriend Experience)', 'PSE (Porn Star Experience)', 'BFE (Boyfriend Experience)',
+    'Role Play', 'Fantasy / Cosplay', 'Couples Welcome', 'Threesome (FFM)', 'Threesome (MMF)',
+    'Threesome (MMF+F)', 'Group / Orgy', 'Gangbang', 'DP (Double Penetration)',
+    'Swinging', 'Cuckolding', 'Exhibitionism', 'Striptease Show',
+  ],
+  'BDSM & Kink': [
+    'BDSM', 'Dominatrix', 'Submissive', 'Bondage', 'Rope Bondage (Shibari)',
+    'Foot Fetish', 'Spanking', 'Fetish Services', 'Golden Shower', 'Watersports',
+    'Pegging', 'Strap-On', 'Face Sitting', 'Humiliation', 'Slave / Master',
+    'Wax Play', 'CBT (Cock & Ball Torture)', 'Latex / Leather', 'Cross Dressing',
+    'Fisting', 'Scat Play', 'Electrostimulation',
+  ],
+  'Online': [
+    'Webcam / Camgirl', 'Sexting', 'Custom Videos', 'OnlyFans Management',
+    'Nude Photos', 'Live Shows', 'Phone Sex', 'Dirty Talk',
+  ],
 }
 const SERVICES = Object.values(SERVICE_CATEGORIES).flat()
 
