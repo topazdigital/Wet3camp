@@ -507,70 +507,67 @@ router.get('/admin/check-email-dns', requireAuth, requireAdmin, async (_req: Aut
       serverIp = ipData.ip ?? ''
     } catch {}
 
-    // Use Google DNS-over-HTTPS — bypasses Node.js DNS module and all caching issues
-    let dohError = ''
-    const dohQuery = async (name: string, type: string): Promise<string[]> => {
-      try {
-        const r = await fetch(`https://dns.google/resolve?name=${encodeURIComponent(name)}&type=${type}`, {
-          signal: AbortSignal.timeout(8000),
-          headers: { Accept: 'application/json' },
-        })
-        if (!r.ok) { dohError = `dns.google returned HTTP ${r.status}`; return [] }
-        const d = await r.json() as any
-        if (d.Status !== 0 && !d.Answer) return []
-        if (!d.Answer) return []
-        return (d.Answer as any[])
-          .filter((a: any) => a.type === (type === 'TXT' ? 16 : type === 'MX' ? 15 : type === 'NS' ? 2 : 1))
-          .map((a: any) => String(a.data).replace(/^"+|"+$/g, ''))
-      } catch (e: any) { dohError = `dns.google unreachable: ${e?.message ?? e}`; return [] }
-    }
+    // Use Node.js native dns module with Google's public resolver — no external HTTP needed
+    const dnsResolver = new dns.Resolver()
+    dnsResolver.setServers(['8.8.8.8', '8.8.4.4'])
 
-    // Check SPF TXT record
-    let spfRecord = ''
-    const allTxt = await dohQuery(domain, 'TXT')
+    const resolveTxt = (name: string): Promise<string[]> =>
+      dnsResolver.resolveTxt(name).then(recs => recs.flat()).catch(() => [])
+    const resolveMx = (name: string): Promise<string> =>
+      dnsResolver.resolveMx(name).then(recs => recs.sort((a,b) => a.priority - b.priority)[0]?.exchange ?? '').catch(() => '')
+    const resolvePtr = (ip: string): Promise<string> =>
+      dnsResolver.reverse(ip).then(recs => recs[0] ?? '').catch(() => '')
+
+    // SPF
+    const allTxt = await resolveTxt(domain)
     const spfRecords = allTxt.filter(t => t.startsWith('v=spf1'))
-    if (spfRecords.length > 1) {
-      spfRecord = `MULTIPLE_SPF:${spfRecords.join(' | ')}`
-    } else if (spfRecords.length === 1) {
-      spfRecord = spfRecords[0]
-    }
+    let spfRecord = ''
+    if (spfRecords.length > 1) spfRecord = `MULTIPLE_SPF:${spfRecords.join(' | ')}`
+    else if (spfRecords.length === 1) spfRecord = spfRecords[0]
 
     const hasMultipleSPF = spfRecord.startsWith('MULTIPLE_SPF:')
     const spfHasIp = !hasMultipleSPF && serverIp ? spfRecord.includes(serverIp) : false
     const spfHasAll = !hasMultipleSPF && (spfRecord.includes('~all') || spfRecord.includes('+all') || spfRecord.includes('-all'))
 
-    // Check DKIM — try all common selectors including DirectAdmin's 'x'
+    // DKIM
     let dkimFound = false
     let dkimSelector = ''
-    for (const selector of ['x', 'mail', 'default', 'dkim', 'smtp', 'email', 'selector1', 'selector2']) {
-      const recs = await dohQuery(`${selector}._domainkey.${domain}`, 'TXT')
-      if (recs.length > 0 && recs.some(r => r.includes('v=DKIM1') || r.includes('p='))) {
-        dkimFound = true; dkimSelector = selector; break
-      }
+    for (const sel of ['x', 'mail', 'default', 'dkim', 'smtp', 'email', 'selector1', 'selector2']) {
+      const recs = await resolveTxt(`${sel}._domainkey.${domain}`)
+      if (recs.some(r => r.includes('v=DKIM1') || r.includes('p='))) { dkimFound = true; dkimSelector = sel; break }
     }
 
-    // Check MX
-    let mxHost = ''
-    const mxRecs = await dohQuery(domain, 'MX')
-    if (mxRecs.length > 0) mxHost = mxRecs[0].replace(/^\d+\s+/, '')
+    // DMARC
+    const dmarcTxt = await resolveTxt(`_dmarc.${domain}`)
+    const dmarcRecord = dmarcTxt.find(t => t.startsWith('v=DMARC1')) ?? ''
+    const dmarcFound = !!dmarcRecord
 
-    const ok = !hasMultipleSPF && !!spfRecord && (spfHasIp || spfHasAll) && dkimFound
+    // MX
+    const mxHost = await resolveMx(domain)
+
+    // PTR (reverse DNS)
+    const ptrRecord = serverIp ? await resolvePtr(serverIp) : ''
+    const ptrMatchesDomain = ptrRecord.includes(domain) || (ptrRecord !== '' && ptrRecord !== 'N/A')
+
+    const ok = !hasMultipleSPF && !!spfRecord && (spfHasIp || spfHasAll) && dkimFound && dmarcFound
     let fix = ''
-    if (dohError) {
-      fix = `⚠️ DNS check failed: ${dohError}\n\nThis likely means your VPS firewall blocks outbound HTTPS to dns.google. But more importantly — if emails aren't arriving, your VPS almost certainly also BLOCKS PORT 25 OUTBOUND (standard on InterServer/VPS providers to prevent spam).\n\n✅ REAL FIX: Use Brevo free SMTP relay:\n1. Sign up free at brevo.com\n2. Settings → SMTP & API → copy credentials\n3. Set host: smtp-relay.brevo.com, port: 587\n4. Enter your Brevo email + API key as username/password`
-    } else if (hasMultipleSPF) {
-      fix = `⚠️ You have MULTIPLE SPF records — this breaks SPF. Delete all "v=spf1" TXT records and add just ONE:\n\nv=spf1 ip4:${serverIp} a mx ~all`
+    if (hasMultipleSPF) {
+      fix = `⚠️ MULTIPLE SPF records — delete all "v=spf1" TXT records and keep just ONE:\nv=spf1 ip4:${serverIp} a mx ~all`
     } else if (!spfRecord) {
-      fix = `⚠️ No SPF record found for ${domain}.\n\nHOWEVER — if emails get 250 OK but still don't arrive, your VPS provider is likely BLOCKING PORT 25 OUTBOUND. Exim queues mail but can't deliver to Gmail.\n\n✅ REAL FIX: Use Brevo free relay (brevo.com) — set host smtp-relay.brevo.com:587 in admin panel.`
+      fix = `⚠️ No SPF record found. Add TXT record at root (@):\nv=spf1 ip4:${serverIp} a mx ~all`
     } else if (!spfHasIp && !spfHasAll && serverIp) {
-      fix = `⚠️ SPF record doesn't include your server IP (${serverIp}). Add: v=spf1 ip4:${serverIp} a mx ~all`
+      fix = `⚠️ SPF record doesn't include your server IP (${serverIp}). Update to:\nv=spf1 ip4:${serverIp} a mx ~all`
     } else if (!dkimFound) {
-      fix = `⚠️ SPF ✓ but DKIM not found. DirectAdmin → Email Manager → ${domain} → Enable DKIM → add the TXT record to DNS.`
+      fix = `⚠️ SPF ✓ but DKIM missing. In DirectAdmin → Email Manager → Enable DKIM for ${domain}, then add the generated TXT record (x._domainkey) to your DNS at my.interserver.net.`
+    } else if (!dmarcFound) {
+      fix = `⚠️ SPF ✓  DKIM ✓  but DMARC missing — this causes Gmail to mark emails as spam!\n\nAdd this TXT record in your DNS (my.interserver.net):\n  Name: _dmarc\n  Value: v=DMARC1; p=quarantine; rua=mailto:support@${domain}\n\nThis tells Gmail your domain is protected and helps inbox delivery.`
+    } else if (!ptrRecord || !ptrRecord.includes(domain)) {
+      fix = `⚠️ SPF ✓  DKIM ✓  DMARC ✓  but PTR (reverse DNS) for ${serverIp} points to "${ptrRecord || 'nothing'}" instead of mail.${domain}.\n\nContact InterServer support and ask them to update the PTR record for ${serverIp} to mail.${domain}. This is required for inbox delivery.`
     } else {
-      fix = `✓ SPF and DKIM correctly configured (DKIM selector: ${dkimSelector}). If emails still don't arrive, run on server: exim -bp | head -20 to check queue, or check if port 25 outbound is blocked by your VPS provider.`
+      fix = `✅ SPF, DKIM, DMARC and PTR are all correctly configured. Your emails should reach the inbox.`
     }
 
-    res.json({ domain, serverIp, spf: { found: !hasMultipleSPF && !!spfRecord, record: spfRecord, serverIncluded: spfHasIp }, dkim: { found: dkimFound, selector: dkimSelector }, mx: mxHost, ok, fix, dohError: dohError || undefined })
+    res.json({ domain, serverIp, spf: { found: !hasMultipleSPF && !!spfRecord, record: spfRecord, serverIncluded: spfHasIp }, dkim: { found: dkimFound, selector: dkimSelector }, dmarc: { found: dmarcFound, record: dmarcRecord }, mx: mxHost, ptr: { record: ptrRecord, matchesDomain: ptrMatchesDomain }, ok, fix })
   } catch (err: any) {
     res.status(500).json({ error: err.message ?? String(err) })
   }

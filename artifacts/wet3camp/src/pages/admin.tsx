@@ -590,7 +590,7 @@ function SmtpTestButton() {
           className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold bg-[#0a1a2a] text-[#4fc3f7] border border-[#1a3a5a]/40 hover:bg-[#0d2236] transition-all whitespace-nowrap"
         >
           {dnsLoading ? <div className="w-3 h-3 border-2 border-[#4fc3f7]/30 border-t-[#4fc3f7] rounded-full animate-spin" /> : <Globe size={12}/>}
-          {dnsLoading ? 'Checking DNS…' : '🔍 Check Email Deliverability (SPF/DKIM)'}
+          {dnsLoading ? 'Checking DNS…' : '🔍 Check Email Deliverability (SPF/DKIM/DMARC)'}
         </button>
         {dns && !dns.error && (
           <div className="mt-2 bg-[#080e14] border border-[#1a3a5a]/40 rounded-xl p-3 space-y-2 text-[10px]">
@@ -598,18 +598,27 @@ function SmtpTestButton() {
               <span className="text-[#aaa]">Domain: <strong className="text-white">{dns.domain}</strong></span>
               <span className="text-[#aaa]">Server IP: <strong className="text-white">{dns.serverIp}</strong></span>
             </div>
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-2">
               <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${dns.spf?.found ? (dns.spf?.serverIncluded ? 'bg-green-900 text-green-300' : 'bg-yellow-900 text-yellow-300') : 'bg-red-900 text-red-300'}`}>
                 SPF {dns.spf?.found ? (dns.spf?.serverIncluded ? '✓ OK' : '⚠ IP missing') : '✕ MISSING'}
               </span>
               <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${dns.dkim?.found ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'}`}>
                 DKIM {dns.dkim?.found ? '✓ OK' : '✕ MISSING'}
               </span>
+              <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${dns.dmarc?.found ? 'bg-green-900 text-green-300' : 'bg-orange-900 text-orange-300'}`}>
+                DMARC {dns.dmarc?.found ? '✓ OK' : '✕ MISSING'}
+              </span>
               <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${dns.mx ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'}`}>
                 MX {dns.mx ? '✓ OK' : '✕ MISSING'}
               </span>
+              {dns.ptr?.record && (
+                <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${dns.ptr?.record?.includes(dns.domain) ? 'bg-green-900 text-green-300' : 'bg-yellow-900 text-yellow-300'}`}>
+                  PTR {dns.ptr?.record?.includes(dns.domain) ? '✓ OK' : `⚠ ${dns.ptr.record}`}
+                </span>
+              )}
             </div>
-            {dns.spf?.record && <p className="text-[#666] font-mono break-all">Current SPF: {dns.spf.record}</p>}
+            {dns.spf?.record && <p className="text-[#666] font-mono break-all">SPF: {dns.spf.record}</p>}
+            {dns.dmarc?.record && <p className="text-[#666] font-mono break-all">DMARC: {dns.dmarc.record}</p>}
             <p className={`whitespace-pre-wrap leading-relaxed ${dns.ok ? 'text-green-400' : 'text-yellow-300'}`}>{dns.fix}</p>
           </div>
         )}
