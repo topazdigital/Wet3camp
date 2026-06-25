@@ -508,18 +508,21 @@ router.get('/admin/check-email-dns', requireAuth, requireAdmin, async (_req: Aut
     } catch {}
 
     // Use Google DNS-over-HTTPS — bypasses Node.js DNS module and all caching issues
+    let dohError = ''
     const dohQuery = async (name: string, type: string): Promise<string[]> => {
       try {
         const r = await fetch(`https://dns.google/resolve?name=${encodeURIComponent(name)}&type=${type}`, {
-          signal: AbortSignal.timeout(6000),
+          signal: AbortSignal.timeout(8000),
           headers: { Accept: 'application/json' },
         })
+        if (!r.ok) { dohError = `dns.google returned HTTP ${r.status}`; return [] }
         const d = await r.json() as any
+        if (d.Status !== 0 && !d.Answer) return []
         if (!d.Answer) return []
         return (d.Answer as any[])
           .filter((a: any) => a.type === (type === 'TXT' ? 16 : type === 'MX' ? 15 : type === 'NS' ? 2 : 1))
-          .map((a: any) => (a.data as string).replace(/"/g, '').replace(/\s+/g, ''))
-      } catch { return [] }
+          .map((a: any) => String(a.data).replace(/^"+|"+$/g, ''))
+      } catch (e: any) { dohError = `dns.google unreachable: ${e?.message ?? e}`; return [] }
     }
 
     // Check SPF TXT record
@@ -553,19 +556,21 @@ router.get('/admin/check-email-dns', requireAuth, requireAdmin, async (_req: Aut
 
     const ok = !hasMultipleSPF && !!spfRecord && (spfHasIp || spfHasAll) && dkimFound
     let fix = ''
-    if (hasMultipleSPF) {
-      fix = `⚠️ You have MULTIPLE SPF records — this is invalid and causes Gmail to reject your emails. Delete all TXT records starting with "v=spf1" and add just ONE:\n\nv=spf1 ip4:${serverIp} a mx ~all`
+    if (dohError) {
+      fix = `⚠️ DNS check failed: ${dohError}\n\nThis likely means your VPS firewall blocks outbound HTTPS to dns.google. But more importantly — if emails aren't arriving, your VPS almost certainly also BLOCKS PORT 25 OUTBOUND (standard on InterServer/VPS providers to prevent spam).\n\n✅ REAL FIX: Use Brevo free SMTP relay:\n1. Sign up free at brevo.com\n2. Settings → SMTP & API → copy credentials\n3. Set host: smtp-relay.brevo.com, port: 587\n4. Enter your Brevo email + API key as username/password`
+    } else if (hasMultipleSPF) {
+      fix = `⚠️ You have MULTIPLE SPF records — this breaks SPF. Delete all "v=spf1" TXT records and add just ONE:\n\nv=spf1 ip4:${serverIp} a mx ~all`
     } else if (!spfRecord) {
-      fix = `⚠️ No SPF record found for ${domain}. Add this TXT record in your DNS:\n\nv=spf1 ip4:${serverIp} a mx ~all\n\nThis is why Gmail silently drops your emails.`
+      fix = `⚠️ No SPF record found for ${domain}.\n\nHOWEVER — if emails get 250 OK but still don't arrive, your VPS provider is likely BLOCKING PORT 25 OUTBOUND. Exim queues mail but can't deliver to Gmail.\n\n✅ REAL FIX: Use Brevo free relay (brevo.com) — set host smtp-relay.brevo.com:587 in admin panel.`
     } else if (!spfHasIp && !spfHasAll && serverIp) {
-      fix = `⚠️ SPF exists but doesn't include your server IP (${serverIp}). Update the TXT record to:\n\nv=spf1 ip4:${serverIp} a mx ~all`
+      fix = `⚠️ SPF record doesn't include your server IP (${serverIp}). Add: v=spf1 ip4:${serverIp} a mx ~all`
     } else if (!dkimFound) {
-      fix = `⚠️ SPF ✓ — but DKIM not found for ${domain}. In DirectAdmin → Email Manager → select ${domain} → click "Enable DKIM". Then add the TXT record it generates to your DNS.`
+      fix = `⚠️ SPF ✓ but DKIM not found. DirectAdmin → Email Manager → ${domain} → Enable DKIM → add the TXT record to DNS.`
     } else {
-      fix = `✓ SPF and DKIM are correctly configured for ${domain} (DKIM selector: ${dkimSelector}). Your emails should now deliver to Gmail. If not, wait 5 minutes for DNS to fully propagate and test again.`
+      fix = `✓ SPF and DKIM correctly configured (DKIM selector: ${dkimSelector}). If emails still don't arrive, run on server: exim -bp | head -20 to check queue, or check if port 25 outbound is blocked by your VPS provider.`
     }
 
-    res.json({ domain, serverIp, spf: { found: !hasMultipleSPF && !!spfRecord, record: spfRecord, serverIncluded: spfHasIp }, dkim: { found: dkimFound, selector: dkimSelector }, mx: mxHost, ok, fix })
+    res.json({ domain, serverIp, spf: { found: !hasMultipleSPF && !!spfRecord, record: spfRecord, serverIncluded: spfHasIp }, dkim: { found: dkimFound, selector: dkimSelector }, mx: mxHost, ok, fix, dohError: dohError || undefined })
   } catch (err: any) {
     res.status(500).json({ error: err.message ?? String(err) })
   }
