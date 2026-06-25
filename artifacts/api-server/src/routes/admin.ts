@@ -507,36 +507,30 @@ router.get('/admin/check-email-dns', requireAuth, requireAdmin, async (_req: Aut
       serverIp = ipData.ip ?? ''
     } catch {}
 
-    // Step 1: find the authoritative nameserver for this domain
-    // using Google as a bootstrap to find the NS, then query NS directly
-    // This bypasses ALL caching (Google negative cache, server local cache)
-    const bootstrapResolver = new dns.Resolver()
-    bootstrapResolver.setServers(['8.8.8.8'])
+    // Use Google DNS-over-HTTPS — bypasses Node.js DNS module and all caching issues
+    const dohQuery = async (name: string, type: string): Promise<string[]> => {
+      try {
+        const r = await fetch(`https://dns.google/resolve?name=${encodeURIComponent(name)}&type=${type}`, {
+          signal: AbortSignal.timeout(6000),
+          headers: { Accept: 'application/json' },
+        })
+        const d = await r.json() as any
+        if (!d.Answer) return []
+        return (d.Answer as any[])
+          .filter((a: any) => a.type === (type === 'TXT' ? 16 : type === 'MX' ? 15 : type === 'NS' ? 2 : 1))
+          .map((a: any) => (a.data as string).replace(/"/g, '').replace(/\s+/g, ''))
+      } catch { return [] }
+    }
 
-    let authResolver = bootstrapResolver
-    try {
-      const nsNames = await bootstrapResolver.resolveNs(domain)
-      if (nsNames.length > 0) {
-        // Resolve the NS hostname to an IP
-        const nsIps = await bootstrapResolver.resolve4(nsNames[0])
-        if (nsIps.length > 0) {
-          authResolver = new dns.Resolver()
-          authResolver.setServers([nsIps[0]])
-        }
-      }
-    } catch {}
-
-    // Check SPF TXT record — query authoritative NS directly
+    // Check SPF TXT record
     let spfRecord = ''
-    try {
-      const txtRecords = await authResolver.resolveTxt(domain)
-      const spfRecords = txtRecords.map(r => r.join('')).filter(t => t.startsWith('v=spf1'))
-      if (spfRecords.length > 1) {
-        spfRecord = `MULTIPLE_SPF:${spfRecords.join(' | ')}`
-      } else if (spfRecords.length === 1) {
-        spfRecord = spfRecords[0]
-      }
-    } catch {}
+    const allTxt = await dohQuery(domain, 'TXT')
+    const spfRecords = allTxt.filter(t => t.startsWith('v=spf1'))
+    if (spfRecords.length > 1) {
+      spfRecord = `MULTIPLE_SPF:${spfRecords.join(' | ')}`
+    } else if (spfRecords.length === 1) {
+      spfRecord = spfRecords[0]
+    }
 
     const hasMultipleSPF = spfRecord.startsWith('MULTIPLE_SPF:')
     const spfHasIp = !hasMultipleSPF && serverIp ? spfRecord.includes(serverIp) : false
@@ -546,18 +540,16 @@ router.get('/admin/check-email-dns', requireAuth, requireAdmin, async (_req: Aut
     let dkimFound = false
     let dkimSelector = ''
     for (const selector of ['x', 'mail', 'default', 'dkim', 'smtp', 'email', 'selector1', 'selector2']) {
-      try {
-        const dkimRecords = await authResolver.resolveTxt(`${selector}._domainkey.${domain}`)
-        if (dkimRecords.length > 0) { dkimFound = true; dkimSelector = selector; break }
-      } catch {}
+      const recs = await dohQuery(`${selector}._domainkey.${domain}`, 'TXT')
+      if (recs.length > 0 && recs.some(r => r.includes('v=DKIM1') || r.includes('p='))) {
+        dkimFound = true; dkimSelector = selector; break
+      }
     }
 
     // Check MX
     let mxHost = ''
-    try {
-      const mx = await authResolver.resolveMx(domain)
-      if (mx.length > 0) mxHost = mx.sort((a, b) => a.priority - b.priority)[0].exchange
-    } catch {}
+    const mxRecs = await dohQuery(domain, 'MX')
+    if (mxRecs.length > 0) mxHost = mxRecs[0].replace(/^\d+\s+/, '')
 
     const ok = !hasMultipleSPF && !!spfRecord && (spfHasIp || spfHasAll) && dkimFound
     let fix = ''
