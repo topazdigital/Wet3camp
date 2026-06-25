@@ -764,7 +764,7 @@ export default function RegisterPage() {
                 {otpVerified ? (
                   <div className="flex items-center justify-center gap-2 py-3 bg-[#28a745]/10 border border-[#28a745]/30 rounded-xl mb-4">
                     <CheckCircle2 size={16} className="text-[#28a745]" fill="#28a745" />
-                    <span className="text-sm font-bold text-[#28a745]">Phone verified!</span>
+                    <span className="text-sm font-bold text-[#28a745]">Email verified!</span>
                   </div>
                 ) : (
                   <p className="text-center text-xs text-text-muted mb-4">
