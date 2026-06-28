@@ -20,9 +20,7 @@ if [ -z "$GITHUB_TOKEN" ]; then
 fi
 
 echo "▶ Pushing to GitHub..."
-git remote set-url origin "https://${GITHUB_TOKEN}@github.com/topazdigital/Wet3camp.git"
-git push origin main
-git remote set-url origin "https://github.com/topazdigital/Wet3camp.git"
+git push "https://${GITHUB_TOKEN}@github.com/topazdigital/Wet3camp.git" main
 
 echo ""
 echo "✅ Pushed to GitHub!"
