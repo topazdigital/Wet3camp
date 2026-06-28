@@ -1,4 +1,4 @@
-import { Home, Radio, Newspaper, Star, ShoppingBag, Megaphone, Calendar, Video, Hotel, Plane, MessageSquare, Heart, Ban, MessageCircle, HelpCircle, Mail, Shield, Smartphone, X, Menu, BookOpen } from 'lucide-react'
+import { Home, Radio, Newspaper, Star, ShoppingBag, Megaphone, Calendar, Video, Hotel, Plane, MessageSquare, Heart, Ban, MessageCircle, HelpCircle, Mail, Shield, Smartphone, X, Menu, BookOpen, Gift } from 'lucide-react'
 import { Link, useLocation } from 'wouter'
 import { useState, useEffect } from 'react'
 import { useSidebar } from '@/lib/sidebar-context'
@@ -41,6 +41,7 @@ const NAV_SECTIONS = [
     items: [
       { icon: HelpCircle,    label: 'FAQs',            href: '/faqs' },
       { icon: Mail,          label: 'Contact Admin',   href: '/contact' },
+      { icon: Gift,          label: 'Refer & Earn',    href: '/referral', highlight: true },
       { icon: Smartphone,    label: 'Install App',     href: '/install', highlight: true },
     ],
   },
