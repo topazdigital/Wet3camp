@@ -277,3 +277,25 @@ CREATE TABLE IF NOT EXISTS profile_claims (
 CREATE INDEX IF NOT EXISTS idx_profile_claims_escort_id ON profile_claims (escort_id);
 CREATE INDEX IF NOT EXISTS idx_profile_claims_user_id ON profile_claims (user_id);
 CREATE INDEX IF NOT EXISTS idx_profile_claims_status ON profile_claims (status);
+
+CREATE TABLE IF NOT EXISTS schema_migrations (
+  id         SERIAL PRIMARY KEY,
+  filename   VARCHAR(200) NOT NULL,
+  applied_at TIMESTAMP    NOT NULL DEFAULT NOW(),
+  CONSTRAINT uq_schema_migrations_filename UNIQUE (filename)
+);
+
+CREATE TABLE IF NOT EXISTS referrals (
+  id               SERIAL PRIMARY KEY,
+  user_id          INTEGER      NOT NULL,
+  code             VARCHAR(20)  NOT NULL,
+  referred_user_id INTEGER      DEFAULT NULL,
+  type             VARCHAR(20)  NOT NULL DEFAULT 'registration',
+  reward_kes       INTEGER      NOT NULL DEFAULT 500,
+  status           VARCHAR(20)  NOT NULL DEFAULT 'pending',
+  created_at       TIMESTAMP    NOT NULL DEFAULT NOW(),
+  converted_at     TIMESTAMP    DEFAULT NULL,
+  CONSTRAINT uq_referral_code UNIQUE (code)
+);
+CREATE INDEX IF NOT EXISTS idx_referrals_user_id          ON referrals (user_id);
+CREATE INDEX IF NOT EXISTS idx_referrals_referred_user_id ON referrals (referred_user_id);
