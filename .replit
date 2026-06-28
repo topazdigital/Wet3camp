@@ -1,4 +1,4 @@
-modules = ["nodejs-20", "web", "bash"]
+modules = ["nodejs-20", "web", "bash", "postgresql-16"]
 
 [deployment]
 router = "application"
@@ -29,7 +29,7 @@ outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "PORT=8080 pnpm --filter @workspace/api-server run dev & PORT=5000 BASE_PATH=/ pnpm --filter @workspace/wet3camp run dev"
+args = "PORT=8080 pnpm --filter @workspace/api-server run dev & sleep 3 && PORT=5000 pnpm --filter @workspace/wet3camp run dev"
 waitForPort = 5000
 
 [agent]
@@ -43,10 +43,6 @@ timeoutMs = 20000
 
 [[ports]]
 localPort = 5000
-externalPort = 80
-
-[[ports]]
-localPort = 19099
 externalPort = 80
 
 [userenv]
