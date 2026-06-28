@@ -3,6 +3,7 @@ name: Deploy to wet3.camp
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -27,3 +28,10 @@ jobs:
             git reset --hard origin/main
             echo "==> Running deploy script..."
             bash /home/admin/wet3camp-build/deploy-on-server.sh
+            echo ""
+            echo "==> PM2 status after deploy:"
+            pm2 list 2>/dev/null || su - admin -c "pm2 list" 2>/dev/null || true
+            echo ""
+            echo "==> Testing API health:"
+            sleep 5
+            curl -sf http://localhost:8080/api/health 2>/dev/null && echo "API OK" || echo "API not on 8080 - checking 19099..." && curl -sf http://localhost:19099/api/health 2>/dev/null && echo "API OK on 19099" || true
