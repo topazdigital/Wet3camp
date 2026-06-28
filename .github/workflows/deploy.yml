@@ -24,17 +24,19 @@ jobs:
           port: 22
           script: |
             set -e
-            cd /home/admin/domains/wet3.camp/public_html
+            cd /home/admin/wet3camp-build
 
-            # Remove any stale git lock left by a previous crashed deploy
+            # Remove any stale git lock
             rm -f .git/index.lock .git/config.lock .git/refs/heads/main.lock
 
             git pull origin main
 
+            # Rebuild & restart API server
             cd artifacts/api-server
             pnpm run build
             pm2 restart wet3camp-api
 
+            # Build frontend and copy to public_html
             cd ../../artifacts/wet3camp
             NODE_ENV=production pnpm run build
             cp -r dist/public/* /home/admin/domains/wet3.camp/public_html/
