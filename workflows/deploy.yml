@@ -5,6 +5,10 @@ on:
     branches:
       - main
 
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -15,12 +19,23 @@ jobs:
         with:
           host: 157.250.205.180
           username: admin
-          password: ${{ secrets.SERVER_PASSWORD }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: 22
           script: |
+            set -e
             cd /home/admin/domains/wet3.camp/public_html
+
+            # Remove any stale git lock left by a previous crashed deploy
+            rm -f .git/index.lock .git/config.lock .git/refs/heads/main.lock
+
             git pull origin main
-            cd artifacts/api-server && pnpm run build && pm2 restart wet3camp-api
-            cd ../wet3camp && NODE_ENV=production pnpm run build
+
+            cd artifacts/api-server
+            pnpm run build
+            pm2 restart wet3camp-api
+
+            cd ../../artifacts/wet3camp
+            NODE_ENV=production pnpm run build
             cp -r dist/public/* /home/admin/domains/wet3.camp/public_html/
+
             echo "Deployed at $(date)"
