@@ -4,27 +4,46 @@
       <stop stop-color="#1a0000"/>
       <stop offset="1" stop-color="#050000"/>
     </linearGradient>
-    <linearGradient id="sil" x1="90" y1="15" x2="90" y2="168" gradientUnits="userSpaceOnUse">
+    <linearGradient id="sil" x1="145" y1="22" x2="18" y2="168" gradientUnits="userSpaceOnUse">
       <stop stop-color="#FFD700"/>
       <stop offset="1" stop-color="#8B0000"/>
     </linearGradient>
   </defs>
   <rect width="180" height="180" rx="36" fill="url(#bg)"/>
-  <!-- Woman silhouette kneeling, side view -->
+
   <!-- Head -->
-  <circle cx="112" cy="36" r="18" fill="url(#sil)"/>
-  <!-- Long flowing hair behind head -->
-  <path d="M 100 24 C 82 20 58 24 44 38 C 32 50 32 68 42 80 C 50 90 62 90 70 82 C 60 82 52 72 56 60 C 60 46 76 38 94 42 Z" fill="url(#sil)"/>
+  <ellipse cx="132" cy="40" rx="14" ry="16" fill="url(#sil)"/>
+
+  <!-- Hair - long flowing behind and down -->
+  <path d="M 122 26 Q 102 10 78 14 Q 54 18 42 38 Q 32 54 38 70 Q 44 82 58 80 Q 48 70 50 54 Q 56 36 76 28 Q 98 20 116 36 Z" fill="url(#sil)"/>
+
   <!-- Neck -->
-  <rect x="104" y="52" width="14" height="16" rx="4" fill="url(#sil)"/>
-  <!-- Torso / upper body -->
-  <path d="M 96 66 C 88 70 80 84 78 102 C 76 116 78 128 84 138 L 126 138 C 132 128 134 116 132 102 C 130 84 122 70 114 66 Z" fill="url(#sil)"/>
-  <!-- Bust curve (feminine) -->
-  <path d="M 128 80 C 138 88 142 104 138 118 C 136 126 130 132 126 138 L 116 138 C 122 128 128 116 130 104 C 132 92 130 84 124 78 Z" fill="url(#sil)"/>
-  <!-- Kneeling legs - thighs going forward -->
-  <path d="M 84 138 C 76 140 56 144 48 152 C 42 158 44 166 52 168 L 128 168 C 136 168 140 162 136 156 C 128 146 110 140 98 138 Z" fill="url(#sil)"/>
-  <!-- Lower legs folded back (kneeling) -->
-  <path d="M 48 152 C 36 152 28 158 28 164 C 28 168 34 170 42 168 L 52 168 C 48 164 44 160 48 152 Z" fill="url(#sil)"/>
-  <!-- Arm reaching forward -->
-  <path d="M 84 88 C 72 96 58 110 52 126 C 48 136 52 142 60 140 C 66 138 70 130 76 120 C 82 108 90 96 96 90 Z" fill="url(#sil)"/>
+  <path d="M 120 54 C 116 58 114 64 116 70 C 118 74 125 75 129 70 C 133 65 132 57 128 53 Z" fill="url(#sil)"/>
+
+  <!-- Upper torso — reclining diagonally upper-right to center -->
+  <path d="M 122 65 C 134 73 140 89 136 107 C 132 121 118 131 102 134 C 88 136 74 133 64 126 C 56 120 54 110 60 100 C 66 90 80 84 94 80 C 108 76 118 70 120 64 Z" fill="url(#sil)"/>
+
+  <!-- Bust curve — feminine front -->
+  <path d="M 82 84 C 68 92 58 106 58 120 C 58 128 66 134 76 130 C 68 124 66 112 70 100 C 74 90 84 84 96 84 Z" fill="url(#sil)"/>
+
+  <!-- Right arm propping body — angled lower-right toward ground -->
+  <path d="M 130 102 C 140 112 148 126 146 138 C 144 146 136 148 130 144 C 124 140 120 128 120 116 C 120 104 124 98 130 100 Z" fill="url(#sil)"/>
+
+  <!-- Wrist/hand resting on ground -->
+  <ellipse cx="143" cy="144" rx="9" ry="6" transform="rotate(-20 143 144)" fill="url(#sil)"/>
+
+  <!-- Hip — wide, sweeping lower-center-left -->
+  <path d="M 58 118 C 44 116 28 118 18 128 C 12 136 14 148 28 152 C 46 158 72 154 90 144 C 103 136 105 122 92 116 C 80 110 66 114 58 118 Z" fill="url(#sil)"/>
+
+  <!-- Upper legs extending lower-left -->
+  <path d="M 22 144 C 10 142 2 148 2 158 C 2 164 12 168 26 166 C 42 164 56 155 52 144 C 48 136 34 138 22 144 Z" fill="url(#sil)"/>
+
+  <!-- Lower leg — bent, curving back right -->
+  <path d="M 4 156 C 0 162 0 170 6 174 C 12 178 24 176 32 168 C 38 160 36 150 28 148 Z" fill="url(#sil)"/>
+
+  <!-- Left arm raised elegantly upward -->
+  <path d="M 80 92 C 70 78 62 62 58 46 C 56 36 60 28 66 30 C 72 32 76 44 78 58 C 80 72 82 84 88 94 Z" fill="url(#sil)"/>
+
+  <!-- Fingertips of raised arm -->
+  <ellipse cx="60" cy="34" rx="7" ry="5" transform="rotate(-35 60 34)" fill="url(#sil)"/>
 </svg>
