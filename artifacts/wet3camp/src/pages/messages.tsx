@@ -341,14 +341,15 @@ export default function MessagesPage() {
   useSEO({ title: 'Messages', noIndex: true })
   const { isLoggedIn } = useAuth()
 
-  const [conversations, setConversations] = useState<Conv[]>(STATIC_CONVERSATIONS)
-  const [selected, setSelected] = useState<number | null>(1)
+  const [conversations, setConversations] = useState<Conv[]>([])
+  const [selected, setSelected] = useState<number | null>(null)
   const [input, setInput] = useState('')
   const [search, setSearch] = useState('')
-  const [messages, setMessages] = useState<Record<number, Msg[]>>(INITIAL_CHAT)
+  const [messages, setMessages] = useState<Record<number, Msg[]>>({})
   const [showList, setShowList] = useState(true)
   const [typing, setTyping] = useState<Record<number, boolean>>({})
-  const [unread, setUnread] = useState<Record<number, number>>({ 1: 2, 3: 1 })
+  const [unread, setUnread] = useState<Record<number, number>>({})
+  const [convLoading, setConvLoading] = useState(true)
   const [bookingPrompt, setBookingPrompt] = useState(false)
   const [sseConnected, setSseConnected] = useState(false)
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
@@ -373,10 +374,16 @@ export default function MessagesPage() {
   useEffect(() => { selectedRef.current = selected }, [selected])
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [selected, messages, typing])
 
+  // Mark loading done when not logged in
+  useEffect(() => {
+    if (!isLoggedIn) setConvLoading(false)
+  }, [isLoggedIn])
+
   // Load real threads from API
   useEffect(() => {
     if (!isLoggedIn) return
     api.messages.list().then((threads: any[]) => {
+      setConvLoading(false)
       if (!threads || threads.length === 0) return
       const mapped: Conv[] = threads.map((t: any) => ({
         id: Number(t.escortId),
@@ -409,7 +416,7 @@ export default function MessagesPage() {
       if (Object.keys(msgMap).length > 0) {
         setMessages(prev => ({ ...prev, ...msgMap }))
       }
-    }).catch(() => {})
+    }).catch(() => { setConvLoading(false) })
   }, [isLoggedIn])
 
   // SSE for real-time messages
@@ -778,7 +785,38 @@ export default function MessagesPage() {
               </div>
             </div>
             <div className="flex-1 overflow-y-auto">
-              {filtered.map(conv => {
+              {convLoading ? (
+                <div className="flex flex-col items-center justify-center h-48 gap-3">
+                  <div className="w-6 h-6 border-2 border-[#8B0000]/40 border-t-[#8B0000] rounded-full animate-spin" />
+                  <span className="text-xs text-text-muted">Loading conversations…</span>
+                </div>
+              ) : !isLoggedIn ? (
+                <div className="flex flex-col items-center justify-center h-64 gap-4 px-6 text-center">
+                  <div className="w-14 h-14 rounded-full bg-[#8B0000]/10 flex items-center justify-center">
+                    <Send size={22} className="text-[#8B0000]/60" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-text-light mb-1">Sign in to message</p>
+                    <p className="text-xs text-text-muted">Log in to send messages and connect with escorts directly.</p>
+                  </div>
+                  <a href="/login" className="px-4 py-2 bg-[#8B0000] text-white text-xs font-bold rounded-xl hover:bg-[#a00000] transition-colors">
+                    Log In
+                  </a>
+                </div>
+              ) : filtered.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-64 gap-4 px-6 text-center">
+                  <div className="w-14 h-14 rounded-full bg-[#8B0000]/10 flex items-center justify-center">
+                    <Send size={22} className="text-[#8B0000]/60" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-text-light mb-1">No conversations yet</p>
+                    <p className="text-xs text-text-muted">Visit an escort profile and tap <strong>Message</strong> to start chatting.</p>
+                  </div>
+                  <a href="/" className="px-4 py-2 bg-[#8B0000] text-white text-xs font-bold rounded-xl hover:bg-[#a00000] transition-colors">
+                    Browse Escorts
+                  </a>
+                </div>
+              ) : filtered.map(conv => {
                 const tierColor = TIER_COLOR[conv.tier] ?? '#8B0000'
                 const convUnread = unread[conv.id] ?? 0
                 const isTypingHere = typing[conv.id]
