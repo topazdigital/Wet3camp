@@ -19,7 +19,7 @@ jobs:
         with:
           host: 157.250.205.180
           username: admin
-          password: ${{ secrets.SERVER_PASSWORD }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: 22
           script: |
             set -e
@@ -34,7 +34,7 @@ jobs:
             pnpm run build
             pm2 restart wet3camp-api
 
-            cd ../wet3camp
+            cd ../../artifacts/wet3camp
             NODE_ENV=production pnpm run build
             cp -r dist/public/* /home/admin/domains/wet3.camp/public_html/
 
