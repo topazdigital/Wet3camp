@@ -525,3 +525,32 @@ CREATE TABLE IF NOT EXISTS `blacklist_reports` (
 
 -- Rename old `blacklist` table column if it exists (backward compat)
 -- The old table had different column names; leave it as-is and use blacklist_reports going forward.
+
+-- ──────────────────────────────────────────────────────────────────────────────
+-- Referral / Affiliate system
+-- Added 2026-06-28 — run in phpMyAdmin before deploying
+-- ──────────────────────────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS `schema_migrations` (
+  `id`         INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `filename`   VARCHAR(200) NOT NULL,
+  `applied_at` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_schema_migrations_filename` (`filename`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `referrals` (
+  `id`               INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id`          INT UNSIGNED NOT NULL,
+  `code`             VARCHAR(20)  NOT NULL,
+  `referred_user_id` INT UNSIGNED DEFAULT NULL,
+  `type`             VARCHAR(20)  NOT NULL DEFAULT 'registration',
+  `reward_kes`       INT UNSIGNED NOT NULL DEFAULT 500,
+  `status`           VARCHAR(20)  NOT NULL DEFAULT 'pending',
+  `created_at`       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `converted_at`     DATETIME     DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_referral_code` (`code`),
+  KEY `idx_referrals_user_id` (`user_id`),
+  KEY `idx_referrals_referred_user_id` (`referred_user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
