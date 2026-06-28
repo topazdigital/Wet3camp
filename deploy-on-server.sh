@@ -222,16 +222,13 @@ npm install --omit=dev --no-package-lock --silent 2>/dev/null || true
 set -a; source "$API_ENV"; set +a
 echo "    Env vars loaded from $API_ENV"
 
-if pm2 describe wet3camp-api > /dev/null 2>&1; then
-  pm2 restart wet3camp-api --update-env
-  echo "    PM2 restarted."
-else
-  pm2 start dist/index.mjs --name wet3camp-api \
-    --node-args='--enable-source-maps' \
-    --time
-  pm2 save
-  echo "    PM2 started."
-fi
+# Delete stale entry and always start fresh — avoids "Process N not found" errors
+pm2 delete wet3camp-api 2>/dev/null || true
+pm2 start dist/index.mjs --name wet3camp-api \
+  --node-args='--enable-source-maps' \
+  --time
+pm2 save
+echo "    PM2 started."
 
 echo ""
 echo "==> [8/8] Running escort scraper in background (real data from all sources)..."
