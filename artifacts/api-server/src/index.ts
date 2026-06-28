@@ -2,6 +2,7 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { getPool } from "./lib/db.js";
 import { seedOnlineFromDb } from "./lib/online-store.js";
+import { runMigrations } from "./lib/migrate.js";
 
 const rawPort = process.env["PORT"];
 
@@ -24,6 +25,9 @@ app.listen(port, (err) => {
   }
 
   logger.info({ port }, "Server listening");
+
+  // Run DB migrations automatically (MySQL/production only)
+  runMigrations().catch(e => logger.warn({ err: e }, "Migration error (non-fatal)"));
 
   const pool = getPool();
   if (pool) {
