@@ -9,9 +9,14 @@ set -e
 REPO="https://github.com/topazdigital/Wet3camp.git"
 BRANCH="${1:-main}"
 
+# Accept token under either name (GITHUB_TOKEN preferred, GITHUB_PERSONAL_ACCESS_TOKEN as fallback)
+if [ -z "$GITHUB_TOKEN" ] && [ -n "$GITHUB_PERSONAL_ACCESS_TOKEN" ]; then
+  GITHUB_TOKEN="$GITHUB_PERSONAL_ACCESS_TOKEN"
+fi
+
 if [ -z "$GITHUB_TOKEN" ]; then
-  echo "[auto-push] ⚠️  GITHUB_TOKEN secret is not set — skipping GitHub push."
-  echo "            Add it via Replit Secrets to enable auto-deploy."
+  echo "[auto-push] ⚠️  No GitHub token found (checked GITHUB_TOKEN and GITHUB_PERSONAL_ACCESS_TOKEN)."
+  echo "            Add GITHUB_TOKEN via Replit Secrets to enable auto-deploy."
   exit 0
 fi
 
