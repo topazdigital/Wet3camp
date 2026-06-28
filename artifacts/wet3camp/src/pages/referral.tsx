@@ -2,8 +2,9 @@ import React, { useEffect, useState } from 'react'
 import { Link } from 'wouter'
 import { Copy, Check, Users, Gift, TrendingUp, Share2, ChevronRight, ExternalLink } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
-import { useSEO } from '@/hooks/useSEO'
-import Layout from '@/components/Layout'
+import { useSEO } from '@/lib/useSEO'
+import Header from '@/components/Header'
+import Sidebar from '@/components/Sidebar'
 
 interface ReferralStats {
   code: string
@@ -68,8 +69,11 @@ export default function ReferralPage() {
 
   if (!isLoggedIn) {
     return (
-      <Layout>
-        <div className="min-h-screen bg-dark-bg flex items-center justify-center p-4">
+      <main className="min-h-screen bg-dark-bg flex flex-col lg:flex-row">
+        <Sidebar />
+        <div className="flex-1 w-full overflow-x-hidden transition-all duration-300 lg:pb-0 pb-24 min-w-0">
+          <Header />
+          <div className="min-h-screen bg-dark-bg flex items-center justify-center p-4">
           <div className="text-center max-w-sm">
             <div className="w-16 h-16 bg-[#8B0000]/20 rounded-full flex items-center justify-center mx-auto mb-4">
               <Gift size={28} className="text-[#8B0000]" />
@@ -79,13 +83,17 @@ export default function ReferralPage() {
             <Link href="/login" className="px-6 py-3 bg-[#8B0000] text-white rounded-xl font-semibold text-sm">Login to Continue</Link>
           </div>
         </div>
-      </Layout>
+        </div>
+      </main>
     )
   }
 
   return (
-    <Layout>
-      <div className="min-h-screen bg-dark-bg pb-24">
+    <main className="min-h-screen bg-dark-bg flex flex-col lg:flex-row">
+      <Sidebar />
+      <div className="flex-1 w-full overflow-x-hidden transition-all duration-300 lg:pb-0 pb-24 min-w-0">
+        <Header />
+        <div className="min-h-screen bg-dark-bg pb-24">
         <div className="max-w-lg mx-auto px-4 pt-6">
 
           {/* Header */}
@@ -194,7 +202,8 @@ export default function ReferralPage() {
             </>
           )}
         </div>
+        </div>
       </div>
-    </Layout>
+    </main>
   )
 }
