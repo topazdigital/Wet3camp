@@ -1,0 +1,57 @@
+name: Restore Escort Photos (one-time fix)
+
+on:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: 'Max number of escorts to process (leave blank for all)'
+        required: false
+        default: ''
+      all:
+        description: 'Re-download even escorts that already have a photo (true/false)'
+        required: false
+        default: 'false'
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Run restore-escort-images.mjs on live server
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          PROD_DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+        with:
+          host: 157.250.205.180
+          username: admin
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          passphrase: ${{ secrets.DEPLOY_SSH_PASSPHRASE }}
+          port: 22
+          command_timeout: 28m
+          envs: PROD_DATABASE_URL
+          script: |
+            set -e
+
+            # Preflight: ensure DB URL is available
+            if [ -z "$PROD_DATABASE_URL" ]; then
+              echo "❌ PROD_DATABASE_URL is not set. Add it to GitHub repo Secrets and retry."
+              exit 1
+            fi
+
+            cd /home/admin/wet3camp-build/artifacts/api-server
+
+            LIMIT_ARG=""
+            if [ -n "${{ github.event.inputs.limit }}" ]; then
+              LIMIT_ARG="--limit=${{ github.event.inputs.limit }}"
+            fi
+
+            ALL_ARG=""
+            if [ "${{ github.event.inputs.all }}" = "true" ]; then
+              ALL_ARG="--all"
+            fi
+
+            echo "▶ Starting escort image restore at $(date)"
+            DATABASE_URL="$PROD_DATABASE_URL" \
+              node ../../scripts/restore-escort-images.mjs $LIMIT_ARG $ALL_ARG
+            echo "✅ Restore complete at $(date)"
