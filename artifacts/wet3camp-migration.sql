@@ -554,3 +554,79 @@ CREATE TABLE IF NOT EXISTS `referrals` (
   KEY `idx_referrals_user_id` (`user_id`),
   KEY `idx_referrals_referred_user_id` (`referred_user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ──────────────────────────────────────────────────────────────────────────────
+-- Feed likes & comments (added 2026-06-28)
+-- ──────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS `feed_likes` (
+  `id`         INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `escort_id`  INT UNSIGNED NOT NULL,
+  `user_id`    INT UNSIGNED DEFAULT NULL,
+  `guest_key`  VARCHAR(64)  DEFAULT NULL,
+  `created_at` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_feed_likes_user`  (`escort_id`, `user_id`),
+  UNIQUE KEY `uq_feed_likes_guest` (`escort_id`, `guest_key`),
+  KEY `idx_feed_likes_escort_id` (`escort_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `feed_comments` (
+  `id`          INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `escort_id`   INT UNSIGNED NOT NULL,
+  `user_id`     INT UNSIGNED DEFAULT NULL,
+  `parent_id`   INT UNSIGNED DEFAULT NULL,
+  `author_name` VARCHAR(100) NOT NULL DEFAULT 'Anonymous',
+  `body`        TEXT         NOT NULL,
+  `created_at`  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_feed_comments_escort_id` (`escort_id`),
+  KEY `idx_feed_comments_parent_id` (`parent_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ──────────────────────────────────────────────────────────────────────────────
+-- Shop products seed data (added 2026-06-28)
+-- ──────────────────────────────────────────────────────────────────────────────
+INSERT IGNORE INTO `shop_products` (`name`, `description`, `price_kes`, `image_url`, `category`, `rating`, `is_active`) VALUES
+('Red Lace Lingerie Set — Push-Up Bra & Thong', 'Sexy lace bra and matching thong in red. Available in sizes S–XL. Discreet packaging guaranteed.', 1200, 'https://images.unsplash.com/photo-1617551307578-6b8c8dae8c30?w=400&q=80', 'Lingerie', 4.5, 1),
+('Black Satin Corset Bodysuit', 'Elegant satin corset with adjustable lacing. Perfect for bedroom play. Available S–XXL.', 2500, 'https://images.unsplash.com/photo-1594736797933-d0501ba2fe65?w=400&q=80', 'Lingerie', 4.7, 1),
+('Sheer Babydoll Negligee — White', 'Sheer mesh babydoll with matching panty. Soft, delicate fabric. Ships discreetly.', 1800, 'https://images.unsplash.com/photo-1585565804112-f201f68c48b4?w=400&q=80', 'Lingerie', 4.3, 1),
+('Wireless Mini Bullet Vibrator', 'Compact and powerful vibrator with 10 vibration modes. USB rechargeable. Waterproof.', 3500, 'https://images.unsplash.com/photo-1618160702438-9b02ab6515c9?w=400&q=80', 'Toys', 4.8, 1),
+('Silicone Couples Vibrating Ring', 'Stretchy couples ring with built-in vibration. Enhances pleasure for both partners. Rechargeable.', 2800, 'https://images.unsplash.com/photo-1612965607446-25e1332775ae?w=400&q=80', 'Toys', 4.6, 1),
+('Warming Massage Oil — Rose Scent 100ml', 'Premium warming massage oil with rose fragrance. Body-safe, non-greasy formula.', 950, 'https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b?w=400&q=80', 'Wellness', 4.4, 1),
+('Lavender Massage Candle 150g', 'Dual-purpose massage candle — burns as a candle, melts into massage oil. Lavender scent.', 1100, 'https://images.unsplash.com/photo-1602523961358-f9f03dd557db?w=400&q=80', 'Wellness', 4.5, 1),
+('Satin Blindfold & Restraint Set', 'Soft satin blindfold with matching wrist cuffs. Beginners bondage set. Easy-release design.', 1650, 'https://images.unsplash.com/photo-1577219491135-ce391730fb2c?w=400&q=80', 'Accessories', 4.3, 1),
+('Feather Tickler — Red & Black', 'Soft ostrich feather tickler on a faux leather handle. 35cm length. Great for foreplay.', 850, 'https://images.unsplash.com/photo-1563208723-68eb3f54a3bc?w=400&q=80', 'Accessories', 4.2, 1),
+('Personal Water-Based Lubricant 200ml', 'Premium water-based lubricant. Compatible with all toy materials and condoms. Fragrance-free.', 750, 'https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?w=400&q=80', 'Wellness', 4.6, 1),
+('Naughty Dice Game Set (2 dice)', 'Couple naughty dice game. Two dice — one for actions, one for body parts. Hours of fun!', 600, 'https://images.unsplash.com/photo-1611996575749-79a3a250f948?w=400&q=80', 'Accessories', 4.1, 1),
+('Thigh High Fishnet Stockings', 'Classic fishnet thigh-high stockings. One size fits most. Available in black & red.', 450, 'https://images.unsplash.com/photo-1617469165786-8007eda3caa7?w=400&q=80', 'Lingerie', 4.0, 1),
+('Remote-Controlled Vibrating Panties', 'Wireless remote control up to 10m range. 12 vibration modes. Waterproof. USB charging.', 5500, 'https://images.unsplash.com/photo-1617551307578-6b8c8dae8c30?w=400&q=80', 'Toys', 4.7, 1),
+('Aphrodisiac Chocolate Truffles (Box of 12)', 'Premium Belgian chocolate truffles infused with natural aphrodisiac herbs. Made in Kenya.', 1400, 'https://images.unsplash.com/photo-1548741487-18d363dc4469?w=400&q=80', 'Wellness', 4.5, 1),
+('Red Room Beginner Kit (5-piece)', 'Complete starter kit: blindfold, cuffs, tickler, paddle, and bondage tape. Great gift set.', 4200, 'https://images.unsplash.com/photo-1563208723-68eb3f54a3bc?w=400&q=80', 'Accessories', 4.8, 1),
+('Faux Leather Harness Bra Set', 'Adjustable faux leather harness bra with matching G-string. One size fits most.', 2200, 'https://images.unsplash.com/photo-1594736797933-d0501ba2fe65?w=400&q=80', 'Lingerie', 4.4, 1),
+('Pheromone Perfume for Women 30ml', 'Science-backed pheromone spray to attract and captivate. Long-lasting floral scent.', 2800, 'https://images.unsplash.com/photo-1590736969955-71cc94901144?w=400&q=80', 'Wellness', 4.6, 1),
+('Vibrating Cock Ring — Triple Action', 'Triple stimulation cock ring with 3 vibration points. Stretchy silicone. USB rechargeable.', 3200, 'https://images.unsplash.com/photo-1612965607446-25e1332775ae?w=400&q=80', 'Toys', 4.5, 1),
+('Erotic Massage Gift Set (4 items)', 'Set includes massage oil, massage candle, feather tickler, and silk ties. Perfect gift set.', 3800, 'https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b?w=400&q=80', 'Wellness', 4.7, 1),
+('Sexy Nurse Costume (Complete Set)', 'Full nurse roleplay costume: dress, cap, and accessories. Available S–XL. Discreet shipping.', 2600, 'https://images.unsplash.com/photo-1577219491135-ce391730fb2c?w=400&q=80', 'Accessories', 4.3, 1);
+
+-- ──────────────────────────────────────────────────────────────────────────────
+-- Rooms / BnB seed data (added 2026-06-28)
+-- ──────────────────────────────────────────────────────────────────────────────
+INSERT IGNORE INTO `rooms` (`name`, `hotel`, `city`, `area`, `type`, `price_night`, `price_hourly`, `rating`, `amenities`, `image`, `available`) VALUES
+('Deluxe King Room', 'Trademark Hotel Westlands', 'Nairobi', 'Westlands', 'Deluxe', 12000, 3000, 4.7, 'WiFi,AC,Pool,Breakfast,Gym,Parking', 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=600&q=80', 1),
+('Superior Room with City View', 'Radisson Blu Nairobi', 'Nairobi', 'Upperhill', 'Superior', 18000, 4500, 4.8, 'WiFi,AC,Pool,Spa,Gym,Bar,Restaurant', 'https://images.unsplash.com/photo-1590490360182-c33d57733427?w=600&q=80', 1),
+('Cozy Studio Apartment', 'Lavington Gardens BnB', 'Nairobi', 'Lavington', 'Suite', 5500, 1500, 4.5, 'WiFi,Kitchen,AC,Netflix,Parking', 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=600&q=80', 1),
+('Executive Suite — Kilimani', 'Hurlingham Suites', 'Nairobi', 'Kilimani', 'Suite', 9500, 2500, 4.6, 'WiFi,AC,Breakfast,Bar,Parking', 'https://images.unsplash.com/photo-1611892440504-42a792e24d32?w=600&q=80', 1),
+('Standard Double Room', 'Karen Blixen Camp', 'Nairobi', 'Karen', 'Standard', 7200, 2000, 4.4, 'WiFi,AC,Garden,Parking,Breakfast', 'https://images.unsplash.com/photo-1578683010236-d716f9a3f461?w=600&q=80', 1),
+('Private Garden Cottage', 'Gigiri BnB Retreat', 'Nairobi', 'Gigiri', 'Suite', 8000, 2200, 4.6, 'WiFi,AC,Garden,Kitchen,Parking', 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=600&q=80', 1),
+('Modern 1BR Apartment — CBD', 'View Park Towers Apartments', 'Nairobi', 'CBD', 'Standard', 4500, 1200, 4.2, 'WiFi,AC,Kitchen,Security', 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=600&q=80', 1),
+('Runda Villa Room', 'Runda Luxury BnB', 'Nairobi', 'Runda', 'Deluxe', 14000, 3500, 4.9, 'WiFi,AC,Pool,Gym,Chef,Parking,Security', 'https://images.unsplash.com/photo-1584132967334-10e028bd69f7?w=600&q=80', 1),
+('Parklands Studio — Short Stay', 'Parklands Cozy Rooms', 'Nairobi', 'Parklands', 'Standard', 3800, 1000, 4.1, 'WiFi,AC,Security,Parking', 'https://images.unsplash.com/photo-1505691938895-1758d7feb511?w=600&q=80', 1),
+('Premium Penthouse Suite', 'Westlands Sky Suites', 'Nairobi', 'Westlands', 'Suite', 25000, 6000, 4.9, 'WiFi,AC,Pool,Rooftop,Bar,Gym,Spa,Chef', 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=600&q=80', 1),
+('Beachfront Standard Room', 'Sarova Whitesands Beach Resort', 'Mombasa', 'Bamburi', 'Standard', 9800, 2500, 4.6, 'WiFi,AC,Pool,Beach,Restaurant,Bar', 'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=600&q=80', 1),
+('Ocean View Deluxe Room', 'Bahari Beach Hotel', 'Mombasa', 'Nyali', 'Deluxe', 12000, 3000, 4.5, 'WiFi,AC,Pool,Beach Access,Bar,Breakfast', 'https://images.unsplash.com/photo-1540541338537-41369b2a1b10?w=600&q=80', 1),
+('Diani Beach Cottage', 'Diani Palm BnB', 'Mombasa', 'Diani', 'Suite', 7500, 2000, 4.7, 'WiFi,AC,Garden,Beach Proximity,Kitchen', 'https://images.unsplash.com/photo-1499793983690-e29da59ef1c2?w=600&q=80', 1),
+('Mtwapa Private Room', 'Mtwapa Breeze Hotel', 'Mombasa', 'Mtwapa', 'Standard', 4200, 1100, 4.0, 'WiFi,AC,Bar,Parking', 'https://images.unsplash.com/photo-1596394516093-501ba68a0ba6?w=600&q=80', 1),
+('Lakeside Suite', 'Imperial Hotel Kisumu', 'Kisumu', 'Milimani', 'Suite', 8500, 2200, 4.5, 'WiFi,AC,Pool,Lake View,Restaurant,Gym', 'https://images.unsplash.com/photo-1514924013411-cbf25faa35bb?w=600&q=80', 1),
+('Garden View Standard Room', 'Victoria Comfort Hotel', 'Kisumu', 'Kondele', 'Standard', 3500, 900, 4.1, 'WiFi,AC,Parking,Restaurant', 'https://images.unsplash.com/photo-1505691938895-1758d7feb511?w=600&q=80', 1),
+('Classic Double Room', 'Midland Hotel Nakuru', 'Nakuru', 'Central', 'Standard', 4800, 1200, 4.2, 'WiFi,AC,Restaurant,Parking', 'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?w=600&q=80', 1),
+('Business Double Room', 'Sirikwa Hotel Eldoret', 'Eldoret', 'Central', 'Standard', 5200, 1300, 4.3, 'WiFi,AC,Gym,Restaurant,Parking', 'https://images.unsplash.com/photo-1578683010236-d716f9a3f461?w=600&q=80', 1);

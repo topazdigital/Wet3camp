@@ -1,4 +1,4 @@
-name: Deploy to Server
+name: Deploy to wet3.camp
 
 on:
   push:
@@ -12,36 +12,24 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
-      - name: Deploy to DirectAdmin server
+      - name: Deploy to server via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: 157.250.205.180
-          username: admin
+          username: root
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           passphrase: ${{ secrets.DEPLOY_SSH_PASSPHRASE }}
           port: 22
+          command_timeout: 12m
           script: |
             set -e
+            git config --global --add safe.directory /home/admin/wet3camp-build 2>/dev/null || true
+            rm -f /home/admin/wet3camp-build/.git/index.lock \
+                  /home/admin/wet3camp-build/.git/config.lock \
+                  /home/admin/wet3camp-build/.git/refs/heads/main.lock 2>/dev/null || true
             cd /home/admin/wet3camp-build
-
-            # Remove any stale git lock
-            rm -f .git/index.lock .git/config.lock .git/refs/heads/main.lock
-
-            # Allow git to work even if repo was created by a different user (root vs admin)
-            git config --global --add safe.directory /home/admin/wet3camp-build
-
-            git pull origin main
-
-            # Rebuild & restart API server
-            cd artifacts/api-server
-            pnpm run build
-            pm2 restart wet3camp-api
-
-            # Build frontend and copy to public_html
-            cd ../../artifacts/wet3camp
-            NODE_ENV=production pnpm run build
-            cp -r dist/public/* /home/admin/domains/wet3.camp/public_html/
-
-            echo "Deployed at $(date)"
+            bash deploy-on-server.sh
+            echo "✅ Auto-deploy complete at $(date)"

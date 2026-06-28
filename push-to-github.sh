@@ -1,25 +1,21 @@
 #!/usr/bin/env bash
 # ============================================================
-# push-to-github.sh — Run this from the Replit Shell
+# push-to-github.sh
 #
-# Usage:
+# Pushes latest Replit changes to GitHub.
+# GitHub Actions then automatically deploys to wet3.camp.
+#
+# Run from the Replit Shell tab:
 #   bash push-to-github.sh
 #
-# Requires GITHUB_TOKEN to be set in Replit Secrets.
-# Add it once: Replit sidebar → 🔒 Secrets → GITHUB_TOKEN
+# GITHUB_TOKEN is stored in Replit Secrets — no input needed.
 # ============================================================
 
 set -e
 
 if [ -z "$GITHUB_TOKEN" ]; then
-  echo "❌ GITHUB_TOKEN is not set."
-  echo ""
-  echo "Please add it to Replit Secrets:"
-  echo "  1. Click the 🔒 Secrets icon in the Replit left sidebar"
-  echo "  2. Add key: GITHUB_TOKEN"
-  echo "  3. Add value: your GitHub Personal Access Token"
-  echo "  4. Click 'Add Secret'"
-  echo "  5. Run this script again: bash push-to-github.sh"
+  echo "❌ GITHUB_TOKEN not found in Replit Secrets."
+  echo "   Add it via the 🔒 Secrets tab in Replit, then try again."
   exit 1
 fi
 
@@ -29,7 +25,9 @@ git push origin main
 git remote set-url origin "https://github.com/topazdigital/Wet3camp.git"
 
 echo ""
-echo "✅ Pushed to GitHub successfully!"
+echo "✅ Pushed to GitHub!"
 echo ""
-echo "Now SSH into your server and run:"
-echo "  cd /home/admin/wet3camp-build && git pull origin main && bash deploy-on-server.sh"
+echo "🚀 GitHub Actions is now deploying automatically to wet3.camp"
+echo "   Watch progress at: https://github.com/topazdigital/Wet3camp/actions"
+echo ""
+echo "   (Make sure DEPLOY_SSH_KEY is set in GitHub repo Secrets for auto-deploy to work)"
