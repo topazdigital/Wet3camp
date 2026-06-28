@@ -378,7 +378,7 @@ export default function ProfilePage() {
                   <div className="mt-1 mb-3 flex items-center gap-2 px-3 py-2.5 rounded-xl border bg-[#28a745]/5 border-[#28a745]/20">
                     <CheckCircle2 size={13} className="text-[#28a745] flex-shrink-0" />
                     <p className="text-xs text-[#28a745] font-semibold flex-1">Verified — this escort manages her own profile</p>
-                    <Link href={`/messages?to=${(escort as any).user_id}`} className="px-3 py-1.5 bg-[#28a745] text-white text-[10px] font-black rounded-lg hover:bg-[#22913c] transition-all flex items-center gap-1.5 flex-shrink-0">
+                    <Link href={`/messages?to=${escort.id}`} className="px-3 py-1.5 bg-[#28a745] text-white text-[10px] font-black rounded-lg hover:bg-[#22913c] transition-all flex items-center gap-1.5 flex-shrink-0">
                       <MessageSquare size={10} /> Message
                     </Link>
                   </div>
@@ -619,7 +619,7 @@ export default function ProfilePage() {
                       <>
                         {isLoggedIn && (
                           <>
-                            <Link href="/messages" className="w-full py-2.5 bg-card-bg border border-color text-text-light font-semibold rounded-xl transition-all hover:border-[#FFD700]/50 flex items-center justify-center gap-2 text-sm"><MessageCircle size={14} /> Send Platform Message</Link>
+                            <Link href={`/messages?to=${escort.id}`} className="w-full py-2.5 bg-card-bg border border-color text-text-light font-semibold rounded-xl transition-all hover:border-[#FFD700]/50 flex items-center justify-center gap-2 text-sm"><MessageCircle size={14} /> Send Platform Message</Link>
                             <button onClick={() => toggleFollow(escort.id)} className={`w-full py-2.5 border rounded-xl font-medium text-sm transition-all flex items-center justify-center gap-2 ${following ? 'bg-[#8B0000]/10 border-[#8B0000]/40 text-[#8B0000]' : 'bg-dark-bg border-color text-text-muted hover:border-text-muted'}`}>
                               {following ? <><UserCheck size={13} /> Following</> : <><Users size={13} /> Follow {escort.name.split(' ')[0]}</>}
                             </button>
