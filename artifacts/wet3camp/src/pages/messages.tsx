@@ -341,6 +341,15 @@ export default function MessagesPage() {
   useSEO({ title: 'Messages', noIndex: true })
   const { isLoggedIn } = useAuth()
 
+  // Read ?to=ESCORT_ID from URL to auto-open a conversation
+  const toEscortId = (() => {
+    try {
+      const v = new URLSearchParams(window.location.search).get('to')
+      return v ? Number(v) : null
+    } catch { return null }
+  })()
+  const handledToRef = useRef(false)
+
   const [conversations, setConversations] = useState<Conv[]>([])
   const [selected, setSelected] = useState<number | null>(null)
   const [input, setInput] = useState('')
@@ -418,6 +427,38 @@ export default function MessagesPage() {
       }
     }).catch(() => { setConvLoading(false) })
   }, [isLoggedIn])
+
+  // Auto-open conversation when arriving from ?to=ESCORT_ID
+  useEffect(() => {
+    if (!toEscortId || !isLoggedIn || convLoading || handledToRef.current) return
+    handledToRef.current = true
+    const existing = conversations.find(c => c.id === toEscortId)
+    if (existing) {
+      setSelected(toEscortId)
+      setShowList(false)
+      return
+    }
+    // No existing thread yet — fetch escort info and create a placeholder so user can send first message
+    fetch(`/api/escorts/${toEscortId}`)
+      .then(r => r.json())
+      .then((e: any) => {
+        if (!e || !e.name) return
+        const placeholder: Conv = {
+          id: toEscortId,
+          name: e.name,
+          avatar: e.image ?? '',
+          last: '',
+          time: 'now',
+          unread: 0,
+          online: false,
+          tier: e.tier ?? 'Standard',
+        }
+        setConversations(prev => prev.some(c => c.id === toEscortId) ? prev : [placeholder, ...prev])
+        setSelected(toEscortId)
+        setShowList(false)
+      })
+      .catch(() => {})
+  }, [toEscortId, isLoggedIn, convLoading, conversations])
 
   // SSE for real-time messages
   useEffect(() => {
