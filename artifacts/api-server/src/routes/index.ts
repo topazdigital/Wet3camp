@@ -20,6 +20,7 @@ import claimsRouter        from "./claims.js";
 import contentRouter       from "./content.js";
 import liveRouter          from "./live.js";
 import paymentsRouter      from "./payments.js";
+import referralRouter      from "./referral.js";
 
 const router: IRouter = Router();
 
@@ -44,5 +45,6 @@ router.use(uploadRouter);
 router.use(notificationsRouter);
 router.use(claimsRouter);
 router.use(contentRouter);
+router.use(referralRouter);
 
 export default router;
