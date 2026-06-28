@@ -299,3 +299,26 @@ CREATE TABLE IF NOT EXISTS referrals (
 );
 CREATE INDEX IF NOT EXISTS idx_referrals_user_id          ON referrals (user_id);
 CREATE INDEX IF NOT EXISTS idx_referrals_referred_user_id ON referrals (referred_user_id);
+
+CREATE TABLE IF NOT EXISTS feed_likes (
+  id         SERIAL PRIMARY KEY,
+  escort_id  INTEGER   NOT NULL,
+  user_id    INTEGER   DEFAULT NULL,
+  guest_key  VARCHAR(64) DEFAULT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  UNIQUE (escort_id, user_id),
+  UNIQUE (escort_id, guest_key)
+);
+CREATE INDEX IF NOT EXISTS idx_feed_likes_escort_id ON feed_likes (escort_id);
+
+CREATE TABLE IF NOT EXISTS feed_comments (
+  id          SERIAL PRIMARY KEY,
+  escort_id   INTEGER      NOT NULL,
+  user_id     INTEGER      DEFAULT NULL,
+  parent_id   INTEGER      DEFAULT NULL,
+  author_name VARCHAR(100) NOT NULL DEFAULT 'Anonymous',
+  body        TEXT         NOT NULL,
+  created_at  TIMESTAMP    NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_feed_comments_escort_id ON feed_comments (escort_id);
+CREATE INDEX IF NOT EXISTS idx_feed_comments_parent_id ON feed_comments (parent_id);

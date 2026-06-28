@@ -34,8 +34,8 @@ function ProductModal({ product, cart, onAddToCart, onClose }: { product: any; c
         <div className="grid sm:grid-cols-2 gap-0">
           <div className="p-4">
             <div className="aspect-[3/4] rounded-2xl overflow-hidden bg-dark-bg">
-              {product.image_url
-                ? <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
+              {(product.image ?? product.image_url)
+                ? <img src={product.image ?? product.image_url} alt={product.name} className="w-full h-full object-cover" />
                 : <div className="w-full h-full flex items-center justify-center text-5xl">🛍️</div>
               }
             </div>
@@ -52,7 +52,7 @@ function ProductModal({ product, cart, onAddToCart, onClose }: { product: any; c
               <span className="text-xs text-text-muted">({product.review_count || 0} reviews)</span>
             </div>
 
-            <p className="text-3xl font-black text-[#FFD700]">KES {Number(product.price_kes).toLocaleString()}</p>
+            <p className="text-3xl font-black text-[#FFD700]">KES {Number(product.price ?? product.price_kes ?? 0).toLocaleString()}</p>
             {product.description && <p className="text-sm text-text-muted leading-relaxed">{product.description}</p>}
 
             {features.length > 0 && (
@@ -215,8 +215,8 @@ export default function ShopPage() {
               {products.map(p => (
                 <div key={p.id} className="bg-card-bg border border-color rounded-2xl overflow-hidden group hover:border-[#FFD700]/50 hover:shadow-lg hover:shadow-[#FFD700]/5 transition-all cursor-pointer" onClick={() => setSelectedProduct(p)}>
                   <div className="relative aspect-[3/4] overflow-hidden">
-                    {p.image_url
-                      ? <img src={p.image_url} alt={p.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    {(p.image ?? p.image_url)
+                      ? <img src={p.image ?? p.image_url} alt={p.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                       : <div className="w-full h-full bg-gradient-to-br from-[#1a0000] to-[#2a1a1a] flex items-center justify-center text-4xl">🛍️</div>
                     }
                     <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent pointer-events-none" />
@@ -236,7 +236,7 @@ export default function ShopPage() {
                       <span className="text-[10px] text-text-muted">({p.review_count || 0})</span>
                     </div>
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-black text-[#FFD700]">KES {Number(p.price_kes).toLocaleString()}</span>
+                      <span className="text-sm font-black text-[#FFD700]">KES {Number(p.price ?? p.price_kes ?? 0).toLocaleString()}</span>
                       <span className="text-[9px] text-text-muted px-1.5 py-0.5 bg-dark-bg border border-color rounded">{p.category}</span>
                     </div>
                     <button

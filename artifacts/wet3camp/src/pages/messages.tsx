@@ -558,32 +558,6 @@ export default function MessagesPage() {
     return msg
   }
 
-  const simulateReply = useCallback((convId: number) => {
-    const replies = [
-      "I'd love that! Let me check my schedule 😊",
-      'That sounds perfect 🔥',
-      "Sure! What's your preference for location?",
-      "I'm available — when exactly?",
-      'Looking forward to it! 💕',
-      'Let me know the time and I will confirm.',
-    ]
-    setTimeout(() => {
-      setTyping(prev => ({ ...prev, [convId]: true }))
-      setTimeout(() => {
-        setTyping(prev => ({ ...prev, [convId]: false }))
-        const text = replies[Math.floor(Math.random() * replies.length)]
-        pushMsg(convId, text, false)
-        // Mark our last message as "read" after reply
-        setMessages(prev => {
-          const msgs = prev[convId]
-          if (!msgs) return prev
-          return { ...prev, [convId]: msgs.map(m => m.mine ? { ...m, status: 'read' as MsgStatus } : m) }
-        })
-        setUnread(prev => selectedRef.current === convId ? prev : { ...prev, [convId]: (prev[convId] ?? 0) + 1 })
-      }, 1500 + Math.random() * 1500)
-    }, 800)
-  }, [])
-
   const sendMsg = () => {
     if (!input.trim() || !selected) return
     const text = input.trim()
@@ -593,11 +567,7 @@ export default function MessagesPage() {
     pushMsg(selected, text, true, { status: 'sent' })
 
     if (isLoggedIn) {
-      api.messages.send(selected, text)
-        .then(() => setTimeout(() => setTyping(prev => ({ ...prev, [selected]: true })), 800))
-        .catch(() => simulateReply(selected))
-    } else {
-      simulateReply(selected)
+      api.messages.send(selected, text).catch(() => {})
     }
   }
 

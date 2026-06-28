@@ -243,4 +243,74 @@ router.post('/blacklist/report', requireAuth, async (req: AuthRequest, res) => {
   }
 })
 
+// ── GET /api/feeds/:id/likes ──────────────────────────────────────────────────
+router.get('/feeds/:id/likes', async (req: any, res) => {
+  const pool = getPool()
+  if (!pool) { res.json({ count: 0, liked: false }); return }
+  const { id } = req.params
+  const guestKey = req.query.gk as string | undefined
+  try {
+    const [[row]] = await pool.query<any[]>('SELECT COUNT(*) AS cnt FROM feed_likes WHERE escort_id = ?', [id])
+    const count = Number(row?.cnt ?? 0)
+    let liked = false
+    if (guestKey) {
+      const [[lk]] = await pool.query<any[]>('SELECT id FROM feed_likes WHERE escort_id = ? AND guest_key = ? LIMIT 1', [id, guestKey])
+      liked = !!lk
+    }
+    res.json({ count, liked })
+  } catch { res.json({ count: 0, liked: false }) }
+})
+
+// ── POST /api/feeds/:id/like ──────────────────────────────────────────────────
+router.post('/feeds/:id/like', async (req: any, res) => {
+  const pool = getPool()
+  if (!pool) { res.status(503).json({ message: 'DB error' }); return }
+  const { id } = req.params
+  const { guestKey, unlike } = req.body as { guestKey?: string; unlike?: boolean }
+  if (!guestKey) { res.status(400).json({ message: 'guestKey required' }); return }
+  try {
+    if (unlike) {
+      await pool.query('DELETE FROM feed_likes WHERE escort_id = ? AND guest_key = ?', [id, guestKey])
+    } else {
+      await pool.query('INSERT INTO feed_likes (escort_id, guest_key) VALUES (?,?) ON CONFLICT DO NOTHING', [id, guestKey])
+    }
+    const [[row]] = await pool.query<any[]>('SELECT COUNT(*) AS cnt FROM feed_likes WHERE escort_id = ?', [id])
+    res.json({ count: Number(row?.cnt ?? 0), liked: !unlike })
+  } catch (err: any) { res.status(500).json({ message: err?.message ?? 'error' }) }
+})
+
+// ── GET /api/feeds/:id/comments ───────────────────────────────────────────────
+router.get('/feeds/:id/comments', async (req: any, res) => {
+  const pool = getPool()
+  if (!pool) { res.json([]); return }
+  const { id } = req.params
+  try {
+    const [rows] = await pool.query<any[]>(
+      `SELECT id, parent_id, author_name, body, created_at
+       FROM feed_comments WHERE escort_id = ? ORDER BY created_at ASC LIMIT 200`,
+      [id]
+    )
+    res.json(rows)
+  } catch { res.json([]) }
+})
+
+// ── POST /api/feeds/:id/comments ──────────────────────────────────────────────
+router.post('/feeds/:id/comments', async (req: any, res) => {
+  const pool = getPool()
+  if (!pool) { res.status(503).json({ message: 'DB error' }); return }
+  const { id } = req.params
+  const { body, author_name, parent_id } = req.body as { body?: string; author_name?: string; parent_id?: number }
+  if (!body || body.trim().length < 1) { res.status(400).json({ message: 'Comment cannot be empty' }); return }
+  const name = (author_name || 'Anonymous').slice(0, 60)
+  try {
+    const [result] = await pool.query<any>(
+      'INSERT INTO feed_comments (escort_id, author_name, body, parent_id) VALUES (?,?,?,?)',
+      [id, name, body.trim().slice(0, 1000), parent_id ?? null]
+    )
+    const newId = result?.insertId ?? result?.id
+    const [[row]] = await pool.query<any[]>('SELECT id, parent_id, author_name, body, created_at FROM feed_comments WHERE id = ? LIMIT 1', [newId])
+    res.status(201).json(row ?? { id: newId, escort_id: id, author_name: name, body: body.trim(), parent_id: parent_id ?? null, created_at: new Date() })
+  } catch (err: any) { res.status(500).json({ message: err?.message ?? 'error' }) }
+})
+
 export default router
