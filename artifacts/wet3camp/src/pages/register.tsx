@@ -122,9 +122,12 @@ export default function RegisterPage() {
   const { login } = useAuth()
   const [, navigate] = useLocation()
 
-  // Detect OAuth escort-setup mode (?step=escort in URL)
+  // Detect OAuth escort-setup mode (?step=escort in URL) and referral code (?ref=CODE)
   const searchParams = new URLSearchParams(window.location.search)
   const isOAuthEscortSetup = searchParams.get('step') === 'escort'
+  const referralCode = searchParams.get('ref') ?? localStorage.getItem('wet3_ref') ?? ''
+  // Persist ref code across page navigations
+  if (searchParams.get('ref')) localStorage.setItem('wet3_ref', searchParams.get('ref')!)
 
   // Step management
   const [role, setRole]             = useState<'client'|'escort'|null>(isOAuthEscortSetup ? 'escort' : null)
@@ -512,6 +515,16 @@ export default function RegisterPage() {
         profileId: res.escortId ?? undefined,
         approved: res.user.approved,
       })
+      // Process referral conversion if user arrived via a referral link
+      const refCode = referralCode || localStorage.getItem('wet3_ref') || ''
+      if (refCode && res.user?.id) {
+        localStorage.removeItem('wet3_ref')
+        fetch('/api/referral/convert', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code: refCode, referred_user_id: res.user.id }),
+        }).catch(() => {})
+      }
       navigate(role === 'escort' ? '/pending-approval' : '/')
     } catch (err: any) {
       setError(err?.message ?? 'Registration failed. Please try again.')
