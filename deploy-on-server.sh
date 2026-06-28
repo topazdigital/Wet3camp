@@ -222,6 +222,10 @@ npm install --omit=dev --no-package-lock --silent 2>/dev/null || true
 set -a; source "$API_ENV"; set +a
 echo "    Env vars loaded from $API_ENV"
 
+# Test that node can load the bundle before handing to PM2
+echo "    Testing node can load dist/index.mjs..."
+timeout 5 node --enable-source-maps dist/index.mjs 2>&1 | head -20 || true
+
 # Delete stale entry and always start fresh — avoids "Process N not found" errors
 pm2 delete wet3camp-api 2>/dev/null || true
 pm2 start dist/index.mjs --name wet3camp-api \
@@ -229,6 +233,29 @@ pm2 start dist/index.mjs --name wet3camp-api \
   --time
 pm2 save
 echo "    PM2 started."
+
+# Wait a moment then capture PM2 logs for diagnosis
+sleep 5
+echo "    PM2 process status:"
+pm2 show wet3camp-api 2>/dev/null || true
+echo "    Recent PM2 logs:"
+pm2 logs wet3camp-api --lines 40 --nostream 2>/dev/null || true
+
+# Write PM2 logs to web root for remote diagnosis
+PM2_LOG_FILE="${WEB_ROOT}/pm2-status.txt"
+{
+  echo "=== Deploy at $(date) ==="
+  echo "=== PM2 List ==="
+  pm2 list 2>&1 || true
+  echo ""
+  echo "=== API Logs (last 50 lines) ==="
+  pm2 logs wet3camp-api --lines 50 --nostream 2>&1 || true
+  echo ""
+  echo "=== Direct node test ==="
+  timeout 3 node --enable-source-maps dist/index.mjs 2>&1 | head -10 || true
+} > "$PM2_LOG_FILE" 2>&1
+chmod 644 "$PM2_LOG_FILE"
+echo "    PM2 diagnostics written to: https://wet3.camp/pm2-status.txt"
 
 echo ""
 echo "==> [8/8] Running escort scraper in background (real data from all sources)..."
