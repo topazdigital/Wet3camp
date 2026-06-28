@@ -1,37 +1,41 @@
-name: Deploy to wet3.camp
+name: Deploy to Server
 
 on:
   push:
-    branches: [main]
-  workflow_dispatch:
+    branches:
+      - main
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
 
     steps:
-      - name: Deploy to server via SSH
+      - name: Deploy to DirectAdmin server
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: 157.250.205.180
-          username: root
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          timeout: 600s
-          command_timeout: 10m
+          username: admin
+          password: ${{ secrets.SERVER_PASSWORD }}
+          port: 22
           script: |
             set -e
-            cd /home/admin/wet3camp-build
-            git config --global --add safe.directory /home/admin/wet3camp-build 2>/dev/null || true
-            echo "==> Pulling latest code from GitHub..."
-            git fetch origin main
-            git reset --hard origin/main
-            echo "==> Running deploy script..."
-            bash /home/admin/wet3camp-build/deploy-on-server.sh
-            echo ""
-            echo "==> PM2 status after deploy:"
-            pm2 list 2>/dev/null || su - admin -c "pm2 list" 2>/dev/null || true
-            echo ""
-            echo "==> Testing API health:"
-            sleep 5
-            curl -sf http://localhost:8080/api/health 2>/dev/null && echo "API OK" || echo "API not on 8080 - checking 19099..." && curl -sf http://localhost:19099/api/health 2>/dev/null && echo "API OK on 19099" || true
+            cd /home/admin/domains/wet3.camp/public_html
+
+            # Remove any stale git lock left by a previous crashed deploy
+            rm -f .git/index.lock .git/config.lock .git/refs/heads/main.lock
+
+            git pull origin main
+
+            cd artifacts/api-server
+            pnpm run build
+            pm2 restart wet3camp-api
+
+            cd ../wet3camp
+            NODE_ENV=production pnpm run build
+            cp -r dist/public/* /home/admin/domains/wet3.camp/public_html/
+
+            echo "Deployed at $(date)"
