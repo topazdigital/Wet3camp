@@ -10,3 +10,4 @@
 - [Live streaming system](live-streaming.md) — in-memory SSE-based live rooms; escort starts stream via POST /api/live/start → gets Jitsi room; viewers join at /live/:escortId; chat/reactions/gifts via SSE; no video stored to DB; live-store.ts manages sessions; city filter fix uses CITY_AREAS mapping so "Nairobi" also matches Kilimani/Westlands/etc.
 - [MySQL-only production rule](mysql-only.md) — Replit PostgreSQL is DEV-ONLY fallback; NEVER add pg-specific SQL, NEVER add RETURNING/::cast syntax to app code; CompatPool in db.ts handles translation; pool.query<T[]>() returns [rows, fields] style tuple for both backends
 - [Wouter v3 at-sign routing](wouter-at-routing.md) — Wouter v3 cannot match /@:slug patterns; use AtProfileRoute component + useLocation() regex instead
+- [GitHub auto-deploy token](github-autodeploy.md) — GITHUB_TOKEN is stored in Replit Secrets; auto-push.sh uses it; never ask user for it again
