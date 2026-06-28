@@ -29,6 +29,9 @@ jobs:
             # Remove any stale git lock
             rm -f .git/index.lock .git/config.lock .git/refs/heads/main.lock
 
+            # Allow git to work even if repo was created by a different user (root vs admin)
+            git config --global --add safe.directory /home/admin/wet3camp-build
+
             git pull origin main
 
             # Rebuild & restart API server
