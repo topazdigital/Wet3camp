@@ -480,19 +480,23 @@ CREATE TABLE IF NOT EXISTS `escort_videos` (
 
 CREATE TABLE IF NOT EXISTS `shop_products` (
   `id`           INT UNSIGNED     NOT NULL AUTO_INCREMENT,
-  `name`         VARCHAR(200)     NOT NULL,
+  `name`         VARCHAR(300)     NOT NULL,
   `description`  TEXT,
-  `price_kes`    INT UNSIGNED     DEFAULT 0,
+  `price_kes`    INT UNSIGNED     NOT NULL DEFAULT 0,
   `image_url`    TEXT,
-  `category`     VARCHAR(80)      DEFAULT 'General',
-  `rating`       DECIMAL(2,1)     DEFAULT 0.0,
-  `review_count` INT UNSIGNED     DEFAULT 0,
+  `category`     VARCHAR(100)     NOT NULL DEFAULT 'General',
+  `rating`       DECIMAL(2,1)     DEFAULT 4.0,
+  `review_count` INT UNSIGNED     NOT NULL DEFAULT 0,
   `tag`          VARCHAR(50)      DEFAULT NULL,
-  `features`     TEXT,
-  `is_active`    TINYINT(1)       DEFAULT 1,
-  `created_at`   DATETIME         DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  `features`     TEXT             DEFAULT NULL,
+  `in_stock`     TINYINT(1)       NOT NULL DEFAULT 1,
+  `is_active`    TINYINT(1)       NOT NULL DEFAULT 1,
+  `source_url`   VARCHAR(500)     DEFAULT NULL,
+  `created_at`   DATETIME         NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_sp_category`  (`category`),
+  KEY `idx_sp_is_active` (`is_active`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `testimonials` (
   `id`         INT UNSIGNED     NOT NULL AUTO_INCREMENT,
@@ -584,29 +588,59 @@ CREATE TABLE IF NOT EXISTS `feed_comments` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ──────────────────────────────────────────────────────────────────────────────
--- Shop products seed data (added 2026-06-28)
+-- Shop products seed data (updated 2026-06-28)
+-- NOTE: Run scrape-shop.mjs after migration to populate real images.
+--   cd /home/admin/wet3camp-build/artifacts/api-server
+--   DATABASE_URL="mysql://..." node scrape-shop.mjs
 -- ──────────────────────────────────────────────────────────────────────────────
-INSERT IGNORE INTO `shop_products` (`name`, `description`, `price_kes`, `image_url`, `category`, `rating`, `is_active`) VALUES
-('Red Lace Lingerie Set — Push-Up Bra & Thong', 'Sexy lace bra and matching thong in red. Available in sizes S–XL. Discreet packaging guaranteed.', 1200, 'https://images.unsplash.com/photo-1617551307578-6b8c8dae8c30?w=400&q=80', 'Lingerie', 4.5, 1),
-('Black Satin Corset Bodysuit', 'Elegant satin corset with adjustable lacing. Perfect for bedroom play. Available S–XXL.', 2500, 'https://images.unsplash.com/photo-1594736797933-d0501ba2fe65?w=400&q=80', 'Lingerie', 4.7, 1),
-('Sheer Babydoll Negligee — White', 'Sheer mesh babydoll with matching panty. Soft, delicate fabric. Ships discreetly.', 1800, 'https://images.unsplash.com/photo-1585565804112-f201f68c48b4?w=400&q=80', 'Lingerie', 4.3, 1),
-('Wireless Mini Bullet Vibrator', 'Compact and powerful vibrator with 10 vibration modes. USB rechargeable. Waterproof.', 3500, 'https://images.unsplash.com/photo-1618160702438-9b02ab6515c9?w=400&q=80', 'Toys', 4.8, 1),
-('Silicone Couples Vibrating Ring', 'Stretchy couples ring with built-in vibration. Enhances pleasure for both partners. Rechargeable.', 2800, 'https://images.unsplash.com/photo-1612965607446-25e1332775ae?w=400&q=80', 'Toys', 4.6, 1),
-('Warming Massage Oil — Rose Scent 100ml', 'Premium warming massage oil with rose fragrance. Body-safe, non-greasy formula.', 950, 'https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b?w=400&q=80', 'Wellness', 4.4, 1),
-('Lavender Massage Candle 150g', 'Dual-purpose massage candle — burns as a candle, melts into massage oil. Lavender scent.', 1100, 'https://images.unsplash.com/photo-1602523961358-f9f03dd557db?w=400&q=80', 'Wellness', 4.5, 1),
-('Satin Blindfold & Restraint Set', 'Soft satin blindfold with matching wrist cuffs. Beginners bondage set. Easy-release design.', 1650, 'https://images.unsplash.com/photo-1577219491135-ce391730fb2c?w=400&q=80', 'Accessories', 4.3, 1),
-('Feather Tickler — Red & Black', 'Soft ostrich feather tickler on a faux leather handle. 35cm length. Great for foreplay.', 850, 'https://images.unsplash.com/photo-1563208723-68eb3f54a3bc?w=400&q=80', 'Accessories', 4.2, 1),
-('Personal Water-Based Lubricant 200ml', 'Premium water-based lubricant. Compatible with all toy materials and condoms. Fragrance-free.', 750, 'https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?w=400&q=80', 'Wellness', 4.6, 1),
-('Naughty Dice Game Set (2 dice)', 'Couple naughty dice game. Two dice — one for actions, one for body parts. Hours of fun!', 600, 'https://images.unsplash.com/photo-1611996575749-79a3a250f948?w=400&q=80', 'Accessories', 4.1, 1),
-('Thigh High Fishnet Stockings', 'Classic fishnet thigh-high stockings. One size fits most. Available in black & red.', 450, 'https://images.unsplash.com/photo-1617469165786-8007eda3caa7?w=400&q=80', 'Lingerie', 4.0, 1),
-('Remote-Controlled Vibrating Panties', 'Wireless remote control up to 10m range. 12 vibration modes. Waterproof. USB charging.', 5500, 'https://images.unsplash.com/photo-1617551307578-6b8c8dae8c30?w=400&q=80', 'Toys', 4.7, 1),
-('Aphrodisiac Chocolate Truffles (Box of 12)', 'Premium Belgian chocolate truffles infused with natural aphrodisiac herbs. Made in Kenya.', 1400, 'https://images.unsplash.com/photo-1548741487-18d363dc4469?w=400&q=80', 'Wellness', 4.5, 1),
-('Red Room Beginner Kit (5-piece)', 'Complete starter kit: blindfold, cuffs, tickler, paddle, and bondage tape. Great gift set.', 4200, 'https://images.unsplash.com/photo-1563208723-68eb3f54a3bc?w=400&q=80', 'Accessories', 4.8, 1),
-('Faux Leather Harness Bra Set', 'Adjustable faux leather harness bra with matching G-string. One size fits most.', 2200, 'https://images.unsplash.com/photo-1594736797933-d0501ba2fe65?w=400&q=80', 'Lingerie', 4.4, 1),
-('Pheromone Perfume for Women 30ml', 'Science-backed pheromone spray to attract and captivate. Long-lasting floral scent.', 2800, 'https://images.unsplash.com/photo-1590736969955-71cc94901144?w=400&q=80', 'Wellness', 4.6, 1),
-('Vibrating Cock Ring — Triple Action', 'Triple stimulation cock ring with 3 vibration points. Stretchy silicone. USB rechargeable.', 3200, 'https://images.unsplash.com/photo-1612965607446-25e1332775ae?w=400&q=80', 'Toys', 4.5, 1),
-('Erotic Massage Gift Set (4 items)', 'Set includes massage oil, massage candle, feather tickler, and silk ties. Perfect gift set.', 3800, 'https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b?w=400&q=80', 'Wellness', 4.7, 1),
-('Sexy Nurse Costume (Complete Set)', 'Full nurse roleplay costume: dress, cap, and accessories. Available S–XL. Discreet shipping.', 2600, 'https://images.unsplash.com/photo-1577219491135-ce391730fb2c?w=400&q=80', 'Accessories', 4.3, 1);
+
+-- Ensure new columns exist before seeding
+ALTER TABLE `shop_products`
+  ADD COLUMN IF NOT EXISTS `tag`          VARCHAR(50)  DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS `features`     TEXT         DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS `review_count` INT UNSIGNED DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS `source_url`   VARCHAR(500) DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS `in_stock`     TINYINT(1)   NOT NULL DEFAULT 1;
+
+-- Clear old wrong-image seed data before re-inserting
+DELETE FROM `shop_products` WHERE `source_url` IS NULL AND `image_url` LIKE '%unsplash%';
+
+-- Proper adult products with no wrong Unsplash URLs (images added by scraper)
+INSERT IGNORE INTO `shop_products` (`name`, `description`, `price_kes`, `image_url`, `category`, `rating`, `review_count`, `tag`, `features`, `is_active`) VALUES
+('Wireless Bullet Vibrator — 10 Speed Modes', 'Compact rechargeable bullet vibrator with 10 vibration patterns. Whisper-quiet motor. USB charging. Waterproof silicone body. Ships in discreet packaging.', 3500, NULL, 'Vibrators', 4.8, 124, 'Best Seller', 'Rechargeable USB\nWaterproof IPX7\n10 vibration modes\nWhisper-quiet\nBody-safe silicone', 1),
+('G-Spot Vibrator — Curved Silicone', 'Precisely angled G-spot vibrator with powerful rumbly vibrations. 8 patterns. Fully waterproof. Comes with satin storage pouch.', 4800, NULL, 'Vibrators', 4.7, 89, NULL, 'Curved G-spot tip\n8 vibration patterns\nFully waterproof\nBody-safe silicone\nUSB rechargeable', 1),
+('Rabbit Vibrator — Dual Stimulation', 'Classic rabbit-style vibrator with internal shaft and external clitoral stimulator. 12 modes. Rechargeable. Perfect for beginners and experienced users.', 6500, NULL, 'Vibrators', 4.6, 201, 'Popular', 'Dual stimulation\n12 vibration modes\nFlexible rabbit ears\nRechargeable\nWaterproof', 1),
+('Air Pulse Clitoral Stimulator', 'Revolutionary air-pulse technology for intense clitoral orgasms without direct contact. 11 intensity levels. Whisper-quiet. Waterproof.', 7800, NULL, 'Vibrators', 4.9, 312, 'Top Rated', 'Air-pulse technology\n11 intensity levels\nNo direct contact\nWaterproof\nUSB rechargeable', 1),
+('Wand Massager — Powerful Full Body', 'Cordless wand massager with deep rumbling vibrations. 20 patterns. Great for body massage and personal pleasure. Flexible head.', 5500, NULL, 'Vibrators', 4.5, 78, NULL, '20 vibration patterns\nFlexible massaging head\nCordless rechargeable\nMultiple uses\nSilicone head', 1),
+('Realistic Silicone Dildo — 7 Inch', 'Body-safe silicone dildo with realistic design. Suction cup base for hands-free play. Harness compatible. Easy to clean.', 3800, NULL, 'Dildos', 4.4, 56, NULL, 'Suction cup base\nHarness compatible\nBody-safe silicone\nEasy to clean\n18cm / 7 inches', 1),
+('Glass Dildo — Smooth Pleasure Wand', 'Premium borosilicate glass pleasure wand. Can be used warm or cold for temperature play. Body-safe, non-porous, easy to sterilize.', 4200, NULL, 'Dildos', 4.6, 44, NULL, 'Temperature play\nBorosilicate glass\nSterilizable\nNon-porous\nElegant design', 1),
+('Beginner Anal Plug Set — 3 Sizes', 'Perfect starter kit with three graduated silicone anal plugs. Includes small, medium, and large sizes. Tapered tips for easy insertion. Flared bases for safety.', 2800, NULL, 'Anal Toys', 4.5, 88, 'Starter Kit', '3 sizes included\nFlared safety base\nBody-safe silicone\nSmooth finish\nEasy to clean', 1),
+('Vibrating Anal Plug — Remote Control', 'Wireless remote controlled vibrating anal plug with 10 modes. Up to 10m range. USB rechargeable. Smooth silicone body.', 5200, NULL, 'Anal Toys', 4.7, 63, NULL, '10 vibration modes\nRemote control 10m\nUSB rechargeable\nBody-safe silicone\nFlared base', 1),
+('Prostate Massager — P-Spot Stimulator', 'Specially curved for prostate stimulation. 7 vibration modes. Rechargeable with magnetic charger. Smooth body-safe silicone.', 4800, NULL, 'Anal Toys', 4.6, 47, NULL, 'P-spot curve\n7 vibration modes\nMagnetic charging\nBody-safe silicone\nWaterproof', 1),
+('Water-Based Lubricant — 200ml', 'Premium water-based personal lubricant. Compatible with all toy materials and condoms. Fragrance-free. Long-lasting formula. pH balanced.', 950, NULL, 'Lubricants', 4.7, 256, 'Bestseller', 'Condom safe\nToy compatible\nFragrance-free\npH balanced\nLong-lasting', 1),
+('Silicone-Based Lubricant — 100ml', 'Ultra-long-lasting silicone lubricant. Ideal for anal play and extended sessions. Waterproof formula. Not compatible with silicone toys.', 1400, NULL, 'Lubricants', 4.5, 112, NULL, 'Ultra long-lasting\nWaterproof formula\nSmooth feel\nNo sticky residue\n100ml bottle', 1),
+('Warming Massage Oil — Rose & Vanilla 100ml', 'Luxurious warming massage oil that heats up with touch. Edible formula. Rose and vanilla scent. Great for sensual massage and intimacy.', 1100, NULL, 'Wellness', 4.6, 189, NULL, 'Warming formula\nEdible\nRose & vanilla scent\nMoisturizing\n100ml', 1),
+('Delay Spray for Men — 10ml', 'Clinical-strength delay spray to help men last longer. Fast-acting. 15-minute duration. Mild formula. Does not transfer to partner.', 1800, NULL, 'Wellness', 4.4, 203, NULL, 'Fast-acting\n15-min effectiveness\nDoes not transfer\nClinical strength\nDiscreet packaging', 1),
+('Female Arousal Serum — 30ml', 'Fast-acting arousal serum for women. Increases sensitivity and blood flow. Water-based. Compatible with condoms. Natural botanical formula.', 2200, NULL, 'Wellness', 4.3, 94, NULL, 'Fast-acting\nIncreases sensitivity\nNatural botanical\nCondom safe\n30ml bottle', 1),
+('Antibacterial Toy Cleaner Spray — 100ml', 'Fast-acting antibacterial toy cleaner. Safe for all toy materials. No rinse formula. Kills 99.9% of bacteria. Essential for toy hygiene.', 650, NULL, 'Wellness', 4.8, 342, NULL, 'Kills 99.9% bacteria\nNo rinse needed\nAll materials safe\n100ml spray\nFast-acting', 1),
+('Beginner Bondage Kit — 5 Piece Set', 'Complete beginner BDSM starter set. Includes adjustable cuffs, blindfold, feather tickler, soft paddle, and bondage tape. Easy-release mechanism on all restraints.', 4200, NULL, 'Bondage', 4.5, 77, 'Starter Kit', '5-piece set\nEasy-release cuffs\nFeather tickler included\nSoft paddle\nStorage bag', 1),
+('Velvet Blindfold — Adjustable', 'Luxurious velvet blindfold with adjustable strap. Blocks all light. Soft and comfortable for extended wear. Unisex design.', 650, NULL, 'Bondage', 4.6, 298, NULL, 'Full blackout\nSoft velvet\nAdjustable strap\nComfortable fit\nUnisex', 1),
+('Faux Leather Handcuffs with Quick-Release', 'Faux leather wrist cuffs with velcro quick-release and D-ring connectors. Padded interior for comfort. Includes connecting chain.', 1800, NULL, 'Bondage', 4.4, 56, NULL, 'Quick-release safety\nPadded interior\nD-ring connectors\nChain included\nAdjustable fit', 1),
+('Bondage Tape — Non-Stick 18m', 'Self-adhesive bondage tape that sticks to itself but not skin or hair. 18 meters long. Reusable. No residue.', 850, NULL, 'Bondage', 4.3, 89, NULL, 'Skin-safe\nNo residue\n18m length\nReusable\nSelf-adhesive', 1),
+('Red Lace Lingerie Set — Push-Up Bra & Thong', 'Stunning red lace push-up bra and matching thong. Available sizes S–XL. French lace fabric. Underwire bra with adjustable straps. Ships discreetly.', 1800, NULL, 'Lingerie', 4.5, 167, NULL, 'French lace\nPush-up bra\nAdjustable straps\nSizes S–XL\nDiscreet packaging', 1),
+('Black Satin Corset Bodysuit', 'Elegant satin corset bodysuit with adjustable lacing and suspender clips. Boned structure for perfect shaping. Available S–XXL. Includes matching G-string.', 3200, NULL, 'Lingerie', 4.7, 134, 'Popular', 'Boned structure\nAdjustable lacing\nSuspender clips\nG-string included\nSizes S–XXL', 1),
+('Sheer Mesh Babydoll Negligee', 'Ultra-sheer mesh babydoll with embroidered floral lace trim. Matching mesh thong included. One size fits most. Soft and feminine.', 1400, NULL, 'Lingerie', 4.4, 98, NULL, 'Ultra-sheer mesh\nFloral lace trim\nThong included\nOne size fits most\nSoft fabric', 1),
+('Fishnet Full Body Stocking — Open Crotch', 'Stretchy full-body fishnet stocking. Open crotch design. One size fits all. Perfect for role play or seductive evenings.', 900, NULL, 'Lingerie', 4.2, 211, NULL, 'Full body coverage\nOpen crotch\nHighly stretchy\nOne size fits all\nFishnet weave', 1),
+('Faux Leather Harness Bra Set', 'Adjustable faux leather body harness bra. Criss-cross design. Metal O-ring accents. Adjustable buckles. Pairs with any bra or worn alone.', 2200, NULL, 'Lingerie', 4.5, 73, NULL, 'Faux leather\nAdjustable buckles\nMetal O-rings\nVersatile styling\nOne size fits most', 1),
+('Vibrating Couples Ring — Remote Control', 'Stretchy silicone couples ring with built-in vibrator. Wireless remote with 12 modes. Enhances pleasure for both partners during intimacy. USB rechargeable.', 3800, NULL, 'Toys', 4.6, 145, 'Couples Pick', '12 vibration modes\nRemote control\nStretchy silicone\nUSB rechargeable\nWaterproof', 1),
+('Wearable Panty Vibrator — Remote Control', 'Discreet wearable panty vibrator with wireless remote. 12 vibration modes. 10m remote range. USB rechargeable. Quiet motor.', 6500, NULL, 'Toys', 4.7, 88, NULL, 'Wearable design\n12 vibration modes\n10m remote range\nUSB rechargeable\nDiscreet & quiet', 1),
+('C-Shape Couples Vibrator — Dual Motor', 'Ergonomic C-shape vibrator for simultaneous internal and external stimulation during intercourse. 2 motors. Remote control. Rechargeable.', 8500, NULL, 'Toys', 4.8, 167, 'Premium', 'Dual motor\nC-shape ergonomic\nRemote control\nRechargeable\nFor intercourse use', 1),
+('Feather Tickler — Ostrich Feather on Leather Handle', 'Soft ostrich feather tickler on elegant faux leather handle. 35cm total length. Perfect foreplay tool.', 850, NULL, 'Accessories', 4.3, 178, NULL, 'Genuine feathers\nFaux leather handle\n35cm length\nMultiple colors\nSoft & sensual', 1),
+('Naughty Dice Game Set — Erotic Couples Edition', 'Erotic dice game for couples. Two large dice — one for actions, one for body parts. Perfect naughty gift.', 600, NULL, 'Accessories', 4.1, 321, NULL, 'Action dice + body dice\nEasy to play\nFor two players\nFun foreplay game\nCompact size', 1),
+('Pheromone Perfume for Her — 30ml', 'Science-backed pheromone perfume designed to attract and captivate. Blend of natural pheromones with a light floral top note. Long-lasting 6–8 hours.', 2800, NULL, 'Wellness', 4.4, 209, NULL, 'Natural pheromones\nLong-lasting 6-8hrs\nFloral fragrance\n30ml bottle\nFor women', 1),
+('Stainless Steel Ben Wa Kegel Balls — Set of 2', 'Medical-grade stainless steel kegel balls for pelvic floor strengthening and pleasure. 2 sizes. Smooth finish.', 2100, NULL, 'Wellness', 4.6, 98, NULL, 'Medical-grade steel\nKegel exercise\n2 balls included\nSmooth finish\nMulti-purpose', 1),
+('Rose Gold Nipple Clamps — Adjustable with Chain', 'Rose gold plated adjustable nipple clamps with chain. Adjustable tension screw. Rubber-tipped for comfort. Includes small bells.', 1500, NULL, 'Bondage', 4.5, 134, NULL, 'Adjustable tension\nRubber-tipped\nRose gold plated\nChain connector\nBells included', 1),
+('Sexy Nurse Costume — Full Role Play Set', 'Complete nurse role-play costume: dress, cap, stethoscope prop, and accessories. Available sizes S–XL. Stretchy fabric.', 2600, NULL, 'Accessories', 4.2, 67, NULL, 'Full costume set\nCap + accessories\nSizes S–XL\nStretchy fabric\nDiscreet shipping', 1);
 
 -- ──────────────────────────────────────────────────────────────────────────────
 -- Rooms / BnB seed data (added 2026-06-28)

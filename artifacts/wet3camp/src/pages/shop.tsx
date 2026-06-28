@@ -4,7 +4,7 @@ import Sidebar from '@/components/Sidebar'
 import { ShoppingCart, Star, Shield, Truck, Lock, Filter, Heart, X, ChevronRight, Package, Store } from 'lucide-react'
 import { useSEO } from '@/lib/useSEO'
 
-const CATS = ['All', 'Premium', 'Starter', 'Popular', 'Travel', 'Wellness', 'Fashion', 'General']
+const CATS = ['All', 'Vibrators', 'Dildos', 'Anal Toys', 'Toys', 'Lubricants', 'Bondage', 'Lingerie', 'Wellness', 'Accessories']
 
 // ── Product detail modal ──────────────────────────────────────────────────────
 function ProductModal({ product, cart, onAddToCart, onClose }: { product: any; cart: number[]; onAddToCart: (id: number) => void; onClose: () => void }) {

@@ -300,6 +300,25 @@ CREATE TABLE IF NOT EXISTS referrals (
 CREATE INDEX IF NOT EXISTS idx_referrals_user_id          ON referrals (user_id);
 CREATE INDEX IF NOT EXISTS idx_referrals_referred_user_id ON referrals (referred_user_id);
 
+CREATE TABLE IF NOT EXISTS shop_products (
+  id           SERIAL PRIMARY KEY,
+  name         VARCHAR(300) NOT NULL,
+  description  TEXT,
+  price_kes    INTEGER      NOT NULL DEFAULT 0,
+  image_url    TEXT,
+  category     VARCHAR(100) NOT NULL DEFAULT 'General',
+  rating       DECIMAL(2,1) DEFAULT 4.0,
+  review_count INTEGER      NOT NULL DEFAULT 0,
+  tag          VARCHAR(50)  DEFAULT NULL,
+  features     TEXT         DEFAULT NULL,
+  in_stock     SMALLINT     NOT NULL DEFAULT 1,
+  is_active    SMALLINT     NOT NULL DEFAULT 1,
+  source_url   VARCHAR(500) DEFAULT NULL,
+  created_at   TIMESTAMP    NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_sp_category  ON shop_products (category);
+CREATE INDEX IF NOT EXISTS idx_sp_is_active ON shop_products (is_active);
+
 CREATE TABLE IF NOT EXISTS feed_likes (
   id         SERIAL PRIMARY KEY,
   escort_id  INTEGER   NOT NULL,
