@@ -213,7 +213,10 @@ export function ogPreviewMiddleware(req: Request, res: Response, next: NextFunct
           const description = bio
             ? `${bio}${bio.length >= 150 ? '…' : ''} — Book ${escort.name} on Wet3Camp, Kenya's #1 escort directory.`
             : `Verified ${tierLabel.toLowerCase()} escort in ${escort.city}, Kenya. Book ${escort.name} on Wet3Camp.`
-          const image = (escort.image as string) || DEFAULT_IMAGE
+          const rawImg = (escort.image as string) || ''
+          const image = rawImg
+            ? (rawImg.startsWith('http') ? rawImg : `${SITE_URL}${rawImg}`)
+            : DEFAULT_IMAGE
 
           res.setHeader('Content-Type', 'text/html; charset=utf-8')
           res.setHeader('Cache-Control', 'public, max-age=300, stale-while-revalidate=600')
