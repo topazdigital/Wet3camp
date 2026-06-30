@@ -11,6 +11,8 @@ function mapEscort(row: any) {
   return {
     ...row,
     id:        String(row.id),
+    // Fall back to first gallery image when the main `image` column is NULL
+    image:     row.effective_image ?? row.image ?? null,
     available: !!row.available,
     verified:  !!row.verified,
     online:    !!row.online,
@@ -114,7 +116,14 @@ router.get('/escorts', async (req, res) => {
       : 'e.id DESC'
 
     const [rows] = await pool.query<any[]>(
-      `SELECT e.*, GROUP_CONCAT(DISTINCT el.language ORDER BY el.language SEPARATOR ',') AS languages_csv
+      `SELECT e.*,
+              COALESCE(e.image, (
+                SELECT eg.image_url FROM escort_gallery eg
+                WHERE eg.escort_id = e.id
+                ORDER BY COALESCE(eg.sort_order, 9999) ASC, eg.id ASC
+                LIMIT 1
+              )) AS effective_image,
+              GROUP_CONCAT(DISTINCT el.language ORDER BY el.language SEPARATOR ',') AS languages_csv
        FROM escorts e
        LEFT JOIN escort_languages el ON el.escort_id = e.id
        WHERE ${where}
@@ -249,6 +258,8 @@ router.get('/escorts/:id', async (req, res) => {
     res.json({
       ...mapEscort({
         ...row,
+        // Use first gallery image as fallback when image column is NULL
+        effective_image: row.image || ((gallery as any[])[0]?.image_url ?? null),
         languages_csv: languages.map((l: any) => l.language).join(','),
       }),
       follower_count: Number((followerRow as any)?.cnt ?? 0),
