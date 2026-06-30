@@ -34,7 +34,7 @@ echo "    pnpm $(pnpm --version)"
 echo ""
 echo "==> [2/7] Installing dependencies..."
 cd "$REPO_DIR"
-CI=true pnpm install --frozen-lockfile
+CI=true pnpm install --frozen-lockfile --config.confirmModulesPurge=false
 echo "    Done."
 
 echo ""
