@@ -12,3 +12,4 @@
 - [Wouter v3 at-sign routing](wouter-at-routing.md) — Wouter v3 cannot match /@:slug patterns; use AtProfileRoute component + useLocation() regex instead
 - [GitHub auto-deploy setup](github-autodeploy.md) — GITHUB_TOKEN in Replit Secrets; run `bash push-to-github.sh` from Shell to push; GitHub Actions (.github/workflows/deploy.yml) auto-deploys to server; needs DEPLOY_SSH_KEY in GitHub repo Secrets
 - [MySQL shop/rooms column names](mysql-shop-columns.md) — live MySQL shop_products uses price_kes + image_url (not price/image); frontend handles both via nullish coalescing; INSERT seed data uses price_kes/image_url; feed_likes+feed_comments added to migration SQL 2026-06-28
+- [Apache uploads symlink 403](apache-uploads-symlink.md) — shared hosting Apache 403s symlinks before mod_rewrite; use mod_proxy for /api/uploads/* instead; never ln -sfn into web root
