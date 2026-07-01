@@ -126,25 +126,26 @@ rm -rf "${WEB_ROOT:?}"/*
 cp -r "$REPO_DIR/artifacts/wet3camp/dist/public/." "$WEB_ROOT/"
 chmod -R 755 "$WEB_ROOT"
 
-# ── Symlink uploads so Apache serves photos DIRECTLY (no proxy needed) ────────
-# This avoids relying on mod_proxy [P] which may be disabled on shared hosts.
-# Uploads live permanently in the build repo folder (where the API has always written them).
-# Do NOT move them to $API_DIR/uploads — that would break existing image URLs in the DB.
+# ── Ensure uploads dir exists; remove any stale symlink in web root ───────────
+# Uploads live permanently in the build repo folder (where the API writes them).
+# mod_proxy forwards ALL /api/* requests to Node.js, which serves uploads via
+# express.static — no symlink needed and symlinks caused Apache 403 on shared hosts.
 UPLOADS_REAL="/home/admin/wet3camp-build/artifacts/api-server/uploads"
 mkdir -p "${UPLOADS_REAL}"
-mkdir -p "${WEB_ROOT}/api"
-rm -f  "${WEB_ROOT}/api/uploads"
-ln -sfn "${UPLOADS_REAL}" "${WEB_ROOT}/api/uploads"
-echo "    Uploads symlinked: $WEB_ROOT/api/uploads -> $UPLOADS_REAL"
+# Remove any existing symlink that was created by older deploy runs
+rm -f "${WEB_ROOT}/api/uploads"
+# Also remove the /api dir from webroot if it's now empty (prevents potential dir-listing 403)
+rmdir "${WEB_ROOT}/api" 2>/dev/null || true
+echo "    Uploads dir: $UPLOADS_REAL (served via Node.js mod_proxy)"
 
 # Write .htaccess
 # Strategy:
-#   1. Enable FollowSymLinks so Apache can serve the uploads symlink
-#   2. Serve existing files/dirs FIRST (handles /api/uploads/* via symlink)
-#   3. Proxy remaining /api/* requests to Node.js (JSON endpoints)
-#   4. SPA fallback for all other routes
+#   1. Serve existing frontend static files/dirs directly (JS/CSS/images from Vite build)
+#   2. Proxy ALL /api/* requests to Node.js on port 8080
+#      — this includes /api/uploads/* images served by express.static
+#   3. SPA fallback for all other routes
 cat > "$WEB_ROOT/.htaccess" << 'HTACCESS'
-Options -Indexes +FollowSymLinks
+Options -Indexes
 
 # Serve pre-compressed files
 <IfModule mod_deflate.c>
@@ -184,13 +185,14 @@ Options -Indexes +FollowSymLinks
   RewriteEngine On
   RewriteBase /
 
-  # Step 1: Serve real files and directories directly
-  # This handles /api/uploads/* images via the symlink — NO PROXY needed
+  # Step 1: Serve real frontend static files/dirs directly (JS/CSS/images from Vite build)
+  # /api/uploads/* is NOT served here — those go through the proxy to Node.js below
   RewriteCond %{REQUEST_FILENAME} -f [OR]
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]
 
   # Step 2: Proxy /api/* and sitemap routes to Node.js on port 8080
+  # This includes /api/uploads/* — express.static in the API serves the image files
   RewriteCond %{REQUEST_URI} ^/api [NC,OR]
   RewriteCond %{REQUEST_URI} ^/sitemap [NC,OR]
   RewriteCond %{REQUEST_URI} ^/google [NC]
@@ -201,7 +203,7 @@ Options -Indexes +FollowSymLinks
 </IfModule>
 HTACCESS
 
-echo "    .htaccess written (uploads via symlink, API via proxy, SPA fallback)."
+echo "    .htaccess written (frontend static files direct, all /api/* via proxy, SPA fallback)."
 
 # ALSO copy frontend to api-server/public so Express can serve it as a fallback
 # if the Apache mod_rewrite [P] proxy doesn't work on this server
