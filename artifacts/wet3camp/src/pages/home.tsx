@@ -33,6 +33,7 @@ interface LiveSession {
   escortId: number
   name: string
   avatar?: string
+  image?: string
   title?: string
   city?: string
   tier?: string
@@ -46,7 +47,7 @@ function TrendingLive() {
   useEffect(() => {
     const fetchLive = () => {
       fetch('/api/live')
-        .then(r => r.json())
+        .then(r => { if (!r.ok) throw new Error('Failed'); return r.json() })
         .then(data => {
           setSessions(Array.isArray(data) ? data : [])
           setLoading(false)
@@ -54,7 +55,6 @@ function TrendingLive() {
         .catch(() => setLoading(false))
     }
     fetchLive()
-    // Refresh every 30s
     const id = setInterval(fetchLive, 30000)
     return () => clearInterval(id)
   }, [])
@@ -62,8 +62,9 @@ function TrendingLive() {
   if (loading || sessions.length === 0) return null
 
   return (
-    <div className="w-full px-3 sm:px-5 py-3 border-b border-color bg-dark-bg">
-      <div className="flex items-center gap-2 mb-2.5">
+    <div className="w-full px-3 sm:px-5 py-4 border-b border-color bg-dark-bg">
+      {/* Header */}
+      <div className="flex items-center gap-2 mb-3">
         <div className="flex items-center gap-1.5">
           <div className="w-2 h-2 bg-[#E91E63] rounded-full animate-pulse" />
           <Radio size={13} className="text-[#E91E63]" />
@@ -74,47 +75,61 @@ function TrendingLive() {
           See all →
         </Link>
       </div>
-      <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-1">
+
+      {/* Story-style circles */}
+      <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-1">
         {sessions.map(s => {
-          const tierColors: Record<string, string> = { Elite: '#8B0000', VIP: '#FF4500', Premium: '#B8860B', Standard: '#555' }
-          const tc = tierColors[s.tier ?? ''] ?? '#8B0000'
+          const photo = s.avatar || s.image
           return (
-            <Link
-              key={s.id}
-              href={`/live/${s.escortId}`}
-              className="flex-shrink-0 group relative"
-            >
-              <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border-2 border-[#E91E63]/60 group-hover:border-[#E91E63] transition-all shadow-lg shadow-black/40">
-                {s.avatar
-                  ? <img src={s.avatar} alt={s.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                  : <div className="w-full h-full bg-card-bg flex items-center justify-center"><Video size={22} className="text-[#E91E63]" /></div>
-                }
-                {/* Live badge */}
-                <div className="absolute top-1 left-1 flex items-center gap-0.5 px-1 py-0.5 bg-[#E91E63] rounded text-white text-[8px] font-black leading-none">
-                  <span className="w-1 h-1 rounded-full bg-white animate-pulse" />LIVE
+          <Link
+            key={s.id}
+            href={`/live/${s.escortId}`}
+            className="flex-shrink-0 flex flex-col items-center gap-1.5 group"
+          >
+            {/* Story ring — gradient border + gap ring, no spin so photo stays upright */}
+            <div className="relative">
+              {/* Gradient ring */}
+              <div className="w-[76px] h-[76px] sm:w-[84px] sm:h-[84px] rounded-full p-[3px] bg-gradient-to-br from-[#E91E63] via-[#FF4500] to-[#8B0000] shadow-[0_0_14px_#E91E6360] group-hover:shadow-[0_0_20px_#E91E6380] transition-shadow">
+                {/* Gap ring */}
+                <div className="w-full h-full rounded-full p-[2px] bg-dark-bg">
+                  {/* Avatar */}
+                  <div className="relative w-full h-full rounded-full overflow-hidden">
+                    {photo
+                      ? <img
+                          src={photo}
+                          alt={s.name}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                      : <div className="w-full h-full bg-card-bg flex items-center justify-center text-2xl font-black text-[#8B0000]/40">
+                          {(s.name || '?')[0]}
+                        </div>
+                    }
+                  </div>
                 </div>
-                {/* Viewer count */}
-                <div className="absolute bottom-1 right-1 px-1 py-0.5 bg-black/60 rounded text-white text-[8px] font-bold">
-                  👁 {s.viewerCount}
-                </div>
-                {/* Gradient overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
               </div>
-              <p className="text-[10px] text-text-light text-center mt-1 max-w-[64px] sm:max-w-[80px] truncate group-hover:text-[#E91E63] transition-colors">
-                {s.name.split(' ')[0]}
-              </p>
-              {s.city && (
-                <p className="text-[9px] text-text-muted text-center truncate max-w-[64px] sm:max-w-[80px]">{s.city}</p>
-              )}
-            </Link>
-          )
-        })}
-        {/* See all card */}
-        <Link href="/live" className="flex-shrink-0 flex flex-col items-center gap-1">
-          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl border-2 border-dashed border-color flex items-center justify-center hover:border-[#E91E63]/50 transition-colors group">
+              {/* LIVE badge pinned at bottom of circle */}
+              <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 flex items-center gap-0.5 bg-[#E91E63] px-2 py-0.5 rounded-full border border-dark-bg">
+                <span className="w-1 h-1 rounded-full bg-white animate-pulse" />
+                <span className="text-[8px] font-black text-white leading-none tracking-wide">LIVE</span>
+              </div>
+            </div>
+            {/* Name */}
+            <p className="text-[11px] text-text-light text-center max-w-[80px] truncate font-semibold group-hover:text-[#E91E63] transition-colors leading-tight mt-1">
+              {s.name.split(' ')[0]}
+            </p>
+            {/* Viewer count */}
+            <p className="text-[9px] text-text-muted text-center leading-none -mt-0.5">
+              👁 {s.viewerCount}
+            </p>
+          </Link>
+        ))}
+
+        {/* See all bubble */}
+        <Link href="/live" className="flex-shrink-0 flex flex-col items-center gap-1.5 group">
+          <div className="w-16 h-16 sm:w-[72px] sm:h-[72px] rounded-full border-2 border-dashed border-[#8B0000]/40 flex items-center justify-center hover:border-[#E91E63]/60 transition-colors bg-card-bg">
             <span className="text-2xl group-hover:scale-110 transition-transform">🎬</span>
           </div>
-          <p className="text-[10px] text-text-muted">See all</p>
+          <p className="text-[11px] text-text-muted font-semibold">See all</p>
         </Link>
       </div>
     </div>

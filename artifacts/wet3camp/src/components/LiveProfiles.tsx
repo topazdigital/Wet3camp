@@ -1,78 +1,82 @@
+import { useState, useEffect } from 'react'
+import { Link } from 'wouter'
+import { Radio } from 'lucide-react'
 
-
-import { useState } from 'react'
-
-interface LiveProfile {
-  id: number
+interface LiveSession {
+  id: string
+  escortId: number
   name: string
-  image: string
-  isLive: boolean
+  avatar?: string
+  image?: string
+  city?: string
+  tier?: string
+  viewerCount: number
 }
 
-const liveProfiles: LiveProfile[] = [
-  { id: 1, name: 'Angel', image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&h=150&fit=crop', isLive: true },
-  { id: 2, name: 'Sexy Sam', image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop', isLive: true },
-  { id: 3, name: 'Diamond', image: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop', isLive: true },
-  { id: 4, name: 'Jasmine', image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&h=150&fit=crop', isLive: true },
-  { id: 5, name: 'Venus', image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop', isLive: true },
-  { id: 6, name: 'Kiara', image: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop', isLive: true },
-  { id: 7, name: 'Zara', image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&h=150&fit=crop', isLive: true },
-  { id: 8, name: 'Nina', image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop', isLive: true },
-  { id: 9, name: 'Rosa', image: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop', isLive: true },
-]
-
 export default function LiveProfiles() {
+  const [sessions, setSessions] = useState<LiveSession[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const load = () => {
+      fetch('/api/live')
+        .then(r => { if (!r.ok) throw new Error('Failed'); return r.json() })
+        .then(data => { setSessions(Array.isArray(data) ? data : []); setLoading(false) })
+        .catch(() => setLoading(false))
+    }
+    load()
+    const id = setInterval(load, 30000)
+    return () => clearInterval(id)
+  }, [])
+
+  if (loading || sessions.length === 0) return null
+
   return (
-    <div className="bg-dark-bg py-8 border-b border-color">
-      <div className="container mx-auto px-4">
-        <h2 className="text-xl font-bold text-light mb-6 flex items-center gap-2">
-          <span className="w-3 h-3 rounded-full bg-available-green animate-pulse"></span>
+    <div className="bg-dark-bg py-4 border-b border-color">
+      <div className="px-4">
+        <h2 className="text-sm font-bold text-text-light mb-3 flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-[#E91E63] animate-pulse" />
+          <Radio size={13} className="text-[#E91E63]" />
           Now Live
+          <span className="text-[10px] text-text-muted font-normal">{sessions.length} streaming</span>
         </h2>
 
-        {/* Horizontal Scroll Container */}
-        <div className="overflow-x-auto scrollbar-hide pb-4">
-          <div className="flex gap-6 min-w-min">
-            {liveProfiles.map((profile) => (
-              <div
-                key={profile.id}
-                className="flex-shrink-0 group cursor-pointer"
-              >
-                {/* Profile Image Container */}
-                <div className="relative w-32 h-32 rounded-full overflow-hidden border-4 border-secondary-color/50 hover:border-secondary-color transition-all duration-300 shadow-lg hover:shadow-2xl transform hover:scale-110">
-                  <img
-                    src={profile.image}
-                    alt={profile.name}
-                    className="w-full h-full object-cover"
-                  />
-
-                  {/* Live Indicator - Bottom */}
-                  <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 bg-available-green text-dark-bg px-2 py-1 rounded-full text-xs font-bold flex items-center gap-1">
-                    <span className="w-2 h-2 bg-dark-bg rounded-full animate-pulse"></span>
-                    LIVE
+        <div className="overflow-x-auto scrollbar-hide pb-2">
+          <div className="flex gap-4 min-w-min">
+            {sessions.map(s => {
+              const photo = s.avatar || s.image
+              return (
+                <Link key={s.id} href={`/live/${s.escortId}`} className="flex-shrink-0 flex flex-col items-center gap-1.5 group cursor-pointer">
+                  {/* Gradient ring — no spin so photo stays upright */}
+                  <div className="relative">
+                    <div className="w-[76px] h-[76px] rounded-full p-[3px] bg-gradient-to-br from-[#E91E63] via-[#FF4500] to-[#8B0000] shadow-[0_0_14px_#E91E6360] group-hover:shadow-[0_0_20px_#E91E6380] transition-shadow">
+                      <div className="w-full h-full rounded-full p-[2px] bg-dark-bg">
+                        <div className="w-full h-full rounded-full overflow-hidden group-hover:scale-105 transition-transform duration-300">
+                          {photo
+                            ? <img src={photo} alt={s.name} className="w-full h-full object-cover" />
+                            : <div className="w-full h-full bg-card-bg flex items-center justify-center text-xl font-black text-[#8B0000]/50">
+                                {(s.name || '?')[0]}
+                              </div>
+                          }
+                        </div>
+                      </div>
+                    </div>
+                    {/* LIVE badge */}
+                    <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 flex items-center gap-0.5 bg-[#E91E63] px-2 py-0.5 rounded-full border border-dark-bg">
+                      <span className="w-1 h-1 rounded-full bg-white animate-pulse" />
+                      <span className="text-[7px] font-black text-white leading-none tracking-wide">LIVE</span>
+                    </div>
                   </div>
-                </div>
-
-                {/* Name */}
-                <p className="text-center text-light text-sm font-semibold mt-3 group-hover:text-secondary-color transition-colors">
-                  {profile.name}
-                </p>
-              </div>
-            ))}
+                  <p className="text-[11px] text-text-light text-center max-w-[68px] truncate font-semibold group-hover:text-[#E91E63] transition-colors">
+                    {s.name.split(' ')[0]}
+                  </p>
+                  <p className="text-[9px] text-text-muted text-center -mt-1">👁 {s.viewerCount}</p>
+                </Link>
+              )
+            })}
           </div>
         </div>
       </div>
-
-      {/* Custom Scrollbar Hide CSS */}
-      <style>{`
-        .scrollbar-hide::-webkit-scrollbar {
-          display: none;
-        }
-        .scrollbar-hide {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-      `}</style>
     </div>
   )
 }
