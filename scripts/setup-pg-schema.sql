@@ -280,7 +280,10 @@ CREATE TABLE IF NOT EXISTS subscriptions (
   tx_ref     VARCHAR(100) DEFAULT NULL,
   status     VARCHAR(20)  NOT NULL DEFAULT 'pending',
   expires_at TIMESTAMP    DEFAULT NULL,
-  created_at TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
+  created_at TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+-- Idempotent patch for missing columns added after initial schema creation
+ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP;
 CREATE INDEX IF NOT EXISTS idx_subscriptions_user_id   ON subscriptions (user_id);
 CREATE INDEX IF NOT EXISTS idx_subscriptions_escort_id ON subscriptions (escort_id);
