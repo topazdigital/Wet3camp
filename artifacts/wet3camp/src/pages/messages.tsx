@@ -694,19 +694,11 @@ export default function MessagesPage() {
     const msgText = `[${type}]${roomId}[/${type}]`
     pushMsg(selected, msgText, true, { status: 'sent' })
     api.messages.send(selected, msgText).catch(() => {})
-    if (type === 'acall') {
-      setActiveCall({ roomId, isCaller: true, type })
-    } else {
-      window.open(`https://meet.jit.si/${roomId}`, '_blank')
-    }
+    setActiveCall({ roomId, isCaller: true, type })
   }
 
   const joinCall = (roomId: string, type: 'vcall' | 'acall') => {
-    if (type === 'acall') {
-      setActiveCall({ roomId, isCaller: false, type })
-    } else {
-      window.open(`https://meet.jit.si/${roomId}`, '_blank')
-    }
+    setActiveCall({ roomId, isCaller: false, type })
   }
 
   const sendBookingRequest = () => {
@@ -763,6 +755,7 @@ export default function MessagesPage() {
           isCaller={activeCall.isCaller}
           calleeName={activeCon?.name ?? 'Unknown'}
           calleeAvatar={activeCon?.avatar}
+          mode={activeCall.type === 'vcall' ? 'video' : 'audio'}
           onClose={() => setActiveCall(null)}
         />
       )}

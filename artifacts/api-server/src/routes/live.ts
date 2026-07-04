@@ -1,8 +1,10 @@
 import { Router } from 'express'
+import express from 'express'
 import { randomBytes } from 'crypto'
 import {
   startLive, endLive, getLiveSession, getAllLiveSessions, isLive,
   addSseClient, removeSseClient, addChatMessage, pinMessage, setLocked,
+  addVideoChunk, addVideoSseClient, removeVideoSseClient,
 } from '../lib/live-store.js'
 import { verifyToken } from '../lib/jwt.js'
 import { getPool } from '../lib/db.js'
@@ -27,6 +29,59 @@ async function optionalAuth(req: any): Promise<{ userId: number | null; displayN
   }
 }
 
+// ── POST /live/:escortId/stream — broadcaster sends video chunk ───────────────
+router.post('/live/:escortId/stream',
+  express.raw({ type: '*/*', limit: '8mb' }),
+  async (req, res) => {
+    const auth = await optionalAuth(req)
+    if (!auth.userId) { res.status(401).json({ message: 'Login required' }); return }
+
+    const session = getLiveSession(req.params.escortId)
+    if (!session) { res.status(404).json({ message: 'Stream not found' }); return }
+
+    // Only the escort who owns this stream (or admin) may publish video
+    if (auth.role !== 'admin' && session.escortUserId !== auth.userId) {
+      res.status(403).json({ message: 'Forbidden' }); return
+    }
+
+    const data = req.body as Buffer
+    if (!data?.length) { res.status(400).json({ message: 'No data' }); return }
+
+    const isInit = req.headers['x-is-init'] === 'true'
+    const mimeType = (req.headers['x-mime-type'] as string) || 'video/webm'
+
+    addVideoChunk(String(req.params.escortId), data.toString('base64'), isInit, mimeType)
+    res.json({ ok: true })
+  }
+)
+
+// ── GET /live/:escortId/video — SSE stream of video chunks to viewers ─────────
+router.get('/live/:escortId/video', async (req, res) => {
+  const session = getLiveSession(req.params.escortId)
+  if (!session) { res.status(404).json({ message: 'Stream not found' }); return }
+
+  const clientId = randomBytes(8).toString('hex')
+  const escortKey = String(req.params.escortId)
+
+  res.setHeader('Content-Type', 'text/event-stream')
+  res.setHeader('Cache-Control', 'no-cache')
+  res.setHeader('Connection', 'keep-alive')
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.flushHeaders()
+
+  addVideoSseClient(escortKey, clientId, res)
+
+  // Keepalive comment every 20s to prevent proxy/CDN timeouts
+  const ping = setInterval(() => {
+    try { res.write(': ping\n\n') } catch { clearInterval(ping) }
+  }, 20_000)
+
+  req.on('close', () => {
+    clearInterval(ping)
+    removeVideoSseClient(escortKey, clientId)
+  })
+})
+
 // ── GET /live — list all active streams ─────────────────────────────────────
 router.get('/live', (_req, res) => {
   const sessions = getAllLiveSessions()
@@ -39,7 +94,6 @@ router.get('/live', (_req, res) => {
     city: s.escortCity,
     area: s.escortArea,
     title: s.title,
-    jitsiRoom: s.jitsiRoom,
     startedAt: s.startedAt,
     viewerCount: s.clients.size,
     isLocked: s.isLocked,
@@ -60,7 +114,6 @@ router.get('/live/:escortId', (req, res) => {
     city: session.escortCity,
     area: session.escortArea,
     title: session.title,
-    jitsiRoom: session.jitsiRoom,
     startedAt: session.startedAt,
     viewerCount: session.clients.size,
     isLocked: session.isLocked,
@@ -95,6 +148,7 @@ router.post('/live/start', async (req, res) => {
     city: escort.city,
     area: escort.area,
     title: title || `${escort.name} is Live`,
+    userId: auth.userId!,
   })
 
   // Notify all followers immediately — insert DB record + push SSE
@@ -130,7 +184,6 @@ router.post('/live/start', async (req, res) => {
 
   res.json({
     escortId: escort.id,
-    jitsiRoom: session.jitsiRoom,
     title: session.title,
     startedAt: session.startedAt,
   })

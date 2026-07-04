@@ -122,7 +122,8 @@ function TrendingLive() {
               👁 {s.viewerCount}
             </p>
           </Link>
-        ))}
+          )
+        })}
 
         {/* See all bubble */}
         <Link href="/live" className="flex-shrink-0 flex flex-col items-center gap-1.5 group">

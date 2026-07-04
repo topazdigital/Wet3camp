@@ -4,8 +4,8 @@ import { useAuth } from '@/lib/auth-context'
 import { getSlug } from '@/data/escorts'
 import {
   Eye, Radio, X, Send, Heart, Flame, Crown, Star, Gift, Lock, Unlock,
-  Share2, UserPlus, BookOpen, Pin, Users, Zap, ChevronDown, AlertCircle,
-  Mic, MicOff, Video, VideoOff, MoreVertical, Copy, Check,
+  Share2, UserPlus, Pin, Users, Zap, Check,
+  Mic, MicOff, Video, VideoOff, Camera, CameraOff,
 } from 'lucide-react'
 import { useSEO } from '@/lib/useSEO'
 
@@ -36,6 +36,14 @@ const GIFTS: { id: string; emoji: string; label: string }[] = [
 
 interface FloatEmoji { id: string; emoji: string; x: number }
 
+// ── Base64 helpers ────────────────────────────────────────────────────────────
+function b64toAb(b64: string): ArrayBuffer {
+  const bin = atob(b64)
+  const bytes = new Uint8Array(bin.length)
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+  return bytes.buffer
+}
+
 export default function LiveStreamPage() {
   const [, params] = useRoute('/live/:escortId')
   const escortId = params?.escortId ?? ''
@@ -56,16 +64,26 @@ export default function LiveStreamPage() {
   const [copied, setCopied] = useState(false)
   const [isLocked, setIsLocked] = useState(false)
   const [ended, setEnded] = useState(false)
-  const [jitsiLoaded, setJitsiLoaded] = useState(false)
+
+  // Camera / video state (replaces Jitsi)
+  const [cameraState, setCameraState] = useState<'idle'|'loading'|'active'|'denied'|'error'>('idle')
+  const [micMuted, setMicMuted] = useState(false)
+  const [camOff, setCamOff] = useState(false)
+  const [videoReady, setVideoReady] = useState(false) // viewer: stream started playing
+
   const chatRef = useRef<HTMLDivElement>(null)
-  const jitsiRef = useRef<HTMLDivElement>(null)
-  const jitsiApiRef = useRef<any>(null)
+  const localVideoRef  = useRef<HTMLVideoElement | null>(null)
+  const remoteVideoRef = useRef<HTMLVideoElement | null>(null)
+  const localStreamRef    = useRef<MediaStream | null>(null)
+  const mediaRecorderRef   = useRef<MediaRecorder | null>(null)
+  const sourceBufferRef    = useRef<SourceBuffer | null>(null)
+  const mediaSourceRef     = useRef<MediaSource | null>(null)
+  const mediaSourceUrlRef  = useRef<string | null>(null)
+  const videoQueueRef      = useRef<ArrayBuffer[]>([])
+  const videoSseRef        = useRef<EventSource | null>(null)
   const token = (typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null) ?? ''
 
-  useSEO({
-    title: session ? `${session.name} Live — Wet3Camp` : 'Live Stream',
-    noIndex: true,
-  })
+  useSEO({ title: session ? `${session.name} Live — Wet3Camp` : 'Live Stream', noIndex: true })
 
   // Load session info
   useEffect(() => {
@@ -86,46 +104,165 @@ export default function LiveStreamPage() {
       .catch(e => { setError(e.message); setLoading(false) })
   }, [escortId])
 
-  // Load Jitsi once session is ready
+  // ── Broadcaster: start camera when session is ready ───────────────────────
   useEffect(() => {
-    if (!session?.jitsiRoom || !jitsiRef.current) return
-    const script = document.createElement('script')
-    script.src = 'https://meet.jit.si/external_api.js'
-    script.onload = () => {
-      if (!(window as any).JitsiMeetExternalAPI || !jitsiRef.current) return
-      const api = new (window as any).JitsiMeetExternalAPI('meet.jit.si', {
-        roomName: session.jitsiRoom,
-        parentNode: jitsiRef.current,
-        width: '100%',
-        height: '100%',
-        userInfo: { displayName: user?.name ?? 'Viewer' },
-        configOverwrite: {
-          startWithAudioMuted: !isBroadcaster,
-          startWithVideoMuted: !isBroadcaster,
-          disableDeepLinking: true,
-          prejoinPageEnabled: false,
-          startAudioOnly: false,
-          toolbarButtons: isBroadcaster
-            ? ['microphone','camera','desktop','hangup','fullscreen','settings','tileview']
-            : ['fullscreen','tileview'],
-        },
-        interfaceConfigOverwrite: {
-          TOOLBAR_ALWAYS_VISIBLE: true,
-          SHOW_JITSI_WATERMARK: false,
-          SHOW_BRAND_WATERMARK: false,
-          SHOW_CHROME_EXTENSION_BANNER: false,
-          DEFAULT_BACKGROUND: '#0a0000',
-          DISABLE_JOIN_LEAVE_NOTIFICATIONS: true,
-        },
-      })
-      jitsiApiRef.current = api
-      setJitsiLoaded(true)
+    if (!session || !isBroadcaster) return
+    startCamera()
+    return () => {
+      localStreamRef.current?.getTracks().forEach(t => t.stop())
+      try { mediaRecorderRef.current?.stop() } catch {}
     }
-    document.head.appendChild(script)
-    return () => { try { jitsiApiRef.current?.dispose() } catch {} }
-  }, [session?.jitsiRoom, isBroadcaster, user?.username])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.escortId, isBroadcaster])
 
-  // SSE for real-time events
+  // ── Viewer: start MediaSource video player when session is ready ──────────
+  useEffect(() => {
+    if (!session || isBroadcaster) return
+    if (!('MediaSource' in window)) return
+    startVideoPlayer()
+    return () => {
+      videoSseRef.current?.close()
+      videoSseRef.current = null
+      videoQueueRef.current = []
+      if (sourceBufferRef.current) {
+        try { sourceBufferRef.current.removeEventListener('updateend', processVideoQueue) } catch {}
+        sourceBufferRef.current = null
+      }
+      if (mediaSourceUrlRef.current) {
+        URL.revokeObjectURL(mediaSourceUrlRef.current)
+        mediaSourceUrlRef.current = null
+      }
+      mediaSourceRef.current = null
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.escortId, isBroadcaster])
+
+  async function startCamera() {
+    setCameraState('loading')
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 720 }, height: { ideal: 480 }, frameRate: { ideal: 24 }, facingMode: 'user' },
+        audio: true,
+      })
+      localStreamRef.current = stream
+      if (localVideoRef.current) { localVideoRef.current.srcObject = stream }
+      setCameraState('active')
+
+      // Choose best supported codec
+      const mimeType = [
+        'video/webm;codecs=vp8,opus',
+        'video/webm;codecs=h264,opus',
+        'video/webm',
+        'video/mp4',
+      ].find(t => MediaRecorder.isTypeSupported(t)) || ''
+
+      const mr = new MediaRecorder(stream, {
+        ...(mimeType ? { mimeType } : {}),
+        videoBitsPerSecond: 600_000,
+      })
+      mediaRecorderRef.current = mr
+      let isFirst = true
+
+      mr.ondataavailable = async (e) => {
+        if (!e.data.size) return
+        const ab = await e.data.arrayBuffer()
+        const actualMime = mr.mimeType || mimeType || 'video/webm'
+        fetch(`/api/live/${escortId}/stream`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/octet-stream',
+            Authorization: `Bearer ${token}`,
+            'X-Mime-Type': actualMime,
+            'X-Is-Init': isFirst ? 'true' : 'false',
+          },
+          body: ab,
+        }).catch(() => {})
+        isFirst = false
+      }
+
+      mr.start(2000) // 2-second chunks
+    } catch (e: any) {
+      setCameraState(e?.name === 'NotAllowedError' ? 'denied' : 'error')
+    }
+  }
+
+  function tearDownVideoPlayer() {
+    videoSseRef.current?.close()
+    videoSseRef.current = null
+    videoQueueRef.current = []
+    if (sourceBufferRef.current) {
+      try { sourceBufferRef.current.removeEventListener('updateend', processVideoQueue) } catch {}
+      sourceBufferRef.current = null
+    }
+    if (mediaSourceUrlRef.current) {
+      URL.revokeObjectURL(mediaSourceUrlRef.current)
+      mediaSourceUrlRef.current = null
+    }
+    if (remoteVideoRef.current) remoteVideoRef.current.src = ''
+    mediaSourceRef.current = null
+  }
+
+  function startVideoPlayer() {
+    tearDownVideoPlayer() // clean any prior state
+
+    const ms = new MediaSource()
+    mediaSourceRef.current = ms
+    const objectUrl = URL.createObjectURL(ms)
+    mediaSourceUrlRef.current = objectUrl
+    if (remoteVideoRef.current) {
+      remoteVideoRef.current.src = objectUrl
+    }
+
+    const onSourceOpen = () => {
+      const es = new EventSource(`/api/live/${escortId}/video?token=${encodeURIComponent(token)}`)
+      videoSseRef.current = es
+
+      es.onmessage = (e) => {
+        if (e.data === ': ping') return  // keepalive comment
+        try {
+          const { b64, mimeType, isInit } = JSON.parse(e.data)
+          const ab = b64toAb(b64)
+
+          if (isInit) {
+            if (sourceBufferRef.current) {
+              // Broadcaster restarted — tear down and re-initialise the player
+              es.close()
+              startVideoPlayer()
+              return
+            }
+            try {
+              const sb = ms.addSourceBuffer(mimeType)
+              sourceBufferRef.current = sb
+              sb.mode = 'sequence'
+              sb.addEventListener('updateend', processVideoQueue)
+              sb.appendBuffer(ab)
+              setVideoReady(true)
+            } catch {}
+            return
+          }
+
+          videoQueueRef.current.push(ab)
+          processVideoQueue()
+        } catch {}
+      }
+
+      es.onerror = () => {}
+    }
+
+    if (ms.readyState === 'open') {
+      onSourceOpen()
+    } else {
+      ms.addEventListener('sourceopen', onSourceOpen, { once: true })
+    }
+  }
+
+  function processVideoQueue() {
+    const sb = sourceBufferRef.current
+    if (!sb || sb.updating || !videoQueueRef.current.length) return
+    try { sb.appendBuffer(videoQueueRef.current.shift()!) } catch {}
+  }
+
+  // ── SSE for real-time chat/viewer/events ──────────────────────────────────
   useEffect(() => {
     if (!escortId || loading || error) return
     const url = `/api/live/${escortId}/events?token=${encodeURIComponent(token)}`
@@ -137,10 +274,10 @@ export default function LiveStreamPage() {
           setViewerCount(data.viewerCount ?? 0)
           setMessages(data.recentMessages ?? [])
           if (data.isLocked !== undefined) setIsLocked(data.isLocked)
-        } else if (data.type === 'chat' || data.type === 'reaction' || data.type === 'gift' || data.type === 'system' || data.type === 'join' || data.type === 'leave') {
+        } else if (['chat','reaction','gift','system','join','leave'].includes(data.type)) {
           const msg: ChatMsg = data.message
           setMessages(prev => [...prev.slice(-199), msg])
-          if (['reaction', 'gift'].includes(msg.type)) {
+          if (['reaction','gift'].includes(msg.type)) {
             const emoji = msg.emoji ?? msg.giftEmoji ?? '❤️'
             spawnFloat(emoji)
           }
@@ -187,25 +324,27 @@ export default function LiveStreamPage() {
 
   const sendReaction = useCallback(async (emoji: string) => {
     spawnFloat(emoji)
-    await fetch(`/api/live/${escortId}/react`, {
+    fetch(`/api/live/${escortId}/react`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ emoji }),
-    })
+    }).catch(() => {})
   }, [escortId, token])
 
   const sendGift = useCallback(async (giftId: string, giftEmoji: string) => {
     spawnFloat(giftEmoji)
     setShowGifts(false)
-    await fetch(`/api/live/${escortId}/gift`, {
+    fetch(`/api/live/${escortId}/gift`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ giftId }),
-    })
+    }).catch(() => {})
   }, [escortId, token])
 
   const endStream = useCallback(async () => {
     if (!confirm('End your live stream?')) return
+    localStreamRef.current?.getTracks().forEach(t => t.stop())
+    try { mediaRecorderRef.current?.stop() } catch {}
     await fetch(`/api/live/${escortId}/end`, {
       method: 'POST', headers: { Authorization: `Bearer ${token}` },
     })
@@ -220,12 +359,22 @@ export default function LiveStreamPage() {
   }, [escortId])
 
   const pinMsg = useCallback(async (msgId: string) => {
-    await fetch(`/api/live/${escortId}/pin`, {
+    fetch(`/api/live/${escortId}/pin`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ messageId: msgId }),
-    })
+    }).catch(() => {})
   }, [escortId, token])
+
+  const toggleMic = () => {
+    localStreamRef.current?.getAudioTracks().forEach(t => { t.enabled = micMuted })
+    setMicMuted(m => !m)
+  }
+
+  const toggleCam = () => {
+    localStreamRef.current?.getVideoTracks().forEach(t => { t.enabled = camOff })
+    setCamOff(c => !c)
+  }
 
   function msgColor(type: ChatMsg['type']) {
     if (type === 'system') return 'text-[#FFD700]'
@@ -295,47 +444,149 @@ export default function LiveStreamPage() {
           </div>
         </div>
 
-        {/* Jitsi embed */}
-        <div ref={jitsiRef} className="flex-1 bg-black" style={{ minHeight: 0 }}>
-          {!jitsiLoaded && (
-            <div className="flex items-center justify-center h-full">
-              <div className="flex flex-col items-center gap-3">
-                <div className="w-8 h-8 rounded-full border-2 border-[#E91E63] border-t-transparent animate-spin" />
-                <p className="text-xs text-white/50">Loading video…</p>
+        {/* ── Video area ── */}
+        <div className="flex-1 relative bg-black min-h-0">
+
+          {/* BROADCASTER: local camera preview */}
+          {isBroadcaster && (
+            <>
+              <video
+                ref={localVideoRef}
+                muted
+                autoPlay
+                playsInline
+                className={`w-full h-full object-cover ${camOff ? 'opacity-0' : 'opacity-100'} transition-opacity`}
+              />
+              {/* Camera off overlay */}
+              {camOff && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#0a0000]">
+                  <CameraOff size={48} className="text-white/20 mb-3" />
+                  <p className="text-sm text-white/40">Camera off</p>
+                </div>
+              )}
+              {/* Camera loading/error states */}
+              {cameraState === 'loading' && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80">
+                  <div className="w-10 h-10 rounded-full border-2 border-[#E91E63] border-t-transparent animate-spin mb-3" />
+                  <p className="text-sm text-white/60">Starting camera…</p>
+                </div>
+              )}
+              {cameraState === 'denied' && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#0a0000] p-8 text-center">
+                  <CameraOff size={48} className="text-[#E91E63]/60 mb-4" />
+                  <p className="text-base font-bold text-white mb-2">Camera access denied</p>
+                  <p className="text-sm text-white/50 mb-4">Allow camera access in your browser settings, then refresh the page.</p>
+                  <button onClick={startCamera} className="px-4 py-2 bg-[#E91E63] text-white text-sm font-bold rounded-xl">Try Again</button>
+                </div>
+              )}
+              {cameraState === 'error' && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#0a0000] p-8 text-center">
+                  <CameraOff size={48} className="text-red-400/60 mb-4" />
+                  <p className="text-base font-bold text-white mb-2">Camera error</p>
+                  <p className="text-sm text-white/50 mb-4">Could not access your camera. Check your device settings.</p>
+                  <button onClick={startCamera} className="px-4 py-2 bg-[#E91E63] text-white text-sm font-bold rounded-xl">Retry</button>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* VIEWER: remote stream */}
+          {!isBroadcaster && (
+            <>
+              <video
+                ref={remoteVideoRef}
+                autoPlay
+                playsInline
+                className="w-full h-full object-cover"
+                onPlay={() => setVideoReady(true)}
+              />
+              {/* Waiting for stream */}
+              {!videoReady && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 gap-4">
+                  <div className="w-10 h-10 rounded-full border-2 border-[#E91E63] border-t-transparent animate-spin" />
+                  <div className="text-center">
+                    <p className="text-sm text-white/70 font-semibold mb-1">Connecting to live stream…</p>
+                    <p className="text-xs text-white/40">Stream will start playing shortly</p>
+                  </div>
+                  {session?.image && (
+                    <img src={session.image} alt={session.name} className="w-20 h-20 rounded-full object-cover border-4 border-[#E91E63]/40" />
+                  )}
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Floating reactions */}
+          <div className="absolute inset-0 pointer-events-none overflow-hidden z-20">
+            {floatEmojis.map(f => (
+              <div
+                key={f.id}
+                className="absolute bottom-20 text-2xl"
+                style={{ left: `${f.x}%`, animation: 'floatUp 3s ease-out forwards' }}
+              >
+                {f.emoji}
               </div>
+            ))}
+          </div>
+
+          {/* Pinned message */}
+          {pinnedMsg && (
+            <div className="absolute top-2 left-3 right-3 bg-black/70 backdrop-blur-sm border border-[#FFD700]/30 rounded-xl px-3 py-2 flex items-start gap-2 z-10">
+              <Pin size={12} className="text-[#FFD700] flex-shrink-0 mt-0.5" />
+              <p className="text-[11px] text-white flex-1">{pinnedMsg.text}</p>
+              {isBroadcaster && (
+                <button onClick={() => setPinnedMsg(null)} className="text-white/50 hover:text-white">
+                  <X size={12} />
+                </button>
+              )}
             </div>
           )}
         </div>
 
-        {/* Floating reactions */}
-        <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          {floatEmojis.map(f => (
-            <div
-              key={f.id}
-              className="absolute bottom-20 text-2xl animate-bounce"
-              style={{ left: `${f.x}%`, animation: 'floatUp 3s ease-out forwards' }}
-            >
-              {f.emoji}
+        {/* ── Controls bar ── */}
+        {isBroadcaster ? (
+          /* Broadcaster controls */
+          <div className="flex items-center gap-3 px-4 py-3 bg-black/60 backdrop-blur-sm flex-shrink-0">
+            <div className="flex items-center gap-1 text-[10px] text-white/60">
+              <Users size={12} />
+              <span>{viewerCount} watching</span>
             </div>
-          ))}
-        </div>
 
-        {/* Pinned message */}
-        {pinnedMsg && (
-          <div className="absolute top-14 left-3 right-3 bg-black/70 backdrop-blur-sm border border-[#FFD700]/30 rounded-xl px-3 py-2 flex items-start gap-2 z-10">
-            <Pin size={12} className="text-[#FFD700] flex-shrink-0 mt-0.5" />
-            <p className="text-[11px] text-white flex-1">{pinnedMsg.text}</p>
-            {isBroadcaster && (
-              <button onClick={() => setPinnedMsg(null)} className="text-white/50 hover:text-white">
-                <X size={12} />
-              </button>
-            )}
+            <button
+              onClick={toggleMic}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold transition-colors ${micMuted ? 'bg-red-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}
+            >
+              {micMuted ? <MicOff size={12} /> : <Mic size={12} />}
+              {micMuted ? 'Muted' : 'Mic'}
+            </button>
+
+            <button
+              onClick={toggleCam}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold transition-colors ${camOff ? 'bg-red-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}
+            >
+              {camOff ? <VideoOff size={12} /> : <Video size={12} />}
+              {camOff ? 'Cam Off' : 'Camera'}
+            </button>
+
+            <button
+              onClick={async () => {
+                const locked = !isLocked
+                setIsLocked(locked)
+                fetch(`/api/live/${escortId}/lock`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                  body: JSON.stringify({ locked, tier: locked ? 'premium' : null }),
+                }).catch(() => {})
+              }}
+              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[11px] font-semibold transition-colors ${isLocked ? 'bg-[#FFD700]/20 text-[#FFD700]' : 'bg-white/10 text-white/60 hover:text-white'}`}
+            >
+              {isLocked ? <Lock size={11} /> : <Unlock size={11} />}
+              {isLocked ? 'Locked' : 'Lock Stream'}
+            </button>
           </div>
-        )}
-
-        {/* Quick action bar (viewers) */}
-        {!isBroadcaster && (
-          <div className="flex items-center gap-2 px-3 py-2 bg-black/50 backdrop-blur-sm flex-shrink-0">
+        ) : (
+          /* Viewer controls */
+          <div className="flex items-center gap-2 px-3 py-2.5 bg-black/50 backdrop-blur-sm flex-shrink-0">
             <div className="flex gap-1.5 flex-1">
               {REACTIONS.slice(0, 5).map(e => (
                 <button key={e} onClick={() => sendReaction(e)} className="text-lg hover:scale-125 transition-transform active:scale-90">
@@ -347,37 +598,12 @@ export default function LiveStreamPage() {
               <Gift size={12} className="text-white" />
               <span className="text-[11px] font-bold text-white">Gift</span>
             </button>
-            {session?.id && (
+            {session?.escortId && (
               <Link href={`/@${getSlug(session.name)}`} className="flex items-center gap-1 bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-full transition-colors">
                 <UserPlus size={12} className="text-white" />
                 <span className="text-[11px] text-white">Follow</span>
               </Link>
             )}
-          </div>
-        )}
-
-        {/* Broadcaster controls */}
-        {isBroadcaster && (
-          <div className="flex items-center gap-2 px-3 py-2 bg-black/60 backdrop-blur-sm flex-shrink-0">
-            <div className="flex items-center gap-1 text-[10px] text-white/60">
-              <Users size={12} />
-              <span>{viewerCount} watching</span>
-            </div>
-            <button
-              onClick={async () => {
-                const locked = !isLocked
-                setIsLocked(locked)
-                await fetch(`/api/live/${escortId}/lock`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                  body: JSON.stringify({ locked, tier: locked ? 'premium' : null }),
-                })
-              }}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-medium transition-colors ${isLocked ? 'bg-[#FFD700]/20 text-[#FFD700]' : 'bg-white/10 text-white/60 hover:text-white'}`}
-            >
-              {isLocked ? <Lock size={11} /> : <Unlock size={11} />}
-              {isLocked ? 'Locked' : 'Lock Stream'}
-            </button>
           </div>
         )}
 
