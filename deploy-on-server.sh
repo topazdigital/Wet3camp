@@ -140,10 +140,11 @@ echo "    Uploads dir: $UPLOADS_REAL (served via Node.js mod_proxy)"
 
 # Write .htaccess
 # Strategy:
-#   1. Serve existing frontend static files/dirs directly (JS/CSS/images from Vite build)
-#   2. Proxy ALL /api/* requests to Node.js on port 8080
-#      — this includes /api/uploads/* images served by express.static
-#   3. SPA fallback for all other routes
+#   1. Serve real static files/dirs directly (JS/CSS/images from Vite build)
+#   2a. Proxy /api/* and known server routes to Node.js
+#   2b. Proxy social-media bot/crawler requests to Node.js for dynamic OG meta tags
+#       — bots hitting / or /@slug will get the OG middleware response with real photos
+#   3. SPA fallback for all remaining routes (regular browser users)
 cat > "$WEB_ROOT/.htaccess" << 'HTACCESS'
 Options -Indexes
 
@@ -191,19 +192,24 @@ Options -Indexes
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]
 
-  # Step 2: Proxy /api/* and sitemap routes to Node.js on port 8080
-  # This includes /api/uploads/* — express.static in the API serves the image files
+  # Step 2a: Proxy /api/* and known server routes to Node.js on port 8080
   RewriteCond %{REQUEST_URI} ^/api [NC,OR]
   RewriteCond %{REQUEST_URI} ^/sitemap [NC,OR]
   RewriteCond %{REQUEST_URI} ^/google [NC]
   RewriteRule ^ http://localhost:8080%{REQUEST_URI} [P,L,QSA]
 
-  # Step 3: SPA fallback — all other routes serve index.html
+  # Step 2b: Proxy social-media bot/crawler requests to Node.js
+  # This allows the OG Preview middleware to return escort-specific og:image, og:title,
+  # og:description for WhatsApp, Telegram, Facebook, Google etc. link previews.
+  RewriteCond %{HTTP_USER_AGENT} "(facebookexternalhit|facebot|WhatsApp|TelegramBot|LinkedInBot|Twitterbot|Slackbot|Discordbot|Applebot|Googlebot|Bingbot|YandexBot|DuckDuckBot|ia_archiver|SemrushBot|AhrefsBot)" [NC]
+  RewriteRule ^ http://localhost:8080%{REQUEST_URI} [P,L,QSA]
+
+  # Step 3: SPA fallback — all other routes serve index.html for regular browser users
   RewriteRule ^ index.html [L]
 </IfModule>
 HTACCESS
 
-echo "    .htaccess written (frontend static files direct, all /api/* via proxy, SPA fallback)."
+echo "    .htaccess written (static direct, /api/* + bot UA proxied to Node.js, SPA fallback)."
 
 # ALSO copy frontend to api-server/public so Express can serve it as a fallback
 # if the Apache mod_rewrite [P] proxy doesn't work on this server
