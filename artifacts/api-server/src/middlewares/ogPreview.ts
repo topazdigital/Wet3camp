@@ -17,10 +17,22 @@ const SITE_NAME = 'Wet3 Camp'
 
 // ── Image proxy helper (wraps external images so bots get real photos) ────────
 function ogImage(raw: string | null | undefined): string {
-  if (!raw) return DEFAULT_IMAGE
-  if (raw.startsWith('/api/uploads/') || raw.startsWith('/uploads/')) return `${SITE_URL}${raw}`
-  if (raw.startsWith('http')) return `${SITE_URL}/api/image-proxy?url=${encodeURIComponent(raw)}`
-  if (raw.startsWith('/')) return `${SITE_URL}${raw}`
+  if (!raw || !raw.trim()) return DEFAULT_IMAGE
+  const s = raw.trim()
+  // Already a full same-domain URL — serve directly, no proxy loop
+  if (s.startsWith(SITE_URL)) return s
+  // Relative upload paths
+  if (s.startsWith('/api/uploads/')) return `${SITE_URL}${s}`
+  // /uploads/ without /api prefix (old format)
+  if (s.startsWith('/uploads/')) return `${SITE_URL}/api${s}`
+  // External URL — proxy through our image proxy so bots can fetch it
+  if (s.startsWith('http://') || s.startsWith('https://')) {
+    return `${SITE_URL}/api/image-proxy?url=${encodeURIComponent(s)}`
+  }
+  // Bare filename (e.g. "photo.jpg" or "scraped_xxx.jpg") — assume uploads dir
+  if (/\.(jpe?g|png|webp|gif|avif)$/i.test(s)) return `${SITE_URL}/api/uploads/${s}`
+  // Any other absolute path
+  if (s.startsWith('/')) return `${SITE_URL}${s}`
   return DEFAULT_IMAGE
 }
 
@@ -86,25 +98,41 @@ async function findEscortBySlug(slug: string): Promise<any | null> {
   const pool = getPool()
   if (!pool) return null
   try {
+    let rows: any[]
+
     // Numeric ID → direct lookup
     if (/^\d+$/.test(slug)) {
-      const [rows] = await pool.query<any[]>(
-        'SELECT id, name, age, city, area, tier, bio, image FROM escorts WHERE id = ? AND is_active = 1 LIMIT 1',
+      const [r] = await pool.query<any[]>(
+        `SELECT e.id, e.name, e.age, e.city, e.area, e.tier, e.bio,
+                COALESCE(NULLIF(e.image,''), eg.image_url) AS image
+         FROM escorts e
+         LEFT JOIN escort_gallery eg ON eg.escort_id = e.id
+         WHERE e.id = ? AND e.is_active = 1
+         ORDER BY eg.sort_order ASC
+         LIMIT 1`,
         [slug],
       )
-      return Array.isArray(rows) && rows.length > 0 ? rows[0] : null
+      rows = Array.isArray(r) ? r : []
+    } else {
+      // Slug → match by name slug (fix: wrap OR in parens so AND applies to both branches)
+      const [r] = await pool.query<any[]>(
+        `SELECT e.id, e.name, e.age, e.city, e.area, e.tier, e.bio,
+                COALESCE(NULLIF(e.image,''), eg.image_url) AS image
+         FROM escorts e
+         LEFT JOIN escort_gallery eg ON eg.escort_id = e.id
+         WHERE (
+           LOWER(REPLACE(REPLACE(REPLACE(e.name, ' ', '-'), '.', ''), ',', '')) = ?
+           OR LOWER(e.name) = ?
+         )
+         AND e.is_active = 1
+         ORDER BY eg.sort_order ASC
+         LIMIT 1`,
+        [slug.toLowerCase(), slug.replace(/-/g, ' ').toLowerCase()],
+      )
+      rows = Array.isArray(r) ? r : []
     }
-    // Slug → match by converting name to slug (lowercase, hyphens)
-    // MySQL: LOWER(REPLACE(REPLACE(name, ' ', '-'), '.', ''))
-    const [rows] = await pool.query<any[]>(
-      `SELECT id, name, age, city, area, tier, bio, image FROM escorts
-       WHERE LOWER(REPLACE(REPLACE(name, ' ', '-'), '.', '')) = ?
-          OR LOWER(name) = ?
-       AND is_active = 1
-       LIMIT 1`,
-      [slug.toLowerCase(), slug.replace(/-/g, ' ').toLowerCase()],
-    )
-    return Array.isArray(rows) && rows.length > 0 ? rows[0] : null
+
+    return rows.length > 0 ? rows[0] : null
   } catch {
     return null
   }
@@ -341,28 +369,34 @@ export function ogPreviewMiddleware(req: Request, res: Response, next: NextFunct
     const pool = getPool()
     if (pool) {
       pool.query<any[]>(
-        `SELECT name, city, tier, image FROM escorts
-         WHERE is_active = 1 AND image IS NOT NULL AND image != ''
-         ORDER BY id DESC LIMIT 3`
+        `SELECT e.name, e.city, e.tier,
+                COALESCE(NULLIF(e.image,''), eg.image_url) AS image
+         FROM escorts e
+         LEFT JOIN escort_gallery eg ON eg.escort_id = e.id
+         WHERE e.is_active = 1
+         ORDER BY e.id DESC, eg.sort_order ASC
+         LIMIT 5`
       )
         .then(([rows]) => {
           const featured = Array.isArray(rows) ? rows : []
-          const pick = featured[0]
+          // Pick first escort that has any image
+          const pick = featured.find((r: any) => r.image && r.image.trim()) ?? featured[0]
           const homeMeta = PAGE_OG['/']!
           res.setHeader('Content-Type', 'text/html; charset=utf-8')
-          res.setHeader('Cache-Control', 'public, max-age=120, stale-while-revalidate=300')
+          res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=120')
           res.send(buildHtml({
             title: homeMeta.title,
             description: pick
               ? `Meet ${pick.name} and 1,200+ verified escorts in ${pick.city} and across Kenya. Browse free on Wet3Camp.`
               : homeMeta.description,
-            image: pick ? ogImage(pick.image) : DEFAULT_IMAGE,
+            image: pick?.image ? ogImage(pick.image) : DEFAULT_IMAGE,
             url: fullUrl,
           }))
         })
         .catch(() => {
           const def = PAGE_OG['/']!
           res.setHeader('Content-Type', 'text/html; charset=utf-8')
+          res.setHeader('Cache-Control', 'public, max-age=60')
           res.send(buildHtml({ title: def.title, description: def.description, image: DEFAULT_IMAGE, url: fullUrl }))
         })
       return
