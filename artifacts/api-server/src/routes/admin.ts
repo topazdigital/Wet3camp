@@ -395,9 +395,81 @@ router.get('/admin/escorts/:id', requireAuth, requireAdmin, async (req: AuthRequ
     if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
     const [[escort]] = await pool.query<any[]>('SELECT * FROM escorts WHERE id = ?', [req.params!.id])
     if (!escort) { res.status(404).json({ message: 'Escort not found' }); return }
-    res.json({ ...escort, id: String(escort.id) })
+    const [gallery] = await pool.query<any[]>(
+      'SELECT id, image_url, sort_order FROM escort_gallery WHERE escort_id = ? ORDER BY sort_order ASC, id ASC',
+      [req.params!.id]
+    ).catch(() => [[]])
+    res.json({ ...escort, id: String(escort.id), gallery: Array.isArray(gallery) ? gallery : [] })
   } catch (err: any) {
     res.status(500).json({ message: 'Failed to fetch escort', detail: err?.message ?? '' })
+  }
+})
+
+// GET /api/admin/escorts/:id/gallery
+router.get('/admin/escorts/:id/gallery', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const pool = getPool()
+    if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
+    const [rows] = await pool.query<any[]>(
+      'SELECT id, image_url, sort_order FROM escort_gallery WHERE escort_id = ? ORDER BY sort_order ASC, id ASC',
+      [req.params!.id]
+    )
+    res.json(Array.isArray(rows) ? rows : [])
+  } catch (err: any) {
+    res.status(500).json({ message: 'Failed to fetch gallery', detail: err?.message ?? '' })
+  }
+})
+
+// POST /api/admin/escorts/:id/gallery — add a photo
+router.post('/admin/escorts/:id/gallery', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const pool = getPool()
+    if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
+    const { image_url } = req.body as { image_url?: string }
+    if (!image_url) { res.status(400).json({ message: 'image_url required' }); return }
+    await pool.query(
+      'INSERT INTO escort_gallery (escort_id, image_url, sort_order) VALUES (?, ?, 0)',
+      [req.params!.id, image_url]
+    )
+    const [rows] = await pool.query<any[]>(
+      'SELECT id, image_url, sort_order FROM escort_gallery WHERE escort_id = ? ORDER BY sort_order ASC, id ASC',
+      [req.params!.id]
+    )
+    res.json(Array.isArray(rows) ? rows : [])
+  } catch (err: any) {
+    res.status(500).json({ message: 'Failed to add gallery photo', detail: err?.message ?? '' })
+  }
+})
+
+// DELETE /api/admin/escorts/:id/gallery/:photoId
+router.delete('/admin/escorts/:id/gallery/:photoId', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const pool = getPool()
+    if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
+    await pool.query(
+      'DELETE FROM escort_gallery WHERE id = ? AND escort_id = ?',
+      [req.params!.photoId, req.params!.id]
+    )
+    res.json({ success: true })
+  } catch (err: any) {
+    res.status(500).json({ message: 'Failed to delete gallery photo', detail: err?.message ?? '' })
+  }
+})
+
+// PATCH /api/admin/escorts/:id/gallery/:photoId/set-profile — set as main profile picture
+router.patch('/admin/escorts/:id/gallery/:photoId/set-profile', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const pool = getPool()
+    if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
+    const [[photo]] = await pool.query<any[]>(
+      'SELECT image_url FROM escort_gallery WHERE id = ? AND escort_id = ?',
+      [req.params!.photoId, req.params!.id]
+    )
+    if (!photo) { res.status(404).json({ message: 'Photo not found' }); return }
+    await pool.query('UPDATE escorts SET image = ? WHERE id = ?', [photo.image_url, req.params!.id])
+    res.json({ success: true, image: photo.image_url })
+  } catch (err: any) {
+    res.status(500).json({ message: 'Failed to set profile photo', detail: err?.message ?? '' })
   }
 })
 
