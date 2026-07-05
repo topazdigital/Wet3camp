@@ -186,25 +186,24 @@ Options -Indexes
   RewriteEngine On
   RewriteBase /
 
-  # Step 1: Serve real frontend static files/dirs directly (JS/CSS/images from Vite build)
-  # /api/uploads/* is NOT served here — those go through the proxy to Node.js below
+  # Step 1: Proxy social-media bots to Node.js FIRST (before static file check)
+  # Must be first so that / (a directory) is also proxied, not served as index.html.
+  # The OG Preview middleware handles the request and calls next() for non-HTML paths.
+  RewriteCond %{HTTP_USER_AGENT} "(facebookexternalhit|facebot|WhatsApp|TelegramBot|LinkedInBot|Twitterbot|Slackbot|Discordbot|Applebot|Googlebot|Bingbot|YandexBot|DuckDuckBot|ia_archiver|SemrushBot|AhrefsBot)" [NC]
+  RewriteRule ^ http://localhost:8080%{REQUEST_URI} [P,L,QSA]
+
+  # Step 2: Serve real frontend static files/dirs directly for regular browser users
   RewriteCond %{REQUEST_FILENAME} -f [OR]
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]
 
-  # Step 2a: Proxy /api/* and known server routes to Node.js on port 8080
+  # Step 3: Proxy /api/* and known server routes to Node.js on port 8080
   RewriteCond %{REQUEST_URI} ^/api [NC,OR]
   RewriteCond %{REQUEST_URI} ^/sitemap [NC,OR]
   RewriteCond %{REQUEST_URI} ^/google [NC]
   RewriteRule ^ http://localhost:8080%{REQUEST_URI} [P,L,QSA]
 
-  # Step 2b: Proxy social-media bot/crawler requests to Node.js
-  # This allows the OG Preview middleware to return escort-specific og:image, og:title,
-  # og:description for WhatsApp, Telegram, Facebook, Google etc. link previews.
-  RewriteCond %{HTTP_USER_AGENT} "(facebookexternalhit|facebot|WhatsApp|TelegramBot|LinkedInBot|Twitterbot|Slackbot|Discordbot|Applebot|Googlebot|Bingbot|YandexBot|DuckDuckBot|ia_archiver|SemrushBot|AhrefsBot)" [NC]
-  RewriteRule ^ http://localhost:8080%{REQUEST_URI} [P,L,QSA]
-
-  # Step 3: SPA fallback — all other routes serve index.html for regular browser users
+  # Step 4: SPA fallback — all other routes serve index.html for regular browser users
   RewriteRule ^ index.html [L]
 </IfModule>
 HTACCESS
