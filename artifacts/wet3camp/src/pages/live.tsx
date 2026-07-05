@@ -31,7 +31,7 @@ export default function LivePage() {
   const [startingLive, setStartingLive] = useState(false)
   const [liveError, setLiveError] = useState('')
 
-  const isEscort = user?.role === 'escort'
+  const isEscort = user?.role === 'escort' || user?.role === 'admin'
   const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') ?? '' : ''
 
   useEffect(() => {
