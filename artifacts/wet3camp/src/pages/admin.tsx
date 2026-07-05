@@ -485,6 +485,10 @@ function OverviewStats() {
 function PendingApprovals() {
   const [escorts, setEscorts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [reviewingEscort, setReviewingEscort] = useState<any>(null)
+  const [reviewPhotos, setReviewPhotos] = useState<{profile:string|null; gallery:any[]}>({ profile: null, gallery: [] })
+  const [reviewLoading, setReviewLoading] = useState(false)
+
   useEffect(() => {
     adminFetch('/admin/escorts?limit=200')
       .then((data: any[]) => setEscorts(data.filter(e => !Boolean(e.is_active) && !Boolean(e.verified))))
@@ -493,30 +497,99 @@ function PendingApprovals() {
   }, [])
 
   const approve = async (id: string) => {
-    try { await adminFetch(`/admin/escorts/${id}/verify`, { method: 'PATCH' }); setEscorts(p => p.filter(e => e.id !== id)) } catch {}
+    try { await adminFetch(`/admin/escorts/${id}/verify`, { method: 'PATCH' }); setEscorts(p => p.filter(e => e.id !== id)); if (reviewingEscort?.id === id) setReviewingEscort(null) } catch {}
   }
   const reject = async (id: string) => {
-    try { await adminFetch(`/admin/escorts/${id}/reject`, { method: 'PATCH' }); setEscorts(p => p.filter(e => e.id !== id)) } catch {}
+    try { await adminFetch(`/admin/escorts/${id}/reject`, { method: 'PATCH' }); setEscorts(p => p.filter(e => e.id !== id)); if (reviewingEscort?.id === id) setReviewingEscort(null) } catch {}
+  }
+
+  const openReview = async (e: any) => {
+    setReviewingEscort(e)
+    setReviewLoading(true)
+    try {
+      const data = await adminFetch(`/admin/escorts/${e.id}`)
+      setReviewPhotos({ profile: data.image ?? null, gallery: Array.isArray(data.gallery) ? data.gallery : [] })
+    } catch { setReviewPhotos({ profile: e.image ?? null, gallery: [] }) }
+    setReviewLoading(false)
   }
 
   return (
-    <div className="bg-card-bg border border-color rounded-2xl p-4">
-      <h3 className="text-sm font-bold text-text-light mb-3 flex items-center gap-2"><AlertTriangle size={14} className="text-[#FFD700]"/>Pending Approvals</h3>
-      {loading && <div className="w-4 h-4 border-2 border-text-muted/30 border-t-text-muted rounded-full animate-spin mx-auto my-4"/>}
-      {!loading && escorts.length === 0 && <p className="text-xs text-text-muted">No pending approvals.</p>}
-      <div className="space-y-2">
-        {escorts.slice(0,5).map(e=>(
-          <div key={e.id} className="flex items-center gap-3 p-3 bg-dark-bg rounded-xl border border-color/50">
-            <div className="w-8 h-8 rounded-full bg-[#8B0000]/20 flex items-center justify-center text-xs font-bold text-[#8B0000]">{(e.name||'?').charAt(0)}</div>
-            <div className="flex-1"><p className="text-xs font-semibold text-text-light">{e.name}</p><p className="text-[10px] text-text-muted">{e.city||'—'} · {e.tier||'Standard'}</p></div>
-            <div className="flex gap-1.5">
-              <button onClick={() => approve(e.id)} className="px-2.5 py-1 bg-[#28a745]/20 text-[#28a745] text-[10px] font-bold rounded-lg border border-[#28a745]/30 hover:bg-[#28a745]/30">Approve</button>
-              <button onClick={() => reject(e.id)}  className="px-2.5 py-1 bg-[#EF4444]/20 text-[#EF4444]  text-[10px] font-bold rounded-lg border border-[#EF4444]/30 hover:bg-[#EF4444]/30">Reject</button>
+    <>
+      <div className="bg-card-bg border border-color rounded-2xl p-4">
+        <h3 className="text-sm font-bold text-text-light mb-3 flex items-center gap-2"><AlertTriangle size={14} className="text-[#FFD700]"/>Pending Approvals</h3>
+        {loading && <div className="w-4 h-4 border-2 border-text-muted/30 border-t-text-muted rounded-full animate-spin mx-auto my-4"/>}
+        {!loading && escorts.length === 0 && <p className="text-xs text-text-muted">No pending approvals.</p>}
+        <div className="space-y-2">
+          {escorts.slice(0,5).map(e=>(
+            <div key={e.id} className="flex items-center gap-3 p-3 bg-dark-bg rounded-xl border border-color/50">
+              {e.image
+                ? <img src={e.image} alt={e.name} className="w-8 h-8 rounded-full object-cover flex-shrink-0"/>
+                : <div className="w-8 h-8 rounded-full bg-[#8B0000]/20 flex items-center justify-center text-xs font-bold text-[#8B0000] flex-shrink-0">{(e.name||'?').charAt(0)}</div>
+              }
+              <div className="flex-1 min-w-0"><p className="text-xs font-semibold text-text-light truncate">{e.name}</p><p className="text-[10px] text-text-muted">{e.city||'—'} · {e.tier||'Standard'}</p></div>
+              <div className="flex gap-1.5 flex-shrink-0">
+                <button onClick={() => openReview(e)} className="px-2.5 py-1 bg-[#2196F3]/20 text-[#2196F3] text-[10px] font-bold rounded-lg border border-[#2196F3]/30 hover:bg-[#2196F3]/30">Photos</button>
+                <button onClick={() => approve(e.id)} className="px-2.5 py-1 bg-[#28a745]/20 text-[#28a745] text-[10px] font-bold rounded-lg border border-[#28a745]/30 hover:bg-[#28a745]/30">Approve</button>
+                <button onClick={() => reject(e.id)}  className="px-2.5 py-1 bg-[#EF4444]/20 text-[#EF4444]  text-[10px] font-bold rounded-lg border border-[#EF4444]/30 hover:bg-[#EF4444]/30">Reject</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Photo review modal */}
+      {reviewingEscort && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" onClick={e => { if (e.target === e.currentTarget) setReviewingEscort(null) }}>
+          <div className="bg-card-bg border border-color rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-4 border-b border-color">
+              <div>
+                <h3 className="text-sm font-bold text-text-light">{reviewingEscort.name} — Photo Review</h3>
+                <p className="text-[10px] text-text-muted">{reviewingEscort.city||'—'} · {reviewingEscort.tier||'standard'} · Review before approving</p>
+              </div>
+              <button onClick={() => setReviewingEscort(null)} className="p-1.5 text-text-muted hover:text-text-light rounded-lg"><XCircle size={16}/></button>
+            </div>
+            <div className="p-4 space-y-4">
+              {reviewLoading ? (
+                <div className="flex items-center justify-center py-12 gap-2 text-text-muted">
+                  <div className="w-5 h-5 border-2 border-text-muted/30 border-t-text-muted rounded-full animate-spin"/>
+                  <span className="text-sm">Loading photos…</span>
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <p className="text-[10px] text-text-muted uppercase tracking-widest mb-2">Profile Photo</p>
+                    {reviewPhotos.profile ? (
+                      <img src={reviewPhotos.profile} alt="Profile" className="w-32 h-32 object-cover rounded-xl border border-color"/>
+                    ) : (
+                      <div className="w-32 h-32 rounded-xl border border-dashed border-color bg-dark-bg flex items-center justify-center text-text-muted">
+                        <Camera size={24}/>
+                      </div>
+                    )}
+                  </div>
+                  {reviewPhotos.gallery.length > 0 && (
+                    <div>
+                      <p className="text-[10px] text-text-muted uppercase tracking-widest mb-2">Uploaded Photos ({reviewPhotos.gallery.length})</p>
+                      <div className="grid grid-cols-3 gap-2">
+                        {reviewPhotos.gallery.map((p: any) => (
+                          <img key={p.id} src={p.image_url} alt="" className="w-full aspect-square object-cover rounded-xl border border-color"/>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {!reviewPhotos.profile && reviewPhotos.gallery.length === 0 && (
+                    <p className="text-xs text-text-muted text-center py-6">No photos uploaded yet.</p>
+                  )}
+                </>
+              )}
+            </div>
+            <div className="flex gap-3 p-4 border-t border-color">
+              <button onClick={() => reject(reviewingEscort.id)} className="flex-1 py-2.5 bg-[#EF4444]/20 text-[#EF4444] text-sm font-bold rounded-xl border border-[#EF4444]/30 hover:bg-[#EF4444]/30 transition-all">Reject</button>
+              <button onClick={() => approve(reviewingEscort.id)} className="flex-1 py-2.5 bg-[#28a745] text-white text-sm font-bold rounded-xl hover:bg-[#1e7e34] transition-all">Approve</button>
             </div>
           </div>
-        ))}
-      </div>
-    </div>
+        </div>
+      )}
+    </>
   )
 }
 
@@ -883,6 +956,11 @@ function EditEscortModal({ escort, onClose, onSaved }: { escort: AdminEscort; on
   const [error, setError] = useState('')
   const [photoUploading, setPhotoUploading] = useState(false)
   const photoRef = useRef<HTMLInputElement>(null)
+  const [gallery, setGallery] = useState<any[]>([])
+  const [galleryUploading, setGalleryUploading] = useState(false)
+  const [deletingPhoto, setDeletingPhoto] = useState<string|null>(null)
+  const [settingProfile, setSettingProfile] = useState<string|null>(null)
+  const galleryRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     adminFetch(`/admin/escorts/${escort.id}`)
@@ -904,10 +982,64 @@ function EditEscortModal({ escort, onClose, onSaved }: { escort: AdminEscort; on
           price_video: data.price_video ? String(data.price_video) : '',
           image: data.image ?? '',
         })
+        setGallery(Array.isArray(data.gallery) ? data.gallery : [])
       })
       .catch(() => setError('Could not load escort details.'))
       .finally(() => setLoading(false))
   }, [escort.id])
+
+  const handleGalleryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; if (!file) return
+    setGalleryUploading(true)
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onerror = reject
+        reader.onload = () => {
+          const img = new Image()
+          img.onerror = reject
+          img.onload = () => {
+            const scale = Math.min(1, 1200 / Math.max(img.width, img.height))
+            const canvas = document.createElement('canvas')
+            canvas.width = Math.round(img.width * scale)
+            canvas.height = Math.round(img.height * scale)
+            canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height)
+            resolve(canvas.toDataURL('image/jpeg', 0.85))
+          }
+          img.src = reader.result as string
+        }
+        reader.readAsDataURL(file)
+      })
+      const uploadData = await adminFetch('/upload', { method: 'POST', body: JSON.stringify({ data: base64, filename: file.name, type: 'gallery' }) })
+      if (uploadData?.url) {
+        const updated = await adminFetch(`/admin/escorts/${escort.id}/gallery`, {
+          method: 'POST',
+          body: JSON.stringify({ image_url: uploadData.url })
+        })
+        setGallery(Array.isArray(updated) ? updated : [])
+      }
+    } catch { setError('Gallery upload failed.') }
+    setGalleryUploading(false)
+    e.target.value = ''
+  }
+
+  const deleteGalleryPhoto = async (photoId: string) => {
+    setDeletingPhoto(photoId)
+    try {
+      await adminFetch(`/admin/escorts/${escort.id}/gallery/${photoId}`, { method: 'DELETE' })
+      setGallery(g => g.filter(p => String(p.id) !== photoId))
+    } catch { setError('Failed to delete photo.') }
+    setDeletingPhoto(null)
+  }
+
+  const setAsProfilePhoto = async (photoId: string) => {
+    setSettingProfile(photoId)
+    try {
+      const data = await adminFetch(`/admin/escorts/${escort.id}/gallery/${photoId}/set-profile`, { method: 'PATCH' })
+      if (data?.image) setForm(f => ({ ...f, image: data.image }))
+    } catch { setError('Failed to set profile photo.') }
+    setSettingProfile(null)
+  }
 
   const compressImage = (file: File): Promise<string> =>
     new Promise((resolve, reject) => {
@@ -1001,6 +1133,56 @@ function EditEscortModal({ escort, onClose, onSaved }: { escort: AdminEscort; on
                   {photoUploading ? <><div className="w-3 h-3 border-2 border-text-muted/30 border-t-text-muted rounded-full animate-spin"/>Uploading…</> : <><Camera size={13}/>{form.image ? 'Change Photo' : 'Upload Photo'}</>}
                 </label>
               </div>
+            </div>
+
+            {/* Gallery Management */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-[10px] text-text-muted uppercase tracking-widest">Gallery Photos ({gallery.length})</label>
+                <label className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold cursor-pointer transition-all ${galleryUploading ? 'bg-dark-bg text-text-muted opacity-60' : 'bg-[#8B0000]/20 text-[#8B0000] hover:bg-[#8B0000]/30 border border-[#8B0000]/30'}`}>
+                  <input ref={galleryRef} type="file" accept="image/*" className="hidden" disabled={galleryUploading} onChange={handleGalleryUpload}/>
+                  {galleryUploading ? <><div className="w-2.5 h-2.5 border-2 border-[#8B0000]/30 border-t-[#8B0000] rounded-full animate-spin"/>Adding…</> : <><Plus size={10}/>Add Photo</>}
+                </label>
+              </div>
+              {gallery.length === 0 ? (
+                <div className="border border-dashed border-color rounded-xl py-6 flex items-center justify-center text-text-muted text-xs">No gallery photos yet</div>
+              ) : (
+                <div className="grid grid-cols-3 gap-2">
+                  {gallery.map(p => {
+                    const pid = String(p.id)
+                    const isCurrentProfile = p.image_url === form.image
+                    return (
+                      <div key={pid} className={`relative group rounded-xl overflow-hidden border aspect-square ${isCurrentProfile ? 'border-[#28a745]' : 'border-color'}`}>
+                        <img src={p.image_url} alt="" className="w-full h-full object-cover"/>
+                        {isCurrentProfile && (
+                          <div className="absolute top-1 left-1 bg-[#28a745] text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full">Profile</div>
+                        )}
+                        {/* Hover actions */}
+                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1.5 p-1">
+                          {!isCurrentProfile && (
+                            <button
+                              type="button"
+                              disabled={settingProfile === pid}
+                              onClick={() => setAsProfilePhoto(pid)}
+                              className="w-full py-1 bg-[#28a745] text-white text-[9px] font-bold rounded-lg hover:bg-[#1e7e34] disabled:opacity-60 transition-colors"
+                            >
+                              {settingProfile === pid ? '…' : 'Set Profile'}
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            disabled={deletingPhoto === pid}
+                            onClick={() => deleteGalleryPhoto(pid)}
+                            className="w-full py-1 bg-[#EF4444] text-white text-[9px] font-bold rounded-lg hover:bg-[#c62828] disabled:opacity-60 transition-colors"
+                          >
+                            {deletingPhoto === pid ? '…' : 'Delete'}
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-3">
