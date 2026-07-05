@@ -60,9 +60,7 @@ function buildHtml(opts: {
 <meta property="og:title" content="${t}"/>
 <meta property="og:description" content="${d}"/>
 <meta property="og:image" content="${i}"/>
-<meta property="og:image:width" content="1200"/>
-<meta property="og:image:height" content="630"/>
-<meta property="og:image:type" content="image/jpeg"/>
+<meta property="og:image:secure_url" content="${i}"/>
 <meta property="og:url" content="${u}"/>
 <meta property="og:type" content="${tp}"/>
 <meta property="og:site_name" content="${esc(SITE_NAME)}"/>
@@ -73,6 +71,7 @@ function buildHtml(opts: {
 <meta name="twitter:title" content="${t}"/>
 <meta name="twitter:description" content="${d}"/>
 <meta name="twitter:image" content="${i}"/>
+<meta name="twitter:image:src" content="${i}"/>
 <!-- Canonical -->
 <link rel="canonical" href="${u}"/>
 </head>
