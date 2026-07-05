@@ -40,30 +40,31 @@ Options -Indexes
   RewriteEngine On
   RewriteBase /
 
-  # Step 1: Serve real static files/dirs directly (JS/CSS/images)
+  # Step 1: Proxy social-media bots to Node.js FIRST (before static file check)
+  # Must come first so / (a directory) is also proxied instead of serving index.html.
+  # Node.js OG middleware handles bot requests and passes through for non-HTML paths.
+  RewriteCond %{HTTP_USER_AGENT} "(facebookexternalhit|facebot|WhatsApp|TelegramBot|LinkedInBot|Twitterbot|Slackbot|Discordbot|Applebot|Googlebot|Bingbot|YandexBot|DuckDuckBot|ia_archiver|SemrushBot|AhrefsBot)" [NC]
+  RewriteRule ^ http://localhost:8080%{REQUEST_URI} [P,L,QSA]
+
+  # Step 2: Serve real static files/dirs directly for regular browser users
   RewriteCond %{REQUEST_FILENAME} -f [OR]
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]
 
-  # Step 2a: Proxy /api/* and known server routes to Node.js
+  # Step 3: Proxy /api/* and known server routes to Node.js
   RewriteCond %{REQUEST_URI} ^/api [NC,OR]
   RewriteCond %{REQUEST_URI} ^/sitemap [NC,OR]
   RewriteCond %{REQUEST_URI} ^/google [NC]
   RewriteRule ^ http://localhost:8080%{REQUEST_URI} [P,L,QSA]
 
-  # Step 2b: Proxy social-media bots to Node.js for OG preview generation
-  # This makes WhatsApp/Telegram/Facebook show real escort photos + descriptions
-  RewriteCond %{HTTP_USER_AGENT} "(facebookexternalhit|facebot|WhatsApp|TelegramBot|LinkedInBot|Twitterbot|Slackbot|Discordbot|Applebot|Googlebot|Bingbot|YandexBot|DuckDuckBot|ia_archiver|SemrushBot|AhrefsBot)" [NC]
-  RewriteRule ^ http://localhost:8080%{REQUEST_URI} [P,L,QSA]
-
-  # Step 3: SPA fallback for regular browser users
+  # Step 4: SPA fallback for regular browser users on non-file routes
   RewriteRule ^ index.html [L]
 </IfModule>
 HTACCESS
 
 echo "✅ .htaccess updated at $WEB_ROOT"
-echo "   WhatsApp/Telegram/Facebook bots are now proxied to Node.js for OG previews."
+echo "   Bot UA check is now FIRST — homepage and all profile pages will get OG previews."
 echo ""
-echo "Test it:"
+echo "Test:"
 echo "  curl -A 'WhatsApp/2.23.20.0' https://wet3.camp/ | grep og:image"
-echo "  curl -A 'WhatsApp/2.23.20.0' 'https://wet3.camp/@betty' | grep og:image"
+echo "  curl -A 'WhatsApp/2.23.20.0' 'https://wet3.camp/@betty' | grep -E 'og:image|og:title'"
