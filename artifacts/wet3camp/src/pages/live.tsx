@@ -250,6 +250,7 @@ export default function LivePage() {
           {!loading && (
             <div className="px-5 py-6 text-center border-t border-color mt-2">
               {isEscort ? (
+                /* Logged in as escort → start stream directly */
                 <div>
                   <p className="text-xs text-text-muted mb-3">Ready to go live? Stream to thousands of clients right now.</p>
                   <button
@@ -259,11 +260,20 @@ export default function LivePage() {
                     <Radio size={14} /> Start Your Live Stream
                   </button>
                 </div>
+              ) : user ? (
+                /* Logged in but not an escort account */
+                <div>
+                  <p className="text-xs text-text-muted mb-3">Your account is a client account. To go live you need an escort profile.</p>
+                  <Link href="/register?role=escort" className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#8B0000] text-white text-sm font-bold rounded-xl hover:bg-[#a00000] transition-colors">
+                    <Radio size={14} /> Create Escort Profile
+                  </Link>
+                </div>
               ) : (
+                /* Not logged in */
                 <div>
                   <p className="text-xs text-text-muted mb-3">Are you an escort? Go live and get discovered by thousands of clients.</p>
                   <Link href="/register?role=escort" className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#E91E63] text-white text-sm font-bold rounded-xl hover:bg-[#c2185b] transition-colors">
-                    <Radio size={14} /> Start Going Live
+                    <Radio size={14} /> Join &amp; Go Live
                   </Link>
                 </div>
               )}

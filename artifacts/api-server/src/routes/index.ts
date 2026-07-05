@@ -21,9 +21,11 @@ import contentRouter       from "./content.js";
 import liveRouter          from "./live.js";
 import paymentsRouter      from "./payments.js";
 import referralRouter      from "./referral.js";
+import imageProxyRouter    from "./image-proxy.js";
 
 const router: IRouter = Router();
 
+router.use(imageProxyRouter);
 router.use(liveRouter);
 router.use(paymentsRouter);
 router.use(webrtcRouter);

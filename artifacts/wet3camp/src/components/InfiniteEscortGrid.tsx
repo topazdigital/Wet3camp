@@ -162,7 +162,7 @@ export default function InfiniteEscortGrid({
                   {escort.image ? (
                     <>
                       <img
-                        src={escort.image}
+                        src={escort.image.startsWith('http') ? `/api/image-proxy?url=${encodeURIComponent(escort.image)}` : escort.image}
                         alt={escort.name}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-400"
                         loading={idx < 12 ? 'eager' : 'lazy'}
