@@ -26,8 +26,23 @@ const CACHE = new Map<string, { buf: Buffer; ct: string; exp: number }>()
 const CACHE_TTL = 10 * 60 * 1000 // 10 minutes
 const MAX_CACHE = 200
 
+/** Sites whose CDN requires a same-domain Referer to serve real images */
+const REFERER_SPOOF: Record<string, string> = {
+  'nairobiraha.com': 'https://nairobiraha.com/',
+  'hookup254.com':   'https://hookup254.com/',
+}
+
 function isBlocked(url: string): boolean {
   return BLOCKED.some(r => r.test(url))
+}
+
+function getSpoofedReferer(url: string): string | undefined {
+  try {
+    const host = new URL(url).hostname.replace(/^www\./, '')
+    return REFERER_SPOOF[host]
+  } catch {
+    return undefined
+  }
 }
 
 router.get('/image-proxy', async (req: Request, res: Response) => {
@@ -52,6 +67,8 @@ router.get('/image-proxy', async (req: Request, res: Response) => {
     return
   }
 
+  const spoofedReferer = getSpoofedReferer(url)
+
   try {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 8000)
@@ -59,9 +76,10 @@ router.get('/image-proxy', async (req: Request, res: Response) => {
     const upstream = await fetch(url, {
       signal: controller.signal,
       headers: {
-        // No Referer — this bypasses hotlink checks
-        'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
         'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8',
+        // Spoof same-domain Referer for hotlink-protected CDNs
+        ...(spoofedReferer ? { 'Referer': spoofedReferer } : {}),
       },
       redirect: 'follow',
     })

@@ -4,6 +4,7 @@ import { requireAuth, type AuthRequest } from '../middlewares/requireAuth.js'
 import { setEscortOnline } from '../lib/online-store.js'
 import { sendEscortApprovedEmail, sendEscortRejectedEmail, sendTelegramNotification } from '../lib/mailer.js'
 import { signToken } from '../lib/jwt.js'
+import { downloadAndStoreImage } from '../lib/image-download.js'
 
 const router = Router()
 
@@ -105,6 +106,15 @@ router.post('/admin/escorts', requireAuth, requireAdmin, async (req: AuthRequest
       price_video,
     } = req.body as Record<string, any>
     if (!name?.trim() || !city) { res.status(400).json({ message: 'Name and city are required' }); return }
+
+    // Auto-download external images so we never depend on third-party CDNs
+    let finalImage = image ?? null
+    if (finalImage && finalImage.startsWith('http')) {
+      const safeName = `escort_${name.trim().replace(/\s+/g, '_').toLowerCase().slice(0, 30)}`
+      const local = await downloadAndStoreImage(finalImage, safeName)
+      if (local) finalImage = local
+    }
+
     const [result] = await pool.query<any>(
       `INSERT INTO escorts
         (name, city, area, age, tier, bio, whatsapp, telegram, gender, image,
@@ -115,7 +125,7 @@ router.post('/admin/escorts', requireAuth, requireAdmin, async (req: AuthRequest
        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,1,0,0,NOW())`,
       [
         name.trim(), city, area ?? '', age ? parseInt(age) : 0, tier ?? 'standard',
-        bio ?? null, whatsapp ?? null, telegram ?? null, gender ?? 'Female', image ?? null,
+        bio ?? null, whatsapp ?? null, telegram ?? null, gender ?? 'Female', finalImage,
         price_incall ? parseInt(price_incall) : 0,
         price_outcall ? parseInt(price_outcall) : 0,
         price_incall_overnight ? parseInt(price_incall_overnight) : 0,
@@ -131,6 +141,68 @@ router.post('/admin/escorts', requireAuth, requireAdmin, async (req: AuthRequest
   } catch (err: any) {
     console.error('[POST /admin/escorts]', err?.message ?? err)
     res.status(500).json({ message: 'Failed to create escort', detail: err?.message ?? '' })
+  }
+})
+
+/**
+ * POST /api/admin/escorts/bulk-redownload-images
+ *
+ * For all escorts whose image is still an external HTTP URL (not yet
+ * stored locally), download and permanently store it. Safe to call
+ * multiple times — skips escorts that already have a local path.
+ *
+ * Returns counts: { total, downloaded, skipped, failed }
+ */
+router.post('/admin/escorts/bulk-redownload-images', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const pool = getPool()
+    if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
+
+    const limit = Math.min(parseInt((req.body as any)?.limit ?? '500', 10), 2000)
+    const [rows] = await pool.query<any[]>(
+      `SELECT id, name, image FROM escorts WHERE image IS NOT NULL AND image LIKE 'http%' LIMIT ?`,
+      [limit]
+    )
+
+    let downloaded = 0, skipped = 0, failed = 0
+
+    for (const escort of rows) {
+      const safeName = `escort_${escort.id}_${(escort.name ?? 'img').replace(/\s+/g, '_').toLowerCase().slice(0, 20)}`
+      const local = await downloadAndStoreImage(escort.image, safeName)
+      if (local) {
+        await pool.query('UPDATE escorts SET image = ? WHERE id = ?', [local, escort.id])
+        downloaded++
+      } else {
+        failed++
+      }
+    }
+
+    // Also re-download gallery images that are still external
+    const [galleryRows] = await pool.query<any[]>(
+      `SELECT id, escort_id, image_url FROM escort_gallery WHERE image_url LIKE 'http%' LIMIT ?`,
+      [limit]
+    )
+    for (const row of galleryRows) {
+      const safeName = `gallery_${row.escort_id}_${row.id}`
+      const local = await downloadAndStoreImage(row.image_url, safeName)
+      if (local) {
+        await pool.query('UPDATE escort_gallery SET image_url = ? WHERE id = ?', [local, row.id])
+        downloaded++
+      } else {
+        failed++
+      }
+    }
+
+    res.json({
+      total: rows.length + galleryRows.length,
+      downloaded,
+      skipped,
+      failed,
+      message: `Downloaded ${downloaded} images, ${failed} failed.`,
+    })
+  } catch (err: any) {
+    console.error('[bulk-redownload-images]', err?.message ?? err)
+    res.status(500).json({ message: 'Bulk re-download failed', detail: err?.message ?? '' })
   }
 })
 
