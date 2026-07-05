@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import Header from '@/components/Header'
 import Sidebar from '@/components/Sidebar'
 import { useSEO } from '@/lib/useSEO'
+import { proxyImg } from '@/lib/proxyImg'
 import { Search, SlidersHorizontal, MapPin, Star, Check, X, Heart, MessageCircle, Crown, ChevronDown } from 'lucide-react'
 import { Link, useLocation } from 'wouter'
 import { api } from '@/lib/api'
@@ -42,7 +43,7 @@ function EliteCard({ escort, isFav, onFav }: { escort: ApiEscort; isFav: boolean
         {escort.image ? (
           <>
             <img
-              src={escort.image}
+              src={proxyImg(escort.image)}
               alt={escort.name}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
               onError={(ev) => { ev.currentTarget.style.display='none'; const fb=ev.currentTarget.parentElement?.querySelector<HTMLElement>('.img-fallback'); if(fb) fb.style.display='flex' }}
@@ -110,7 +111,7 @@ function VIPCard({ escort, isFav, onFav }: { escort: ApiEscort; isFav: boolean; 
         {escort.image ? (
           <>
             <img
-              src={escort.image}
+              src={proxyImg(escort.image)}
               alt={escort.name}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
               onError={(ev) => { ev.currentTarget.style.display='none'; const fb=ev.currentTarget.parentElement?.querySelector<HTMLElement>('.img-fallback'); if(fb) fb.style.display='flex' }}
@@ -160,7 +161,7 @@ function StandardCard({ escort, isFav, onFav }: { escort: ApiEscort; isFav: bool
         {escort.image ? (
           <>
             <img
-              src={escort.image}
+              src={proxyImg(escort.image)}
               alt={escort.name}
               className="w-full h-full object-cover"
               onError={(ev) => { ev.currentTarget.style.display='none'; const fb=ev.currentTarget.parentElement?.querySelector<HTMLElement>('.img-fallback'); if(fb) fb.style.display='flex' }}
