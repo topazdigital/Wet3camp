@@ -15,6 +15,15 @@ const SITE_URL = 'https://wet3.camp'
 const DEFAULT_IMAGE = `${SITE_URL}/opengraph.jpg`
 const SITE_NAME = 'Wet3 Camp'
 
+// ── Image proxy helper (wraps external images so bots get real photos) ────────
+function ogImage(raw: string | null | undefined): string {
+  if (!raw) return DEFAULT_IMAGE
+  if (raw.startsWith('/api/uploads/') || raw.startsWith('/uploads/')) return `${SITE_URL}${raw}`
+  if (raw.startsWith('http')) return `${SITE_URL}/api/image-proxy?url=${encodeURIComponent(raw)}`
+  if (raw.startsWith('/')) return `${SITE_URL}${raw}`
+  return DEFAULT_IMAGE
+}
+
 // ── Bot detection ─────────────────────────────────────────────────────────────
 const BOT_RE =
   /facebookexternalhit|facebot|twitterbot|whatsapp|telegrambot|linkedinbot|slackbot|discordbot|applebot|googlebot|bingbot|yandex|duckduckbot|pinterest|skypeuripreview|nuzzel|outbrain|flipboard|tumblr|vkshare|w3c_validator|baiduspider|embedly|quora|ia_archiver|semrush|ahrefs|mj12bot|rogerbot|dotbot/i
@@ -213,10 +222,7 @@ export function ogPreviewMiddleware(req: Request, res: Response, next: NextFunct
           const description = bio
             ? `${bio}${bio.length >= 150 ? '…' : ''} — Book ${escort.name} on Wet3Camp, Kenya's #1 escort directory.`
             : `Verified ${tierLabel.toLowerCase()} escort in ${escort.city}, Kenya. Book ${escort.name} on Wet3Camp.`
-          const rawImg = (escort.image as string) || ''
-          const image = rawImg
-            ? (rawImg.startsWith('http') ? rawImg : `${SITE_URL}${rawImg}`)
-            : DEFAULT_IMAGE
+          const image = ogImage((escort.image as string) || '')
 
           res.setHeader('Content-Type', 'text/html; charset=utf-8')
           res.setHeader('Cache-Control', 'public, max-age=300, stale-while-revalidate=600')
@@ -233,10 +239,40 @@ export function ogPreviewMiddleware(req: Request, res: Response, next: NextFunct
   }
 
   // ── Blog post: /blog/:slug ─────────────────────────────────────────────────
+  // Blog posts are static data (data/blog.ts). We keep a slug→meta map here
+  // so bots get the correct image and title without needing a DB round-trip.
+  const BLOG_OG: Record<string, { title: string; description: string; image: string }> = {
+    'how-to-find-verified-escorts-nairobi': {
+      title: 'How to Find Verified Escorts in Nairobi | Wet3Camp',
+      description: 'A practical guide to finding verified, safe escorts in Nairobi. Tips on checking profiles, reviews, and booking safely on Wet3Camp.',
+      image: 'https://images.unsplash.com/photo-1611348586804-61bf6c080437?w=1200&h=630&fit=crop',
+    },
+    'mombasa-escort-guide-2025': {
+      title: 'Mombasa Escort Guide 2025 | Wet3Camp',
+      description: 'Everything you need to know about finding and booking escorts in Mombasa. Top areas, rates, and tips for 2025.',
+      image: 'https://images.unsplash.com/photo-1504214208698-ea1916a2195a?w=1200&h=630&fit=crop',
+    },
+    'escort-safety-tips-kenya': {
+      title: 'Escort Safety Tips in Kenya | Wet3Camp',
+      description: 'Essential safety tips for clients and escorts in Kenya. How to stay safe, verify profiles, and have a positive experience.',
+      image: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=1200&h=630&fit=crop',
+    },
+  }
+
   const blogMatch = url.match(/^\/blog\/([^/?#]+)/)
   if (blogMatch) {
+    const bslug = blogMatch[1]
+    const staticBlog = BLOG_OG[bslug]
+    if (staticBlog) {
+      res.setHeader('Content-Type', 'text/html; charset=utf-8')
+      res.setHeader('Cache-Control', 'public, max-age=3600')
+      res.send(buildHtml({ ...staticBlog, url: fullUrl, type: 'article' }))
+      return
+    }
+
+    // Fallback: try DB (for dynamically created posts)
     const pool = getPool()
-    const fallback = () => {
+    const blogFallback = () => {
       res.setHeader('Content-Type', 'text/html; charset=utf-8')
       res.setHeader('Cache-Control', 'public, max-age=600')
       res.send(buildHtml({
@@ -247,11 +283,11 @@ export function ogPreviewMiddleware(req: Request, res: Response, next: NextFunct
         type: 'article',
       }))
     }
-
-    if (!pool) { fallback(); return }
-
-    // Try to fetch blog post from DB (if stored there)
-    pool.query<any[]>('SELECT title, excerpt, image, slug FROM blog_posts WHERE slug = ? AND published = 1 LIMIT 1', [blogMatch[1]])
+    if (!pool) { blogFallback(); return }
+    pool.query<any[]>(
+      'SELECT title, excerpt, image_url, image FROM blog_posts WHERE slug = ? AND published = 1 LIMIT 1',
+      [bslug]
+    )
       .then(([rows]) => {
         const post = Array.isArray(rows) && rows.length > 0 ? rows[0] : null
         if (post) {
@@ -260,15 +296,15 @@ export function ogPreviewMiddleware(req: Request, res: Response, next: NextFunct
           res.send(buildHtml({
             title: `${post.title} | Wet3Camp`,
             description: post.excerpt ?? 'Read more on Wet3Camp.',
-            image: post.image || DEFAULT_IMAGE,
+            image: ogImage(post.image_url || post.image),
             url: fullUrl,
             type: 'article',
           }))
         } else {
-          fallback()
+          blogFallback()
         }
       })
-      .catch(() => fallback())
+      .catch(() => blogFallback())
     return
   }
 
@@ -289,7 +325,7 @@ export function ogPreviewMiddleware(req: Request, res: Response, next: NextFunct
             description: e
               ? `Watch ${e.name} live right now on Wet3Camp. ${e.city} escort streaming live.`
               : 'An escort is streaming live right now on Wet3Camp Kenya.',
-            image: e?.image || DEFAULT_IMAGE,
+            image: ogImage(e?.image),
             url: fullUrl,
           }))
         })
@@ -299,8 +335,41 @@ export function ogPreviewMiddleware(req: Request, res: Response, next: NextFunct
   }
 
   // ── Static pages ───────────────────────────────────────────────────────────
-  // Strip trailing slash for lookup
   const pathKey = url.endsWith('/') && url !== '/' ? url.slice(0, -1) : url
+
+  // Homepage: dynamically show the latest active escort photo
+  if (pathKey === '/') {
+    const pool = getPool()
+    if (pool) {
+      pool.query<any[]>(
+        `SELECT name, city, tier, image FROM escorts
+         WHERE is_active = 1 AND image IS NOT NULL AND image != ''
+         ORDER BY id DESC LIMIT 3`
+      )
+        .then(([rows]) => {
+          const featured = Array.isArray(rows) ? rows : []
+          const pick = featured[0]
+          const homeMeta = PAGE_OG['/']!
+          res.setHeader('Content-Type', 'text/html; charset=utf-8')
+          res.setHeader('Cache-Control', 'public, max-age=120, stale-while-revalidate=300')
+          res.send(buildHtml({
+            title: homeMeta.title,
+            description: pick
+              ? `Meet ${pick.name} and 1,200+ verified escorts in ${pick.city} and across Kenya. Browse free on Wet3Camp.`
+              : homeMeta.description,
+            image: pick ? ogImage(pick.image) : DEFAULT_IMAGE,
+            url: fullUrl,
+          }))
+        })
+        .catch(() => {
+          const def = PAGE_OG['/']!
+          res.setHeader('Content-Type', 'text/html; charset=utf-8')
+          res.send(buildHtml({ title: def.title, description: def.description, image: DEFAULT_IMAGE, url: fullUrl }))
+        })
+      return
+    }
+  }
+
   const staticOg = PAGE_OG[pathKey]
   if (staticOg) {
     res.setHeader('Content-Type', 'text/html; charset=utf-8')
