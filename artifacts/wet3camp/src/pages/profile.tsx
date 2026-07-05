@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Heart, Share2, MessageCircle, MessageSquare, MapPin, Star, Check, X, CheckCircle2, ChevronLeft, Flame, Shield, Eye, Ruler, UserPlus, UserCheck, Users, Phone, Flag } from 'lucide-react'
 import Sidebar from '@/components/Sidebar'
 import Header from '@/components/Header'
+import { proxyImg } from '@/lib/proxyImg'
 import { Link, useRoute, useLocation } from 'wouter'
 import { useEscort } from '@/hooks/useEscorts'
 import { useAuth } from '@/lib/auth-context'
@@ -230,13 +231,13 @@ export default function ProfilePage() {
 
         {selectedImg && (
           <div className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center" onClick={() => setSelectedImg(null)}>
-            <img src={selectedImg} alt="Gallery" className="max-h-[90vh] max-w-[95vw] rounded-2xl object-contain shadow-2xl" />
+            <img src={proxyImg(selectedImg)} alt="Gallery" className="max-h-[90vh] max-w-[95vw] rounded-2xl object-contain shadow-2xl" />
             <button className="absolute top-5 right-5 p-2.5 bg-white/10 rounded-full text-white hover:bg-white/20 transition-colors"><X size={20} /></button>
           </div>
         )}
 
         <div className="relative w-full overflow-hidden" style={{ minHeight: '420px', maxHeight: '600px', height: '65vw' }}>
-          <img src={mainImg ?? undefined} alt="" aria-hidden="true" className="absolute inset-0 w-full h-full object-cover scale-110" style={{ filter: 'blur(28px) brightness(0.45) saturate(1.2)', transform: 'scale(1.15)' }} draggable={false} />
+          <img src={proxyImg(mainImg) ?? undefined} alt="" aria-hidden="true" className="absolute inset-0 w-full h-full object-cover scale-110" style={{ filter: 'blur(28px) brightness(0.45) saturate(1.2)', transform: 'scale(1.15)' }} draggable={false} />
           <div className="absolute inset-0 bg-gradient-to-t from-dark-bg via-dark-bg/20 to-black/40" />
           <div className="absolute inset-0 bg-gradient-to-r from-dark-bg/60 via-transparent to-dark-bg/30" />
 
@@ -244,7 +245,7 @@ export default function ProfilePage() {
             {mainImg ? (
               <>
                 <img
-                  src={mainImg}
+                  src={proxyImg(mainImg)}
                   alt={escort.name}
                   onClick={() => setSelectedImg(mainImg)}
                   className="h-full w-auto max-w-[65%] sm:max-w-[45%] lg:max-w-[35%] object-contain drop-shadow-2xl cursor-zoom-in"
@@ -269,12 +270,12 @@ export default function ProfilePage() {
             <div className="absolute bottom-14 left-0 right-0 px-4 flex gap-2 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
               {escort.gallery.slice(0, 6).map((img: string, i: number) => (
                 <button key={i} onClick={() => setMainImg(img)} className={`flex-shrink-0 w-14 h-20 sm:w-16 sm:h-24 rounded-xl overflow-hidden border-2 transition-all shadow-lg backdrop-blur-sm ${mainImg === img ? 'border-[#FFD700]/90 ring-1 ring-[#FFD700]/50' : 'border-white/20 hover:border-[#FFD700]/70'}`} style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.5)' }}>
-                  <img src={img} alt={`Gallery ${i + 1}`} className="w-full h-full object-cover" draggable={false} />
+                  <img src={proxyImg(img)} alt={`Gallery ${i + 1}`} className="w-full h-full object-cover" draggable={false} />
                 </button>
               ))}
               {escort.gallery.length > 6 && (
                 <button onClick={() => setMainImg(escort.gallery[6])} className="flex-shrink-0 w-14 h-20 sm:w-16 sm:h-24 rounded-xl overflow-hidden border-2 border-white/20 hover:border-[#FFD700]/70 transition-all shadow-lg relative">
-                  <img src={escort.gallery[6]} alt="more" className="w-full h-full object-cover opacity-40" draggable={false} />
+                  <img src={proxyImg(escort.gallery[6])} alt="more" className="w-full h-full object-cover opacity-40" draggable={false} />
                   <div className="absolute inset-0 flex items-center justify-center"><span className="text-white text-xs font-black">+{escort.gallery.length - 6}</span></div>
                 </button>
               )}
@@ -539,7 +540,7 @@ export default function ProfilePage() {
                 <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
                   {(escort.gallery ?? []).map((img: string, i: number) => (
                     <button key={i} onClick={() => setSelectedImg(img)} title="View larger" className="aspect-square rounded-xl overflow-hidden border border-color hover:border-[#8B0000]/60 transition-all group">
-                      <img src={img} alt={`Gallery ${i + 1}`} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" loading="lazy" />
+                      <img src={proxyImg(img)} alt={`Gallery ${i + 1}`} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" loading="lazy" />
                     </button>
                   ))}
                 </div>
@@ -553,7 +554,7 @@ export default function ProfilePage() {
                       <Link key={s.id} href={`/@${getSlug(s.name)}`} className="group">
                         <div className="bg-card-bg border border-color rounded-xl overflow-hidden hover:border-[#8B0000]/40 transition-all">
                           <div className="relative aspect-[3/4] overflow-hidden">
-                            <img src={s.image || '/placeholder.jpg'} alt={s.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                            <img src={proxyImg(s.image) || '/placeholder.jpg'} alt={s.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                             <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
                             <div className="absolute bottom-1.5 left-1.5 right-1.5">
                               <p className="text-white text-[9px] font-bold truncate">{s.name}</p>
