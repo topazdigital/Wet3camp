@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import Header from '@/components/Header'
 import Sidebar from '@/components/Sidebar'
+import { proxyImg } from '@/lib/proxyImg'
 import { Heart, MessageCircle, Share2, Eye, Bookmark, TrendingUp, Crown, Flame, ChevronDown, ChevronUp, Send, CornerDownRight } from 'lucide-react'
 import { Link } from 'wouter'
 import { useFollow } from '@/lib/follow-context'
@@ -187,7 +188,7 @@ function FeedPost({ escort }: { escort: any }) {
       <div className="flex items-center gap-3 px-4 pt-4 pb-3">
         <Link href={`/@${getSlug(escort.name)}`}>
           {escort.image
-            ? <img src={escort.image} alt={escort.name} className="w-10 h-10 rounded-full object-cover border-2 flex-shrink-0 cursor-pointer" style={{ borderColor: TIER_COLOR[escort.tier] ?? '#555' }} />
+            ? <img src={proxyImg(escort.image)} alt={escort.name} className="w-10 h-10 rounded-full object-cover border-2 flex-shrink-0 cursor-pointer" style={{ borderColor: TIER_COLOR[escort.tier] ?? '#555' }} />
             : <div className="w-10 h-10 rounded-full border-2 bg-gradient-to-br from-[#1a0000] to-[#2a1a1a] flex items-center justify-center text-[#8B0000]/60 text-sm font-black flex-shrink-0 cursor-pointer" style={{ borderColor: TIER_COLOR[escort.tier] ?? '#555' }}>{(escort.name || '?')[0]}</div>
           }
         </Link>
@@ -228,7 +229,7 @@ function FeedPost({ escort }: { escort: any }) {
       {/* Photo */}
       {escort.image && (
         <Link href={`/@${getSlug(escort.name)}`} className="block w-full overflow-hidden">
-          <img src={escort.image} alt={escort.name} className="w-full object-cover hover:scale-[1.01] transition-transform duration-500 cursor-pointer max-h-[500px]" />
+          <img src={proxyImg(escort.image)} alt={escort.name} className="w-full object-cover hover:scale-[1.01] transition-transform duration-500 cursor-pointer max-h-[500px]" />
         </Link>
       )}
 
@@ -430,7 +431,7 @@ export default function FeedsPage() {
                       <div key={e.id} className="flex items-center gap-2.5">
                         <Link href={`/@${getSlug(e.name)}`} className="flex-shrink-0">
                           {e.image
-                            ? <img src={e.image} alt={e.name} className="w-9 h-9 rounded-full object-cover border border-color" />
+                            ? <img src={proxyImg(e.image)} alt={e.name} className="w-9 h-9 rounded-full object-cover border border-color" />
                             : <div className="w-9 h-9 rounded-full border border-color bg-gradient-to-br from-[#1a1a1a] to-[#2a1a1a] flex items-center justify-center text-[#8B0000]/60 text-sm font-black">{(e.name || '?')[0]}</div>
                           }
                         </Link>
