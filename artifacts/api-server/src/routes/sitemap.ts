@@ -48,6 +48,11 @@ const ESCORT_SERVICES = [
   'bbw', 'milf', 'petite', 'busty', 'curvy', 'mature', 'young', 'teen-18',
 ]
 
+const CITY_PAGES = [
+  'nairobi', 'mombasa', 'kisumu', 'nakuru', 'eldoret',
+  'thika', 'machakos', 'nyeri', 'meru', 'malindi', 'diani', 'nanyuki',
+]
+
 const STATIC_PAGES = [
   { loc: '/',              changefreq: 'hourly',  priority: '1.0' },
   { loc: '/search',        changefreq: 'hourly',  priority: '0.9' },
@@ -86,6 +91,21 @@ const BLOG_SLUGS = [
   'how-to-stay-safe-booking-escorts-kenya',
   'nakuru-eldoret-escort-guide',
   'best-escort-rates-nairobi-2025',
+  // New posts
+  'nairobi-escort-rates-2025',
+  'westlands-escorts-nairobi-guide',
+  'gfe-girlfriend-experience-nairobi',
+  'incall-outcall-escorts-kenya',
+  'kisumu-escorts-guide-2025',
+  'elite-vip-escorts-nairobi-difference',
+  'massage-escorts-nairobi-guide',
+  'overnight-escorts-nairobi-guide',
+  'nakuru-eldoret-escorts-guide',
+  'how-to-spot-fake-escorts-kenya',
+  'nairobi-nightlife-escort-companion-guide',
+  'kenya-travel-escort-safari-companion',
+  'mombasa-escort-guide-2025',
+  'escort-safety-tips-kenya',
 ]
 
 function xmlEscape(s: string): string {
@@ -183,6 +203,11 @@ router.get('/sitemap-cities.xml', (_req, res) => {
 
   const lines: string[] = []
 
+  // Dedicated city landing pages — /escorts/:city (highest SEO priority)
+  for (const citySlug of CITY_PAGES) {
+    lines.push(url(`${BASE}/escorts/${citySlug}`, today, 'daily', '0.95'))
+  }
+
   // City-level pages (high value — target "escorts in Nairobi" etc)
   for (const city of CITIES) {
     lines.push(url(`${BASE}/?city=${encodeURIComponent(city)}`, today, 'daily', '0.9'))
@@ -249,13 +274,35 @@ router.get('/sitemap-services.xml', (_req, res) => {
 })
 
 // ── Blog sitemap ──────────────────────────────────────────────────────────────
-router.get('/sitemap-blog.xml', (_req, res) => {
+router.get('/sitemap-blog.xml', async (_req, res) => {
   const today = new Date().toISOString().split('T')[0]
   res.setHeader('Content-Type', 'application/xml; charset=utf-8')
-  res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=172800')
+  res.setHeader('Cache-Control', 'public, max-age=3600, stale-while-revalidate=7200')
 
-  const lines = BLOG_SLUGS.map(
-    slug => url(`${BASE}/blog/${slug}`, today, 'weekly', '0.7')
+  // Merge static slugs + all published DB posts
+  const allSlugs: { slug: string; date: string }[] = BLOG_SLUGS.map(s => ({ slug: s, date: today }))
+  const seenSlugs = new Set(BLOG_SLUGS)
+
+  const pool = getPool()
+  if (pool) {
+    try {
+      const [rows] = await pool.query<any[]>(
+        'SELECT slug, published_at FROM blog_posts WHERE published = 1 ORDER BY published_at DESC LIMIT 1000'
+      )
+      for (const row of rows as any[]) {
+        if (!seenSlugs.has(row.slug)) {
+          allSlugs.push({
+            slug: row.slug,
+            date: row.published_at ? new Date(row.published_at).toISOString().split('T')[0] : today,
+          })
+          seenSlugs.add(row.slug)
+        }
+      }
+    } catch { /* ignore DB errors */ }
+  }
+
+  const lines = allSlugs.map(({ slug, date }) =>
+    url(`${BASE}/blog/${slug}`, date, 'weekly', '0.7')
   )
 
   res.send([

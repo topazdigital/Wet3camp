@@ -40,11 +40,11 @@ export default function Blog() {
           seoTitle:       p.seo_title ?? p.seoTitle,
           seoDescription: p.seo_description ?? p.seoDescription,
         }))
-        if (apiPosts.length > 0) {
-          setPosts(apiPosts)
-        } else {
-          setPosts(getPublishedPosts())
-        }
+        // Always merge: API posts first, then static posts not already covered by API
+        const staticPosts = getPublishedPosts()
+        const apiSlugs = new Set(apiPosts.map((p: any) => p.slug))
+        const uniqueStatic = staticPosts.filter(p => !apiSlugs.has(p.slug))
+        setPosts([...apiPosts, ...uniqueStatic])
       })
       .catch(() => setPosts(getPublishedPosts()))
   }, [])
