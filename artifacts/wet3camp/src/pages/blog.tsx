@@ -40,11 +40,16 @@ export default function Blog() {
           seoTitle:       p.seo_title ?? p.seoTitle,
           seoDescription: p.seo_description ?? p.seoDescription,
         }))
-        // Always merge: API posts first, then static posts not already covered by API
+        // Merge: API posts + static posts not already covered, then sort newest-first
         const staticPosts = getPublishedPosts()
         const apiSlugs = new Set(apiPosts.map((p: any) => p.slug))
         const uniqueStatic = staticPosts.filter(p => !apiSlugs.has(p.slug))
-        setPosts([...apiPosts, ...uniqueStatic])
+        const merged = [...apiPosts, ...uniqueStatic].sort((a, b) => {
+          const da = new Date(a.publishedAt || 0).getTime()
+          const db = new Date(b.publishedAt || 0).getTime()
+          return db - da
+        })
+        setPosts(merged)
       })
       .catch(() => setPosts(getPublishedPosts()))
   }, [])

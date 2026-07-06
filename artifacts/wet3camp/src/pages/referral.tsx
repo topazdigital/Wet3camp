@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { Link } from 'wouter'
 import { Copy, Check, Users, Gift, TrendingUp, Share2, ChevronRight, ExternalLink } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
+import { getToken } from '@/lib/api'
 import { useSEO } from '@/lib/useSEO'
 import Header from '@/components/Header'
 import Sidebar from '@/components/Sidebar'
@@ -26,7 +27,7 @@ interface ReferralEntry {
 
 export default function ReferralPage() {
   useSEO({ title: 'Refer & Earn | Wet3Camp' })
-  const { isLoggedIn, token } = useAuth()
+  const { isLoggedIn } = useAuth()
   const [stats, setStats] = useState<ReferralStats | null>(null)
   const [history, setHistory] = useState<ReferralEntry[]>([])
   const [loading, setLoading] = useState(true)
@@ -35,7 +36,9 @@ export default function ReferralPage() {
 
   useEffect(() => {
     if (!isLoggedIn) { setLoading(false); return }
-    const h = { Authorization: `Bearer ${token}` }
+    const tok = getToken()
+    if (!tok) { setLoading(false); return }
+    const h = { Authorization: `Bearer ${tok}` }
 
     // Fetch stats first (contains the link) — don't block on history
     const ctrl = new AbortController()
@@ -52,7 +55,7 @@ export default function ReferralPage() {
       .then(r => r.json())
       .then(hist => { if (hist?.referrals) setHistory(hist.referrals) })
       .catch(() => {})
-  }, [isLoggedIn, token])
+  }, [isLoggedIn])
 
   const copyLink = () => {
     if (!stats?.link) return

@@ -48,9 +48,9 @@ const ESCORT_SERVICES = [
   'bbw', 'milf', 'petite', 'busty', 'curvy', 'mature', 'young', 'teen-18',
 ]
 
+// Only include city slugs that have a real landing page in the frontend CITY_DATA
 const CITY_PAGES = [
   'nairobi', 'mombasa', 'kisumu', 'nakuru', 'eldoret',
-  'thika', 'machakos', 'nyeri', 'meru', 'malindi', 'diani', 'nanyuki',
 ]
 
 const STATIC_PAGES = [
