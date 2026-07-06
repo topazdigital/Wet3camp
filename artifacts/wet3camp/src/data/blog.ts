@@ -201,7 +201,13 @@ export function getBlogPosts(): BlogPost[] {
     const saved = localStorage.getItem(STORAGE_KEY)
     if (saved) {
       const parsed = JSON.parse(saved) as BlogPost[]
-      if (parsed.length > 0) return parsed
+      if (parsed.length > 0) {
+        // Merge: always include all INITIAL_POSTS (so newly added posts appear),
+        // then append any user-created posts from localStorage that aren't in INITIAL_POSTS
+        const initialSlugs = new Set(INITIAL_POSTS.map(p => p.slug))
+        const userCreated = parsed.filter(p => !initialSlugs.has(p.slug))
+        return [...INITIAL_POSTS, ...userCreated]
+      }
     }
   } catch { /* ignore */ }
   return INITIAL_POSTS

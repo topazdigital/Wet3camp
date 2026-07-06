@@ -51,7 +51,7 @@ export interface ApiUser {
 
 export const api = {
   escorts: {
-    list: (p?: { city?: string; tier?: string; available?: string; featured?: boolean; sort?: string; limit?: number; offset?: number }) => {
+    list: (p?: { city?: string; tier?: string; available?: string; featured?: boolean; sort?: string; limit?: number; offset?: number; service?: string }) => {
       const params = new URLSearchParams()
       if (p?.city)      params.set('city',      p.city)
       if (p?.tier)      params.set('tier',      p.tier)
@@ -60,6 +60,7 @@ export const api = {
       if (p?.sort)      params.set('sort',      p.sort)
       if (p?.limit)     params.set('limit',     String(p.limit))
       if (p?.offset)    params.set('offset',    String(p.offset))
+      if (p?.service)   params.set('service',   p.service)
       const qs = params.toString()
       return req<{ data: ApiEscort[]; total: number }>(`/escorts${qs ? '?' + qs : ''}`)
     },
