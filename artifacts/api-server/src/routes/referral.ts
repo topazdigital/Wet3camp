@@ -125,10 +125,10 @@ router.post('/api/referral/convert', async (req: any, res) => {
       return res.status(409).json({ error: 'User already referred' })
     }
 
-    // Create conversion record
+    // Create conversion record — KES 50 token reward for sign-up
     await pool.query(
       `INSERT INTO \`referrals\` (\`user_id\`, \`code\`, \`referred_user_id\`, \`type\`, \`reward_kes\`, \`status\`, \`converted_at\`)
-       VALUES (?, ?, ?, 'registration', 500, 'confirmed', NOW())`,
+       VALUES (?, ?, ?, 'registration', 50, 'confirmed', NOW())`,
       [master.user_id, code, referred_user_id]
     )
 
@@ -136,12 +136,12 @@ router.post('/api/referral/convert', async (req: any, res) => {
     try {
       await pool.query(
         `INSERT INTO \`notifications\` (\`user_id\`, \`type\`, \`title\`, \`text\`, \`link\`, \`dot\`)
-         VALUES (?, 'referral', 'New Referral!', 'Someone just joined using your referral link. KES 500 credit added!', '/referral', '#28a745')`,
+         VALUES (?, 'referral', 'New Referral!', 'Someone just joined using your referral link. KES 50 credit added!', '/referral', '#28a745')`,
         [master.user_id]
       )
     } catch { /* notifications are optional */ }
 
-    res.json({ ok: true, referrer_user_id: master.user_id, reward_kes: 500 })
+    res.json({ ok: true, referrer_user_id: master.user_id, reward_kes: 50 })
   } catch (err) {
     res.status(500).json({ error: 'Failed to process referral' })
   }

@@ -36,13 +36,22 @@ export default function ReferralPage() {
   useEffect(() => {
     if (!isLoggedIn) { setLoading(false); return }
     const h = { Authorization: `Bearer ${token}` }
-    Promise.all([
-      fetch('/api/referral/my', { headers: h }).then(r => r.json()),
-      fetch('/api/referral/history', { headers: h }).then(r => r.json()),
-    ]).then(([s, hist]) => {
-      if (s.code) setStats(s)
-      if (hist.referrals) setHistory(hist.referrals)
-    }).catch(() => {}).finally(() => setLoading(false))
+
+    // Fetch stats first (contains the link) — don't block on history
+    const ctrl = new AbortController()
+    const timer = setTimeout(() => ctrl.abort(), 10000) // 10s timeout
+
+    fetch('/api/referral/my', { headers: h, signal: ctrl.signal })
+      .then(r => r.json())
+      .then(s => { if (s?.code) setStats(s) })
+      .catch(() => {})
+      .finally(() => { clearTimeout(timer); setLoading(false) })
+
+    // History fetched separately — doesn't block link display
+    fetch('/api/referral/history', { headers: h })
+      .then(r => r.json())
+      .then(hist => { if (hist?.referrals) setHistory(hist.referrals) })
+      .catch(() => {})
   }, [isLoggedIn, token])
 
   const copyLink = () => {
@@ -79,7 +88,7 @@ export default function ReferralPage() {
               <Gift size={28} className="text-[#8B0000]" />
             </div>
             <h2 className="text-xl font-bold text-text-light mb-2">Refer & Earn</h2>
-            <p className="text-text-muted text-sm mb-6">Login to get your unique referral link and start earning KES 500 for every friend you bring to Wet3Camp.</p>
+            <p className="text-text-muted text-sm mb-6">Login to get your unique referral link and start earning KES 50 for every friend you bring to Wet3Camp.</p>
             <Link href="/login" className="px-6 py-3 bg-[#8B0000] text-white rounded-xl font-semibold text-sm">Login to Continue</Link>
           </div>
         </div>
@@ -102,7 +111,7 @@ export default function ReferralPage() {
               <Gift size={28} className="text-[#FFD700]" />
             </div>
             <h1 className="text-2xl font-black text-text-light">Refer & Earn</h1>
-            <p className="text-text-muted text-sm mt-1">Share your link. Earn <span className="text-[#FFD700] font-bold">KES 500</span> per confirmed referral.</p>
+            <p className="text-text-muted text-sm mt-1">Share your link. Earn <span className="text-[#FFD700] font-bold">KES 50</span> per confirmed sign-up.</p>
           </div>
 
           {loading ? (
@@ -131,8 +140,12 @@ export default function ReferralPage() {
               <div className="bg-card-bg border border-color rounded-2xl p-4 mb-5">
                 <p className="text-xs text-text-muted mb-2 font-medium">Your referral link</p>
                 <div className="flex items-center gap-2 bg-dark-bg border border-color rounded-xl px-3 py-2.5 mb-3">
-                  <span className="text-xs text-[#FFD700] font-mono flex-1 truncate">{stats?.link ?? 'Loading…'}</span>
-                  <button onClick={copyLink} className="flex-shrink-0 p-1.5 rounded-lg bg-[#8B0000]/20 hover:bg-[#8B0000]/40 transition-all">
+                  {stats?.link ? (
+                    <span className="text-xs text-[#FFD700] font-mono flex-1 truncate">{stats.link}</span>
+                  ) : (
+                    <span className="text-xs text-text-muted italic flex-1">Could not load — try refreshing</span>
+                  )}
+                  <button onClick={copyLink} disabled={!stats?.link} className="flex-shrink-0 p-1.5 rounded-lg bg-[#8B0000]/20 hover:bg-[#8B0000]/40 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
                     {copied ? <Check size={14} className="text-[#28a745]" /> : <Copy size={14} className="text-[#8B0000]" />}
                   </button>
                 </div>
@@ -157,8 +170,8 @@ export default function ReferralPage() {
                   {[
                     { step: '1', text: 'Share your unique link with friends via WhatsApp, Telegram, or social media' },
                     { step: '2', text: 'Your friend registers on Wet3Camp using your link' },
-                    { step: '3', text: 'You earn KES 500 credit automatically when they sign up' },
-                    { step: '4', text: 'Earn KES 1,000 bonus when an escort joins using your link and goes live' },
+                    { step: '3', text: 'You earn KES 50 credit automatically when they sign up' },
+                    { step: '4', text: 'Earn bonus KES when a referred escort subscribes to a paid tier' },
                   ].map(({ step, text }) => (
                     <div key={step} className="flex items-start gap-3">
                       <div className="w-6 h-6 rounded-full bg-[#8B0000] text-white text-xs font-black flex items-center justify-center flex-shrink-0 mt-0.5">{step}</div>
