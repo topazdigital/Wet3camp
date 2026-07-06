@@ -102,8 +102,9 @@ router.get('/escorts', async (req, res) => {
     if (online)    { conditions.push('e.online = 1') }
     if (gender)    { conditions.push('LOWER(e.gender) = LOWER(?)'); params.push(gender) }
     if (service)   {
-      conditions.push('EXISTS (SELECT 1 FROM escort_services es WHERE es.escort_id = e.id AND LOWER(es.name) LIKE LOWER(?) AND es.available = 1)')
-      params.push(`%${service}%`)
+      // Match escort_services table OR escort bio text (bio fallback for escorts without services populated)
+      conditions.push('(EXISTS (SELECT 1 FROM escort_services es WHERE es.escort_id = e.id AND LOWER(es.name) LIKE LOWER(?) AND es.available = 1) OR LOWER(e.bio) LIKE LOWER(?))')
+      params.push(`%${service}%`, `%${service}%`)
     }
     if (q)         { conditions.push('(e.name LIKE ? OR e.area LIKE ? OR e.bio LIKE ? OR EXISTS (SELECT 1 FROM escort_services es2 WHERE es2.escort_id = e.id AND LOWER(es2.name) LIKE LOWER(?)))'); params.push(`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`) }
 

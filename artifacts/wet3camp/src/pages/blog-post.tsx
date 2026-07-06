@@ -26,12 +26,60 @@ export default function BlogPost() {
 
   useEffect(() => {
     if (!params?.slug) return
-    const found = getPostBySlug(params.slug)
-    setPost(found)
-    if (found) {
-      const all = getPublishedPosts()
-      setRelated(all.filter(p => p.id !== found.id && p.category === found.category).slice(0, 2))
-    }
+    const slug = params.slug
+
+    // Try API first, then fall back to static data
+    fetch(`/api/blog/${encodeURIComponent(slug)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.slug) {
+          const p: BlogPost = {
+            id:             String(data.id),
+            slug:           data.slug,
+            title:          data.title,
+            excerpt:        data.excerpt ?? '',
+            content:        data.content ?? '',
+            author:         data.author ?? 'Wet3Camp Editorial',
+            category:       data.category ?? 'Kenya Escorts Guide',
+            tags:           Array.isArray(data.tags) ? data.tags : [],
+            publishedAt:    data.publishedAt ? new Date(data.publishedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '',
+            updatedAt:      data.updatedAt ?? data.publishedAt ?? '',
+            imageUrl:       data.imageUrl ?? data.image_url ?? 'https://images.unsplash.com/photo-1611348586804-61bf6c080437?w=1200&h=630&fit=crop',
+            readTime:       Number(data.read_time ?? data.readTime ?? 3),
+            published:      true,
+            seoTitle:       data.seo_title ?? data.seoTitle,
+            seoDescription: data.seo_description ?? data.seoDescription,
+          }
+          setPost(p)
+          // Fetch related posts
+          fetch(`/api/blog?category=${encodeURIComponent(p.category)}&limit=10`)
+            .then(r => r.ok ? r.json() : null)
+            .then(rel => {
+              const relPosts: BlogPost[] = (rel?.posts ?? [])
+                .filter((r: any) => r.slug !== slug)
+                .slice(0, 2)
+                .map((r: any) => ({
+                  id: String(r.id), slug: r.slug, title: r.title, excerpt: r.excerpt ?? '',
+                  content: '', author: r.author ?? 'Wet3Camp Editorial',
+                  category: r.category ?? '', tags: Array.isArray(r.tags) ? r.tags : [],
+                  publishedAt: '', updatedAt: '',
+                  imageUrl: r.imageUrl ?? r.image_url ?? 'https://images.unsplash.com/photo-1611348586804-61bf6c080437?w=400&h=300&fit=crop',
+                  readTime: Number(r.read_time ?? r.readTime ?? 3), published: true,
+                }))
+              setRelated(relPosts.length > 0 ? relPosts : getPublishedPosts().filter(x => x.category === p.category && x.slug !== slug).slice(0, 2))
+            })
+            .catch(() => setRelated(getPublishedPosts().filter(x => x.category === p.category && x.slug !== slug).slice(0, 2)))
+        } else {
+          throw new Error('not found')
+        }
+      })
+      .catch(() => {
+        const found = getPostBySlug(slug)
+        setPost(found)
+        if (found) {
+          setRelated(getPublishedPosts().filter(p => p.id !== found.id && p.category === found.category).slice(0, 2))
+        }
+      })
   }, [params?.slug])
 
   useSEO({

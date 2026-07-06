@@ -22,6 +22,7 @@ import liveRouter          from "./live.js";
 import paymentsRouter      from "./payments.js";
 import referralRouter      from "./referral.js";
 import imageProxyRouter    from "./image-proxy.js";
+import blogRouter          from "./blog.js";
 
 const router: IRouter = Router();
 
@@ -48,5 +49,6 @@ router.use(notificationsRouter);
 router.use(claimsRouter);
 router.use(contentRouter);
 router.use(referralRouter);
+router.use(blogRouter);
 
 export default router;

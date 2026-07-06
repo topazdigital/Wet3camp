@@ -664,3 +664,27 @@ INSERT IGNORE INTO `rooms` (`name`, `hotel`, `city`, `area`, `type`, `price_nigh
 ('Garden View Standard Room', 'Victoria Comfort Hotel', 'Kisumu', 'Kondele', 'Standard', 3500, 900, 4.1, 'WiFi,AC,Parking,Restaurant', 'https://images.unsplash.com/photo-1505691938895-1758d7feb511?w=600&q=80', 1),
 ('Classic Double Room', 'Midland Hotel Nakuru', 'Nakuru', 'Central', 'Standard', 4800, 1200, 4.2, 'WiFi,AC,Restaurant,Parking', 'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?w=600&q=80', 1),
 ('Business Double Room', 'Sirikwa Hotel Eldoret', 'Eldoret', 'Central', 'Standard', 5200, 1300, 4.3, 'WiFi,AC,Gym,Restaurant,Parking', 'https://images.unsplash.com/photo-1578683010236-d716f9a3f461?w=600&q=80', 1);
+
+-- ── Blog posts table (AI-generated + scraped content) ────────────────────────
+CREATE TABLE IF NOT EXISTS `blog_posts` (
+  `id`              INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `slug`            VARCHAR(120) NOT NULL,
+  `title`           VARCHAR(300) NOT NULL,
+  `excerpt`         TEXT,
+  `content`         LONGTEXT,
+  `author`          VARCHAR(100) NOT NULL DEFAULT 'Wet3Camp Editorial',
+  `category`        VARCHAR(80),
+  `tags`            JSON,
+  `image_url`       VARCHAR(500),
+  `read_time`       TINYINT UNSIGNED DEFAULT 3,
+  `published`       TINYINT(1) NOT NULL DEFAULT 1,
+  `seo_title`       VARCHAR(120),
+  `seo_description` VARCHAR(200),
+  `source_url`      VARCHAR(500) DEFAULT NULL,
+  `published_at`    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at`      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_blog_slug` (`slug`),
+  KEY `idx_blog_published` (`published`, `published_at`),
+  KEY `idx_blog_category`  (`category`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

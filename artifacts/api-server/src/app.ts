@@ -18,6 +18,7 @@ import { mkdirSync, existsSync } from "fs";
 import router from "./routes";
 import sitemapRouter from "./routes/sitemap.js";
 import { ogPreviewMiddleware } from "./middlewares/ogPreview.js";
+import { startBlogAutoGen } from "./routes/blog.js";
 import { logger } from "./lib/logger";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -99,6 +100,9 @@ app.use("/api/uploads", express.static(UPLOADS_DIR, {
     res.setHeader('Cache-Control', 'public, max-age=2592000, immutable')
   }
 }));
+
+// ── Blog AI auto-generation (runs 30s after start, then every 12h) ────────────
+startBlogAutoGen()
 
 // ── API routes ────────────────────────────────────────────────────────────────
 app.use("/api", router);

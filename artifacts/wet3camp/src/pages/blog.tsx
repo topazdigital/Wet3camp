@@ -19,7 +19,34 @@ export default function Blog() {
   const [query, setQuery] = useState('')
 
   useEffect(() => {
-    setPosts(getPublishedPosts())
+    // Try API first, fall back to static data
+    fetch('/api/blog?limit=50')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        const apiPosts: BlogPost[] = (data?.posts ?? []).map((p: any) => ({
+          id:             String(p.id),
+          slug:           p.slug,
+          title:          p.title,
+          excerpt:        p.excerpt ?? '',
+          content:        p.content ?? '',
+          author:         p.author ?? 'Wet3Camp Editorial',
+          category:       p.category ?? 'Kenya Escorts Guide',
+          tags:           Array.isArray(p.tags) ? p.tags : [],
+          publishedAt:    p.publishedAt ? new Date(p.publishedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '',
+          updatedAt:      p.updatedAt ?? p.publishedAt ?? '',
+          imageUrl:       p.imageUrl ?? p.image_url ?? 'https://images.unsplash.com/photo-1611348586804-61bf6c080437?w=800&h=450&fit=crop',
+          readTime:       Number(p.read_time ?? p.readTime ?? 3),
+          published:      true,
+          seoTitle:       p.seo_title ?? p.seoTitle,
+          seoDescription: p.seo_description ?? p.seoDescription,
+        }))
+        if (apiPosts.length > 0) {
+          setPosts(apiPosts)
+        } else {
+          setPosts(getPublishedPosts())
+        }
+      })
+      .catch(() => setPosts(getPublishedPosts()))
   }, [])
 
   const filtered = posts.filter(p => {
