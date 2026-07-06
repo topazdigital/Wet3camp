@@ -51,6 +51,12 @@ CREATE TABLE IF NOT EXISTS escorts (
   featured         SMALLINT         NOT NULL DEFAULT 0,
   instagram        VARCHAR(100)     DEFAULT NULL,
   facebook         VARCHAR(100)     DEFAULT NULL,
+  incall           SMALLINT         NOT NULL DEFAULT 1,
+  outcall          SMALLINT         NOT NULL DEFAULT 1,
+  price_incall_overnight  INTEGER   DEFAULT 0,
+  price_outcall_overnight INTEGER   DEFAULT 0,
+  source_site      VARCHAR(100)     DEFAULT NULL,
+  source_url       VARCHAR(500)     DEFAULT NULL,
   is_active        SMALLINT         NOT NULL DEFAULT 1,
   created_at       TIMESTAMP        NOT NULL DEFAULT NOW(),
   updated_at       TIMESTAMP        NOT NULL DEFAULT NOW()
@@ -341,3 +347,58 @@ CREATE TABLE IF NOT EXISTS feed_comments (
 );
 CREATE INDEX IF NOT EXISTS idx_feed_comments_escort_id ON feed_comments (escort_id);
 CREATE INDEX IF NOT EXISTS idx_feed_comments_parent_id ON feed_comments (parent_id);
+
+-- Idempotent column additions for existing dev DBs (safe to re-run)
+ALTER TABLE escorts ADD COLUMN IF NOT EXISTS incall                  SMALLINT DEFAULT 1;
+ALTER TABLE escorts ADD COLUMN IF NOT EXISTS outcall                 SMALLINT DEFAULT 1;
+ALTER TABLE escorts ADD COLUMN IF NOT EXISTS price_incall_overnight  INTEGER  DEFAULT 0;
+ALTER TABLE escorts ADD COLUMN IF NOT EXISTS price_outcall_overnight INTEGER  DEFAULT 0;
+ALTER TABLE escorts ADD COLUMN IF NOT EXISTS source_site             VARCHAR(100) DEFAULT NULL;
+ALTER TABLE escorts ADD COLUMN IF NOT EXISTS source_url              VARCHAR(500) DEFAULT NULL;
+
+CREATE TABLE IF NOT EXISTS events (
+  id          SERIAL PRIMARY KEY,
+  title       VARCHAR(200) NOT NULL,
+  description TEXT,
+  event_date  DATE         NOT NULL DEFAULT CURRENT_DATE,
+  event_time  VARCHAR(20)  DEFAULT '',
+  venue       VARCHAR(200) DEFAULT '',
+  city        VARCHAR(100) DEFAULT 'Nairobi',
+  price       INTEGER      DEFAULT 0,
+  capacity    INTEGER      DEFAULT 50,
+  attending   INTEGER      DEFAULT 0,
+  category    VARCHAR(50)  DEFAULT 'Mixer',
+  image_url   TEXT,
+  featured    SMALLINT     DEFAULT 0,
+  is_active   SMALLINT     DEFAULT 1,
+  created_at  TIMESTAMP    NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_events_city      ON events (city);
+CREATE INDEX IF NOT EXISTS idx_events_is_active ON events (is_active);
+
+CREATE TABLE IF NOT EXISTS escort_videos (
+  id          SERIAL PRIMARY KEY,
+  escort_id   INTEGER      DEFAULT NULL,
+  title       VARCHAR(200) NOT NULL,
+  thumbnail   TEXT,
+  video_url   TEXT,
+  tier        VARCHAR(20)  DEFAULT 'free',
+  is_locked   SMALLINT     DEFAULT 0,
+  price_kes   INTEGER      DEFAULT 0,
+  duration    VARCHAR(20)  DEFAULT '',
+  view_count  INTEGER      DEFAULT 0,
+  is_active   SMALLINT     DEFAULT 1,
+  created_at  TIMESTAMP    NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_ev_escort_id ON escort_videos (escort_id);
+CREATE INDEX IF NOT EXISTS idx_ev_is_active ON escort_videos (is_active);
+
+CREATE TABLE IF NOT EXISTS user_follows (
+  id         SERIAL PRIMARY KEY,
+  user_id    INTEGER   NOT NULL,
+  escort_id  INTEGER   NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  CONSTRAINT uq_user_follows UNIQUE (user_id, escort_id)
+);
+CREATE INDEX IF NOT EXISTS idx_user_follows_user_id ON user_follows (user_id);
+CREATE INDEX IF NOT EXISTS idx_user_follows_escort  ON user_follows (escort_id);
