@@ -238,7 +238,15 @@ done
 cp -r "$REPO_DIR/artifacts/wet3camp/dist/public/." "$WEB_ROOT/"
 # Only chmod the freshly-copied tree (now the only thing left in WEB_ROOT),
 # never anything moved aside above.
-chmod -R 755 "$WEB_ROOT"
+# Belt-and-braces: even after the moves/purges above, some stray leftover
+# from an old run created by a different OS user could still be present
+# (e.g. if a previous rename itself silently failed on this host's specific
+# filesystem/mount setup). chmod on files we don't own fails with "Operation
+# not permitted" and would otherwise abort the whole deploy under `set -e` —
+# but it has no bearing on whether the freshly-copied site files (which cp
+# already leaves in a normal, web-servable mode) work correctly, so don't
+# let it block the deploy.
+chmod -R 755 "$WEB_ROOT" || true
 
 # ── Ensure uploads dir exists; remove any stale symlink in web root ───────────
 # Uploads live permanently in the build repo folder (where the API writes them).
