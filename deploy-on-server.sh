@@ -201,9 +201,16 @@ mkdir -p "$WEB_ROOT"
 # files it doesn't own. Clean up the moved-out stale copies in the background.
 STALE_HOLDING_DIR="/tmp/wet3camp-stale-webroot"
 mkdir -p "$STALE_HOLDING_DIR"
+# A previous run's background delete of an already-moved-aside stale dir can
+# get orphaned (killed with its parent script but never finishing the rm) and
+# leave a "*.stale.*" directory sitting inside WEB_ROOT itself. If left in
+# place, this run's `chmod -R` below would recurse into it and fail on files
+# it doesn't own. Force-purge any such leftovers up front (best-effort).
+find "$WEB_ROOT" -maxdepth 1 -name '*.stale.*' -exec rm -rf {} + 2>/dev/null || true
 TS_WEB="$(date +%s%N)"
 for ENTRY in "$WEB_ROOT"/* "$WEB_ROOT"/.[!.]*; do
   [ -e "$ENTRY" ] || continue
+  case "$(basename "$ENTRY")" in *.stale.*) continue ;; esac
   STALE_ENTRY="${STALE_HOLDING_DIR}/$(basename "$ENTRY").stale.${TS_WEB}"
   if mv "$ENTRY" "$STALE_ENTRY" 2>/dev/null; then
     ( rm -rf "$STALE_ENTRY" 2>/dev/null || true ) &
@@ -309,9 +316,11 @@ echo "    .htaccess written (static direct, /api/* + bot UA proxied to Node.js, 
 # later recursive chmod/cp over this directory.
 mkdir -p "$API_DIR/public"
 mkdir -p "$STALE_HOLDING_DIR"
+find "$API_DIR/public" -maxdepth 1 -name '*.stale.*' -exec rm -rf {} + 2>/dev/null || true
 TS_APIPUB="$(date +%s%N)"
 for ENTRY in "$API_DIR"/public/* "$API_DIR"/public/.[!.]*; do
   [ -e "$ENTRY" ] || continue
+  case "$(basename "$ENTRY")" in *.stale.*) continue ;; esac
   STALE_ENTRY="${STALE_HOLDING_DIR}/$(basename "$ENTRY").stale.${TS_APIPUB}"
   if mv "$ENTRY" "$STALE_ENTRY" 2>/dev/null; then
     ( rm -rf "$STALE_ENTRY" 2>/dev/null || true ) &
