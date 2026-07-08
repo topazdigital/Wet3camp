@@ -34,13 +34,22 @@ echo "    pnpm $(pnpm --version)"
 echo ""
 echo "==> [2/7] Installing dependencies..."
 cd "$REPO_DIR"
-# Pre-clean node_modules unconditionally before every install. A previous
-# deploy run (possibly as a different OS user, e.g. root vs admin) can leave
-# behind files pnpm cannot overwrite, causing EACCES failures. Wiping first
-# guarantees a clean, correctly-owned tree every time — cheap compared to a
-# broken deploy, and pnpm's content-addressable store keeps the reinstall fast.
-echo "    Pre-cleaning node_modules to avoid stale-ownership EACCES errors..."
-find "$REPO_DIR" -maxdepth 4 -type d -name node_modules -prune -exec rm -rf {} + 2>/dev/null || true
+# Some files inside node_modules can end up owned by a different OS user
+# (e.g. a previous deploy accidentally run as root instead of admin), which
+# makes `rm -rf` fail with EACCES on individual files even though we own the
+# containing directories. Deleting a directory's *contents* needs write
+# access to each file's parent dir; renaming the directory itself only needs
+# write access to REPO_DIR (which admin owns), so this sidesteps the problem
+# entirely. The stale copy is then removed best-effort in the background.
+if [ -d "$REPO_DIR/node_modules" ]; then
+  STALE_DIR="$REPO_DIR/node_modules.stale.$(date +%s)"
+  if mv "$REPO_DIR/node_modules" "$STALE_DIR" 2>/dev/null; then
+    echo "    Moved existing node_modules aside (possible stale ownership) -> $(basename "$STALE_DIR")"
+    ( rm -rf "$STALE_DIR" 2>/dev/null || true ) &
+  else
+    echo "    Could not move node_modules aside (unexpected) — continuing anyway."
+  fi
+fi
 CI=true pnpm install --frozen-lockfile --config.confirmModulesPurge=false
 echo "    Done."
 
