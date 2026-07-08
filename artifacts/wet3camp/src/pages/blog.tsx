@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Link } from 'wouter'
 import Sidebar from '@/components/Sidebar'
 import Header from '@/components/Header'
+import SeoFooter from '@/components/SeoFooter'
 import { useSEO } from '@/lib/useSEO'
 import { getPublishedPosts, BLOG_CATEGORIES, type BlogPost } from '@/data/blog'
 import { Clock, Tag, ChevronRight, Search, Rss } from 'lucide-react'
@@ -163,6 +164,7 @@ export default function Blog() {
             </div>
           )}
         </main>
+        <SeoFooter />
       </div>
     </div>
   )

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Link, useRoute } from 'wouter'
 import Sidebar from '@/components/Sidebar'
 import Header from '@/components/Header'
+import SeoFooter from '@/components/SeoFooter'
 import { useSEO } from '@/lib/useSEO'
 import { api } from '@/lib/api'
 import { ChevronRight, MapPin, Shield, Star } from 'lucide-react'
@@ -318,6 +319,7 @@ export default function CityEscorts() {
             </div>
           </div>
         </main>
+        <SeoFooter />
       </div>
     </div>
   )

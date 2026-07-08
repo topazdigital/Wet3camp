@@ -8,6 +8,7 @@ import { Link } from 'wouter'
 import { CITIES } from '@/data/escorts'
 import { useSEO } from '@/lib/useSEO'
 import { api } from '@/lib/api'
+import SeoFooter from '@/components/SeoFooter'
 
 const TIER_CATEGORIES = [
   { label: 'All',       value: 'all',       icon: '✨' },
@@ -353,6 +354,8 @@ export default function Home() {
 
           <InfiniteEscortGrid activeCategory={activeCategory} priorityCity={detectedCity || 'Nairobi'} activeService={activeService} />
         </div>
+
+        <SeoFooter />
       </div>
     </main>
   )
