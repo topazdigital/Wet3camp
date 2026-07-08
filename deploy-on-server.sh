@@ -369,11 +369,34 @@ for ENTRY in "$API_DIR"/public/* "$API_DIR"/public/.[!.]*; do
   fi
 done
 cp -r "$REPO_DIR/artifacts/wet3camp/dist/public/." "$API_DIR/public/"
-set -e
+# Same leftover-ownership disease keeps resurfacing at every "copy build
+# output over an existing live directory" spot on this host (assets/,
+# api-server/public/, and now api-server's own live dist/) — so keep the
+# whole copy phase resilient through here too, rather than re-enabling
+# strict mode too early and hitting it again at the next spot.
 mkdir -p "$API_DIR/dist"
+# Purge/move-aside any leftover-owned files under the live dist dir first,
+# same pattern as WEB_ROOT/api-public above, so the cp below writes cleanly.
+for STALE_LEFTOVER in "$API_DIR"/dist/*.stale.*; do
+  [ -e "$STALE_LEFTOVER" ] || continue
+  mv "$STALE_LEFTOVER" "${STALE_HOLDING_DIR}/$(basename "$STALE_LEFTOVER").requeued.$(date +%s%N)" 2>/dev/null \
+    || rm -rf "$STALE_LEFTOVER" 2>/dev/null || true
+done
+TS_APIDIST="$(date +%s%N)"
+for ENTRY in "$API_DIR"/dist/* "$API_DIR"/dist/.[!.]*; do
+  [ -e "$ENTRY" ] || continue
+  case "$(basename "$ENTRY")" in *.stale.*) continue ;; esac
+  STALE_ENTRY="${STALE_HOLDING_DIR}/$(basename "$ENTRY").stale.${TS_APIDIST}"
+  if mv "$ENTRY" "$STALE_ENTRY" 2>/dev/null; then
+    ( rm -rf "$STALE_ENTRY" 2>/dev/null || true ) &
+  else
+    rm -rf "$ENTRY" 2>/dev/null || true
+  fi
+done
 cp -r "$REPO_DIR/artifacts/api-server/dist/." "$API_DIR/dist/"
 cp    "$REPO_DIR/artifacts/api-server/package.json" "$API_DIR/"
 echo "    Files copied (web root + api-server/public fallback)."
+set -e
 
 echo ""
 echo "==> [7/7] Starting/restarting API server via PM2..."
