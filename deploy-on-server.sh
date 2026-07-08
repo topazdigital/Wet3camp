@@ -195,12 +195,16 @@ mkdir -p "$WEB_ROOT"
 # (e.g. assets/*) can end up owned by a different OS user from an earlier
 # manual/root run, so `rm -rf WEB_ROOT/*` fails with EACCES on individual
 # files even though admin owns WEB_ROOT itself. Move each top-level entry
-# aside (needs only write access to the parent, which admin owns) instead of
-# deleting in place, then clean up the stale copies in the background.
-TS_WEB="$(date +%s)"
+# OUT of WEB_ROOT entirely (into /tmp) instead of deleting in place or
+# renaming to a sibling — a sibling rename left the stale dir inside
+# WEB_ROOT, so the `chmod -R` below still recursed into it and failed on
+# files it doesn't own. Clean up the moved-out stale copies in the background.
+STALE_HOLDING_DIR="/tmp/wet3camp-stale-webroot"
+mkdir -p "$STALE_HOLDING_DIR"
+TS_WEB="$(date +%s%N)"
 for ENTRY in "$WEB_ROOT"/* "$WEB_ROOT"/.[!.]*; do
   [ -e "$ENTRY" ] || continue
-  STALE_ENTRY="${ENTRY}.stale.${TS_WEB}"
+  STALE_ENTRY="${STALE_HOLDING_DIR}/$(basename "$ENTRY").stale.${TS_WEB}"
   if mv "$ENTRY" "$STALE_ENTRY" 2>/dev/null; then
     ( rm -rf "$STALE_ENTRY" 2>/dev/null || true ) &
   else
@@ -210,6 +214,8 @@ for ENTRY in "$WEB_ROOT"/* "$WEB_ROOT"/.[!.]*; do
 done
 # Vite outputs to dist/public — copy that subfolder to web root
 cp -r "$REPO_DIR/artifacts/wet3camp/dist/public/." "$WEB_ROOT/"
+# Only chmod the freshly-copied tree (now the only thing left in WEB_ROOT),
+# never anything moved aside above.
 chmod -R 755 "$WEB_ROOT"
 
 # ── Ensure uploads dir exists; remove any stale symlink in web root ───────────
@@ -298,12 +304,15 @@ echo "    .htaccess written (static direct, /api/* + bot UA proxied to Node.js, 
 
 # ALSO copy frontend to api-server/public so Express can serve it as a fallback
 # if the Apache mod_rewrite [P] proxy doesn't work on this server
-# Same stale-ownership hazard as WEB_ROOT above — move aside instead of rm -rf.
+# Same stale-ownership hazard as WEB_ROOT above — move aside OUT of the tree
+# (into /tmp), not to a sibling, so nothing left behind interferes with any
+# later recursive chmod/cp over this directory.
 mkdir -p "$API_DIR/public"
-TS_APIPUB="$(date +%s)"
+mkdir -p "$STALE_HOLDING_DIR"
+TS_APIPUB="$(date +%s%N)"
 for ENTRY in "$API_DIR"/public/* "$API_DIR"/public/.[!.]*; do
   [ -e "$ENTRY" ] || continue
-  STALE_ENTRY="${ENTRY}.stale.${TS_APIPUB}"
+  STALE_ENTRY="${STALE_HOLDING_DIR}/$(basename "$ENTRY").stale.${TS_APIPUB}"
   if mv "$ENTRY" "$STALE_ENTRY" 2>/dev/null; then
     ( rm -rf "$STALE_ENTRY" 2>/dev/null || true ) &
   else
