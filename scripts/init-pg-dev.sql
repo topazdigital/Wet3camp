@@ -402,3 +402,24 @@ CREATE TABLE IF NOT EXISTS user_follows (
 );
 CREATE INDEX IF NOT EXISTS idx_user_follows_user_id ON user_follows (user_id);
 CREATE INDEX IF NOT EXISTS idx_user_follows_escort  ON user_follows (escort_id);
+
+CREATE TABLE IF NOT EXISTS blog_posts (
+  id              SERIAL PRIMARY KEY,
+  slug            VARCHAR(120) NOT NULL UNIQUE,
+  title           VARCHAR(300) NOT NULL,
+  excerpt         TEXT,
+  content         TEXT,
+  author          VARCHAR(100) NOT NULL DEFAULT 'Wet3Camp Editorial',
+  category        VARCHAR(80),
+  tags            JSONB,
+  image_url       VARCHAR(500),
+  read_time       SMALLINT DEFAULT 3,
+  published       SMALLINT NOT NULL DEFAULT 1,
+  seo_title       VARCHAR(120),
+  seo_description VARCHAR(200),
+  source_url      VARCHAR(500) DEFAULT NULL,
+  published_at    TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at      TIMESTAMP NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_blog_published ON blog_posts (published, published_at);
+CREATE INDEX IF NOT EXISTS idx_blog_category  ON blog_posts (category);
