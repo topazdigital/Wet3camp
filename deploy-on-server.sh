@@ -169,6 +169,21 @@ fi
 echo ""
 echo "==> [5/7] Building frontend and API..."
 cd "$REPO_DIR"
+# Same stale-ownership/concurrent-deploy hazard applies to build output dirs
+# (dist/) as it did to node_modules — a previous interrupted build can leave
+# files vite's rimraf can't unlink. Move them aside rather than rm -rf.
+TS_DIST="$(date +%s)"
+for DIST_DIR in "$REPO_DIR/artifacts/wet3camp/dist" "$REPO_DIR/artifacts/api-server/dist"; do
+  if [ -d "$DIST_DIR" ]; then
+    STALE_DIST="${DIST_DIR}.stale.${TS_DIST}"
+    if mv "$DIST_DIR" "$STALE_DIST" 2>/dev/null; then
+      echo "    Moved aside: $DIST_DIR -> $(basename "$STALE_DIST")"
+      ( rm -rf "$STALE_DIST" 2>/dev/null || true ) &
+    else
+      echo "    Could not move aside: $DIST_DIR (unexpected) — continuing anyway."
+    fi
+  fi
+done
 PORT=19099 BASE_PATH=/ pnpm --filter "@workspace/wet3camp"  run build
 pnpm --filter "@workspace/api-server" run build
 echo "    Build complete."
