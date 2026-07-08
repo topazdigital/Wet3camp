@@ -313,4 +313,44 @@ router.get('/sitemap-blog.xml', async (_req, res) => {
   ].join('\n'))
 })
 
+// ── IndexNow — instant indexing ping for Bing/Yandex (free, no login needed) ───
+const INDEXNOW_KEY = '26208b24b3042bb431992ba1c7bd5c74'
+
+function collectAllUrls(): string[] {
+  const today = new Date().toISOString().split('T')[0]
+  void today
+  const urls: string[] = [`${BASE}/`]
+  for (const citySlug of CITY_PAGES) urls.push(`${BASE}/escorts/${citySlug}`)
+  for (const city of CITIES) {
+    urls.push(`${BASE}/?city=${encodeURIComponent(city)}`)
+    urls.push(`${BASE}/search?city=${encodeURIComponent(city)}`)
+  }
+  for (const svc of ESCORT_SERVICES) urls.push(`${BASE}/search?service=${encodeURIComponent(svc)}`)
+  for (const slug of BLOG_SLUGS) urls.push(`${BASE}/blog/${slug}`)
+  urls.push(`${BASE}/blog`, `${BASE}/search`, `${BASE}/faqs`, `${BASE}/reviews`)
+  return urls
+}
+
+// Submits URLs to IndexNow (Bing + Yandex pick this up; Google does not support
+// IndexNow but this is free, instant, and needs no account/login).
+router.post('/api/seo/indexnow', async (_req, res) => {
+  try {
+    const urlList = collectAllUrls()
+    const payload = {
+      host: 'wet3.camp',
+      key: INDEXNOW_KEY,
+      keyLocation: `${BASE}/${INDEXNOW_KEY}.txt`,
+      urlList,
+    }
+    const response = await fetch('https://api.indexnow.org/indexnow', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+      body: JSON.stringify(payload),
+    })
+    res.json({ ok: response.ok, status: response.status, submitted: urlList.length })
+  } catch (err: any) {
+    res.status(500).json({ ok: false, error: err?.message ?? 'indexnow submission failed' })
+  }
+})
+
 export default router
