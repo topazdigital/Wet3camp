@@ -33,3 +33,8 @@ jobs:
             cd /home/admin/wet3camp-build
             bash deploy-on-server.sh
             echo "✅ Auto-deploy complete at $(date)"
+
+      - name: Ping IndexNow (Bing/Yandex instant indexing)
+        run: |
+          curl -s -X POST https://wet3.camp/api/seo/indexnow -o /tmp/indexnow.json || true
+          cat /tmp/indexnow.json || true
