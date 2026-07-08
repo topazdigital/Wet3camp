@@ -199,14 +199,29 @@ mkdir -p "$WEB_ROOT"
 # renaming to a sibling — a sibling rename left the stale dir inside
 # WEB_ROOT, so the `chmod -R` below still recursed into it and failed on
 # files it doesn't own. Clean up the moved-out stale copies in the background.
-STALE_HOLDING_DIR="/tmp/wet3camp-stale-webroot"
+# IMPORTANT: this holding dir must be on the SAME filesystem/mount as
+# WEB_ROOT and API_DIR (e.g. a sibling under /home/admin), NOT /tmp.
+# `mv` across a filesystem boundary silently falls back to copy+delete, and
+# the delete phase needs write access to the moved directory's OWN contents
+# (which can be denied if it was created by another OS user in the past) —
+# that made the "move aside" trick fail exactly like a plain `rm -rf` would.
+# A same-filesystem rename only needs write access on the two parent dirs
+# (both admin-owned), never on the moved item's own contents, so it always
+# succeeds regardless of who owns files inside it.
+STALE_HOLDING_DIR="/home/admin/.deploy-stale"
 mkdir -p "$STALE_HOLDING_DIR"
 # A previous run's background delete of an already-moved-aside stale dir can
 # get orphaned (killed with its parent script but never finishing the rm) and
 # leave a "*.stale.*" directory sitting inside WEB_ROOT itself. If left in
 # place, this run's `chmod -R` below would recurse into it and fail on files
-# it doesn't own. Force-purge any such leftovers up front (best-effort).
-find "$WEB_ROOT" -maxdepth 1 -name '*.stale.*' -exec rm -rf {} + 2>/dev/null || true
+# it doesn't own. Move any such leftovers into the holding dir up front
+# (same-filesystem rename — always succeeds — not rm -rf, which would hit
+# the same permission wall as the original problem).
+for STALE_LEFTOVER in "$WEB_ROOT"/*.stale.*; do
+  [ -e "$STALE_LEFTOVER" ] || continue
+  mv "$STALE_LEFTOVER" "${STALE_HOLDING_DIR}/$(basename "$STALE_LEFTOVER").requeued.$(date +%s%N)" 2>/dev/null \
+    || rm -rf "$STALE_LEFTOVER" 2>/dev/null || true
+done
 TS_WEB="$(date +%s%N)"
 for ENTRY in "$WEB_ROOT"/* "$WEB_ROOT"/.[!.]*; do
   [ -e "$ENTRY" ] || continue
@@ -311,12 +326,16 @@ echo "    .htaccess written (static direct, /api/* + bot UA proxied to Node.js, 
 
 # ALSO copy frontend to api-server/public so Express can serve it as a fallback
 # if the Apache mod_rewrite [P] proxy doesn't work on this server
-# Same stale-ownership hazard as WEB_ROOT above — move aside OUT of the tree
-# (into /tmp), not to a sibling, so nothing left behind interferes with any
-# later recursive chmod/cp over this directory.
+# Same stale-ownership hazard as WEB_ROOT above — move aside via a
+# same-filesystem rename into STALE_HOLDING_DIR (see note above; NOT /tmp),
+# so nothing left behind interferes with any later recursive chmod/cp here.
 mkdir -p "$API_DIR/public"
 mkdir -p "$STALE_HOLDING_DIR"
-find "$API_DIR/public" -maxdepth 1 -name '*.stale.*' -exec rm -rf {} + 2>/dev/null || true
+for STALE_LEFTOVER in "$API_DIR"/public/*.stale.*; do
+  [ -e "$STALE_LEFTOVER" ] || continue
+  mv "$STALE_LEFTOVER" "${STALE_HOLDING_DIR}/$(basename "$STALE_LEFTOVER").requeued.$(date +%s%N)" 2>/dev/null \
+    || rm -rf "$STALE_LEFTOVER" 2>/dev/null || true
+done
 TS_APIPUB="$(date +%s%N)"
 for ENTRY in "$API_DIR"/public/* "$API_DIR"/public/.[!.]*; do
   [ -e "$ENTRY" ] || continue
