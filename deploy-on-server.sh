@@ -34,15 +34,14 @@ echo "    pnpm $(pnpm --version)"
 echo ""
 echo "==> [2/7] Installing dependencies..."
 cd "$REPO_DIR"
-# Guard against stale node_modules owned by a different user (e.g. a previous
-# run as root vs admin) causing EACCES errors on install. Force-remove first
-# so every deploy starts from a clean, correctly-owned state.
-if ! CI=true pnpm install --frozen-lockfile --config.confirmModulesPurge=false; then
-  echo "    pnpm install failed (likely stale/mismatched-ownership node_modules) — cleaning and retrying..."
-  rm -rf "$REPO_DIR/node_modules"
-  find "$REPO_DIR" -maxdepth 4 -type d -name node_modules -exec rm -rf {} + 2>/dev/null || true
-  CI=true pnpm install --frozen-lockfile --config.confirmModulesPurge=false
-fi
+# Pre-clean node_modules unconditionally before every install. A previous
+# deploy run (possibly as a different OS user, e.g. root vs admin) can leave
+# behind files pnpm cannot overwrite, causing EACCES failures. Wiping first
+# guarantees a clean, correctly-owned tree every time — cheap compared to a
+# broken deploy, and pnpm's content-addressable store keeps the reinstall fast.
+echo "    Pre-cleaning node_modules to avoid stale-ownership EACCES errors..."
+find "$REPO_DIR" -maxdepth 4 -type d -name node_modules -prune -exec rm -rf {} + 2>/dev/null || true
+CI=true pnpm install --frozen-lockfile --config.confirmModulesPurge=false
 echo "    Done."
 
 echo ""
