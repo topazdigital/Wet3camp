@@ -38,7 +38,10 @@ function EscortPlaceholder({ name, size = 'lg' }: { name: string; size?: 'sm' | 
 
 function EliteCard({ escort, isFav, onFav }: { escort: ApiEscort; isFav: boolean; onFav: () => void }) {
   return (
-    <div className="relative col-span-2 md:col-span-1 rounded-2xl overflow-hidden border-2 border-[#FFD700]/40 shadow-xl shadow-[#FFD700]/10 group hover:border-[#FFD700]/70 transition-all">
+    <Link
+      href={`/@${getSlug(escort.name)}`}
+      className="relative col-span-2 md:col-span-1 rounded-2xl overflow-hidden border-2 border-[#FFD700]/40 shadow-xl shadow-[#FFD700]/10 group hover:border-[#FFD700]/70 transition-all block cursor-pointer"
+    >
       <div className="aspect-[4/5] relative">
         {escort.image ? (
           <>
@@ -64,7 +67,7 @@ function EliteCard({ escort, isFav, onFav }: { escort: ApiEscort; isFav: boolean
           )}
         </div>
 
-        <button onClick={onFav} className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/50 flex items-center justify-center backdrop-blur-sm hover:bg-black/70 transition-colors">
+        <button onClick={(ev) => { ev.preventDefault(); ev.stopPropagation(); onFav() }} className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/50 flex items-center justify-center backdrop-blur-sm hover:bg-black/70 transition-colors z-10">
           <Heart size={15} className={isFav ? 'fill-[#E91E63] text-[#E91E63]' : 'text-white'} />
         </button>
 
@@ -90,23 +93,26 @@ function EliteCard({ escort, isFav, onFav }: { escort: ApiEscort; isFav: boolean
             </div>
           </div>
           <div className="flex gap-2 mt-3">
-            <Link href={`/@${getSlug(escort.name)}`} className="flex-1 py-2 bg-[#FFD700] text-black text-xs font-black rounded-xl text-center hover:bg-[#FFC200] transition-colors">
+            <span className="flex-1 py-2 bg-[#FFD700] text-black text-xs font-black rounded-xl text-center">
               View Profile
-            </Link>
-            <Link href="/messages" className="w-9 h-9 bg-white/10 rounded-xl flex items-center justify-center hover:bg-white/20 transition-colors">
+            </span>
+            <Link href="/messages" onClick={(ev) => ev.stopPropagation()} className="w-9 h-9 bg-white/10 rounded-xl flex items-center justify-center hover:bg-white/20 transition-colors z-10">
               <MessageCircle size={15} className="text-white" />
             </Link>
           </div>
         </div>
       </div>
-    </div>
+    </Link>
   )
 }
 
 function VIPCard({ escort, isFav, onFav }: { escort: ApiEscort; isFav: boolean; onFav: () => void }) {
   const tier = TIER_META[escort.tier] ?? TIER_META.standard
   return (
-    <div className="relative rounded-xl overflow-hidden border border-[#FF4500]/30 shadow-lg group hover:border-[#FF4500]/60 transition-all">
+    <Link
+      href={`/@${getSlug(escort.name)}`}
+      className="relative rounded-xl overflow-hidden border border-[#FF4500]/30 shadow-lg group hover:border-[#FF4500]/60 transition-all block cursor-pointer"
+    >
       <div className="aspect-[3/4] relative">
         {escort.image ? (
           <>
@@ -132,7 +138,7 @@ function VIPCard({ escort, isFav, onFav }: { escort: ApiEscort; isFav: boolean; 
         {escort.online && (
           <div className="absolute top-2 right-8 w-2 h-2 rounded-full bg-[#28a745] ring-2 ring-black/40" />
         )}
-        <button onClick={onFav} className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/50 flex items-center justify-center hover:bg-black/70 transition-colors">
+        <button onClick={(ev) => { ev.preventDefault(); ev.stopPropagation(); onFav() }} className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/50 flex items-center justify-center hover:bg-black/70 transition-colors z-10">
           <Heart size={13} className={isFav ? 'fill-[#E91E63] text-[#E91E63]' : 'text-white'} />
         </button>
 
@@ -144,19 +150,22 @@ function VIPCard({ escort, isFav, onFav }: { escort: ApiEscort; isFav: boolean; 
           <p className="text-[10px] text-white/60 flex items-center gap-1"><MapPin size={9} />{escort.city}</p>
           <div className="flex items-center justify-between mt-2">
             <p className="text-sm font-black" style={{ color: tier.color }}>KES {(escort.price_incall || escort.price_hourly || 0).toLocaleString()}<span className="text-[9px] text-white/40">/hr</span></p>
-            <Link href={`/@${getSlug(escort.name)}`} className="px-2.5 py-1 text-[10px] font-bold rounded-lg text-black" style={{ background: tier.color }}>
+            <span className="px-2.5 py-1 text-[10px] font-bold rounded-lg text-black" style={{ background: tier.color }}>
               View
-            </Link>
+            </span>
           </div>
         </div>
       </div>
-    </div>
+    </Link>
   )
 }
 
 function StandardCard({ escort, isFav, onFav }: { escort: ApiEscort; isFav: boolean; onFav: () => void }) {
   return (
-    <div className="flex gap-3 p-3 bg-card-bg border border-color rounded-xl hover:border-[#8B0000]/40 transition-all group">
+    <Link
+      href={`/@${getSlug(escort.name)}`}
+      className="flex gap-3 p-3 bg-card-bg border border-color rounded-xl hover:border-[#8B0000]/40 transition-all group cursor-pointer"
+    >
       <div className="relative flex-shrink-0 w-16 h-16 rounded-xl overflow-hidden">
         {escort.image ? (
           <>
@@ -187,15 +196,15 @@ function StandardCard({ escort, isFav, onFav }: { escort: ApiEscort; isFav: bool
         </div>
       </div>
       <div className="flex flex-col items-end gap-2">
-        <button onClick={onFav}>
+        <button onClick={(ev) => { ev.preventDefault(); ev.stopPropagation(); onFav() }} className="z-10">
           <Heart size={14} className={isFav ? 'fill-[#E91E63] text-[#E91E63]' : 'text-text-muted hover:text-[#E91E63] transition-colors'} />
         </button>
         <p className="text-xs font-bold text-[#8B0000]">KES {(escort.price_incall || escort.price_hourly || 0).toLocaleString()}</p>
-        <Link href={`/@${getSlug(escort.name)}`} className="text-[10px] px-2 py-1 bg-[#8B0000]/15 text-[#8B0000] rounded-lg font-semibold hover:bg-[#8B0000]/25 transition-colors">
+        <span className="text-[10px] px-2 py-1 bg-[#8B0000]/15 text-[#8B0000] rounded-lg font-semibold">
           View
-        </Link>
+        </span>
       </div>
-    </div>
+    </Link>
   )
 }
 
