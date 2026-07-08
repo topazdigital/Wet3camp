@@ -19,6 +19,16 @@ git fetch origin main
 git reset --hard origin/main
 echo "    Code is now up to date with GitHub."
 
+# --- DIAGNOSTICS: help debug the persistent EACCES node_modules issue ---
+echo "    [diag] whoami: $(whoami)  id: $(id)"
+echo "    [diag] deploy-on-server.sh checksum: $(md5sum "$REPO_DIR/deploy-on-server.sh" 2>&1)"
+echo "    [diag] REPO_DIR ownership/perms: $(ls -ld "$REPO_DIR" 2>&1)"
+echo "    [diag] node_modules ownership/perms: $(ls -ld "$REPO_DIR/node_modules" 2>&1)"
+BAD_FILE="$REPO_DIR/node_modules/.pnpm/pino-http@10.5.0/node_modules/pino-http/node_modules/.bin/pino"
+echo "    [diag] offending file stat: $(ls -la "$BAD_FILE" 2>&1)"
+echo "    [diag] offending file parent dir perms: $(ls -ld "$(dirname "$BAD_FILE")" 2>&1)"
+# --- END DIAGNOSTICS ---
+
 WEB_ROOT="/home/admin/domains/wet3.camp/public_html"
 API_DIR="/home/admin/api-server"
 # NOTE: your env file is named "env" (not ".env") — keep that name
