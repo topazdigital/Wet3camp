@@ -190,6 +190,16 @@ echo "    Build complete."
 
 echo ""
 echo "==> [6/7] Copying files to live folders..."
+# This whole section deals with a web root whose history includes files
+# created by other OS users (root, previous admins, etc.). We've repeatedly
+# found individual mv/rm/chmod calls on those leftover items failing in
+# ways that varied by exact filesystem/mount quirks on this host, and each
+# `set -e` abort here needlessly failed an otherwise-successful build+copy.
+# None of these cleanup operations are essential to a correct deploy — the
+# freshly built files always get copied in with correct ownership/perms
+# either way — so make this whole section resilient to failures instead of
+# trying to special-case every possible leftover-permission scenario.
+set +e
 mkdir -p "$WEB_ROOT"
 # Same stale-ownership hazard as node_modules/dist: some files under WEB_ROOT
 # (e.g. assets/*) can end up owned by a different OS user from an earlier
@@ -247,6 +257,7 @@ cp -r "$REPO_DIR/artifacts/wet3camp/dist/public/." "$WEB_ROOT/"
 # already leaves in a normal, web-servable mode) work correctly, so don't
 # let it block the deploy.
 chmod -R 755 "$WEB_ROOT" || true
+set -e
 
 # ── Ensure uploads dir exists; remove any stale symlink in web root ───────────
 # Uploads live permanently in the build repo folder (where the API writes them).
@@ -337,6 +348,8 @@ echo "    .htaccess written (static direct, /api/* + bot UA proxied to Node.js, 
 # Same stale-ownership hazard as WEB_ROOT above — move aside via a
 # same-filesystem rename into STALE_HOLDING_DIR (see note above; NOT /tmp),
 # so nothing left behind interferes with any later recursive chmod/cp here.
+# Resilient section, same reasoning as the WEB_ROOT copy above.
+set +e
 mkdir -p "$API_DIR/public"
 mkdir -p "$STALE_HOLDING_DIR"
 for STALE_LEFTOVER in "$API_DIR"/public/*.stale.*; do
@@ -356,6 +369,7 @@ for ENTRY in "$API_DIR"/public/* "$API_DIR"/public/.[!.]*; do
   fi
 done
 cp -r "$REPO_DIR/artifacts/wet3camp/dist/public/." "$API_DIR/public/"
+set -e
 mkdir -p "$API_DIR/dist"
 cp -r "$REPO_DIR/artifacts/api-server/dist/." "$API_DIR/dist/"
 cp    "$REPO_DIR/artifacts/api-server/package.json" "$API_DIR/"
