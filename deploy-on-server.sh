@@ -9,6 +9,32 @@ set -e
 
 REPO_DIR="/home/admin/wet3camp-build"
 
+# --- CONCURRENCY GUARD -----------------------------------------------------
+# If an SSH connection from a previous deploy drops (network blip, GH Action
+# timeout, etc.) before the remote script finishes, bash keeps running
+# detached/orphaned on the server. A second deploy then starts concurrently
+# on the SAME repo/node_modules tree, and the two `pnpm install` processes
+# race each other — one process's in-flight rename/unlink of a .bin symlink
+# collides with the other's, which pnpm reports as a spurious EACCES. Kill
+# any previous deploy process for this repo before proceeding so only one
+# ever runs at a time.
+LOCK_FILE="/tmp/wet3camp-deploy.lock"
+if [ -f "$LOCK_FILE" ]; then
+  OLD_PID="$(cat "$LOCK_FILE" 2>/dev/null || true)"
+  if [ -n "$OLD_PID" ] && kill -0 "$OLD_PID" 2>/dev/null; then
+    echo "==> Previous deploy (PID $OLD_PID) still running — killing it and its children to avoid a race..."
+    pkill -9 -P "$OLD_PID" 2>/dev/null || true
+    kill -9 "$OLD_PID" 2>/dev/null || true
+    sleep 1
+  fi
+fi
+# Also sweep for any other pnpm/node install processes still touching this
+# repo, in case they got reparented and aren't a child of the recorded PID.
+pkill -9 -f "pnpm.*${REPO_DIR}" 2>/dev/null || true
+pkill -9 -f "node.*${REPO_DIR}/node_modules" 2>/dev/null || true
+echo $ > "$LOCK_FILE"
+# --- END CONCURRENCY GUARD --------------------------------------------------
+
 # Fix git "dubious ownership" error when running as root via SSH
 git config --global --add safe.directory "$REPO_DIR" 2>/dev/null || true
 
