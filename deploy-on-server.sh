@@ -49,17 +49,20 @@ cd "$REPO_DIR"
 # makes `rm -rf` fail with EACCES on individual files even though we own the
 # containing directories. Deleting a directory's *contents* needs write
 # access to each file's parent dir; renaming the directory itself only needs
-# write access to REPO_DIR (which admin owns), so this sidesteps the problem
-# entirely. The stale copy is then removed best-effort in the background.
-if [ -d "$REPO_DIR/node_modules" ]; then
-  STALE_DIR="$REPO_DIR/node_modules.stale.$(date +%s)"
-  if mv "$REPO_DIR/node_modules" "$STALE_DIR" 2>/dev/null; then
-    echo "    Moved existing node_modules aside (possible stale ownership) -> $(basename "$STALE_DIR")"
+# write access to the parent (which admin owns), so this sidesteps the
+# problem entirely. This is a pnpm workspace, so EVERY package (root +
+# artifacts/* + lib/*) can have its own nested node_modules — clean all of
+# them, not just the root one. Stale copies are removed best-effort after.
+TS="$(date +%s)"
+while IFS= read -r -d '' NM_DIR; do
+  STALE_DIR="${NM_DIR}.stale.${TS}"
+  if mv "$NM_DIR" "$STALE_DIR" 2>/dev/null; then
+    echo "    Moved aside: $NM_DIR -> $(basename "$STALE_DIR")"
     ( rm -rf "$STALE_DIR" 2>/dev/null || true ) &
   else
-    echo "    Could not move node_modules aside (unexpected) — continuing anyway."
+    echo "    Could not move aside: $NM_DIR (unexpected) — continuing anyway."
   fi
-fi
+done < <(find "$REPO_DIR" -maxdepth 3 -type d -name node_modules -print0 2>/dev/null)
 CI=true pnpm install --frozen-lockfile --config.confirmModulesPurge=false
 echo "    Done."
 
