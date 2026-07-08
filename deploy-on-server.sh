@@ -191,7 +191,23 @@ echo "    Build complete."
 echo ""
 echo "==> [6/7] Copying files to live folders..."
 mkdir -p "$WEB_ROOT"
-rm -rf "${WEB_ROOT:?}"/*
+# Same stale-ownership hazard as node_modules/dist: some files under WEB_ROOT
+# (e.g. assets/*) can end up owned by a different OS user from an earlier
+# manual/root run, so `rm -rf WEB_ROOT/*` fails with EACCES on individual
+# files even though admin owns WEB_ROOT itself. Move each top-level entry
+# aside (needs only write access to the parent, which admin owns) instead of
+# deleting in place, then clean up the stale copies in the background.
+TS_WEB="$(date +%s)"
+for ENTRY in "$WEB_ROOT"/* "$WEB_ROOT"/.[!.]*; do
+  [ -e "$ENTRY" ] || continue
+  STALE_ENTRY="${ENTRY}.stale.${TS_WEB}"
+  if mv "$ENTRY" "$STALE_ENTRY" 2>/dev/null; then
+    ( rm -rf "$STALE_ENTRY" 2>/dev/null || true ) &
+  else
+    echo "    Could not move aside: $ENTRY (unexpected) — trying rm -f as fallback."
+    rm -rf "$ENTRY" 2>/dev/null || true
+  fi
+done
 # Vite outputs to dist/public — copy that subfolder to web root
 cp -r "$REPO_DIR/artifacts/wet3camp/dist/public/." "$WEB_ROOT/"
 chmod -R 755 "$WEB_ROOT"
@@ -282,8 +298,18 @@ echo "    .htaccess written (static direct, /api/* + bot UA proxied to Node.js, 
 
 # ALSO copy frontend to api-server/public so Express can serve it as a fallback
 # if the Apache mod_rewrite [P] proxy doesn't work on this server
+# Same stale-ownership hazard as WEB_ROOT above — move aside instead of rm -rf.
 mkdir -p "$API_DIR/public"
-rm -rf "${API_DIR:?}/public/"*
+TS_APIPUB="$(date +%s)"
+for ENTRY in "$API_DIR"/public/* "$API_DIR"/public/.[!.]*; do
+  [ -e "$ENTRY" ] || continue
+  STALE_ENTRY="${ENTRY}.stale.${TS_APIPUB}"
+  if mv "$ENTRY" "$STALE_ENTRY" 2>/dev/null; then
+    ( rm -rf "$STALE_ENTRY" 2>/dev/null || true ) &
+  else
+    rm -rf "$ENTRY" 2>/dev/null || true
+  fi
+done
 cp -r "$REPO_DIR/artifacts/wet3camp/dist/public/." "$API_DIR/public/"
 mkdir -p "$API_DIR/dist"
 cp -r "$REPO_DIR/artifacts/api-server/dist/." "$API_DIR/dist/"
