@@ -2663,58 +2663,162 @@ function AdminDashboard() {
   )
 }
 
+interface AdminBlogPost {
+  id: string; title: string; category: string; published: boolean
+  published_at?: string; slug: string
+}
+interface AdminBlogForm {
+  id?: string; title: string; excerpt: string; content: string
+  category: string; tags: string; imageUrl: string; published: boolean
+}
+
+function BlogMediaToolbar({ onInsert }: { onInsert: (snippet: string) => void }) {
+  const [uploading, setUploading] = useState<'image' | 'video' | null>(null)
+  const [error, setError] = useState('')
+  const imgInputRef = useRef<HTMLInputElement>(null)
+  const vidInputRef = useRef<HTMLInputElement>(null)
+
+  const upload = async (file: File, kind: 'image' | 'video') => {
+    setError(''); setUploading(kind)
+    try {
+      const dataUrl: string = await new Promise((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(reader.result as string)
+        reader.onerror = reject
+        reader.readAsDataURL(file)
+      })
+      const result = await adminFetch('/upload', {
+        method: 'POST',
+        body: JSON.stringify({ data: dataUrl, filename: file.name, type: 'blog' }),
+      })
+      if (result?.url) {
+        onInsert(kind === 'image' ? `\n\n![](${result.url})\n\n` : `\n\n[video](${result.url})\n\n`)
+      } else {
+        setError('Upload failed')
+      }
+    } catch (err: any) {
+      setError(err?.message?.slice(0, 120) || 'Upload failed')
+    } finally {
+      setUploading(null)
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-2 mb-1.5">
+      <input ref={imgInputRef} type="file" accept="image/*" className="hidden"
+        onChange={e => { const f = e.target.files?.[0]; if (f) upload(f, 'image'); e.target.value = '' }} />
+      <input ref={vidInputRef} type="file" accept="video/mp4,video/webm,video/quicktime" className="hidden"
+        onChange={e => { const f = e.target.files?.[0]; if (f) upload(f, 'video'); e.target.value = '' }} />
+      <button type="button" disabled={!!uploading} onClick={() => imgInputRef.current?.click()}
+        className="px-2.5 py-1.5 bg-dark-bg border border-color text-[10px] text-text-light rounded-lg hover:border-[#8B0000]/50 transition-all disabled:opacity-50 flex items-center gap-1.5">
+        <Camera size={11} /> {uploading === 'image' ? 'Uploading…' : 'Insert Image'}
+      </button>
+      <button type="button" disabled={!!uploading} onClick={() => vidInputRef.current?.click()}
+        className="px-2.5 py-1.5 bg-dark-bg border border-color text-[10px] text-text-light rounded-lg hover:border-[#8B0000]/50 transition-all disabled:opacity-50 flex items-center gap-1.5">
+        <Radio size={11} /> {uploading === 'video' ? 'Uploading…' : 'Insert Video'}
+      </button>
+      {error && <span className="text-[10px] text-[#EF4444]">{error}</span>}
+    </div>
+  )
+}
+
 function AdminBlog() {
-  const [posts, setPosts] = useState<Array<{id:string;title:string;category:string;published:boolean;publishedAt:string;slug:string}>>([])
-  const [editing, setEditing] = useState<{id:string;title:string;excerpt:string;content:string;category:string;tags:string;imageUrl:string;published:boolean} | null>(null)
+  const [posts, setPosts] = useState<AdminBlogPost[]>([])
+  const [editing, setEditing] = useState<AdminBlogForm | null>(null)
   const [creating, setCreating] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [loadError, setLoadError] = useState('')
+  const contentRef = useRef<HTMLTextAreaElement>(null)
 
-  useEffect(() => {
-    import('@/data/blog').then(({ getBlogPosts }) => {
-      setPosts(getBlogPosts().map((p: any) => ({ id: p.id, title: p.title, category: p.category, published: p.published, publishedAt: p.publishedAt, slug: p.slug })))
-    })
+  const blank: AdminBlogForm = { title: '', excerpt: '', content: '', category: 'Kenya Escorts Guide', tags: '', imageUrl: '', published: false }
+
+  const loadPosts = useCallback(async () => {
+    try {
+      const data = await adminFetch('/admin/blog')
+      setPosts((data.posts ?? []).map((p: any) => ({
+        id: String(p.id), title: p.title, category: p.category,
+        published: !!p.published, published_at: p.published_at, slug: p.slug,
+      })))
+      setLoadError('')
+    } catch (err: any) {
+      setLoadError('Could not load posts.')
+    }
   }, [])
 
-  const blank = { id: '', title: '', excerpt: '', content: '', category: 'Kenya Escorts Guide', tags: '', imageUrl: '', published: false }
+  useEffect(() => { loadPosts() }, [loadPosts])
 
   const save = async () => {
-    const { getBlogPosts, saveBlogPosts, slugify } = await import('@/data/blog')
-    const all = getBlogPosts()
-    if (editing?.id) {
-      const updated = all.map((p: any) => p.id === editing.id ? { ...p, ...editing, tags: editing.tags.split(',').map((t: string) => t.trim()), slug: slugify(editing.title), updatedAt: new Date().toISOString().split('T')[0] } : p)
-      saveBlogPosts(updated)
-    } else if (creating) {
-      const newPost = { ...editing, id: Date.now().toString(), slug: slugify(editing!.title), tags: editing!.tags.split(',').map((t: string) => t.trim()), author: 'Wet3Camp Editorial', readTime: Math.ceil(editing!.content.split(' ').length / 200), publishedAt: new Date().toISOString().split('T')[0], updatedAt: new Date().toISOString().split('T')[0] }
-      saveBlogPosts([...all, newPost])
+    if (!editing) return
+    setSaving(true)
+    try {
+      const payload = {
+        title: editing.title, excerpt: editing.excerpt, content: editing.content,
+        category: editing.category, tags: editing.tags, imageUrl: editing.imageUrl,
+        published: editing.published,
+      }
+      if (editing.id) {
+        await adminFetch(`/admin/blog/${editing.id}`, { method: 'PUT', body: JSON.stringify(payload) })
+      } else {
+        await adminFetch('/admin/blog', { method: 'POST', body: JSON.stringify(payload) })
+      }
+      await loadPosts()
+      setSaved(true); setTimeout(() => setSaved(false), 2000)
+      setEditing(null); setCreating(false)
+    } catch (err: any) {
+      setLoadError('Failed to save post.')
+    } finally {
+      setSaving(false)
     }
-    const updated2 = await import('@/data/blog').then(m => m.getBlogPosts())
-    setPosts(updated2.map((p: any) => ({ id: p.id, title: p.title, category: p.category, published: p.published, publishedAt: p.publishedAt, slug: p.slug })))
-    setSaved(true); setTimeout(() => setSaved(false), 2000)
-    setEditing(null); setCreating(false)
   }
 
   const deletePost = async (id: string) => {
-    const { getBlogPosts, saveBlogPosts } = await import('@/data/blog')
-    saveBlogPosts(getBlogPosts().filter((p: any) => p.id !== id))
-    setPosts(p => p.filter(x => x.id !== id))
+    if (!window.confirm('Delete this article? This cannot be undone.')) return
+    try {
+      await adminFetch(`/admin/blog/${id}`, { method: 'DELETE' })
+      setPosts(p => p.filter(x => x.id !== id))
+    } catch { setLoadError('Failed to delete post.') }
   }
 
-  const togglePublish = async (id: string) => {
-    const { getBlogPosts, saveBlogPosts } = await import('@/data/blog')
-    const all = getBlogPosts()
-    saveBlogPosts(all.map((p: any) => p.id === id ? { ...p, published: !p.published } : p))
-    setPosts(posts.map(p => p.id === id ? { ...p, published: !p.published } : p))
+  const togglePublish = async (id: string, currentlyPublished: boolean) => {
+    try {
+      await adminFetch(`/admin/blog/${id}/publish`, { method: 'PATCH', body: JSON.stringify({ published: !currentlyPublished }) })
+      setPosts(posts.map(p => p.id === id ? { ...p, published: !currentlyPublished } : p))
+    } catch { setLoadError('Failed to update publish state.') }
   }
 
   const startEdit = async (id: string) => {
-    const { getBlogPosts } = await import('@/data/blog')
-    const post = getBlogPosts().find((p: any) => p.id === id)
-    if (post) { setEditing({ ...post, tags: post.tags.join(', ') }); setCreating(false) }
+    try {
+      const post = await adminFetch(`/admin/blog/${id}`)
+      setEditing({
+        id: String(post.id), title: post.title, excerpt: post.excerpt ?? '',
+        content: post.content ?? '', category: post.category ?? 'Kenya Escorts Guide',
+        tags: (Array.isArray(post.tags) ? post.tags : []).join(', '),
+        imageUrl: post.image_url ?? '', published: !!post.published,
+      })
+      setCreating(false)
+    } catch { setLoadError('Failed to load post for editing.') }
+  }
+
+  // Insert a media snippet at the current cursor position in the content textarea.
+  const insertAtCursor = (snippet: string) => {
+    setEditing(e => {
+      if (!e) return e
+      const el = contentRef.current
+      const start = el?.selectionStart ?? e.content.length
+      const end = el?.selectionEnd ?? e.content.length
+      const nextContent = e.content.slice(0, start) + snippet + e.content.slice(end)
+      // Restore focus + cursor after the inserted snippet on next tick.
+      requestAnimationFrame(() => {
+        if (el) { el.focus(); const pos = start + snippet.length; el.setSelectionRange(pos, pos) }
+      })
+      return { ...e, content: nextContent }
+    })
   }
 
   if (editing || creating) {
     const form = editing ?? blank
-    const set = (k: string, v: string | boolean) => setEditing((e: any) => e ? { ...e, [k]: v } : { ...blank, [k]: v })
+    const set = (k: keyof AdminBlogForm, v: string | boolean) => setEditing((e: any) => e ? { ...e, [k]: v } : { ...blank, [k]: v })
     return (
       <div className="max-w-2xl space-y-4">
         <div className="flex items-center gap-3 mb-2">
@@ -2723,13 +2827,24 @@ function AdminBlog() {
         </div>
         {(['title','excerpt','imageUrl'] as const).map(field => (
           <div key={field}>
-            <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">{field}</label>
+            <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">{field === 'imageUrl' ? 'Cover Image URL' : field}</label>
             <input value={(form as any)[field] ?? ''} onChange={e => set(field, e.target.value)} className="w-full px-3 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#8B0000] transition-all" />
           </div>
         ))}
         <div>
-          <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Content (Markdown)</label>
-          <textarea value={form.content} onChange={e => set('content', e.target.value)} rows={12} className="w-full px-3 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#8B0000] transition-all font-mono text-xs resize-none" />
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="text-[10px] text-text-muted uppercase tracking-widest block">Story Content</label>
+          </div>
+          <BlogMediaToolbar onInsert={insertAtCursor} />
+          <textarea
+            ref={contentRef}
+            value={form.content}
+            onChange={e => set('content', e.target.value)}
+            rows={16}
+            placeholder={'Write the story here. Use the buttons above to embed a photo or video right where the cursor is — it will appear inline between the paragraphs, exactly where you place it.'}
+            className="w-full px-3 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#8B0000] transition-all font-mono text-xs resize-none"
+          />
+          <p className="text-[10px] text-text-muted mt-1">Tip: place your cursor between two paragraphs before clicking Insert Image/Video — the media drops in exactly there.</p>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
@@ -2743,13 +2858,15 @@ function AdminBlog() {
             <input value={form.tags} onChange={e => set('tags', e.target.value)} className="w-full px-3 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#8B0000] transition-all" />
           </div>
         </div>
+        {loadError && <p className="text-[11px] text-[#EF4444]">{loadError}</p>}
         <div className="flex items-center gap-3">
           <button onClick={() => set('published', !form.published)} className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold border transition-all ${form.published ? 'bg-[#28a745]/20 border-[#28a745]/40 text-[#28a745]' : 'bg-dark-bg border-color text-text-muted'}`}>
             {form.published ? '● Published' : '○ Draft'}
           </button>
-          <button onClick={save} className={`px-5 py-2 rounded-xl text-xs font-bold transition-all ${saved ? 'bg-[#28a745] text-white' : 'bg-[#8B0000] text-white hover:bg-[#a00000]'}`}>
-            {saved ? '✓ Saved' : 'Save Article'}
+          <button onClick={save} disabled={saving} className={`px-5 py-2 rounded-xl text-xs font-bold transition-all disabled:opacity-60 ${saved ? 'bg-[#28a745] text-white' : 'bg-[#8B0000] text-white hover:bg-[#a00000]'}`}>
+            {saved ? '✓ Saved' : saving ? 'Saving…' : 'Save Article'}
           </button>
+          {form.published && <span className="text-[10px] text-text-muted">Publishing instantly pings Bing/Yandex for fast indexing.</span>}
         </div>
       </div>
     )
@@ -2766,18 +2883,19 @@ function AdminBlog() {
           + New Article
         </button>
       </div>
+      {loadError && <p className="text-[11px] text-[#EF4444]">{loadError}</p>}
       <div className="space-y-2">
         {posts.map(post => (
           <div key={post.id} className="flex items-center gap-3 p-3 bg-card-bg border border-color rounded-xl">
             <div className="flex-1 min-w-0">
               <p className="text-xs font-semibold text-text-light truncate">{post.title}</p>
-              <p className="text-[10px] text-text-muted mt-0.5">{post.category} · {post.publishedAt}</p>
+              <p className="text-[10px] text-text-muted mt-0.5">{post.category}{post.published_at ? ` · ${new Date(post.published_at).toLocaleDateString()}` : ''}</p>
             </div>
             <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${post.published ? 'bg-[#28a745]/20 text-[#28a745]' : 'bg-[#6B7280]/20 text-[#6B7280]'}`}>
               {post.published ? 'Published' : 'Draft'}
             </span>
             <div className="flex items-center gap-1.5 flex-shrink-0">
-              <button onClick={() => togglePublish(post.id)} className="px-2 py-1 bg-dark-bg border border-color text-[9px] text-text-muted rounded-lg hover:border-[#8B0000]/50 transition-all">
+              <button onClick={() => togglePublish(post.id, post.published)} className="px-2 py-1 bg-dark-bg border border-color text-[9px] text-text-muted rounded-lg hover:border-[#8B0000]/50 transition-all">
                 {post.published ? 'Unpublish' : 'Publish'}
               </button>
               <button onClick={() => startEdit(post.id)} className="px-2 py-1 bg-[#8B0000]/20 border border-[#8B0000]/30 text-[#8B0000] text-[9px] rounded-lg hover:bg-[#8B0000]/30 transition-all">Edit</button>
@@ -2785,6 +2903,9 @@ function AdminBlog() {
             </div>
           </div>
         ))}
+        {posts.length === 0 && !loadError && (
+          <p className="text-xs text-text-muted text-center py-6">No articles yet — create your first one.</p>
+        )}
       </div>
     </div>
   )

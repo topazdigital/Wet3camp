@@ -331,11 +331,12 @@ function collectAllUrls(): string[] {
   return urls
 }
 
-// Submits URLs to IndexNow (Bing + Yandex pick this up; Google does not support
-// IndexNow but this is free, instant, and needs no account/login).
-router.post('/api/seo/indexnow', async (_req, res) => {
+// Submits an arbitrary list of URLs to IndexNow (Bing + Yandex pick this up
+// within seconds/minutes; Google does not support IndexNow but this is free,
+// instant, and needs no account/login). Safe to call fire-and-forget.
+export async function submitToIndexNow(urlList: string[]): Promise<{ ok: boolean; status?: number }> {
+  if (urlList.length === 0) return { ok: false }
   try {
-    const urlList = collectAllUrls()
     const payload = {
       host: 'wet3.camp',
       key: INDEXNOW_KEY,
@@ -346,11 +347,25 @@ router.post('/api/seo/indexnow', async (_req, res) => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json; charset=utf-8' },
       body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(8000),
     })
-    res.json({ ok: response.ok, status: response.status, submitted: urlList.length })
+    return { ok: response.ok, status: response.status }
   } catch (err: any) {
-    res.status(500).json({ ok: false, error: err?.message ?? 'indexnow submission failed' })
+    console.error('[indexnow] submission failed:', err?.message ?? err)
+    return { ok: false }
   }
+}
+
+export function blogPostUrl(slug: string): string {
+  return `${BASE}/blog/${slug}`
+}
+
+// Submits URLs to IndexNow (Bing + Yandex pick this up; Google does not support
+// IndexNow but this is free, instant, and needs no account/login).
+router.post('/api/seo/indexnow', async (_req, res) => {
+  const urlList = collectAllUrls()
+  const result = await submitToIndexNow(urlList)
+  res.json({ ...result, submitted: urlList.length })
 })
 
 export default router

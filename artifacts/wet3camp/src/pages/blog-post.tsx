@@ -134,9 +134,34 @@ export default function BlogPost() {
           {/* Excerpt */}
           <p className="text-base text-text-muted border-l-4 border-[#8B0000] pl-4 mb-8 italic">{post.excerpt}</p>
 
-          {/* Content */}
+          {/* Content — supports inline ![alt](url) images and [video](url) embeds */}
           <article className="prose-content space-y-2 text-text-muted text-sm leading-relaxed">
             {post.content.split('\n').map((line, i) => {
+              const imgMatch = line.trim().match(/^!\[([^\]]*)\]\(([^)\s]+)\)$/)
+              if (imgMatch) {
+                return (
+                  <img
+                    key={i}
+                    src={imgMatch[2]}
+                    alt={imgMatch[1] || post.title}
+                    loading="lazy"
+                    className="w-full rounded-xl my-5 max-h-[480px] object-cover"
+                  />
+                )
+              }
+              const vidMatch = line.trim().match(/^\[video\]\(([^)\s]+)\)$/i)
+              if (vidMatch) {
+                return (
+                  <video
+                    key={i}
+                    src={vidMatch[1]}
+                    controls
+                    playsInline
+                    preload="metadata"
+                    className="w-full rounded-xl my-5 max-h-[480px] bg-black"
+                  />
+                )
+              }
               if (line.startsWith('## '))
                 return <h2 key={i} className="text-xl font-black text-text-light mt-8 mb-3">{line.slice(3)}</h2>
               if (line.startsWith('### '))

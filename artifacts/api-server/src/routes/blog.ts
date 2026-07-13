@@ -1,8 +1,21 @@
 import { Router } from 'express'
 import { getPool } from '../lib/db.js'
 import OpenAI from 'openai'
+import { requireAuth, type AuthRequest } from '../middlewares/requireAuth.js'
+import { submitToIndexNow, blogPostUrl } from './sitemap.js'
 
 const router = Router()
+
+function requireAdmin(req: AuthRequest, res: any, next: any) {
+  if (req.userRole !== 'admin') { res.status(403).json({ message: 'Admin access required' }); return }
+  next()
+}
+
+function parseTags(tags: unknown): string[] {
+  if (Array.isArray(tags)) return tags.map(String)
+  if (typeof tags === 'string') return tags.split(',').map(t => t.trim()).filter(Boolean)
+  return []
+}
 
 function getOpenAI(): OpenAI | null {
   const apiKey  = process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY
@@ -341,6 +354,162 @@ router.get('/blog/:slug', async (req, res) => {
     })
   } catch {
     res.status(404).json({ message: 'Not found' })
+  }
+})
+
+// ── GET /api/admin/blog — list ALL posts (incl. drafts) for the admin UI ──────
+router.get('/admin/blog', requireAuth, requireAdmin, async (_req: AuthRequest, res) => {
+  const pool = getPool()
+  if (!pool) { res.json({ posts: [] }); return }
+  try {
+    const [rows] = await pool.query<any[]>(
+      `SELECT id, slug, title, excerpt, category, tags, image_url, read_time, author,
+              published, published_at, updated_at, seo_title, seo_description
+       FROM blog_posts ORDER BY COALESCE(updated_at, published_at) DESC, id DESC LIMIT 500`
+    )
+    res.json({
+      posts: (rows as any[]).map((r: any) => ({
+        ...r,
+        tags: typeof r.tags === 'string' ? JSON.parse(r.tags || '[]') : (r.tags ?? []),
+        published: !!r.published,
+      })),
+    })
+  } catch (err: any) {
+    console.error('[GET /api/admin/blog]', err?.message)
+    res.status(500).json({ posts: [], message: 'Failed to load posts' })
+  }
+})
+
+// ── GET /api/admin/blog/:id — fetch one post (incl. draft) for editing ────────
+router.get('/admin/blog/:id', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  const pool = getPool()
+  if (!pool) { res.status(404).json({ message: 'Not found' }); return }
+  try {
+    const [rows] = await pool.query<any[]>('SELECT * FROM blog_posts WHERE id = ? LIMIT 1', [req.params.id])
+    const post = (rows as any[])[0]
+    if (!post) { res.status(404).json({ message: 'Post not found' }); return }
+    res.json({ ...post, tags: typeof post.tags === 'string' ? JSON.parse(post.tags || '[]') : (post.tags ?? []), published: !!post.published })
+  } catch (err: any) {
+    res.status(500).json({ message: 'Failed to load post' })
+  }
+})
+
+// ── POST /api/admin/blog — create a post authored via the admin editor ────────
+router.post('/admin/blog', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  const pool = getPool()
+  if (!pool) { res.status(503).json({ message: 'No DB' }); return }
+  try {
+    const b = req.body as Record<string, any>
+    if (!b.title || !String(b.title).trim()) { res.status(400).json({ message: 'Title is required' }); return }
+
+    const slug = slugify(b.slug || b.title)
+    const wordCount = String(b.content ?? '').split(/\s+/).filter(Boolean).length
+    const readTime = Math.max(2, Math.ceil(wordCount / 200))
+    const published = !!b.published
+
+    const [result] = await pool.query<any>(
+      `INSERT INTO blog_posts
+         (slug, title, excerpt, content, category, tags, image_url, read_time,
+          seo_title, seo_description, author, published, published_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        slug, b.title, b.excerpt ?? '', b.content ?? '', b.category ?? 'Kenya Escorts Guide',
+        JSON.stringify(parseTags(b.tags)), b.imageUrl ?? b.image_url ?? '', readTime,
+        b.seoTitle ?? b.title, b.seoDescription ?? b.excerpt ?? '',
+        b.author ?? 'Wet3Camp Editorial', published ? 1 : 0,
+        new Date(),
+      ]
+    )
+    const id = (result as any)?.insertId
+
+    if (published) {
+      submitToIndexNow([blogPostUrl(slug)]).catch(() => {})
+    }
+
+    res.json({ success: true, id, slug })
+  } catch (err: any) {
+    console.error('[POST /api/admin/blog]', err?.message)
+    res.status(500).json({ message: 'Failed to create post', detail: err?.message })
+  }
+})
+
+// ── PUT /api/admin/blog/:id — update an existing post ──────────────────────────
+router.put('/admin/blog/:id', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  const pool = getPool()
+  if (!pool) { res.status(503).json({ message: 'No DB' }); return }
+  try {
+    const { id } = req.params
+    const b = req.body as Record<string, any>
+    if (!b.title || !String(b.title).trim()) { res.status(400).json({ message: 'Title is required' }); return }
+
+    const [existingRows] = await pool.query<any[]>('SELECT slug, published FROM blog_posts WHERE id = ? LIMIT 1', [id])
+    const existing = (existingRows as any[])[0]
+    if (!existing) { res.status(404).json({ message: 'Post not found' }); return }
+
+    const slug = slugify(b.slug || b.title)
+    const wordCount = String(b.content ?? '').split(/\s+/).filter(Boolean).length
+    const readTime = Math.max(2, Math.ceil(wordCount / 200))
+    const wasPublished = !!existing.published
+    const nowPublished = !!b.published
+    const justPublished = nowPublished && !wasPublished
+
+    await pool.query(
+      `UPDATE blog_posts SET
+         slug = ?, title = ?, excerpt = ?, content = ?, category = ?, tags = ?,
+         image_url = ?, read_time = ?, seo_title = ?, seo_description = ?,
+         published = ?, published_at = ${justPublished ? 'NOW()' : 'published_at'},
+         updated_at = NOW()
+       WHERE id = ?`,
+      [
+        slug, b.title, b.excerpt ?? '', b.content ?? '', b.category ?? 'Kenya Escorts Guide',
+        JSON.stringify(parseTags(b.tags)), b.imageUrl ?? b.image_url ?? '', readTime,
+        b.seoTitle ?? b.title, b.seoDescription ?? b.excerpt ?? '', nowPublished ? 1 : 0, id,
+      ]
+    )
+
+    if (nowPublished) {
+      submitToIndexNow([blogPostUrl(slug)]).catch(() => {})
+    }
+
+    res.json({ success: true, id, slug })
+  } catch (err: any) {
+    console.error('[PUT /api/admin/blog/:id]', err?.message)
+    res.status(500).json({ message: 'Failed to update post', detail: err?.message })
+  }
+})
+
+// ── PATCH /api/admin/blog/:id/publish — toggle publish state quickly ──────────
+router.patch('/admin/blog/:id/publish', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  const pool = getPool()
+  if (!pool) { res.status(503).json({ message: 'No DB' }); return }
+  try {
+    const { id } = req.params
+    const { published } = req.body as { published: boolean }
+    const [rows] = await pool.query<any[]>('SELECT slug, published_at FROM blog_posts WHERE id = ? LIMIT 1', [id])
+    const post = (rows as any[])[0]
+    if (!post) { res.status(404).json({ message: 'Post not found' }); return }
+
+    await pool.query(
+      `UPDATE blog_posts SET published = ?, published_at = ${!post.published_at && published ? 'NOW()' : 'published_at'}, updated_at = NOW() WHERE id = ?`,
+      [published ? 1 : 0, id]
+    )
+
+    if (published) submitToIndexNow([blogPostUrl(post.slug)]).catch(() => {})
+    res.json({ success: true })
+  } catch (err: any) {
+    res.status(500).json({ message: 'Failed to toggle publish state' })
+  }
+})
+
+// ── DELETE /api/admin/blog/:id ──────────────────────────────────────────────────
+router.delete('/admin/blog/:id', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  const pool = getPool()
+  if (!pool) { res.status(503).json({ message: 'No DB' }); return }
+  try {
+    await pool.query('DELETE FROM blog_posts WHERE id = ?', [req.params.id])
+    res.json({ success: true })
+  } catch (err: any) {
+    res.status(500).json({ message: 'Failed to delete post' })
   }
 })
 

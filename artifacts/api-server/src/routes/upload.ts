@@ -22,21 +22,34 @@ function sanitizeFilename(name: string): string {
 }
 
 // POST /api/upload
-// Body: { data: "data:image/jpeg;base64,...", filename?: "photo.jpg", type?: "avatar"|"gallery" }
+// Body: { data: "data:image/jpeg;base64,...", filename?: "photo.jpg", type?: "avatar"|"gallery"|"blog" }
+// type "blog" additionally accepts video (mp4/webm/mov/quicktime) and is admin-only.
 router.post('/upload', requireAuth, async (req: AuthRequest, res) => {
   try {
     const { data, filename, type = 'avatar' } = req.body as { data?: string; filename?: string; type?: string }
     if (!data) { res.status(400).json({ message: 'No image data provided' }); return }
 
-    const matches = data.match(/^data:image\/(jpeg|jpg|png|webp|gif);base64,(.+)$/)
-    if (!matches) { res.status(400).json({ message: 'Invalid image format. Send a base64 data URL.' }); return }
+    if (type === 'blog' && req.userRole !== 'admin') {
+      res.status(403).json({ message: 'Admin access required' }); return
+    }
 
-    const ext = matches[1] === 'jpg' ? 'jpeg' : matches[1]
+    const imgMatches = data.match(/^data:image\/(jpeg|jpg|png|webp|gif);base64,(.+)$/)
+    const vidMatches = type === 'blog' ? data.match(/^data:video\/(mp4|webm|quicktime|mov);base64,(.+)$/) : null
+
+    if (!imgMatches && !vidMatches) {
+      res.status(400).json({ message: 'Invalid file format. Send a base64 data URL (image, or video for blog uploads).' }); return
+    }
+
+    const isVideo = !!vidMatches
+    const matches = (imgMatches ?? vidMatches)!
+    const rawExt = matches[1]
+    const ext = rawExt === 'jpg' ? 'jpeg' : rawExt === 'quicktime' ? 'mov' : rawExt
     const base64 = matches[2]
     const buffer = Buffer.from(base64, 'base64')
 
-    if (buffer.length > 8 * 1024 * 1024) {
-      res.status(413).json({ message: 'Image too large. Maximum size is 8MB.' }); return
+    const maxSize = isVideo ? 80 * 1024 * 1024 : 8 * 1024 * 1024
+    if (buffer.length > maxSize) {
+      res.status(413).json({ message: `File too large. Maximum size is ${isVideo ? '80MB' : '8MB'}.` }); return
     }
 
     await ensureUploadsDir()
