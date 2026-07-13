@@ -21,6 +21,7 @@ Kenya escort marketplace and booking platform — discover, book, and manage com
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - Required env: `DATABASE_URL` — MySQL connection string on live server (`mysql://user:pass@host/db`); Replit dev falls back to Postgres only if no MySQL URL is set.
+- Fresh Replit Postgres dev DB: run `psql "$DATABASE_URL" -f scripts/init-pg-dev.sql` once to create dev tables (migrate.ts skips SQL migrations on Postgres and expects this to already exist). No demo/escort data is seeded — `/api/escorts` returns an empty list until data is added.
 
 ## Stack
 
