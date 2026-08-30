@@ -49,9 +49,10 @@ app.use(cors({
 }));
 
 // ── Body parsers ─────────────────────────────────────────────────────────────
-// Uploads are sent as data URLs by the current web client. Keep enough room for
-// base64 overhead on larger images while the upload route still enforces its
-// own decoded-file limits.
+// Pose uploads use a raw JPEG body so they can pass through restrictive
+// upstream request filters without base64/JSON overhead. Other uploads and API
+// mutations continue to use JSON.
+app.use(express.raw({ type: 'image/*', limit: '8mb' }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 

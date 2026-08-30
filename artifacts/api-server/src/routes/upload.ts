@@ -26,26 +26,56 @@ function sanitizeFilename(name: string): string {
 // type "blog" additionally accepts video (mp4/webm/mov/quicktime) and is admin-only.
 router.post('/upload', requireAuth, async (req: AuthRequest, res) => {
   try {
-    const { data, filename, type = 'avatar' } = req.body as { data?: string; filename?: string; type?: string }
-    if (!data) { res.status(400).json({ message: 'No image data provided' }); return }
+    const rawBody = Buffer.isBuffer(req.body) ? req.body : null
+    const body = rawBody ? {} : req.body as { data?: string; filename?: string; type?: string }
+    const type = rawBody
+      ? (typeof req.query.type === 'string' ? req.query.type : 'avatar')
+      : (body.type || 'avatar')
+    const filename = rawBody
+      ? (typeof req.query.filename === 'string' ? req.query.filename : undefined)
+      : body.filename
+
+    if (!rawBody && !body.data) {
+      res.status(400).json({ message: 'No image data provided' }); return
+    }
 
     if (type === 'blog' && req.userRole !== 'admin') {
       res.status(403).json({ message: 'Admin access required' }); return
     }
 
-    const imgMatches = data.match(/^data:image\/(jpeg|jpg|png|webp|gif);base64,(.+)$/)
-    const vidMatches = type === 'blog' ? data.match(/^data:video\/(mp4|webm|quicktime|mov);base64,(.+)$/) : null
+    let ext: string
+    let buffer: Buffer
+    let isVideo = false
 
-    if (!imgMatches && !vidMatches) {
-      res.status(400).json({ message: 'Invalid file format. Send a base64 data URL (image, or video for blog uploads).' }); return
+    if (rawBody) {
+      const mime = String(req.headers['content-type'] ?? '').split(';', 1)[0].toLowerCase()
+      const extByMime: Record<string, string> = {
+        'image/jpeg': 'jpeg',
+        'image/jpg': 'jpeg',
+        'image/png': 'png',
+        'image/webp': 'webp',
+        'image/gif': 'gif',
+      }
+      ext = extByMime[mime] ?? ''
+      if (!ext) {
+        res.status(400).json({ message: 'Invalid image format.' }); return
+      }
+      buffer = rawBody
+    } else {
+      const data = body.data!
+      const imgMatches = data.match(/^data:image\/(jpeg|jpg|png|webp|gif);base64,(.+)$/)
+      const vidMatches = type === 'blog' ? data.match(/^data:video\/(mp4|webm|quicktime|mov);base64,(.+)$/) : null
+
+      if (!imgMatches && !vidMatches) {
+        res.status(400).json({ message: 'Invalid file format. Send a base64 data URL (image, or video for blog uploads).' }); return
+      }
+
+      isVideo = !!vidMatches
+      const matches = (imgMatches ?? vidMatches)!
+      const rawExt = matches[1]
+      ext = rawExt === 'jpg' ? 'jpeg' : rawExt === 'quicktime' ? 'mov' : rawExt
+      buffer = Buffer.from(matches[2], 'base64')
     }
-
-    const isVideo = !!vidMatches
-    const matches = (imgMatches ?? vidMatches)!
-    const rawExt = matches[1]
-    const ext = rawExt === 'jpg' ? 'jpeg' : rawExt === 'quicktime' ? 'mov' : rawExt
-    const base64 = matches[2]
-    const buffer = Buffer.from(base64, 'base64')
 
     const maxSize = isVideo ? 80 * 1024 * 1024 : 8 * 1024 * 1024
     if (buffer.length > maxSize) {

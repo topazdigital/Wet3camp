@@ -16,9 +16,15 @@ import {
 
 async function adminFetch(path: string, opts?: RequestInit) {
   const token = localStorage.getItem('w3c_token')
+  const headers = new Headers(opts?.headers)
+  const bodyIsBinary = opts?.body instanceof Blob || opts?.body instanceof ArrayBuffer
+  if (!headers.has('Content-Type') && !(opts?.body instanceof FormData) && !bodyIsBinary) {
+    headers.set('Content-Type', 'application/json')
+  }
+  if (token) headers.set('Authorization', `Bearer ${token}`)
   const res = await fetch(`/api${path}`, {
     ...opts,
-    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}), ...opts?.headers },
+    headers,
   })
   if (!res.ok) throw new Error(await res.text())
   return res.json()
@@ -2649,6 +2655,7 @@ function VerificationPoseSettings() {
   const [savedUrl, setSavedUrl] = useState('/pose-guide.png')
   const [previewUrl, setPreviewUrl] = useState('')
   const [selectedData, setSelectedData] = useState('')
+  const [selectedBlob, setSelectedBlob] = useState<Blob | null>(null)
   const [selectedName, setSelectedName] = useState('')
   const [processing, setProcessing] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -2678,56 +2685,68 @@ function VerificationPoseSettings() {
     }
 
     setProcessing(true)
-    const finish = (data: string) => {
-      setSelectedData(data)
-      setPreviewUrl(data)
-      setSelectedName(file.name)
-      setProcessing(false)
-    }
 
     // Compress in the browser first. This prevents a high-resolution PNG from
-    // becoming an oversized base64 JSON request while keeping the pose guide
-    // sharp enough for registration.
+    // becoming an oversized request while keeping the pose guide sharp enough
+    // for registration. Keep the result below 900KB for restrictive hosts.
     const objectUrl = URL.createObjectURL(file)
     const image = new Image()
-    image.onload = () => {
+    image.onload = async () => {
       URL.revokeObjectURL(objectUrl)
-      const maxSide = 1800
       const sourceWidth = image.naturalWidth || image.width
       const sourceHeight = image.naturalHeight || image.height
-      const scale = Math.min(1, maxSide / sourceWidth, maxSide / sourceHeight)
-      const canvas = document.createElement('canvas')
-      canvas.width = Math.max(1, Math.round(sourceWidth * scale))
-      canvas.height = Math.max(1, Math.round(sourceHeight * scale))
-      const context = canvas.getContext('2d')
+      let result: Blob | null = null
+      let maxSide = 1400
+      let quality = 0.78
 
-      if (!context) {
+      for (let attempt = 0; attempt < 6; attempt++) {
+        const scale = Math.min(1, maxSide / sourceWidth, maxSide / sourceHeight)
+        const canvas = document.createElement('canvas')
+        canvas.width = Math.max(1, Math.round(sourceWidth * scale))
+        canvas.height = Math.max(1, Math.round(sourceHeight * scale))
+        const context = canvas.getContext('2d')
+        if (!context) break
+
+        context.fillStyle = '#ffffff'
+        context.fillRect(0, 0, canvas.width, canvas.height)
+        context.drawImage(image, 0, 0, canvas.width, canvas.height)
+        result = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/jpeg', quality))
+        if (result && result.size <= 900 * 1024) break
+        maxSide = Math.max(800, Math.round(maxSide * 0.82))
+        quality = Math.max(0.45, quality - 0.07)
+      }
+
+      if (!result || result.size > 900 * 1024) {
         setProcessing(false)
-        setError('Could not prepare that image. Please try a JPG or PNG.')
+        setError('This image could not be compressed below 900KB. Please choose a smaller photo.')
         return
       }
 
-      context.fillStyle = '#ffffff'
-      context.fillRect(0, 0, canvas.width, canvas.height)
-      context.drawImage(image, 0, 0, canvas.width, canvas.height)
-      finish(canvas.toDataURL('image/jpeg', 0.82))
+      const reader = new FileReader()
+      reader.onload = () => {
+        setSelectedBlob(result)
+        setSelectedData(String(reader.result ?? ''))
+        setPreviewUrl(String(reader.result ?? ''))
+        setSelectedName(file.name)
+        setProcessing(false)
+      }
+      reader.onerror = () => {
+        setProcessing(false)
+        setError('Could not prepare that image. Please try again.')
+      }
+      reader.readAsDataURL(result)
     }
     image.onerror = () => {
       URL.revokeObjectURL(objectUrl)
-      const reader = new FileReader()
-      reader.onload = () => finish(String(reader.result ?? ''))
-      reader.onerror = () => {
-        setProcessing(false)
-        setError('Could not read that image. Please try again.')
-      }
-      reader.readAsDataURL(file)
+      setProcessing(false)
+      setError('Could not read that image. Please try again.')
     }
     image.src = objectUrl
   }
 
   const save = async () => {
     if (processing) return
-    if (!selectedData) {
+    if (!selectedBlob) {
       setError('Choose a new image before saving.')
       return
     }
@@ -2735,13 +2754,11 @@ function VerificationPoseSettings() {
     setUploading(true)
     setError('')
     try {
-      const uploaded = await adminFetch('/upload', {
+      const uploadPath = `/upload?type=verification_pose&filename=${encodeURIComponent(selectedName || 'verification-pose.jpg')}`
+      const uploaded = await adminFetch(uploadPath, {
         method: 'POST',
-        body: JSON.stringify({
-          data: selectedData,
-          filename: selectedName || 'verification-pose.jpg',
-          type: 'verification_pose',
-        }),
+        headers: { 'Content-Type': 'image/jpeg' },
+        body: selectedBlob,
       })
       if (!uploaded?.url) throw new Error('Upload did not return an image URL')
 
@@ -2753,6 +2770,7 @@ function VerificationPoseSettings() {
       setSavedUrl(uploaded.url)
       setPreviewUrl('')
       setSelectedData('')
+      setSelectedBlob(null)
       setSelectedName('')
       setSaved(true)
       setTimeout(() => setSaved(false), 2500)
@@ -2794,7 +2812,7 @@ function VerificationPoseSettings() {
         <button
           type="button"
           onClick={save}
-          disabled={processing || uploading || !selectedData}
+          disabled={processing || uploading || !selectedBlob}
           className="px-4 py-2 bg-[#FFD700] text-black text-xs font-bold rounded-xl hover:bg-[#e6c000] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
         >
           <Save size={12} /> {processing ? 'Preparing…' : uploading ? 'Uploading…' : saved ? 'Saved ✓' : 'Save Pose Photo'}
