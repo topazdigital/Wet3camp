@@ -2754,12 +2754,27 @@ function VerificationPoseSettings() {
     setUploading(true)
     setError('')
     try {
-      const uploadPath = `/upload?type=verification_pose&filename=${encodeURIComponent(selectedName || 'verification-pose.jpg')}`
-      const uploaded = await adminFetch(uploadPath, {
-        method: 'POST',
-        headers: { 'Content-Type': 'image/jpeg' },
-        body: selectedBlob,
-      })
+      const encoded = selectedData.match(/^data:image\/jpeg;base64,(.+)$/)?.[1]
+      if (!encoded) throw new Error('Could not prepare the JPEG for upload')
+
+      const uploadId = `${Date.now()}-${Math.random().toString(36).slice(2, 12)}`
+      const chunkSize = 80_000
+      const total = Math.ceil(encoded.length / chunkSize)
+      let uploaded: { url?: string } | null = null
+
+      for (let index = 0; index < total; index++) {
+        uploaded = await adminFetch('/upload-chunk', {
+          method: 'POST',
+          body: JSON.stringify({
+            uploadId,
+            index,
+            total,
+            data: encoded.slice(index * chunkSize, (index + 1) * chunkSize),
+            filename: selectedName || 'verification-pose.jpg',
+            mime: 'image/jpeg',
+          }),
+        })
+      }
       if (!uploaded?.url) throw new Error('Upload did not return an image URL')
 
       await adminFetch('/admin/settings', {
