@@ -2626,26 +2626,8 @@ function AdminDashboard() {
                 </h3>
                 <p className="text-[11px] text-text-muted mb-4">This photo is shown to escorts during registration as the required selfie pose. Update it here when you want a different pose.</p>
                 <div className="grid sm:grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-[10px] text-text-muted uppercase tracking-widest mb-2">Current Pose Guide</p>
-                    <div className="aspect-[4/3] rounded-2xl border-2 border-[#FFD700]/20 bg-dark-bg overflow-hidden flex items-center justify-center">
-                      <img src="/pose-guide.png" alt="Pose guide" className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
-                      <p className="text-xs text-text-muted absolute">No pose guide uploaded yet</p>
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-text-muted uppercase tracking-widest mb-2">Upload New Pose</p>
-                    <label className="aspect-[4/3] rounded-2xl border-2 border-dashed border-color hover:border-[#FFD700] transition-all cursor-pointer bg-dark-bg flex flex-col items-center justify-center gap-2">
-                      <Camera size={24} className="text-text-muted" />
-                      <span className="text-xs text-text-muted text-center px-4">Click to upload a new pose reference photo</span>
-                      <span className="text-[10px] text-text-muted">PNG, JPG · Max 5MB</span>
-                      <input type="file" accept="image/*" className="hidden" />
-                    </label>
-                  </div>
+                  <VerificationPoseSettings />
                 </div>
-                <button className="mt-4 px-4 py-2 bg-[#FFD700] text-black text-xs font-bold rounded-xl hover:bg-[#e6c000] transition-all flex items-center gap-2">
-                  <Save size={12} /> Save Pose Photo
-                </button>
               </div>
               <div className="bg-card-bg border border-color rounded-2xl p-5">
                 <h3 className="text-sm font-bold text-text-light mb-4">Admin Credentials</h3>
@@ -2660,6 +2642,128 @@ function AdminDashboard() {
         </div>
       </div>
     </div>
+  )
+}
+
+function VerificationPoseSettings() {
+  const [savedUrl, setSavedUrl] = useState('/pose-guide.png')
+  const [previewUrl, setPreviewUrl] = useState('')
+  const [selectedData, setSelectedData] = useState('')
+  const [selectedName, setSelectedName] = useState('')
+  const [uploading, setUploading] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    adminFetch('/admin/settings')
+      .then((settings: Record<string, string>) => {
+        if (settings.verification_pose_url) setSavedUrl(settings.verification_pose_url)
+      })
+      .catch(() => {})
+  }, [])
+
+  const chooseFile = (file: File | undefined) => {
+    if (!file) return
+    setError('')
+    setSaved(false)
+
+    if (!file.type.startsWith('image/')) {
+      setError('Please choose an image file.')
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Image is too large. Maximum size is 5MB.')
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = () => {
+      const data = String(reader.result ?? '')
+      setSelectedData(data)
+      setPreviewUrl(data)
+      setSelectedName(file.name)
+    }
+    reader.onerror = () => setError('Could not read that image. Please try again.')
+    reader.readAsDataURL(file)
+  }
+
+  const save = async () => {
+    if (!selectedData) {
+      setError('Choose a new image before saving.')
+      return
+    }
+
+    setUploading(true)
+    setError('')
+    try {
+      const uploaded = await adminFetch('/upload', {
+        method: 'POST',
+        body: JSON.stringify({
+          data: selectedData,
+          filename: selectedName || 'verification-pose.jpg',
+          type: 'verification_pose',
+        }),
+      })
+      if (!uploaded?.url) throw new Error('Upload did not return an image URL')
+
+      await adminFetch('/admin/settings', {
+        method: 'POST',
+        body: JSON.stringify({ key: 'verification_pose_url', value: uploaded.url }),
+      })
+
+      setSavedUrl(uploaded.url)
+      setPreviewUrl('')
+      setSelectedData('')
+      setSelectedName('')
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2500)
+    } catch (err: any) {
+      setError(err?.message || 'Upload failed. Please try again.')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  return (
+    <>
+      <div>
+        <p className="text-[10px] text-text-muted uppercase tracking-widest mb-2">Current Pose Guide</p>
+        <div className="aspect-[4/3] rounded-2xl border-2 border-[#FFD700]/20 bg-dark-bg overflow-hidden flex items-center justify-center">
+          <img src={previewUrl || savedUrl} alt="Pose guide" className="w-full h-full object-cover" />
+        </div>
+      </div>
+      <div>
+        <p className="text-[10px] text-text-muted uppercase tracking-widest mb-2">Upload New Pose</p>
+        <label className="aspect-[4/3] rounded-2xl border-2 border-dashed border-color hover:border-[#FFD700] transition-all cursor-pointer bg-dark-bg flex flex-col items-center justify-center gap-2">
+          <Camera size={24} className="text-text-muted" />
+          <span className="text-xs text-text-muted text-center px-4">
+            {selectedName || 'Click to upload a new pose reference photo'}
+          </span>
+          <span className="text-[10px] text-text-muted">PNG, JPG, WEBP · Max 5MB</span>
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            className="hidden"
+            onChange={e => {
+              chooseFile(e.target.files?.[0])
+              e.target.value = ''
+            }}
+          />
+        </label>
+      </div>
+      <div className="sm:col-span-2 flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          onClick={save}
+          disabled={uploading || !selectedData}
+          className="px-4 py-2 bg-[#FFD700] text-black text-xs font-bold rounded-xl hover:bg-[#e6c000] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+        >
+          <Save size={12} /> {uploading ? 'Uploading…' : saved ? 'Saved ✓' : 'Save Pose Photo'}
+        </button>
+        {error && <span className="text-[10px] text-[#EF4444]">{error}</span>}
+        {!error && selectedData && <span className="text-[10px] text-text-muted">Selected image is ready to upload.</span>}
+      </div>
+    </>
   )
 }
 

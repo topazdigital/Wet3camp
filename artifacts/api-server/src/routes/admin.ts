@@ -777,6 +777,24 @@ router.post('/admin/test-connections', requireAuth, requireAdmin, async (_req: A
   res.json({ results })
 })
 
+// Publicly expose only the verification-pose image URL. The rest of the
+// platform settings remain admin-only.
+router.get('/verification-pose', async (_req, res) => {
+  try {
+    const pool = getPool()
+    if (!pool) { res.json({ url: '/pose-guide.png' }); return }
+    const [rows] = await pool.query<any[]>(
+      'SELECT value FROM platform_settings WHERE `key` = ? LIMIT 1',
+      ['verification_pose_url'],
+    )
+    const configuredUrl = (rows as any[])[0]?.value?.trim()
+    res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300')
+    res.json({ url: configuredUrl || '/pose-guide.png' })
+  } catch {
+    res.json({ url: '/pose-guide.png' })
+  }
+})
+
 router.get('/admin/settings', requireAuth, requireAdmin, async (_req: AuthRequest, res) => {
   try {
     const pool = getPool()

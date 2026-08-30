@@ -186,6 +186,7 @@ export default function RegisterPage() {
   // Photos & pose (escort)
   const [photos, setPhotos]         = useState<string[]>([])
   const [poseSelfie, setPoseSelfie] = useState<string|null>(null)
+  const [poseGuideUrl, setPoseGuideUrl] = useState('/pose-guide.png')
   const photosRef = useRef<HTMLInputElement>(null)
   const poseRef   = useRef<HTMLInputElement>(null)
 
@@ -217,6 +218,15 @@ export default function RegisterPage() {
   const isLastStep  = stepIdx === STEPS.length - 1
   const progress    = STEPS.length > 1 ? Math.round((stepIdx / (STEPS.length - 1)) * 100) : 0
   const age = calcAge(dob)
+
+  useEffect(() => {
+    fetch('/api/verification-pose')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.url) setPoseGuideUrl(data.url)
+      })
+      .catch(() => {})
+  }, [])
 
   // OTP timer
   useEffect(() => {
@@ -1032,7 +1042,7 @@ export default function RegisterPage() {
               <div>
                 <p className="text-[10px] text-text-muted uppercase tracking-widest mb-2 font-semibold">Required Pose</p>
                 <div className="rounded-2xl overflow-hidden border-2 border-[#FFD700]/40 bg-card-bg">
-                  <img src="/pose-guide.png" alt="Pose guide" className="w-full object-cover" />
+                  <img src={poseGuideUrl} alt="Pose guide" className="w-full object-cover" />
                 </div>
                 <p className="text-[10px] text-[#FFD700] mt-1.5 text-center">Reference pose — match this exactly</p>
               </div>
