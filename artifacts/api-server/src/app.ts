@@ -49,8 +49,11 @@ app.use(cors({
 }));
 
 // ── Body parsers ─────────────────────────────────────────────────────────────
-app.use(express.json({ limit: '20mb' }));
-app.use(express.urlencoded({ extended: true, limit: '20mb' }));
+// Uploads are sent as data URLs by the current web client. Keep enough room for
+// base64 overhead on larger images while the upload route still enforces its
+// own decoded-file limits.
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // ── Global caching & Expires headers ─────────────────────────────────────────
 // This fixes the Pingdom "Add Expires headers" B-grade issue

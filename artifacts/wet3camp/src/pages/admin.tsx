@@ -2650,6 +2650,7 @@ function VerificationPoseSettings() {
   const [previewUrl, setPreviewUrl] = useState('')
   const [selectedData, setSelectedData] = useState('')
   const [selectedName, setSelectedName] = useState('')
+  const [processing, setProcessing] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
@@ -2671,23 +2672,61 @@ function VerificationPoseSettings() {
       setError('Please choose an image file.')
       return
     }
-    if (file.size > 5 * 1024 * 1024) {
-      setError('Image is too large. Maximum size is 5MB.')
+    if (file.size > 20 * 1024 * 1024) {
+      setError('Image is too large. Maximum size is 20MB.')
       return
     }
 
-    const reader = new FileReader()
-    reader.onload = () => {
-      const data = String(reader.result ?? '')
+    setProcessing(true)
+    const finish = (data: string) => {
       setSelectedData(data)
       setPreviewUrl(data)
       setSelectedName(file.name)
+      setProcessing(false)
     }
-    reader.onerror = () => setError('Could not read that image. Please try again.')
-    reader.readAsDataURL(file)
+
+    // Compress in the browser first. This prevents a high-resolution PNG from
+    // becoming an oversized base64 JSON request while keeping the pose guide
+    // sharp enough for registration.
+    const objectUrl = URL.createObjectURL(file)
+    const image = new Image()
+    image.onload = () => {
+      URL.revokeObjectURL(objectUrl)
+      const maxSide = 1800
+      const sourceWidth = image.naturalWidth || image.width
+      const sourceHeight = image.naturalHeight || image.height
+      const scale = Math.min(1, maxSide / sourceWidth, maxSide / sourceHeight)
+      const canvas = document.createElement('canvas')
+      canvas.width = Math.max(1, Math.round(sourceWidth * scale))
+      canvas.height = Math.max(1, Math.round(sourceHeight * scale))
+      const context = canvas.getContext('2d')
+
+      if (!context) {
+        setProcessing(false)
+        setError('Could not prepare that image. Please try a JPG or PNG.')
+        return
+      }
+
+      context.fillStyle = '#ffffff'
+      context.fillRect(0, 0, canvas.width, canvas.height)
+      context.drawImage(image, 0, 0, canvas.width, canvas.height)
+      finish(canvas.toDataURL('image/jpeg', 0.82))
+    }
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl)
+      const reader = new FileReader()
+      reader.onload = () => finish(String(reader.result ?? ''))
+      reader.onerror = () => {
+        setProcessing(false)
+        setError('Could not read that image. Please try again.')
+      }
+      reader.readAsDataURL(file)
+    }
+    image.src = objectUrl
   }
 
   const save = async () => {
+    if (processing) return
     if (!selectedData) {
       setError('Choose a new image before saving.')
       return
@@ -2739,7 +2778,7 @@ function VerificationPoseSettings() {
           <span className="text-xs text-text-muted text-center px-4">
             {selectedName || 'Click to upload a new pose reference photo'}
           </span>
-          <span className="text-[10px] text-text-muted">PNG, JPG, WEBP · Max 5MB</span>
+          <span className="text-[10px] text-text-muted">PNG, JPG, WEBP · Max 20MB (optimised before upload)</span>
           <input
             type="file"
             accept="image/jpeg,image/png,image/webp,image/gif"
@@ -2755,13 +2794,14 @@ function VerificationPoseSettings() {
         <button
           type="button"
           onClick={save}
-          disabled={uploading || !selectedData}
+          disabled={processing || uploading || !selectedData}
           className="px-4 py-2 bg-[#FFD700] text-black text-xs font-bold rounded-xl hover:bg-[#e6c000] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
         >
-          <Save size={12} /> {uploading ? 'Uploading…' : saved ? 'Saved ✓' : 'Save Pose Photo'}
+          <Save size={12} /> {processing ? 'Preparing…' : uploading ? 'Uploading…' : saved ? 'Saved ✓' : 'Save Pose Photo'}
         </button>
         {error && <span className="text-[10px] text-[#EF4444]">{error}</span>}
-        {!error && selectedData && <span className="text-[10px] text-text-muted">Selected image is ready to upload.</span>}
+        {!error && processing && <span className="text-[10px] text-text-muted">Optimising image for upload…</span>}
+        {!error && !processing && selectedData && <span className="text-[10px] text-text-muted">Selected image is ready to upload.</span>}
       </div>
     </>
   )
