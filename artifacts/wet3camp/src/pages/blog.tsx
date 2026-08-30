@@ -10,7 +10,7 @@ import { Clock, Tag, ChevronRight, Search, Rss } from 'lucide-react'
 export default function Blog() {
   useSEO({
     title: 'Escort Blog Kenya — Tips, Guides & News | Wet3Camp',
-    description: 'Read the latest escort guides, safety tips, city-by-city directories and news from Wet3Camp — Kenya\'s #1 escort directory.',
+    description: 'Read escort guides, safety tips, city-by-city directories and platform news from Wet3 Camp.',
     keywords: 'escort blog Kenya, Nairobi escort guide, Mombasa escort guide, escort safety tips, Kenya escort news, escort directory blog',
     canonicalPath: '/blog',
   })

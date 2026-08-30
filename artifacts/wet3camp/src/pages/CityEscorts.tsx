@@ -5,6 +5,7 @@ import Header from '@/components/Header'
 import SeoFooter from '@/components/SeoFooter'
 import { useSEO } from '@/lib/useSEO'
 import { api } from '@/lib/api'
+import { getSlug } from '@/data/escorts'
 import { ChevronRight, MapPin, Shield, Star } from 'lucide-react'
 
 const CITY_DATA: Record<string, {
@@ -20,7 +21,7 @@ const CITY_DATA: Record<string, {
 }> = {
   nairobi: {
     displayName: 'Nairobi',
-    description: "Kenya's capital and East Africa's premier city for verified escorts. 800+ profiles across Westlands, Kilimani, Karen and CBD.",
+    description: "Find verified escort profiles in Kenya's capital, including Westlands, Kilimani, Karen and Nairobi CBD.",
     areas: ['Westlands', 'Kilimani', 'Karen', 'Lavington', 'Parklands', 'Upperhill', 'Gigiri', 'Runda', 'CBD', 'South B', 'Langata'],
     intro: `Nairobi is Kenya's capital city and home to the largest, most diverse escort scene in East Africa. Whether you're a business traveller, tourist, or local resident, Wet3Camp makes it easy to find verified, reviewed escorts across all of Nairobi's major areas.`,
     faqs: [
@@ -110,13 +111,14 @@ export default function CityEscorts() {
 
   useSEO({
     title: city
-      ? `${city.displayName} Escorts 2025 — Verified Female Escorts in ${city.displayName} | Wet3Camp`
+      ? `Verified Escorts in ${city.displayName}, Kenya | Wet3Camp`
       : 'Kenya Escorts | Wet3Camp',
     description: city?.description ?? 'Find verified escorts in Kenya on Wet3Camp.',
     keywords: city
-      ? `${city.displayName} escorts, escorts in ${city.displayName} Kenya, verified escorts ${city.displayName}, ${city.displayName} escort guide 2025, ${city.areas.slice(0, 3).map(a => `${a} escorts`).join(', ')}`
+      ? `${city.displayName} escorts, escorts in ${city.displayName} Kenya, verified escorts ${city.displayName}, ${city.areas.slice(0, 3).map(a => `${a} escorts`).join(', ')}`
       : undefined,
     canonicalPath: `/escorts/${cityKey}`,
+    noIndex: !city,
   })
 
   useEffect(() => {
@@ -147,7 +149,7 @@ export default function CityEscorts() {
         <main>
           {/* Hero */}
           <div className="relative h-56 overflow-hidden">
-            <img src={city.image} alt={`${city.displayName} escorts`} className="w-full h-full object-cover opacity-40" />
+            <img src={city.image} alt={`${city.displayName} escorts`} width="1200" height="400" className="w-full h-full object-cover opacity-40" />
             <div className="absolute inset-0 bg-gradient-to-t from-dark-bg via-dark-bg/60 to-transparent" />
             <div className="absolute bottom-0 left-0 right-0 p-6">
               <div className="flex items-center gap-2 text-xs text-text-muted mb-1">
@@ -218,12 +220,15 @@ export default function CityEscorts() {
               ) : escorts.length > 0 ? (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                   {escorts.map(e => (
-                    <Link key={e.id} href={`/@${e.id}`} className="group block">
+                    <Link key={e.id} href={`/@${getSlug(e.name)}`} className="group block">
                       <div className="bg-card-bg border border-color rounded-xl overflow-hidden hover:border-[#8B0000]/40 transition-all">
                         <div className="aspect-[3/4] overflow-hidden relative">
-                          <img
+                           <img
                             src={e.image || '/api/placeholder-escort.jpg'}
                             alt={e.name}
+                             width="300"
+                             height="400"
+                             loading="lazy"
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                             onError={ev => { (ev.target as HTMLImageElement).src = '/api/placeholder-escort.jpg' }}
                           />

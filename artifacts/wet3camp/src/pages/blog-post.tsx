@@ -88,6 +88,7 @@ export default function BlogPost() {
     keywords: post?.tags.join(', '),
     ogImage: post?.imageUrl,
     canonicalPath: post ? `/blog/${post.slug}` : '/blog',
+    noIndex: !post,
     type: 'article',
   })
 
@@ -117,7 +118,7 @@ export default function BlogPost() {
 
           {/* Hero image */}
           <div className="rounded-2xl overflow-hidden mb-6 h-56">
-            <img src={post.imageUrl} alt={post.title} className="w-full h-full object-cover" />
+            <img src={post.imageUrl} alt={post.title} width="1200" height="630" className="w-full h-full object-cover" />
           </div>
 
           {/* Meta */}
@@ -206,7 +207,7 @@ export default function BlogPost() {
           {/* CTA */}
           <div className="mt-10 p-6 bg-gradient-to-br from-[#8B0000]/20 to-transparent border border-[#8B0000]/30 rounded-2xl text-center">
             <p className="text-sm font-bold text-text-light mb-1">Ready to browse verified escorts in Kenya?</p>
-            <p className="text-xs text-text-muted mb-4">1,200+ verified profiles across Nairobi, Mombasa, Kisumu & more</p>
+            <p className="text-xs text-text-muted mb-4">Browse verified profiles across Nairobi, Mombasa, Kisumu and more.</p>
             <Link href="/" className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#8B0000] text-white text-sm font-black rounded-xl hover:bg-[#a00000] transition-all">
               Browse Escorts <ChevronRight size={14} />
             </Link>

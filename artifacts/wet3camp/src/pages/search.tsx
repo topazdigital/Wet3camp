@@ -242,6 +242,8 @@ export default function SearchPage() {
     description: `Browse verified escorts in Nairobi, Mombasa and across Kenya. Filter by city, service, tier, and availability.`,
     keywords: service ? `${service} escort Kenya, ${service} escort Nairobi, ${service} escort Mombasa, ${service} services Kenya` : undefined,
     city: city !== 'All Cities' ? city : undefined,
+    noIndex: Boolean(location.includes('?') || service || query || city !== 'All Cities' || tier !== 'all' || availableOnly),
+    canonicalPath: '/search',
   })
 
   const { isFavorite, toggleFavorite } = useFavorites()

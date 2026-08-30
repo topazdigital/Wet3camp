@@ -52,7 +52,9 @@ function buildHtml(opts: {
   url:         string
   keywords?:   string
   type?:       string
+  noIndex?:    boolean
   schema?:     object | object[]
+  body?:       string
 }): string {
   const t   = esc(opts.title)
   const d   = esc(opts.description)
@@ -61,7 +63,7 @@ function buildHtml(opts: {
   const tp  = esc(opts.type ?? 'website')
   const kw  = opts.keywords ? esc(opts.keywords) : ''
   const jsonLd = opts.schema
-    ? `<script type="application/ld+json">${JSON.stringify(opts.schema)}</script>`
+    ? `<script type="application/ld+json">${JSON.stringify(opts.schema).replace(/</g, '\\u003c')}</script>`
     : ''
 
   return `<!DOCTYPE html>
@@ -72,7 +74,7 @@ function buildHtml(opts: {
 <title>${t}</title>
 <meta name="description" content="${d}"/>
 ${kw ? `<meta name="keywords" content="${kw}"/>` : ''}
-<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1"/>
+<meta name="robots" content="${opts.noIndex ? 'noindex, nofollow' : 'index, follow, max-image-preview:large, max-snippet:-1'}"/>
 <meta name="author" content="Wet3 Camp"/>
 <meta name="geo.region" content="KE"/>
 <meta name="geo.placename" content="Kenya"/>
@@ -97,10 +99,7 @@ ${kw ? `<meta name="keywords" content="${kw}"/>` : ''}
 <link rel="canonical" href="${u}"/>
 ${jsonLd}
 </head>
-<body>
-<h1><a href="${u}">${t}</a></h1>
-<p>${d}</p>
-</body>
+<body>${opts.body ?? `<h1><a href="${u}">${t}</a></h1><p>${d}</p>`}</body>
 </html>`
 }
 
@@ -113,7 +112,7 @@ const BASE_SCHEMAS = [
     name: SITE_NAME,
     alternateName: ['Wet3Camp', 'wet3.camp', 'Kenya Escort Directory'],
     url: SITE_URL,
-    description: "Kenya's #1 escort directory. 1,200+ verified escorts in Nairobi, Mombasa, Kisumu and across Kenya.",
+    description: 'Verified escort profiles in Nairobi, Mombasa, Kisumu and cities across Kenya.',
     inLanguage: 'en-KE',
     potentialAction: {
       '@type': 'SearchAction',
@@ -128,7 +127,7 @@ const BASE_SCHEMAS = [
     name: SITE_NAME,
     url: SITE_URL,
     logo: { '@type': 'ImageObject', url: `${SITE_URL}/favicon.svg`, width: 512, height: 512 },
-    description: "Kenya's #1 escort directory. Verified escorts across Nairobi, Mombasa, Kisumu and all major Kenyan cities.",
+    description: 'Verified escort profiles across Nairobi, Mombasa, Kisumu and major Kenyan cities.',
     areaServed: [
       { '@type': 'City', name: 'Nairobi', addressCountry: 'KE' },
       { '@type': 'City', name: 'Mombasa', addressCountry: 'KE' },
@@ -147,19 +146,11 @@ const HOMEPAGE_EXTRA_SCHEMA = {
   '@id': `${SITE_URL}/#business`,
   name: 'Wet3 Camp — Kenya Escort Directory',
   url: SITE_URL,
-  description: "Kenya's largest escort directory. Find verified female escorts in Nairobi (Westlands, Karen, Kilimani, CBD), Mombasa (Nyali, Bamburi, Diani), Kisumu, Nakuru, Eldoret and across Kenya.",
+  description: 'Find verified escort profiles in Nairobi, Mombasa, Kisumu, Nakuru, Eldoret and across Kenya.',
   image: `${SITE_URL}/opengraph.jpg`,
-  priceRange: 'KES 2,000 — KES 50,000',
   address: { '@type': 'PostalAddress', addressLocality: 'Nairobi', addressCountry: 'KE' },
   geo: { '@type': 'GeoCoordinates', latitude: -1.2921, longitude: 36.8219 },
   areaServed: { '@type': 'Country', name: 'Kenya' },
-  telephone: null,
-  aggregateRating: {
-    '@type': 'AggregateRating',
-    ratingValue: '4.8',
-    reviewCount: '1247',
-    bestRating: '5',
-  },
 }
 
 // ── City coords for LocalBusiness schema ──────────────────────────────────────
@@ -174,11 +165,49 @@ const CITY_GEO: Record<string, { lat: number; lng: number; region: string }> = {
   Diani:   { lat: -4.2761, lng: 39.5928, region: 'Kwale County' },
 }
 
+const CITY_LANDING: Record<string, {
+  name: string
+  description: string
+  intro: string
+  areas: string[]
+}> = {
+  nairobi: {
+    name: 'Nairobi',
+    description: 'Find verified escort profiles in Kenya’s capital, including Westlands, Kilimani, Karen and Nairobi CBD.',
+    intro: 'Browse profiles in Nairobi by area, services and availability. Wet3 Camp helps adults compare public profile information and contact providers directly.',
+    areas: ['Westlands', 'Kilimani', 'Karen', 'Lavington', 'Parklands', 'Upperhill', 'Gigiri', 'Runda', 'CBD'],
+  },
+  mombasa: {
+    name: 'Mombasa',
+    description: 'Find verified escort profiles in Mombasa, including Nyali, Bamburi, Diani and Mtwapa.',
+    intro: 'Explore Mombasa profiles for coastal stays, local meetups and travel companionship. Browse by area and confirm availability directly before making arrangements.',
+    areas: ['Nyali', 'Bamburi', 'Diani', 'Mtwapa', 'Tudor', 'Likoni', 'Kisauni'],
+  },
+  kisumu: {
+    name: 'Kisumu',
+    description: 'Find verified escort profiles in Kisumu, including Milimani, Mega City and Kisumu CBD.',
+    intro: 'Browse Kisumu profiles across the city’s main areas. Compare services and availability, then contact providers directly through their public profile.',
+    areas: ['Milimani', 'Mega City', 'Kisumu CBD', 'Mamboleo', 'Kondele'],
+  },
+  nakuru: {
+    name: 'Nakuru',
+    description: 'Find verified escort profiles in Nakuru, including Milimani, Nakuru CBD and Lanet.',
+    intro: 'Explore profiles in Nakuru and nearby areas. Use the directory to compare public profile details and confirm arrangements directly.',
+    areas: ['Milimani', 'Nakuru CBD', 'Section 58', 'Lanet', 'Pipeline'],
+  },
+  eldoret: {
+    name: 'Eldoret',
+    description: 'Find verified escort profiles in Eldoret, including Elgon View, Pioneer and Eldoret CBD.',
+    intro: 'Browse Eldoret profiles across the city’s main areas. Check each profile for current services and availability before contacting directly.',
+    areas: ['Elgon View', 'Elgon Road', 'Pioneer', 'Eldoret CBD', 'Huruma'],
+  },
+}
+
 // ── Master keyword list (subset — keeps HTML small) ───────────────────────────
 const BASE_KW = [
   'Nairobi escorts', 'Mombasa escorts', 'Kenya escorts', 'escort Kenya',
   'verified escorts Nairobi', 'call girl Nairobi', 'call girl Kenya',
-  'nairobi raha', 'raha za nairobi', 'escort directory Kenya',
+  'escort directory Kenya',
   'female escorts Kenya', 'VIP escort Nairobi', 'elite escort Kenya',
   'escort booking Kenya', 'escort near me Kenya', 'escort agency Nairobi',
   'independent escort Nairobi', 'incall escort Nairobi', 'outcall escort Kenya',
@@ -250,8 +279,8 @@ interface PageOg { title: string; description: string; keywords?: string; image?
 
 const PAGE_OG: Record<string, PageOg> = {
   '/': {
-    title: "Wet3Camp — Kenya's #1 Escort Directory | Nairobi, Mombasa, Kisumu",
-    description: "Browse 1,200+ verified escorts in Nairobi, Mombasa, Kisumu & across Kenya. Elite, VIP & premium female escorts. Discreet bookings. Join free today.",
+    title: 'Verified Escorts in Kenya | Nairobi, Mombasa & More',
+    description: 'Browse verified escort profiles in Nairobi, Mombasa, Kisumu and cities across Kenya. Compare profiles, services and availability on Wet3 Camp.',
     keywords: BASE_KW,
   },
   '/search': {
@@ -301,12 +330,12 @@ const PAGE_OG: Record<string, PageOg> = {
   },
   '/reviews': {
     title: 'Escort Reviews Kenya — Read Verified Client Reviews | Wet3Camp',
-    description: 'Read verified client reviews of escorts in Kenya. Find the best-rated escorts in Nairobi, Mombasa and across Kenya on Wet3Camp.',
-    keywords: `escort reviews Kenya, best escorts Nairobi rated, top rated escort Kenya, escort ratings, client reviews escorts Kenya, ${BASE_KW}`,
+    description: 'Read client reviews of escorts in Kenya, including profiles in Nairobi, Mombasa and other cities.',
+    keywords: `escort reviews Kenya, client reviews escorts Kenya, escort ratings, ${BASE_KW}`,
   },
   '/blog': {
     title: "Escort Blog — Kenya Escort Guides & Stories | Wet3Camp",
-    description: "Tips, guides and stories about escorts in Kenya. Kenya's #1 escort blog covering Nairobi, Mombasa, safety tips, booking guides and more.",
+    description: 'Tips, guides and stories about escorts in Kenya, including Nairobi, Mombasa, safety and booking guidance.',
     keywords: `escort blog Kenya, escort guide Nairobi, escort tips Kenya, how to book escort Kenya, escort safety Kenya, ${BASE_KW}`,
     type: 'article',
   },
@@ -317,22 +346,22 @@ const PAGE_OG: Record<string, PageOg> = {
   },
   '/faqs': {
     title: "Escort FAQs — Everything You Need to Know | Wet3Camp",
-    description: "Answers to common questions about using Wet3Camp — Kenya's #1 escort directory. Booking, verification, safety and more.",
+    description: 'Answers to common questions about using Wet3 Camp, including booking, verification and safety.',
     keywords: `escort FAQ Kenya, how to book escort Nairobi, escort verification Kenya, escort booking guide, ${BASE_KW}`,
   },
   '/contact': {
     title: 'Contact Wet3Camp — Support & Enquiries | Kenya Escort Directory',
-    description: 'Get in touch with the Wet3Camp team. Support, partnerships, advertising and general enquiries for Kenya\'s #1 escort directory.',
+    description: 'Get in touch with the Wet3 Camp team about support, partnerships, advertising and general enquiries.',
     keywords: `contact wet3camp, escort site support Kenya, ${BASE_KW}`,
   },
   '/testimonials': {
     title: "Client Testimonials — What People Say | Wet3Camp Kenya",
-    description: "What clients say about Wet3Camp — Kenya's most trusted escort directory. Real reviews from verified clients across Kenya.",
+    description: 'What clients say about Wet3 Camp, with feedback from clients across Kenya.',
     keywords: `wet3camp reviews, escort site Kenya testimonials, client feedback wet3camp, ${BASE_KW}`,
   },
   '/register': {
     title: 'Join Free — Create Your Account | Wet3Camp Kenya',
-    description: 'Create your free account on Wet3Camp and connect with 1,200+ verified escorts across Kenya. Free to join as a client or register as an escort.',
+    description: 'Create a free Wet3 Camp account to save profiles, manage bookings and connect with escorts across Kenya.',
     keywords: `join wet3camp, escort registration Kenya, create escort profile Kenya, ${BASE_KW}`,
   },
   '/login': {
@@ -347,7 +376,7 @@ const PAGE_OG: Record<string, PageOg> = {
   },
   '/install': {
     title: 'Install Wet3Camp App | Kenya Escort Directory PWA',
-    description: 'Install the Wet3Camp app for quick access to Kenya\'s #1 escort directory. Available as a PWA on Android and iOS.',
+    description: 'Install the Wet3 Camp progressive web app for quick access on Android and iOS.',
     keywords: `wet3camp app, escort app Kenya, install escort app Nairobi, ${BASE_KW}`,
   },
 }
@@ -355,22 +384,22 @@ const PAGE_OG: Record<string, PageOg> = {
 // ── Blog posts — all 15 slugs with rich data ───────────────────────────────────
 const BLOG_OG: Record<string, { title: string; description: string; image: string; keywords: string }> = {
   'how-to-find-verified-escorts-nairobi': {
-    title: 'How to Find Verified Escorts in Nairobi (2025 Guide) | Wet3Camp',
-    description: 'A practical 2025 guide to finding verified, safe escorts in Nairobi. Check profiles, read reviews, and book safely on Wet3Camp — Kenya\'s #1 escort directory.',
+    title: 'How to Find Verified Escorts in Nairobi | Wet3Camp',
+    description: 'A practical guide to finding verified, safe escorts in Nairobi. Check profiles, read reviews, and make arrangements carefully on Wet3 Camp.',
     image: 'https://images.unsplash.com/photo-1611348586804-61bf6c080437?w=1200&h=630&fit=crop',
-    keywords: `how to find escort Nairobi, verified escorts Nairobi, escort guide Nairobi 2025, safe escort booking Nairobi, ${BASE_KW}`,
+    keywords: `how to find escort Nairobi, verified escorts Nairobi, escort guide Nairobi, safe escort booking Nairobi, ${BASE_KW}`,
   },
   'top-escort-areas-nairobi-guide-2025': {
     title: 'Top Escort Areas in Nairobi — Westlands, Karen, CBD & More | Wet3Camp',
-    description: 'The complete guide to Nairobi\'s top escort areas: Westlands, Karen, Kilimani, CBD, Lavington, Parklands. Find the best escorts near you in 2025.',
+    description: 'A guide to Nairobi escort areas including Westlands, Karen, Kilimani, CBD, Lavington and Parklands.',
     image: 'https://images.unsplash.com/photo-1611348586804-61bf6c080437?w=1200&h=630&fit=crop',
     keywords: `Nairobi escort areas, Westlands escort, Karen escort Nairobi, Kilimani escort, CBD escort Nairobi, Lavington escort, escort near me Nairobi, ${BASE_KW}`,
   },
   'mombasa-escort-guide-complete': {
-    title: 'Mombasa Escort Guide 2025 — Nyali, Bamburi, Diani | Wet3Camp',
-    description: 'The complete guide to finding escorts in Mombasa. Top areas: Nyali, Bamburi, Diani Beach, Mtwapa. Verified escort profiles, rates & tips for 2025.',
+    title: 'Mombasa Escort Guide — Nyali, Bamburi, Diani | Wet3Camp',
+    description: 'A guide to finding escort profiles in Mombasa, including Nyali, Bamburi, Diani Beach and Mtwapa.',
     image: 'https://images.unsplash.com/photo-1504214208698-ea1916a2195a?w=1200&h=630&fit=crop',
-    keywords: `Mombasa escort guide, Nyali escort, Bamburi escort, Diani escort, Mtwapa escort, coast escort Kenya, escort Mombasa 2025, ${BASE_KW}`,
+    keywords: `Mombasa escort guide, Nyali escort, Bamburi escort, Diani escort, Mtwapa escort, coast escort Kenya, ${BASE_KW}`,
   },
   'escort-booking-safety-tips-kenya': {
     title: 'Escort Booking Safety Tips in Kenya — Stay Safe | Wet3Camp',
@@ -391,7 +420,7 @@ const BLOG_OG: Record<string, { title: string; description: string; image: strin
     keywords: `GFE escort Nairobi, girlfriend experience Kenya, GFE escort Kenya, girlfriend experience Nairobi, GFE Westlands, GFE Karen, ${BASE_KW}`,
   },
   'nairobi-nightlife-escort-guide': {
-    title: "Nairobi Nightlife & Escort Guide 2025 | Wet3Camp",
+    title: 'Nairobi Nightlife & Escort Guide | Wet3Camp',
     description: "Your guide to Nairobi's nightlife and escort scene. Top clubs, hotels, and verified escort companions for a memorable night in Nairobi.",
     image: 'https://images.unsplash.com/photo-1611348586804-61bf6c080437?w=1200&h=630&fit=crop',
     keywords: `Nairobi nightlife escorts, nightlife escort Nairobi, escort night out Nairobi, party escort Nairobi, club escort Nairobi, ${BASE_KW}`,
@@ -409,7 +438,7 @@ const BLOG_OG: Record<string, { title: string; description: string; image: strin
     keywords: `escort Nairobi CBD, CBD escort, elite escort CBD Nairobi, VIP escort CBD, incall CBD Nairobi, ${BASE_KW}`,
   },
   'escort-tours-kenya-2025': {
-    title: "Escort Tour Companions in Kenya 2025 — Safaris & Trips | Wet3Camp",
+    title: 'Escort Tour Companions in Kenya — Safaris & Trips | Wet3Camp',
     description: "Book escort travel companions for safaris, beach trips and tours across Kenya. Maasai Mara, Diani Beach, Amboseli, Nakuru and more — with Wet3Camp.",
     image: 'https://images.unsplash.com/photo-1504214208698-ea1916a2195a?w=1200&h=630&fit=crop',
     keywords: `escort tour Kenya, safari escort, travel companion Kenya, escort trip Nairobi, escort holiday Kenya, ${BASE_KW}`,
@@ -421,8 +450,8 @@ const BLOG_OG: Record<string, { title: string; description: string; image: strin
     keywords: `verified escorts Mombasa, checked escort Mombasa, real escort Mombasa, escort Nyali, escort Bamburi, ${BASE_KW}`,
   },
   'kisumu-escort-guide-2025': {
-    title: 'Escorts in Kisumu 2025 — Verified Profiles | Wet3Camp',
-    description: "Your 2025 guide to verified escorts in Kisumu, Kenya. Find female escorts around Milimani, Kondele and Kisumu CBD on Wet3Camp — Kenya's #1 escort directory.",
+    title: 'Escorts in Kisumu — Verified Profiles | Wet3Camp',
+    description: 'A guide to verified escort profiles in Kisumu, Kenya, including Milimani, Kondele and Kisumu CBD.',
     image: 'https://images.unsplash.com/photo-1611348586804-61bf6c080437?w=1200&h=630&fit=crop',
     keywords: `escort Kisumu, Kisumu escort guide, female escort Kisumu, call girl Kisumu, escort Milimani Kisumu, ${BASE_KW}`,
   },
@@ -433,17 +462,48 @@ const BLOG_OG: Record<string, { title: string; description: string; image: strin
     keywords: `escort safety Kenya, safe escort booking, protect yourself escort Kenya, verify escort profile, escort scam Kenya, ${BASE_KW}`,
   },
   'nakuru-eldoret-escort-guide': {
-    title: 'Escorts in Nakuru & Eldoret — Guide 2025 | Wet3Camp',
-    description: 'Find verified escorts in Nakuru and Eldoret, Kenya. Your 2025 guide to female escorts in the Rift Valley — profiles, rates and booking tips on Wet3Camp.',
+    title: 'Escorts in Nakuru & Eldoret — Guide | Wet3Camp',
+    description: 'Find verified escort profiles in Nakuru and Eldoret, Kenya, with practical area and booking guidance.',
     image: 'https://images.unsplash.com/photo-1611348586804-61bf6c080437?w=1200&h=630&fit=crop',
-    keywords: `escort Nakuru, escort Eldoret, Rift Valley escort Kenya, female escort Nakuru, escort Eldoret 2025, ${BASE_KW}`,
+    keywords: `escort Nakuru, escort Eldoret, Rift Valley escort Kenya, female escort Nakuru, ${BASE_KW}`,
   },
   'best-escort-rates-nairobi-2025': {
-    title: 'Escort Rates in Nairobi 2025 — Prices & Costs | Wet3Camp',
-    description: 'What do escorts charge in Nairobi? A 2025 guide to escort rates — Standard, Premium, VIP and Elite pricing, incall vs outcall, hourly and overnight rates.',
+    title: 'Escort Rates in Nairobi — Prices & Costs | Wet3Camp',
+    description: 'What do escorts charge in Nairobi? A guide to comparing hourly, overnight, incall and outcall rates across profile tiers.',
     image: 'https://images.unsplash.com/photo-1611348586804-61bf6c080437?w=1200&h=630&fit=crop',
-    keywords: `escort rates Nairobi 2025, escort prices Kenya, how much escort Nairobi, incall rates escort Nairobi, outcall escort price Kenya, ${BASE_KW}`,
+    keywords: `escort rates Nairobi, escort prices Kenya, how much escort Nairobi, incall rates escort Nairobi, outcall escort price Kenya, ${BASE_KW}`,
   },
+}
+
+// These posts are bundled in the frontend and therefore remain available even
+// when the optional blog database is empty. Keep their crawler metadata in sync
+// so sitemap URLs do not fall back to a generic or missing page.
+const LOCAL_BLOG_TITLES: Record<string, string> = {
+  'mombasa-escort-guide-2025': 'Mombasa Escort Guide — Nyali, Diani & More',
+  'escort-safety-tips-kenya': 'Escort Safety Tips in Kenya',
+  'nairobi-escort-rates-2025': 'Escort Rates in Nairobi — Prices & Booking Guide',
+  'westlands-escorts-nairobi-guide': 'Escorts in Westlands, Nairobi',
+  'gfe-girlfriend-experience-nairobi': 'Girlfriend Experience Escorts in Nairobi',
+  'incall-outcall-escorts-kenya': 'Incall & Outcall Escorts in Kenya',
+  'kisumu-escorts-guide-2025': 'Escorts in Kisumu — Area & Booking Guide',
+  'elite-vip-escorts-nairobi-difference': 'Elite vs VIP Escorts in Nairobi',
+  'massage-escorts-nairobi-guide': 'Massage Escorts in Nairobi',
+  'overnight-escorts-nairobi-guide': 'Overnight Escorts in Nairobi',
+  'nakuru-eldoret-escorts-guide': 'Escorts in Nakuru & Eldoret',
+  'how-to-spot-fake-escorts-kenya': 'How to Spot Fake Escort Profiles in Kenya',
+  'nairobi-nightlife-escort-companion-guide': 'Nairobi Nightlife & Escort Companion Guide',
+  'kenya-travel-escort-safari-companion': 'Kenya Travel Escort & Safari Companions',
+}
+
+for (const [slug, title] of Object.entries(LOCAL_BLOG_TITLES)) {
+  if (!BLOG_OG[slug]) {
+    BLOG_OG[slug] = {
+      title: `${title} | ${SITE_NAME}`,
+      description: `${title}. Read practical guidance for finding and booking profiles on Wet3 Camp.`,
+      image: DEFAULT_IMAGE,
+      keywords: `Kenya escort guide, ${title}, ${BASE_KW}`,
+    }
+  }
 }
 
 // ── Main middleware ────────────────────────────────────────────────────────────
@@ -456,6 +516,56 @@ export function ogPreviewMiddleware(req: Request, res: Response, next: NextFunct
   const query   = req.query as Record<string, string>
   const fullUrl = `${SITE_URL}${path}${Object.keys(query).length ? '?' + new URLSearchParams(query).toString() : ''}`
 
+  // ── City landing pages: /escorts/:city ───────────────────────────────────────
+  const cityMatch = path.match(/^\/escorts\/([^/?#]+)$/)
+  if (cityMatch) {
+    const city = CITY_LANDING[cityMatch[1].toLowerCase()]
+    if (!city) {
+      res.status(404).send(buildHtml({
+        title: 'City Not Found | Wet3 Camp',
+        description: 'This city landing page could not be found.',
+        image: DEFAULT_IMAGE,
+        url: fullUrl,
+        noIndex: true,
+      }))
+      return
+    }
+
+    const cityUrl = `${SITE_URL}/escorts/${cityMatch[1].toLowerCase()}`
+    const citySchema = {
+      '@context': 'https://schema.org',
+      '@type': 'CollectionPage',
+      name: `${city.name} Escorts | ${SITE_NAME}`,
+      description: city.description,
+      url: cityUrl,
+      about: { '@type': 'Place', name: city.name, addressCountry: 'KE' },
+      isPartOf: { '@type': 'WebSite', name: SITE_NAME, url: SITE_URL },
+    }
+    const areas = city.areas.map(area =>
+      `<li><a href="${SITE_URL}/search?city=${encodeURIComponent(city.name)}">${area} escorts</a></li>`
+    ).join('')
+    const cityBody = [
+      `<h1><a href="${cityUrl}">Verified Escorts in ${city.name}</a></h1>`,
+      `<p>${city.intro}</p>`,
+      `<h2>Areas covered in ${city.name}</h2>`,
+      `<ul>${areas}</ul>`,
+      `<p><a href="${SITE_URL}/search?city=${encodeURIComponent(city.name)}">Browse ${city.name} profiles</a> · <a href="${SITE_URL}/">View all Kenya profiles</a></p>`,
+    ].join('')
+
+    res.setHeader('Content-Type', 'text/html; charset=utf-8')
+    res.setHeader('Cache-Control', 'public, max-age=3600, stale-while-revalidate=7200')
+    res.send(buildHtml({
+      title: `Verified Escorts in ${city.name}, Kenya | ${SITE_NAME}`,
+      description: city.description,
+      image: DEFAULT_IMAGE,
+      url: cityUrl,
+      keywords: `${city.name} escorts, escorts in ${city.name} Kenya, verified escorts ${city.name}, escort directory ${city.name}`,
+      schema: [...BASE_SCHEMAS, citySchema],
+      body: cityBody,
+    }))
+    return
+  }
+
   // ── Escort profile: /@slug or /profile/:id-or-slug ──────────────────────────
   const atMatch      = path.match(/^\/@([^/?#]+)/)
   const profileMatch = path.match(/^\/profile\/([^/?#]+)/)
@@ -467,7 +577,13 @@ export function ogPreviewMiddleware(req: Request, res: Response, next: NextFunct
         if (!escort) {
           const def = PAGE_OG['/']!
           res.setHeader('Content-Type', 'text/html; charset=utf-8')
-          res.send(buildHtml({ title: def.title, description: def.description, image: DEFAULT_IMAGE, url: fullUrl, keywords: def.keywords }))
+          res.status(404).send(buildHtml({
+            title: 'Profile Not Found | Wet3 Camp',
+            description: 'This escort profile could not be found or is no longer available.',
+            image: DEFAULT_IMAGE,
+            url: fullUrl,
+            noIndex: true,
+          }))
           return
         }
 
@@ -493,7 +609,7 @@ export function ogPreviewMiddleware(req: Request, res: Response, next: NextFunct
         } else {
           description = `Verified ${tierLabel.toLowerCase()} escort in ${area}${escort.city}, Kenya.${
             price ? ` From KES ${Number(price).toLocaleString()}.` : ''
-          }${availStr} Book ${escort.name} on Wet3Camp — Kenya's #1 escort directory.`
+          }${availStr} Book ${escort.name} on Wet3Camp.`
         }
 
         const escortKw = [
@@ -522,7 +638,6 @@ export function ogPreviewMiddleware(req: Request, res: Response, next: NextFunct
             addressRegion: escort.city,
             addressCountry: 'KE',
           },
-          ...(escort.rating ? { aggregateRating: { '@type': 'AggregateRating', ratingValue: String(escort.rating), bestRating: '5', reviewCount: '1' } } : {}),
         }
 
         res.setHeader('Content-Type', 'text/html; charset=utf-8')
@@ -570,12 +685,11 @@ export function ogPreviewMiddleware(req: Request, res: Response, next: NextFunct
     const blogFallback = () => {
       res.setHeader('Content-Type', 'text/html; charset=utf-8')
       res.setHeader('Cache-Control', 'public, max-age=600')
-      res.send(buildHtml({
-        title: 'Escort Blog | Wet3Camp',
-        description: 'Read the latest escort guides and stories from Kenya on Wet3Camp.',
+      res.status(404).send(buildHtml({
+        title: 'Article Not Found | Wet3 Camp',
+        description: 'This article could not be found or is no longer available.',
         image: DEFAULT_IMAGE, url: fullUrl, type: 'article',
-        keywords: PAGE_OG['/blog']?.keywords,
-        schema: BASE_SCHEMAS,
+        noIndex: true,
       }))
     }
     if (!pool) { blogFallback(); return }
@@ -632,8 +746,23 @@ export function ogPreviewMiddleware(req: Request, res: Response, next: NextFunct
 
   const pathKey = path.endsWith('/') && path !== '/' ? path.slice(0, -1) : path
 
+  const privateRoute = ['/admin', '/my-profile', '/messages', '/bookings', '/booking',
+    '/account', '/auth', '/pending-approval', '/featured-upgrade', '/claim'].some(
+      route => pathKey === route || pathKey.startsWith(`${route}/`),
+    )
+  if (privateRoute) {
+    res.status(404).setHeader('Content-Type', 'text/html; charset=utf-8').send(buildHtml({
+      title: 'Page Unavailable | Wet3 Camp',
+      description: 'This page is available only to signed-in Wet3 Camp members.',
+      image: DEFAULT_IMAGE,
+      url: `${SITE_URL}${pathKey}`,
+      noIndex: true,
+    }))
+    return
+  }
+
   // ── Homepage: dynamic escort photo + structured data ─────────────────────────
-  if (pathKey === '/') {
+  if (pathKey === '/' && !query.city && !query.tier && !query.service && !query.q) {
     const pool = getPool()
     if (pool) {
       pool.query<any[]>(
@@ -654,7 +783,7 @@ export function ogPreviewMiddleware(req: Request, res: Response, next: NextFunct
           res.send(buildHtml({
             title: homeMeta.title,
             description: pick
-              ? `Meet ${pick.name} and 1,200+ verified escorts in ${pick.city} and across Kenya. Elite, VIP & premium escorts. Browse free on Wet3Camp.`
+              ? `Meet ${pick.name} and browse verified escort profiles in ${pick.city} and across Kenya. Compare services and availability on Wet3 Camp.`
               : homeMeta.description,
             image: pick?.image ? ogImage(pick.image) : DEFAULT_IMAGE,
             url: `${SITE_URL}/`,
@@ -708,7 +837,7 @@ export function ogPreviewMiddleware(req: Request, res: Response, next: NextFunct
       keywords    = `${tierLabel} escort Kenya, ${tierLabel} escort Nairobi, ${BASE_KW}`
     } else if (q) {
       title       = `"${q}" — Kenya Escorts | ${SITE_NAME}`
-      description = `Search results for "${q}" on Wet3Camp — Kenya's #1 escort directory. Verified escorts across Kenya.`
+      description = `Search results for "${q}" on Wet3 Camp. Browse verified escort profiles across Kenya.`
       keywords    = `${q} escort Kenya, ${BASE_KW}`
     } else {
       const def = PAGE_OG['/search']!
@@ -716,6 +845,11 @@ export function ogPreviewMiddleware(req: Request, res: Response, next: NextFunct
       description = def.description
       keywords    = def.keywords ?? BASE_KW
     }
+
+    const hasFilters = Boolean(city || tier || service || q)
+    // Filter combinations are useful navigation states, not standalone
+    // landing pages. The dedicated /escorts/:city pages carry indexable copy.
+    const canonicalUrl = pathKey === '/search' ? `${SITE_URL}/search` : `${SITE_URL}/`
 
     // Fetch a city-specific photo if available
     fetchCityPhoto(city)
@@ -736,11 +870,20 @@ export function ogPreviewMiddleware(req: Request, res: Response, next: NextFunct
         }
         res.setHeader('Content-Type', 'text/html; charset=utf-8')
         res.setHeader('Cache-Control', 'public, max-age=300, stale-while-revalidate=600')
-        res.send(buildHtml({ title, description, image, url: fullUrl, keywords, schema: schemas }))
+         res.send(buildHtml({
+           title, description, image,
+           url: canonicalUrl,
+           keywords,
+           noIndex: hasFilters,
+           schema: schemas,
+         }))
       })
       .catch(() => {
         res.setHeader('Content-Type', 'text/html; charset=utf-8')
-        res.send(buildHtml({ title, description, image: DEFAULT_IMAGE, url: fullUrl, keywords, schema: BASE_SCHEMAS }))
+         res.send(buildHtml({
+           title, description, image: DEFAULT_IMAGE, url: canonicalUrl,
+           keywords, noIndex: hasFilters, schema: BASE_SCHEMAS,
+         }))
       })
     return
   }
@@ -748,15 +891,17 @@ export function ogPreviewMiddleware(req: Request, res: Response, next: NextFunct
   // ── Static pages ─────────────────────────────────────────────────────────────
   const staticOg = PAGE_OG[pathKey]
   if (staticOg) {
+    const noIndex = ['/login', '/register', '/install', '/blacklist'].includes(pathKey)
     res.setHeader('Content-Type', 'text/html; charset=utf-8')
     res.setHeader('Cache-Control', 'public, max-age=3600')
     res.send(buildHtml({
       title: staticOg.title,
       description: staticOg.description,
       image: staticOg.image ?? DEFAULT_IMAGE,
-      url: fullUrl,
+      url: `${SITE_URL}${pathKey}`,
       keywords: staticOg.keywords,
       type: staticOg.type,
+      noIndex,
       schema: BASE_SCHEMAS,
     }))
     return

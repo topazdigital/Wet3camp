@@ -127,6 +127,7 @@ export default function ProfilePage() {
     } : undefined,
     ogImage: escort?.image,
     canonicalPath: escort ? `/@${getSlug(escort.name)}` : `/profile/${slug}`,
+    noIndex: !escort,
     type: 'profile',
     schema: escortSeoSchema,
     city: escort?.city,

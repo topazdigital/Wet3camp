@@ -48,8 +48,3 @@ Crawl-delay: 10
 
 # All sitemaps
 Sitemap: https://wet3.camp/sitemap.xml
-Sitemap: https://wet3.camp/sitemap-main.xml
-Sitemap: https://wet3.camp/sitemap-escorts.xml
-Sitemap: https://wet3.camp/sitemap-cities.xml
-Sitemap: https://wet3.camp/sitemap-services.xml
-Sitemap: https://wet3.camp/sitemap-blog.xml

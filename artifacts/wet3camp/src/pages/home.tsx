@@ -142,9 +142,9 @@ function TrendingLive() {
 
 export default function Home() {
   useSEO({
-    title: "Kenya's #1 Escort Directory",
-    description: "Browse 1,200+ verified escorts in Nairobi, Mombasa, Kisumu & across Kenya. Elite, VIP & Premium female escorts. Discreet, safe, real photos. Better than nairobi raha — join free.",
-    keywords: "nairobiraha, nairobi raha, raha nairobi, rahazanairobi, raha za nairobi, escorts Kenya, Nairobi escorts, Mombasa escorts, Kisumu escorts, escort booking Kenya, VIP escorts Nairobi, elite escorts Nairobi, verified escorts Kenya, call girl Nairobi, escort near me Kenya, female escort Nairobi, escort directory Kenya, kenyan escorts 2025, escorts near me Kenya, escort WhatsApp Kenya",
+    title: 'Verified Escorts in Kenya',
+    description: 'Browse verified escort profiles in Nairobi, Mombasa, Kisumu and cities across Kenya. Compare profiles, services and availability, then contact directly on Wet3 Camp.',
+    keywords: 'Nairobi escorts, Mombasa escorts, Kisumu escorts, verified escorts Kenya, escort directory Kenya, escort booking Kenya, escort profiles Nairobi, escort profiles Mombasa',
     canonicalPath: '/',
   })
   const [activeCategory, setActiveCategory] = useState('all')

@@ -2,95 +2,37 @@ import { useEffect } from 'react'
 
 export const SITE_NAME = 'Wet3 Camp'
 export const SITE_URL = 'https://wet3.camp'
-export const DEFAULT_TITLE = "Wet3Camp — Kenya's #1 Escort Directory | Nairobi, Mombasa, Kisumu"
-export const DEFAULT_DESC = "Browse 1,200+ verified escorts in Nairobi, Mombasa, Kisumu & across Kenya. Find elite, VIP & premium female escorts near you. Discreet bookings. Join free today."
+export const DEFAULT_TITLE = 'Verified Escorts in Kenya | Nairobi, Mombasa & More'
+export const DEFAULT_DESC = 'Browse verified escort profiles in Nairobi, Mombasa, Kisumu and cities across Kenya. Compare profiles, services and availability, then contact directly on Wet3 Camp.'
 export const DEFAULT_OG_IMAGE = `${SITE_URL}/opengraph.jpg`
 
-// ── Master keyword list — targets every major Kenyan escort search query ──────
+// Keep metadata focused on genuine search intent. Search engines largely ignore
+// keyword tags, and competitor names or unsubstantiated claims can look spammy.
 export const MASTER_KEYWORDS = [
-  // Direct competitor brand targeting (what people search to find those sites)
-  "nairobiraha", "nairobi raha", "raha nairobi", "rahazanairobi", "raha za nairobi",
-  "nairobiescorts", "nairobi escorts", "nairobirahaescorts", "rahakenyaescorts",
-  "wet3camp", "wet3.camp", "nairobi raha escorts", "kenya raha", "raha kenya",
-  "escortify kenya", "xescorts kenya", "skissr kenya", "adultsearch kenya",
-  "africanescorts", "kenyan escort site", "escort directory kenya",
-  "escorts kenya 2025", "escorts nairobi 2025", "best escort site kenya",
-  "top escort site nairobi", "escort website kenya", "escort listing kenya",
+  'Nairobi escorts', 'Mombasa escorts', 'Kisumu escorts', 'Nakuru escorts',
+  'Eldoret escorts', 'verified escorts Kenya', 'escort directory Kenya',
+  'escort booking Kenya', 'escort profiles Nairobi', 'escort profiles Mombasa',
+  'independent escorts Kenya', 'incall escorts Kenya', 'outcall escorts Kenya',
+  'escort reviews Kenya', 'escort services Nairobi', 'escort services Mombasa',
+  'VIP escorts Kenya', 'premium escorts Kenya', 'elite escorts Kenya',
+  'find escorts near me Kenya',
 
-  // ── Escort services — high-intent queries ───────────────────────────────
-  "massage escort Nairobi", "body massage Nairobi escort", "erotic massage Kenya",
-  "girlfriend experience Kenya", "GFE escort Nairobi", "GFE escort Mombasa",
-  "BDSM escort Kenya", "dominatrix Nairobi", "role play escort Kenya",
-  "anal escort Kenya", "oral escort Nairobi", "blow job escort Kenya",
-  "69 escort Nairobi", "threesome escort Kenya", "couple escort Nairobi",
-  "escort with WhatsApp Kenya", "escort outcall Nairobi", "escort incall Nairobi",
-  "escort video call Kenya", "webcam escort Kenya", "online escort Kenya",
-  "escort overnight Kenya", "overnight escort Nairobi", "overnight escort Mombasa",
-  "escort for hire Kenya", "escort for party Kenya", "escort for events Kenya",
-  "escort for travel Kenya", "escort tours Kenya", "escort companion Kenya",
-  "happy ending massage Nairobi", "sensual massage Kenya", "escort full service Kenya",
-  "escort striptease Kenya", "escort lapdance Nairobi", "escort foot fetish Kenya",
-  "escort golden shower Kenya", "escort squirting Kenya", "escort deep throat Kenya",
-  "escort CIM Kenya", "escort MILF Nairobi", "BBW escort Nairobi", "slim escort Kenya",
-  "curvy escort Nairobi", "plus size escort Kenya", "petite escort Kenya",
-  "tall escort Kenya", "busty escort Nairobi", "big ass escort Kenya",
-
-  // City-level — primary
-  "Nairobi escorts", "Mombasa escorts", "Kisumu escorts", "Nakuru escorts",
-  "Eldoret escorts", "Thika escorts", "Machakos escorts", "Nyeri escorts",
-  "Meru escorts", "Kitale escorts", "Malindi escorts", "Kilifi escorts",
-  "Lamu escorts", "Diani escorts", "Nanyuki escorts", "Embu escorts",
-  "Nakuru escorts", "Eldoret escorts", "Thika escorts",
-
-  // Nairobi areas
-  "Westlands escorts", "CBD Nairobi escorts", "Karen escorts Nairobi",
-  "Kilimani escorts", "Lavington escorts", "Parklands escorts", "Upperhill escorts",
-  "Gigiri escorts", "Runda escorts", "Muthaiga escorts", "Eastleigh escorts",
-  "South B escorts", "Langata escorts", "Ngong Road escorts", "Thika Road escorts",
-  "Spring Valley escorts", "Loresho escorts", "Rosslyn escorts", "Ruaka escorts",
-  "Kileleshwa escorts", "Embakasi escorts", "South C escorts",
-
-  // Mombasa areas
-  "Nyali escorts", "Bamburi escorts", "Diani Beach escorts", "Mtwapa escorts",
-  "Tudor escorts", "Likoni escorts", "Kisauni escorts",
-
-  // Tier/type
-  "elite escorts Kenya", "VIP escorts Nairobi", "premium escorts Kenya",
-  "verified escorts Kenya", "female escorts Kenya", "Kenyan escort girls",
-  "high class escorts Nairobi", "luxury escorts Kenya", "independent escorts Nairobi",
-
-  // Action keywords
-  "book escort Nairobi", "hire escort Kenya", "escort booking Kenya",
-  "escort near me Kenya", "escort services Nairobi", "escort agency Nairobi",
-  "call girl Nairobi", "call girls Kenya", "call girl Mombasa",
-  "escorts near me", "find escort Nairobi", "escort contact Kenya",
-
-  // GFE & services
-  "girlfriend experience Nairobi", "GFE escort Kenya", "escort incall Nairobi",
-  "escort outcall Kenya", "overnight escort Nairobi", "escort video call Kenya",
-
-  // SEO long-tail
-  "verified escort profiles Kenya", "real escort photos Kenya",
-  "escort reviews Kenya", "top rated escorts Nairobi",
-  "how to find escort Nairobi", "escort guide Kenya 2025",
-  "escort with WhatsApp Kenya", "escort Telegram Kenya",
-  "female escort Nairobi WhatsApp", "escort WhatsApp number Kenya",
 ]
 
 export const CITY_KEYWORDS: Record<string, string[]> = {
   Nairobi: [
-    "Nairobi escorts", "escort Nairobi", "nairobi raha", "raha nairobi",
+    "Nairobi escorts", "escort Nairobi",
     "Westlands escort", "Karen escort", "Kilimani escort", "Lavington escort",
     "CBD escort Nairobi", "Parklands escort", "Upperhill escort", "Gigiri escort",
     "VIP escort Nairobi", "elite escort Nairobi", "book escort Nairobi",
     "call girl Nairobi", "independent escort Nairobi", "escort agency Nairobi",
-    "nairobiraha", "rahazanairobi",
+    "verified escorts Nairobi", "escort directory Nairobi",
   ],
   Mombasa: [
     "Mombasa escorts", "escort Mombasa", "Nyali escort", "Bamburi escort",
     "Diani escort", "Mtwapa escort", "coastal escort Kenya",
     "beach escort Mombasa", "escort Mombasa CBD", "VIP escort Mombasa",
-    "call girl Mombasa", "raha Mombasa",
+    "verified escorts Mombasa", "escort directory Mombasa",
   ],
   Kisumu: [
     "Kisumu escorts", "escort Kisumu", "Milimani escort Kisumu",
@@ -130,8 +72,7 @@ export function buildEscortKeywords(escort: {
     `book ${name}`, `${name} WhatsApp`, `${name} Telegram`,
     `escort ${area} Kenya`, `${city} ${g} escort`,
     `verified escort ${city}`, `${tier ?? 'premium'} escort ${area}`,
-    `nairobi raha ${city.toLowerCase()}`, `raha za nairobi ${city.toLowerCase()}`,
-    `${city} raha escorts`, `escorts ${city} Kenya 2025`,
+    `${city} verified escorts`, `escorts ${city} Kenya`,
   ].filter(Boolean)
   const serviceKw = services.flatMap(svc => [
     `${svc} escort ${city}`, `${svc} services ${area}`, `${svc} escort near me Kenya`,
@@ -149,7 +90,7 @@ interface SEOProps {
   canonicalPath?: string
   schema?: object | object[]
   city?: string
-  escort?: { name: string; city: string; area: string; tier?: string; ethnicity?: string; bodyType?: string; gender?: string; age?: number }
+  escort?: { name: string; city: string; area: string; tier?: string; ethnicity?: string; bodyType?: string; gender?: string; age?: number; services?: string[] }
   type?: 'website' | 'profile' | 'article' | 'place'
 }
 
@@ -164,7 +105,7 @@ function setMeta(name: string, content: string, prop = false) {
   el.setAttribute('content', content)
 }
 
-function setLink(rel: string, href: string) {
+function setLink(rel: string, href: string, attrs: Record<string, string> = {}) {
   let el = document.querySelector(`link[rel="${rel}"]`) as HTMLLinkElement | null
   if (!el) {
     el = document.createElement('link')
@@ -172,6 +113,7 @@ function setLink(rel: string, href: string) {
     document.head.appendChild(el)
   }
   el.setAttribute('href', href)
+  Object.entries(attrs).forEach(([key, value]) => el!.setAttribute(key, value))
 }
 
 function setSchema(id: string, data: object | object[]) {
@@ -240,7 +182,7 @@ export function useSEO({
     setLink('canonical', `${SITE_URL}${canonicalPath ?? window.location.pathname}`)
 
     // Alternate hreflang
-    setLink('alternate', `${SITE_URL}${canonicalPath ?? window.location.pathname}`)
+    setLink('alternate', `${SITE_URL}${canonicalPath ?? window.location.pathname}`, { hreflang: 'en-KE' })
 
     // Base schema: WebSite + Organization
     const baseSchemas: object[] = [
