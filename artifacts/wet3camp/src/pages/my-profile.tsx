@@ -184,6 +184,7 @@ export default function MyProfile() {
   const [avatarUploading, setAvatarUploading] = useState(false)
   const [galleryUploading, setGalleryUploading] = useState(false)
   const [galleryError, setGalleryError] = useState('')
+  const [profilePhotoSetting, setProfilePhotoSetting] = useState<string | null>(null)
   const [gallery, setGallery] = useState<string[]>([])
 
   // Load gallery when escort profile loads
@@ -266,7 +267,25 @@ export default function MyProfile() {
 
   const handleRemoveGalleryPhoto = async (url: string) => {
     setGallery(g => g.filter(u => u !== url))
-    try { await api.upload.removeGallery(url) } catch {}
+    try {
+      const result = await api.upload.removeGallery(url)
+      if (Array.isArray(result.gallery)) setGallery(result.gallery)
+      if (result.image !== undefined) setEscortProfile((p: any) => p ? { ...p, image: result.image } : p)
+    } catch {}
+  }
+
+  const handleSetGalleryProfile = async (url: string) => {
+    setProfilePhotoSetting(url)
+    setGalleryError('')
+    try {
+      const result = await api.upload.setGalleryProfile(url)
+      if (Array.isArray(result.gallery)) setGallery(result.gallery)
+      setEscortProfile((p: any) => p ? { ...p, image: result.image } : p)
+    } catch (err: any) {
+      setGalleryError(err?.message ?? 'Could not set that photo as your cover.')
+    } finally {
+      setProfilePhotoSetting(null)
+    }
   }
 
   const BODY_TYPES  = ['Slim', 'Athletic', 'Curvy', 'Petite', 'BBW', 'Average', 'Muscular']
@@ -871,10 +890,19 @@ export default function MyProfile() {
                       }}
                     />
                     <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <button
-                        onClick={() => handleRemoveGalleryPhoto(img)}
-                        className="px-2 py-1 bg-red-700 hover:bg-red-600 text-white text-[10px] font-bold rounded-lg transition-colors"
-                      >Remove</button>
+                      <div className="flex flex-col items-center gap-1.5 w-[80%]">
+                        {i !== 0 && (
+                          <button
+                            onClick={() => handleSetGalleryProfile(img)}
+                            disabled={profilePhotoSetting === img}
+                            className="w-full px-2 py-1 bg-[#28a745] hover:bg-[#218838] text-white text-[10px] font-bold rounded-lg transition-colors disabled:opacity-60"
+                          >{profilePhotoSetting === img ? 'Saving…' : 'Set as cover'}</button>
+                        )}
+                        <button
+                          onClick={() => handleRemoveGalleryPhoto(img)}
+                          className="w-full px-2 py-1 bg-red-700 hover:bg-red-600 text-white text-[10px] font-bold rounded-lg transition-colors"
+                        >Remove</button>
+                      </div>
                     </div>
                     {i === 0 && <span className="absolute top-1 left-1 text-[8px] font-bold bg-[#FFD700] text-black px-1.5 py-0.5 rounded">COVER</span>}
                   </div>
@@ -887,7 +915,7 @@ export default function MyProfile() {
                   </label>
                 )}
               </div>
-              <p className="text-xs text-text-muted">{gallery.length}/{tierPhotoLimit} photos ({escortProfile?.tier ?? 'Standard'} tier limit). Cover photo is always first. Tap a photo and click Remove to delete it.</p>
+              <p className="text-xs text-text-muted">{gallery.length}/{tierPhotoLimit} photos ({escortProfile?.tier ?? 'Standard'} tier limit). The first photo is your cover. Hover a photo to set it as cover or remove it.</p>
             </div>
           )}
 

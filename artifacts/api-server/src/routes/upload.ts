@@ -78,6 +78,15 @@ async function persistUpload(
   return url
 }
 
+async function getEscortGallery(pool: ReturnType<typeof getPool>, escortId: string | number) {
+  if (!pool) return []
+  const [rows] = await pool.query<any[]>(
+    'SELECT id, image_url, sort_order FROM escort_gallery WHERE escort_id = ? ORDER BY sort_order ASC, id ASC',
+    [escortId]
+  )
+  return Array.isArray(rows) ? rows : []
+}
+
 // POST /api/upload
 // Body: { data: "data:image/jpeg;base64,...", filename?: "photo.jpg", type?: "avatar"|"gallery"|"blog" }
 // type "blog" additionally accepts video (mp4/webm/mov/quicktime) and is admin-only.
@@ -222,6 +231,51 @@ router.post('/upload-chunk', requireAuth, async (req: AuthRequest, res) => {
   }
 })
 
+// PATCH /api/upload — set one of the escort's gallery images as the cover photo
+router.patch('/upload', requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const { url } = req.body as { url?: string }
+    if (!url) { res.status(400).json({ message: 'url is required' }); return }
+    const pool = getPool()
+    if (!pool) { res.status(503).json({ message: 'Database not configured' }); return }
+
+    const [[escort]] = await pool.query<any[]>(
+      'SELECT id, image FROM escorts WHERE user_id = ? LIMIT 1',
+      [req.userId]
+    )
+    if (!escort) { res.status(404).json({ message: 'Escort profile not found' }); return }
+
+    const [[photo]] = await pool.query<any[]>(
+      'SELECT id, image_url FROM escort_gallery WHERE escort_id = ? AND image_url = ? LIMIT 1',
+      [escort.id, url]
+    )
+    if (!photo) { res.status(404).json({ message: 'Gallery photo not found' }); return }
+
+    const gallery = await getEscortGallery(pool, escort.id)
+    for (const [sortOrder, galleryPhoto] of gallery.entries()) {
+      await pool.query(
+        'UPDATE escort_gallery SET sort_order = ? WHERE id = ? AND escort_id = ?',
+        [galleryPhoto.id === photo.id ? 0 : sortOrder + 1, galleryPhoto.id, escort.id]
+      )
+    }
+    await pool.query('UPDATE escorts SET image = ? WHERE id = ?', [photo.image_url, escort.id])
+    await pool.query(
+      'UPDATE users SET avatar = ? WHERE id = ? AND avatar = ?',
+      [photo.image_url, req.userId, escort.image]
+    ).catch(() => {})
+
+    const reorderedGallery = await getEscortGallery(pool, escort.id)
+    res.json({
+      success: true,
+      image: photo.image_url,
+      gallery: reorderedGallery.map((galleryPhoto: any) => galleryPhoto.image_url),
+    })
+  } catch (err: any) {
+    console.error('[PATCH /upload]', err)
+    res.status(500).json({ message: 'Failed to set profile photo', detail: err?.message ?? '' })
+  }
+})
+
 // DELETE /api/upload — remove a gallery image
 router.delete('/upload', requireAuth, async (req: AuthRequest, res) => {
   try {
@@ -229,10 +283,38 @@ router.delete('/upload', requireAuth, async (req: AuthRequest, res) => {
     if (!url) { res.status(400).json({ message: 'url is required' }); return }
     const pool = getPool()
     if (pool) {
-      const [[escort]] = await pool.query<any[]>('SELECT id FROM escorts WHERE user_id = ? LIMIT 1', [req.userId])
+      const [[escort]] = await pool.query<any[]>(
+        'SELECT id, image FROM escorts WHERE user_id = ? LIMIT 1',
+        [req.userId]
+      )
       if (escort) {
-        await pool.query('DELETE FROM escort_gallery WHERE escort_id = ? AND image_url = ?', [escort.id, url]).catch(() => {})
+        await pool.query('DELETE FROM escort_gallery WHERE escort_id = ? AND image_url = ?', [escort.id, url])
+        if (escort.image === url) {
+          const gallery = await getEscortGallery(pool, escort.id)
+          const nextImage = gallery[0]?.image_url ?? null
+          await pool.query('UPDATE escorts SET image = ? WHERE id = ?', [nextImage, escort.id])
+          await pool.query(
+            'UPDATE users SET avatar = ? WHERE id = ? AND avatar = ?',
+            [nextImage, req.userId, url]
+          ).catch(() => {})
+          res.json({
+            success: true,
+            image: nextImage,
+            gallery: gallery.map((galleryPhoto: any) => galleryPhoto.image_url),
+          })
+        } else {
+          const gallery = await getEscortGallery(pool, escort.id)
+          res.json({
+            success: true,
+            image: escort.image,
+            gallery: gallery.map((galleryPhoto: any) => galleryPhoto.image_url),
+          })
+        }
+      } else {
+        res.json({ success: true, image: null, gallery: [] })
       }
+    } else {
+      res.json({ success: true, image: null, gallery: [] })
     }
     const filename = url.split('/').pop() ?? ''
     const filePath = path.join(UPLOADS_DIR, filename)
@@ -240,7 +322,7 @@ router.delete('/upload', requireAuth, async (req: AuthRequest, res) => {
       const { unlink } = await import('fs/promises')
       await unlink(filePath).catch(() => {})
     }
-    res.json({ success: true })
+    // The response is sent above once the gallery has been reconciled.
   } catch (err: any) {
     res.status(500).json({ message: 'Delete failed', detail: err?.message ?? '' })
   }

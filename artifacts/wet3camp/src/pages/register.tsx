@@ -67,6 +67,32 @@ function calcAge(dob: string): number | null {
   return a
 }
 
+function compressRegistrationPhoto(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onerror = () => reject(new Error('Could not read photo'))
+    reader.onload = () => {
+      const img = new Image()
+      img.onerror = () => reject(new Error('Could not process photo'))
+      img.onload = () => {
+        const maxDimension = 1600
+        const scale = Math.min(1, maxDimension / Math.max(img.width, img.height, 1))
+        const canvas = document.createElement('canvas')
+        canvas.width = Math.max(1, Math.round(img.width * scale))
+        canvas.height = Math.max(1, Math.round(img.height * scale))
+        const context = canvas.getContext('2d')
+        if (!context) { resolve(reader.result as string); return }
+        context.fillStyle = '#ffffff'
+        context.fillRect(0, 0, canvas.width, canvas.height)
+        context.drawImage(img, 0, 0, canvas.width, canvas.height)
+        resolve(canvas.toDataURL('image/jpeg', 0.82))
+      }
+      img.src = reader.result as string
+    }
+    reader.readAsDataURL(file)
+  })
+}
+
 function ServicesStep({ selServices, toggleService }: { selServices: string[]; toggleService: (s: string) => void }) {
   const [search, setSearch] = useState('')
   const [cat, setCat] = useState('All')
@@ -364,12 +390,12 @@ export default function RegisterPage() {
   }
 
   const handlePhotos = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? [])
-    files.forEach(file => {
-      const reader = new FileReader()
-      reader.onload = ev => setPhotos(p => [...p, ev.target?.result as string].slice(0, 8))
-      reader.readAsDataURL(file)
-    })
+    const files = Array.from(e.target.files ?? []).slice(0, Math.max(0, 8 - photos.length))
+    if (!files.length) { e.target.value = ''; return }
+    Promise.all(files.map(compressRegistrationPhoto))
+      .then(newPhotos => setPhotos(previous => [...previous, ...newPhotos].slice(0, 8)))
+      .catch(() => setError('Could not process one of those photos. Please try again.'))
+    e.target.value = ''
   }
 
   const handlePoseSelfie = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -457,6 +483,46 @@ export default function RegisterPage() {
     setOauthProvider(provider); setAuthMethod('oauth')
   }
 
+  const uploadRegistrationPhotos = async (token: string) => {
+    if (role !== 'escort' || photos.length === 0) return
+
+    const upload = async (data: string, type: 'avatar' | 'gallery', index: number) => {
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          data,
+          filename: `registration-photo-${index + 1}.jpg`,
+          type,
+        }),
+      })
+      const result = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(result.message || 'Photo upload failed')
+      return result
+    }
+
+    let failedUploads = 0
+    // Add every registration photo to the gallery first. Their insertion order
+    // makes photo one the initial cover in the same way as dashboard uploads.
+    for (const [index, photo] of photos.entries()) {
+      try { await upload(photo, 'gallery', index) } catch (err) {
+        failedUploads++
+        console.error('[registration gallery upload]', err)
+      }
+    }
+    // The first photo is also stored as the account and escort profile image.
+    try { await upload(photos[0], 'avatar', 0) } catch (err) {
+      failedUploads++
+      console.error('[registration avatar upload]', err)
+    }
+    if (failedUploads > 0) {
+      console.error(`[registration] ${failedUploads} photo upload(s) failed after account creation`)
+    }
+  }
+
   const handleSubmit = async () => {
     if (!agreeTerms) { setError('Please agree to the Terms of Service.'); return }
     setLoading(true)
@@ -483,6 +549,7 @@ export default function RegisterPage() {
         const data = await res.json()
         if (!res.ok) throw new Error(data.message)
         setToken(data.token)
+         await uploadRegistrationPhotos(data.token)
         login({
           id: data.user.id,
           name: data.user.name,
@@ -516,6 +583,7 @@ export default function RegisterPage() {
       }
       const res = await api.auth.register(payload as any)
       setToken(res.token)
+      await uploadRegistrationPhotos(res.token)
       login({
         id: res.user.id,
         name: res.user.name,

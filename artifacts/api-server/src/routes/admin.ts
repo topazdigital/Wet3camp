@@ -466,6 +466,18 @@ router.patch('/admin/escorts/:id/gallery/:photoId/set-profile', requireAuth, req
       [req.params!.photoId, req.params!.id]
     )
     if (!photo) { res.status(404).json({ message: 'Photo not found' }); return }
+    const [gallery] = await pool.query<any[]>(
+      'SELECT id, sort_order FROM escort_gallery WHERE escort_id = ? ORDER BY sort_order ASC, id ASC',
+      [req.params!.id]
+    )
+    if (Array.isArray(gallery)) {
+      for (const [sortOrder, galleryPhoto] of gallery.entries()) {
+        await pool.query(
+          'UPDATE escort_gallery SET sort_order = ? WHERE id = ? AND escort_id = ?',
+          [galleryPhoto.id === photo.id ? 0 : sortOrder + 1, galleryPhoto.id, req.params!.id]
+        )
+      }
+    }
     await pool.query('UPDATE escorts SET image = ? WHERE id = ?', [photo.image_url, req.params!.id])
     res.json({ success: true, image: photo.image_url })
   } catch (err: any) {

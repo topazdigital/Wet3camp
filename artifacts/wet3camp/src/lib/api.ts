@@ -181,8 +181,13 @@ export const api = {
         body: JSON.stringify({ data, filename, type }),
       }),
     removeGallery: (url: string) =>
-      req<{ success: boolean }>('/upload', {
+      req<{ success: boolean; image?: string | null; gallery?: string[] }>('/upload', {
         method: 'DELETE',
+        body: JSON.stringify({ url }),
+      }),
+    setGalleryProfile: (url: string) =>
+      req<{ success: boolean; image: string; gallery: string[] }>('/upload', {
+        method: 'PATCH',
         body: JSON.stringify({ url }),
       }),
   },
