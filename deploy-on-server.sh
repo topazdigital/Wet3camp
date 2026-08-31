@@ -244,8 +244,30 @@ for ENTRY in "$WEB_ROOT"/* "$WEB_ROOT"/.[!.]*; do
     rm -rf "$ENTRY" 2>/dev/null || true
   fi
 done
-# Vite outputs to dist/public — copy that subfolder to web root
-cp -r "$REPO_DIR/artifacts/wet3camp/dist/public/." "$WEB_ROOT/"
+# Vite outputs to dist/public — copy that subfolder to web root.
+# Do not let a partial/failed copy look like a successful deploy: Apache's SPA
+# fallback would otherwise return index.html for a missing hashed JS asset,
+# leaving fresh browsers with a white page while cached browsers keep working.
+if ! cp -r "$REPO_DIR/artifacts/wet3camp/dist/public/." "$WEB_ROOT/"; then
+  echo "    ERROR: frontend files could not be copied to $WEB_ROOT"
+  set -e
+  exit 1
+fi
+if [ ! -s "$WEB_ROOT/index.html" ]; then
+  echo "    ERROR: deployed index.html is missing or empty"
+  set -e
+  exit 1
+fi
+while IFS= read -r ASSET_PATH; do
+  [ -n "$ASSET_PATH" ] || continue
+  ASSET_FILE="$WEB_ROOT${ASSET_PATH}"
+  if [ ! -s "$ASSET_FILE" ]; then
+    echo "    ERROR: index.html references missing asset: $ASSET_PATH"
+    set -e
+    exit 1
+  fi
+done < <(grep -oE '(src|href)="(/assets/[^"]+)"' "$WEB_ROOT/index.html" | sed -E 's/^[^"]*"([^"]+)".*$/\1/')
+echo "    Frontend asset manifest validated."
 # Only chmod the freshly-copied tree (now the only thing left in WEB_ROOT),
 # never anything moved aside above.
 # Belt-and-braces: even after the moves/purges above, some stray leftover
