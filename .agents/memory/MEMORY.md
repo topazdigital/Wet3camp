@@ -15,3 +15,4 @@
 - [Apache uploads symlink 403](apache-uploads-symlink.md) — shared hosting Apache 403s symlinks before mod_rewrite; use mod_proxy for /api/uploads/* instead; never ln -sfn into web root
 - [Blog admin architecture](blog-admin-architecture.md) — admin blog CRUD now hits real backend API/DB (not localStorage); inline `![]()`/`[video]()` tokens; publish auto-pings IndexNow
 - [Shell secret refresh](shell-secret-refresh.md) — after adding a Replit Secret, reopen the Shell so the new environment variable is inherited
+- [Workflow port collision](workflow-port-collision.md) — generated per-artifact API and combined workflows can both claim port 8080; keep one API process active during preview checks
