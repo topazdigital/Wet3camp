@@ -17,3 +17,4 @@
 - [Shell secret refresh](shell-secret-refresh.md) — after adding a Replit Secret, reopen the Shell so the new environment variable is inherited
 - [Workflow port collision](workflow-port-collision.md) — generated per-artifact API and combined workflows can both claim port 8080; keep one API process active during preview checks
 - [Static asset deploy validation](static-asset-deploy.md) — Apache SPA fallback can mask missing hashed bundles; deployments must validate every asset referenced by index.html
+- [Production API port](production-api-port.md) — shared server port 8080 is occupied; Wet3Camp deployment must isolate API and Apache proxy on its dedicated loopback port

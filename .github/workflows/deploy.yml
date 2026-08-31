@@ -17,6 +17,8 @@ jobs:
     steps:
       - name: Deploy to server via SSH
         uses: appleboy/ssh-action@v1.0.3
+        env:
+          DEPLOY_COMMIT: ${{ github.sha }}
         with:
           host: 157.250.205.180
           username: admin
@@ -24,6 +26,7 @@ jobs:
           passphrase: ${{ secrets.DEPLOY_SSH_PASSPHRASE }}
           port: 22
           command_timeout: 12m
+          envs: DEPLOY_COMMIT
           script: |
             set -e
             git config --global --add safe.directory /home/admin/wet3camp-build 2>/dev/null || true

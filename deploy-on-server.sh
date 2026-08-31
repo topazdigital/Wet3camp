@@ -43,6 +43,10 @@ echo "==> [0/7] Pulling latest code from GitHub..."
 cd "$REPO_DIR"
 git fetch origin main
 git reset --hard origin/main
+if [ -n "${DEPLOY_COMMIT:-}" ] && [ "$(git rev-parse HEAD)" != "$DEPLOY_COMMIT" ]; then
+  echo "ERROR: server checkout $(git rev-parse HEAD) does not match requested deploy $DEPLOY_COMMIT"
+  exit 1
+fi
 echo "    Code is now up to date with GitHub."
 
 # --- DIAGNOSTICS: help debug the persistent EACCES node_modules issue ---
@@ -113,7 +117,7 @@ add_if_missing() {
   fi
 }
 
-add_if_missing "PORT"         "8080"
+add_if_missing "PORT"         "18080"
 add_if_missing "APP_URL"      "https://wet3.camp"
 add_if_missing "DB_HOST"      "localhost"
 add_if_missing "DB_PORT"      "3306"
@@ -132,6 +136,17 @@ add_if_missing "UPLOADS_DIR"  "/home/admin/wet3camp-build/artifacts/api-server/u
 
 # Re-source so all variables (including newly added ones) are available
 set -a; source "$API_ENV"; set +a
+
+# Port 8080 is already used by another PM2 application on this host. Keep the
+# Wet3Camp API isolated on a dedicated loopback port so its restart cannot
+# fail with EADDRINUSE while Apache continues routing to an older process.
+if [ "${PORT:-}" = "8080" ]; then
+  sed -i 's/^PORT=8080$/PORT=18080/' "$API_ENV"
+  PORT=18080
+  export PORT
+  echo "    Moved Wet3Camp API from occupied port 8080 to dedicated port $PORT."
+fi
+API_PORT="${PORT:-18080}"
 
 # CRITICAL: construct DATABASE_URL from DB_* vars if not already set.
 # db.ts only reads DATABASE_URL — without this the API cannot connect to MySQL.
@@ -345,23 +360,30 @@ Options -Indexes
   # Must be first so that / (a directory) is also proxied, not served as index.html.
   # The OG Preview middleware handles the request and calls next() for non-HTML paths.
   RewriteCond %{HTTP_USER_AGENT} "(facebookexternalhit|facebot|WhatsApp|TelegramBot|LinkedInBot|Twitterbot|Slackbot|Discordbot|Applebot|Googlebot|Bingbot|YandexBot|DuckDuckBot|ia_archiver|SemrushBot|AhrefsBot)" [NC]
-  RewriteRule ^ http://localhost:8080%{REQUEST_URI} [P,L,QSA]
+  RewriteRule ^ http://localhost:__WET3_API_PORT__%{REQUEST_URI} [P,L,QSA]
 
-  # Step 2: Serve real frontend static files/dirs directly for regular browser users
+  # Step 2: Proxy frontend assets to the dedicated API static fallback. This
+  # keeps hashed bundles available even if the hosting layer does not expose
+  # the web-root assets directory correctly.
+  RewriteCond %{REQUEST_URI} ^/assets/ [NC]
+  RewriteRule ^ http://localhost:__WET3_API_PORT__%{REQUEST_URI} [P,L,QSA]
+
+  # Step 3: Serve real frontend static files/dirs directly for regular browser users
   RewriteCond %{REQUEST_FILENAME} -f [OR]
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]
 
-  # Step 3: Proxy /api/* and known server routes to Node.js on port 8080
+  # Step 4: Proxy /api/* and known server routes to the dedicated API port
   RewriteCond %{REQUEST_URI} ^/api [NC,OR]
   RewriteCond %{REQUEST_URI} ^/sitemap [NC,OR]
   RewriteCond %{REQUEST_URI} ^/google [NC]
-  RewriteRule ^ http://localhost:8080%{REQUEST_URI} [P,L,QSA]
+  RewriteRule ^ http://localhost:__WET3_API_PORT__%{REQUEST_URI} [P,L,QSA]
 
-  # Step 4: SPA fallback — all other routes serve index.html for regular browser users
+  # Step 5: SPA fallback — all other routes serve index.html for regular browser users
   RewriteRule ^ index.html [L]
 </IfModule>
 HTACCESS
+sed -i "s/__WET3_API_PORT__/${API_PORT}/g" "$WEB_ROOT/.htaccess"
 
 echo "    .htaccess written (static direct, /api/* + bot UA proxied to Node.js, SPA fallback)."
 
@@ -390,7 +412,26 @@ for ENTRY in "$API_DIR"/public/* "$API_DIR"/public/.[!.]*; do
     rm -rf "$ENTRY" 2>/dev/null || true
   fi
 done
-cp -r "$REPO_DIR/artifacts/wet3camp/dist/public/." "$API_DIR/public/"
+if ! cp -r "$REPO_DIR/artifacts/wet3camp/dist/public/." "$API_DIR/public/"; then
+  echo "    ERROR: frontend files could not be copied to $API_DIR/public"
+  set -e
+  exit 1
+fi
+if [ ! -s "$API_DIR/public/index.html" ]; then
+  echo "    ERROR: API static fallback index.html is missing or empty"
+  set -e
+  exit 1
+fi
+while IFS= read -r ASSET_PATH; do
+  [ -n "$ASSET_PATH" ] || continue
+  ASSET_FILE="$API_DIR/public${ASSET_PATH}"
+  if [ ! -s "$ASSET_FILE" ]; then
+    echo "    ERROR: API static fallback is missing asset: $ASSET_PATH"
+    set -e
+    exit 1
+  fi
+done < <(grep -oE '(src|href)="(/assets/[^"]+)"' "$API_DIR/public/index.html" | sed -E 's/^[^"]*"([^"]+)".*$/\1/')
+echo "    API static asset manifest validated."
 # Same leftover-ownership disease keeps resurfacing at every "copy build
 # output over an existing live directory" spot on this host (assets/,
 # api-server/public/, and now api-server's own live dist/) — so keep the
