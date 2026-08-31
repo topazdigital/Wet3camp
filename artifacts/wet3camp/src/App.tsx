@@ -39,6 +39,7 @@ const Tours           = lazy(() => import("@/pages/tours"))
 const Videos          = lazy(() => import("@/pages/videos"))
 const Blog            = lazy(() => import("@/pages/blog"))
 const BlogPost        = lazy(() => import("@/pages/blog-post"))
+const AreaEscorts     = lazy(() => import("@/pages/AreaEscorts"))
 const PendingApproval = lazy(() => import("@/pages/pending-approval"))
 const AuthCallback    = lazy(() => import("@/pages/auth-callback"))
 const Account         = lazy(() => import("@/pages/account"))
@@ -131,6 +132,7 @@ function Router() {
         <Route path="/tier-benefits" component={TierBenefits} />
         <Route path="/claim/:id" component={ClaimProfile} />
         <Route path="/live/:escortId" component={LiveStream} />
+        <Route path="/escorts/:city/:area" component={AreaEscorts} />
         <Route path="/escorts/:city" component={CityEscorts} />
         <Route path="/payment-history">{() => <ProtectedRoute component={PaymentHistory} />}</Route>
         <Route path="/referral">{() => <ProtectedRoute component={Referral} />}</Route>

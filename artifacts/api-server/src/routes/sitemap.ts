@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import { getPool } from '../lib/db.js'
+import { AREA_LANDING_PAGES, isAreaRowMatch } from '../lib/location-data.js'
 
 const router = Router()
 
@@ -133,17 +134,36 @@ router.get('/sitemap-escorts.xml', async (_req, res) => {
 })
 
 // ── City & area location pages sitemap ───────────────────────────────────────
-router.get('/sitemap-cities.xml', (_req, res) => {
+router.get('/sitemap-cities.xml', async (_req, res) => {
   const today = new Date().toISOString().split('T')[0]
   res.setHeader('Content-Type', 'application/xml; charset=utf-8')
   res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=172800')
   res.setHeader('Expires', new Date(Date.now() + 86400 * 1000).toUTCString())
 
-  const lines: string[] = []
+  let activeRows: Array<{ city?: unknown; area?: unknown }> = []
+  const pool = getPool()
+  if (pool) {
+    try {
+      const [rows] = await pool.query<any[]>(
+        'SELECT city, area FROM escorts WHERE is_active = 1 LIMIT 10000'
+      )
+      activeRows = rows as Array<{ city?: unknown; area?: unknown }>
+    } catch (err) {
+      console.error('[sitemap-cities] DB error:', err)
+    }
+  }
 
   // Dedicated city landing pages — /escorts/:city (highest SEO priority)
+  const lines: string[] = []
   for (const citySlug of CITY_PAGES) {
     lines.push(url(`${BASE}/escorts/${citySlug}`, today, 'daily', '0.95'))
+  }
+  // Area pages are included only when at least one active profile matches the
+  // location. This keeps empty pages out of the index while inventory grows.
+  for (const areaPage of AREA_LANDING_PAGES) {
+    if (activeRows.some(row => isAreaRowMatch(areaPage, row))) {
+      lines.push(url(`${BASE}/escorts/${areaPage.citySlug}/${areaPage.slug}`, today, 'daily', '0.85'))
+    }
   }
 
   res.send([

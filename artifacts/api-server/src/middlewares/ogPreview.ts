@@ -14,10 +14,14 @@
 
 import type { Request, Response, NextFunction } from 'express'
 import { getPool } from '../lib/db.js'
+import { AREA_LANDING_PAGES, getAreaLandingPage, isAreaRowMatch } from '../lib/location-data.js'
 
 const SITE_URL  = 'https://wet3.camp'
 const DEFAULT_IMAGE = `${SITE_URL}/opengraph.jpg`
 const SITE_NAME = 'Wet3 Camp'
+
+const profileSlug = (name: string) =>
+  name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 
 // ── Image URL normaliser ──────────────────────────────────────────────────────
 function ogImage(raw: string | null | undefined): string {
@@ -507,7 +511,7 @@ for (const [slug, title] of Object.entries(LOCAL_BLOG_TITLES)) {
 }
 
 // ── Main middleware ────────────────────────────────────────────────────────────
-export function ogPreviewMiddleware(req: Request, res: Response, next: NextFunction): void {
+export async function ogPreviewMiddleware(req: Request, res: Response, next: NextFunction): Promise<void> {
   if (req.method !== 'GET') { next(); return }
   const ua = req.headers['user-agent'] ?? ''
   if (!isBot(ua)) { next(); return }
@@ -515,6 +519,87 @@ export function ogPreviewMiddleware(req: Request, res: Response, next: NextFunct
   const path    = req.path
   const query   = req.query as Record<string, string>
   const fullUrl = `${SITE_URL}${path}${Object.keys(query).length ? '?' + new URLSearchParams(query).toString() : ''}`
+
+  // ── Area landing pages: /escorts/:city/:area ────────────────────────────────
+  const areaMatch = path.match(/^\/escorts\/([^/?#]+)\/([^/?#]+)$/)
+  if (areaMatch) {
+    const areaPage = getAreaLandingPage(areaMatch[1].toLowerCase(), areaMatch[2].toLowerCase())
+    if (!areaPage) {
+      res.status(404).send(buildHtml({
+        title: 'Location Not Found | Wet3 Camp',
+        description: 'This area landing page could not be found.',
+        image: DEFAULT_IMAGE,
+        url: fullUrl,
+        noIndex: true,
+      }))
+      return
+    }
+
+    let matchingProfiles: Array<{ id: number | string; name: string; city?: string; area?: string }> = []
+    const pool = getPool()
+    if (pool) {
+      try {
+        const [rows] = await pool.query<any[]>(
+          'SELECT id, name, city, area FROM escorts WHERE is_active = 1 LIMIT 10000'
+        )
+        matchingProfiles = (rows as Array<{ id: number | string; name: string; city?: string; area?: string }>)
+          .filter(row => isAreaRowMatch(areaPage, row))
+      } catch (err) {
+        console.error('[og-area] DB error:', err)
+      }
+    }
+
+    const areaUrl = `${SITE_URL}/escorts/${areaPage.citySlug}/${areaPage.slug}`
+    const nearbyLinks = areaPage.nearby.map(nearby => {
+      const nearbyPage = AREA_LANDING_PAGES.find(page =>
+        page.citySlug === areaPage.citySlug && page.name.toLowerCase() === nearby.toLowerCase()
+      )
+      return nearbyPage
+        ? `<li><a href="${SITE_URL}/escorts/${nearbyPage.citySlug}/${nearbyPage.slug}">${esc(nearbyPage.name)} escorts</a></li>`
+        : `<li>${esc(nearby)}</li>`
+    }).join('')
+    const profileLinks = matchingProfiles.slice(0, 24).map(profile =>
+      `<li><a href="${SITE_URL}/@${profileSlug(profile.name)}">${esc(profile.name)} — ${esc(areaPage.name)}, ${esc(areaPage.cityName)}</a></li>`
+    ).join('')
+    const profileSection = matchingProfiles.length
+      ? `<h2>Profiles in ${esc(areaPage.name)}</h2><p>${matchingProfiles.length} active profile${matchingProfiles.length === 1 ? '' : 's'} currently list this area.</p><ul>${profileLinks}</ul>`
+      : '<p>There are no active profiles listing this area yet. Browse the wider city directory for current availability.</p>'
+    const areaBody = [
+      `<h1><a href="${areaUrl}">Verified Escorts in ${esc(areaPage.name)}, ${esc(areaPage.cityName)}</a></h1>`,
+      `<p>${esc(areaPage.intro)}</p>`,
+      profileSection,
+      `<h2>Nearby areas</h2><ul>${nearbyLinks}</ul>`,
+      `<p><a href="${SITE_URL}/escorts/${areaPage.citySlug}">View all ${esc(areaPage.cityName)} escorts</a> · <a href="${SITE_URL}/">View all Kenya profiles</a></p>`,
+    ].join('')
+    const areaSchema = {
+      '@context': 'https://schema.org',
+      '@type': 'CollectionPage',
+      name: `Escorts in ${areaPage.name}, ${areaPage.cityName} | ${SITE_NAME}`,
+      description: areaPage.description,
+      url: areaUrl,
+      about: {
+        '@type': 'Place',
+        name: areaPage.name,
+        containedInPlace: { '@type': 'City', name: areaPage.cityName, addressCountry: 'KE' },
+      },
+      isPartOf: { '@type': 'WebSite', name: SITE_NAME, url: SITE_URL },
+      numberOfItems: matchingProfiles.length,
+    }
+
+    res.setHeader('Content-Type', 'text/html; charset=utf-8')
+    res.setHeader('Cache-Control', 'public, max-age=3600, stale-while-revalidate=7200')
+    res.status(200).send(buildHtml({
+      title: `Verified Escorts in ${areaPage.name}, ${areaPage.cityName} | ${SITE_NAME}`,
+      description: areaPage.description,
+      image: DEFAULT_IMAGE,
+      url: areaUrl,
+      keywords: `${areaPage.name} escorts, escorts in ${areaPage.name}, verified escorts ${areaPage.name}, ${areaPage.cityName} escorts`,
+      schema: [...BASE_SCHEMAS, areaSchema],
+      noIndex: matchingProfiles.length === 0,
+      body: areaBody,
+    }))
+    return
+  }
 
   // ── City landing pages: /escorts/:city ───────────────────────────────────────
   const cityMatch = path.match(/^\/escorts\/([^/?#]+)$/)
@@ -541,9 +626,14 @@ export function ogPreviewMiddleware(req: Request, res: Response, next: NextFunct
       about: { '@type': 'Place', name: city.name, addressCountry: 'KE' },
       isPartOf: { '@type': 'WebSite', name: SITE_NAME, url: SITE_URL },
     }
-    const areas = city.areas.map(area =>
-      `<li><a href="${SITE_URL}/search?city=${encodeURIComponent(city.name)}">${area} escorts</a></li>`
-    ).join('')
+    const areas = city.areas.map(area => {
+      const areaPage = AREA_LANDING_PAGES.find(page =>
+        page.citySlug === cityMatch[1].toLowerCase() && page.name.toLowerCase() === area.toLowerCase()
+      )
+      return areaPage
+        ? `<li><a href="${SITE_URL}/escorts/${areaPage.citySlug}/${areaPage.slug}">${esc(areaPage.name)} escorts</a></li>`
+        : `<li>${esc(area)}</li>`
+    }).join('')
     const cityBody = [
       `<h1><a href="${cityUrl}">Verified Escorts in ${city.name}</a></h1>`,
       `<p>${city.intro}</p>`,

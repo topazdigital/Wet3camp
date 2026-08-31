@@ -218,6 +218,7 @@ export default function SearchPage() {
 
   const [query, setQuery] = useState(urlParams.get('q') ?? '')
   const [city, setCity] = useState(urlParams.get('city') ?? 'All Cities')
+  const [area, setArea] = useState(urlParams.get('area') ?? '')
   const [tier, setTier] = useState(urlParams.get('tier') ?? 'all')
   const [service, setService] = useState(urlParams.get('service') ?? '')
   const [availableOnly, setAvailableOnly] = useState(false)
@@ -234,6 +235,7 @@ export default function SearchPage() {
     const p = new URLSearchParams(location.includes('?') ? location.split('?')[1] : '')
     setQuery(p.get('q') ?? '')
     if (p.get('city')) setCity(p.get('city') ?? 'All Cities')
+    setArea(p.get('area') ?? '')
     if (p.get('service')) setService(p.get('service') ?? '')
   }, [location])
 
@@ -255,6 +257,7 @@ export default function SearchPage() {
     try {
       const params: any = { limit: PER_PAGE, offset: pg * PER_PAGE, sort: sortBy }
       if (city !== 'All Cities') params.city = city
+      if (area) params.area = area
       if (tier !== 'all') params.tier = tier
       if (availableOnly) params.available = '1'
       if (service) params.service = service
@@ -271,7 +274,7 @@ export default function SearchPage() {
     } finally {
       setLoading(false)
     }
-  }, [city, tier, availableOnly, sortBy, query, service])
+  }, [city, area, tier, availableOnly, sortBy, query, service])
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
@@ -408,7 +411,7 @@ export default function SearchPage() {
                   {service && <span className="ml-2 px-2 py-0.5 bg-[#8B0000]/20 text-[#8B0000] rounded-full text-[10px] font-bold">{service}</span>}
                 </p>
                 <button
-                  onClick={() => { setCity('All Cities'); setTier('all'); setAvailableOnly(false); setSortBy('featured'); setQuery(''); setService('') }}
+                   onClick={() => { setCity('All Cities'); setArea(''); setTier('all'); setAvailableOnly(false); setSortBy('featured'); setQuery(''); setService('') }}
                   className="text-xs text-[#EF4444] hover:underline"
                 >
                   Clear all filters
@@ -460,7 +463,7 @@ export default function SearchPage() {
               <div className="text-5xl mb-4">🔍</div>
               <h3 className="text-lg font-bold text-text-light mb-2">No escorts found</h3>
               <p className="text-text-muted text-sm mb-6">Try adjusting your filters or search in a different city.</p>
-              <button onClick={() => { setCity('All Cities'); setTier('all'); setAvailableOnly(false); setQuery(''); setService('') }} className="px-6 py-2.5 bg-[#8B0000] text-white font-bold rounded-xl hover:bg-[#a00000] transition-colors">
+              <button onClick={() => { setCity('All Cities'); setArea(''); setTier('all'); setAvailableOnly(false); setQuery(''); setService('') }} className="px-6 py-2.5 bg-[#8B0000] text-white font-bold rounded-xl hover:bg-[#a00000] transition-colors">
                 Clear Filters
               </button>
             </div>

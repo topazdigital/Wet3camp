@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import { getPool } from '../lib/db.js'
+import { CITY_AREA_VALUES } from '../lib/location-data.js'
 
 const router = Router()
 
@@ -60,7 +61,7 @@ router.get('/services/popular', async (_req, res) => {
 router.get('/escorts', async (req, res) => {
   try {
     const {
-      city, tier, available, featured, online,
+      city, area, tier, available, featured, online,
       limit = '100', offset = '0', sort = 'featured',
       q, service, gender,
     } = req.query as Record<string, string>
@@ -74,18 +75,9 @@ router.get('/escorts', async (req, res) => {
     const conditions: string[] = ['e.is_active = 1']
     const params: unknown[] = []
 
-    // Hierarchical city→area lookup: filtering by "Nairobi" also matches Kilimani, Westlands, etc.
-    const CITY_AREAS: Record<string, string[]> = {
-      nairobi: ['nairobi','nairobi cbd','westlands','karen','kilimani','lavington','parklands','upperhill','langata','south b','south c','gigiri','runda','eastleigh','embakasi','ngong road','thika road','nairobi west','kasarani','ruaka','kileleshwa','hurlingham','spring valley','loresho','muthaiga','ridgeways','roysambu','zimmerman','ruaraka','buru buru','mwiki','outering','juja','ongata rongai','kitengela','syokimau','utawala','kahawa','kariobangi','mathare','kayole','dandora','githurai','clay city','kahawa west','kamiti road'],
-      mombasa: ['mombasa','mombasa cbd','nyali','bamburi','diani','mtwapa','likoni','kisauni','shanzu','malindi','watamu','kilifi'],
-      kisumu: ['kisumu','kisumu cbd','milimani','kondele','mamboleo','nyalenda','kolwa','riat','airport'],
-      nakuru: ['nakuru','nakuru cbd','milimani nakuru','lanet','section 58','bahati','bondeni','free area'],
-      eldoret: ['eldoret','eldoret cbd','elgon view','kipkorir','huruma','kapsabet'],
-    }
-
     if (city) {
       const key = city.toLowerCase()
-      const areas = CITY_AREAS[key]
+      const areas = CITY_AREA_VALUES[key]
       if (areas && areas.length) {
         const placeholders = areas.map(() => '?').join(', ')
         conditions.push(`LOWER(e.city) IN (${placeholders})`)
@@ -94,6 +86,14 @@ router.get('/escorts', async (req, res) => {
         // Worldwide fallback: match city OR area with LIKE so "London" matches "London West" etc.
         conditions.push('(LOWER(e.city) LIKE LOWER(?) OR LOWER(e.area) LIKE LOWER(?))')
         params.push(`%${city}%`, `%${city}%`)
+      }
+    }
+    if (area) {
+      const areaValues = area.toLowerCase().split(',').map(value => value.trim()).filter(Boolean)
+      if (areaValues.length) {
+        const placeholders = areaValues.map(() => '?').join(', ')
+        conditions.push(`(LOWER(e.area) IN (${placeholders}) OR LOWER(e.city) IN (${placeholders}))`)
+        params.push(...areaValues, ...areaValues)
       }
     }
     if (tier)      { conditions.push('LOWER(e.tier) = LOWER(?)'); params.push(tier) }

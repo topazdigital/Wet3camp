@@ -6,6 +6,7 @@ import SeoFooter from '@/components/SeoFooter'
 import { useSEO } from '@/lib/useSEO'
 import { api } from '@/lib/api'
 import { getSlug } from '@/data/escorts'
+import { getAreaPagesForCity } from '@/data/area-pages'
 import { ChevronRight, MapPin, Shield, Star } from 'lucide-react'
 
 const CITY_DATA: Record<string, {
@@ -105,6 +106,7 @@ export default function CityEscorts() {
   const [, params] = useRoute('/escorts/:city')
   const cityKey = (params?.city ?? '').toLowerCase()
   const city = CITY_DATA[cityKey]
+  const areaPages = getAreaPagesForCity(cityKey)
 
   const [escorts, setEscorts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -193,13 +195,14 @@ export default function CityEscorts() {
             <div className="mb-8">
               <h2 className="text-lg font-black text-text-light mb-3">Top Areas in {city.displayName}</h2>
               <div className="flex flex-wrap gap-2">
-                {city.areas.map(area => (
+                {areaPages.map(areaPage => (
                   <Link
-                    key={area}
-                    href={`/search?city=${city.displayName}&q=${encodeURIComponent(area)}`}
+                    key={areaPage.slug}
+                    href={`/escorts/${cityKey}/${areaPage.slug}`}
+                    data-testid={`link-city-area-${areaPage.slug}`}
                     className="flex items-center gap-1 px-3 py-1.5 bg-card-bg border border-color rounded-full text-xs text-text-muted hover:border-[#8B0000]/50 hover:text-text-light transition-all"
                   >
-                    <MapPin size={10} className="text-[#8B0000]" /> {area}
+                    <MapPin size={10} className="text-[#8B0000]" /> {areaPage.name}
                   </Link>
                 ))}
               </div>

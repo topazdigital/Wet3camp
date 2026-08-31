@@ -51,9 +51,10 @@ export interface ApiUser {
 
 export const api = {
   escorts: {
-    list: (p?: { city?: string; tier?: string; available?: string; featured?: boolean; sort?: string; limit?: number; offset?: number; service?: string }) => {
+    list: (p?: { city?: string; area?: string; tier?: string; available?: string; featured?: boolean; sort?: string; limit?: number; offset?: number; service?: string }) => {
       const params = new URLSearchParams()
       if (p?.city)      params.set('city',      p.city)
+      if (p?.area)      params.set('area',      p.area)
       if (p?.tier)      params.set('tier',      p.tier)
       if (p?.available) params.set('available', p.available)
       if (p?.featured)  params.set('featured',  '1')
