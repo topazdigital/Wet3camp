@@ -242,7 +242,7 @@ mkdir -p "$WEB_ROOT"
 # A same-filesystem rename only needs write access on the two parent dirs
 # (both admin-owned), never on the moved item's own contents, so it always
 # succeeds regardless of who owns files inside it.
-STALE_HOLDING_DIR="/home/admin/.deploy-stale"
+STALE_HOLDING_DIR="${REPO_DIR}/.deploy-stale"
 mkdir -p "$STALE_HOLDING_DIR"
 # A previous run's background delete of an already-moved-aside stale dir can
 # get orphaned (killed with its parent script but never finishing the rm) and
