@@ -132,18 +132,16 @@ add_if_missing "SMTP_USER"    "support@wet3.camp"
 add_if_missing "SMTP_PASS"    "CHANGE_ME"
 # Keep the API's frontend fallback in the build checkout. The API directory on
 # this host is managed by a different owner and cannot create sibling release
-# directories, while the checkout is writable by the deployment user.
+# directories, while the checkout is writable by the deployment user. Do not
+# rewrite the env file here because that directory may be read-only.
 STATIC_FALLBACK_DIR="${REPO_DIR}/artifacts/wet3camp/dist/public"
-if grep -q '^STATIC_DIR=' "$API_ENV"; then
-  sed -i "s#^STATIC_DIR=.*#STATIC_DIR=${STATIC_FALLBACK_DIR}#" "$API_ENV"
-else
-  printf 'STATIC_DIR=%s\n' "$STATIC_FALLBACK_DIR" >> "$API_ENV"
-fi
 # Uploads stay in the build repo folder — this is where the API has always written them
 add_if_missing "UPLOADS_DIR"  "/home/admin/wet3camp-build/artifacts/api-server/uploads"
 
 # Re-source so all variables (including newly added ones) are available
 set -a; source "$API_ENV"; set +a
+STATIC_DIR="$STATIC_FALLBACK_DIR"
+export STATIC_DIR
 
 # Port 8080 is already used by another PM2 application on this host. Keep the
 # Wet3Camp API isolated on a dedicated loopback port so its restart cannot
