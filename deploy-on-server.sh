@@ -88,7 +88,7 @@ while IFS= read -r -d '' NM_DIR; do
   STALE_DIR="${NM_DIR}.stale.${TS}"
   if mv "$NM_DIR" "$STALE_DIR" 2>/dev/null; then
     echo "    Moved aside: $NM_DIR -> $(basename "$STALE_DIR")"
-    ( rm -rf "$STALE_DIR" 2>/dev/null || true ) &
+    ( rm -rf "$STALE_DIR" >/dev/null 2>&1 </dev/null || true ) &
   else
     echo "    Could not move aside: $NM_DIR (unexpected) — continuing anyway."
   fi
@@ -193,7 +193,7 @@ for DIST_DIR in "$REPO_DIR/artifacts/wet3camp/dist" "$REPO_DIR/artifacts/api-ser
     STALE_DIST="${DIST_DIR}.stale.${TS_DIST}"
     if mv "$DIST_DIR" "$STALE_DIST" 2>/dev/null; then
       echo "    Moved aside: $DIST_DIR -> $(basename "$STALE_DIST")"
-      ( rm -rf "$STALE_DIST" 2>/dev/null || true ) &
+      ( rm -rf "$STALE_DIST" >/dev/null 2>&1 </dev/null || true ) &
     else
       echo "    Could not move aside: $DIST_DIR (unexpected) — continuing anyway."
     fi
@@ -255,7 +255,7 @@ for ENTRY in "$WEB_ROOT"/* "$WEB_ROOT"/.[!.]*; do
   case "$(basename "$ENTRY")" in *.stale.*) continue ;; esac
   STALE_ENTRY="${STALE_HOLDING_DIR}/$(basename "$ENTRY").stale.${TS_WEB}"
   if mv "$ENTRY" "$STALE_ENTRY" 2>/dev/null; then
-    ( rm -rf "$STALE_ENTRY" 2>/dev/null || true ) &
+    ( rm -rf "$STALE_ENTRY" >/dev/null 2>&1 </dev/null || true ) &
   else
     echo "    Could not move aside: $ENTRY (unexpected) — trying rm -f as fallback."
     rm -rf "$ENTRY" 2>/dev/null || true
@@ -311,7 +311,7 @@ if ! mv "$WEB_ROOT" "$LIVE_WEB_ROOT"; then
   if [ -e "$OLD_WEB_ROOT" ]; then mv "$OLD_WEB_ROOT" "$LIVE_WEB_ROOT" 2>/dev/null || true; fi
   exit 1
 fi
-( rm -rf "$OLD_WEB_ROOT" 2>/dev/null || true ) &
+( rm -rf "$OLD_WEB_ROOT" >/dev/null 2>&1 </dev/null || true ) &
 WEB_ROOT="$LIVE_WEB_ROOT"
 
 # ── Ensure uploads dir exists; remove any stale symlink in web root ───────────
@@ -427,7 +427,7 @@ for ENTRY in "$API_PUBLIC_RELEASE"/* "$API_PUBLIC_RELEASE"/.[!.]*; do
   case "$(basename "$ENTRY")" in *.stale.*) continue ;; esac
   STALE_ENTRY="${STALE_HOLDING_DIR}/$(basename "$ENTRY").stale.${TS_APIPUB}"
   if mv "$ENTRY" "$STALE_ENTRY" 2>/dev/null; then
-    ( rm -rf "$STALE_ENTRY" 2>/dev/null || true ) &
+    ( rm -rf "$STALE_ENTRY" >/dev/null 2>&1 </dev/null || true ) &
   else
     rm -rf "$ENTRY" 2>/dev/null || true
   fi
@@ -465,7 +465,7 @@ if ! mv "$API_PUBLIC_RELEASE" "$LIVE_API_PUBLIC"; then
   set -e
   exit 1
 fi
-( rm -rf "$OLD_API_PUBLIC" 2>/dev/null || true ) &
+( rm -rf "$OLD_API_PUBLIC" >/dev/null 2>&1 </dev/null || true ) &
 # Stage the API bundle in a fresh sibling directory for the same reason as
 # the web root and API static fallback above. PM2 keeps using the stable
 # "$API_DIR/dist" path after the atomic directory swap.
@@ -495,7 +495,7 @@ if ! mv "$API_DIST_RELEASE" "$LIVE_API_DIST"; then
   set -e
   exit 1
 fi
-( rm -rf "$OLD_API_DIST" 2>/dev/null || true ) &
+( rm -rf "$OLD_API_DIST" >/dev/null 2>&1 </dev/null || true ) &
 
 # Replace package.json through a sibling file so an old package file with
 # restrictive ownership cannot block the release.
