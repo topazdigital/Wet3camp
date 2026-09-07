@@ -215,6 +215,9 @@ echo "==> [6/7] Copying files to live folders..."
 # either way — so make this whole section resilient to failures instead of
 # trying to special-case every possible leftover-permission scenario.
 set +e
+LIVE_WEB_ROOT="$WEB_ROOT"
+TS_WEB="$(date +%s%N)"
+WEB_ROOT="${LIVE_WEB_ROOT}.release.${TS_WEB}"
 mkdir -p "$WEB_ROOT"
 # Same stale-ownership hazard as node_modules/dist: some files under WEB_ROOT
 # (e.g. assets/*) can end up owned by a different OS user from an earlier
@@ -247,7 +250,6 @@ for STALE_LEFTOVER in "$WEB_ROOT"/*.stale.*; do
   mv "$STALE_LEFTOVER" "${STALE_HOLDING_DIR}/$(basename "$STALE_LEFTOVER").requeued.$(date +%s%N)" 2>/dev/null \
     || rm -rf "$STALE_LEFTOVER" 2>/dev/null || true
 done
-TS_WEB="$(date +%s%N)"
 for ENTRY in "$WEB_ROOT"/* "$WEB_ROOT"/.[!.]*; do
   [ -e "$ENTRY" ] || continue
   case "$(basename "$ENTRY")" in *.stale.*) continue ;; esac
@@ -295,6 +297,22 @@ echo "    Frontend asset manifest validated."
 # let it block the deploy.
 chmod -R 755 "$WEB_ROOT" || true
 set -e
+
+# Swap the fully validated frontend into the live path. Renaming directories
+# only needs permission on their parent, so this works even when old assets
+# inside the previous release are owned by another user.
+OLD_WEB_ROOT="${STALE_HOLDING_DIR}/$(basename "$LIVE_WEB_ROOT").stale.${TS_WEB}"
+if [ -e "$LIVE_WEB_ROOT" ] && ! mv "$LIVE_WEB_ROOT" "$OLD_WEB_ROOT"; then
+  echo "ERROR: could not move the previous web release out of the way"
+  exit 1
+fi
+if ! mv "$WEB_ROOT" "$LIVE_WEB_ROOT"; then
+  echo "ERROR: could not activate the staged web release"
+  if [ -e "$OLD_WEB_ROOT" ]; then mv "$OLD_WEB_ROOT" "$LIVE_WEB_ROOT" 2>/dev/null || true; fi
+  exit 1
+fi
+( rm -rf "$OLD_WEB_ROOT" 2>/dev/null || true ) &
+WEB_ROOT="$LIVE_WEB_ROOT"
 
 # ── Ensure uploads dir exists; remove any stale symlink in web root ───────────
 # Uploads live permanently in the build repo folder (where the API writes them).
@@ -394,15 +412,17 @@ echo "    .htaccess written (static direct, /api/* + bot UA proxied to Node.js, 
 # so nothing left behind interferes with any later recursive chmod/cp here.
 # Resilient section, same reasoning as the WEB_ROOT copy above.
 set +e
-mkdir -p "$API_DIR/public"
+LIVE_API_PUBLIC="$API_DIR/public"
+TS_APIPUB="$(date +%s%N)"
+API_PUBLIC_RELEASE="${LIVE_API_PUBLIC}.release.${TS_APIPUB}"
+mkdir -p "$API_PUBLIC_RELEASE"
 mkdir -p "$STALE_HOLDING_DIR"
-for STALE_LEFTOVER in "$API_DIR"/public/*.stale.*; do
+for STALE_LEFTOVER in "$LIVE_API_PUBLIC"/*.stale.*; do
   [ -e "$STALE_LEFTOVER" ] || continue
   mv "$STALE_LEFTOVER" "${STALE_HOLDING_DIR}/$(basename "$STALE_LEFTOVER").requeued.$(date +%s%N)" 2>/dev/null \
     || rm -rf "$STALE_LEFTOVER" 2>/dev/null || true
 done
-TS_APIPUB="$(date +%s%N)"
-for ENTRY in "$API_DIR"/public/* "$API_DIR"/public/.[!.]*; do
+for ENTRY in "$API_PUBLIC_RELEASE"/* "$API_PUBLIC_RELEASE"/.[!.]*; do
   [ -e "$ENTRY" ] || continue
   case "$(basename "$ENTRY")" in *.stale.*) continue ;; esac
   STALE_ENTRY="${STALE_HOLDING_DIR}/$(basename "$ENTRY").stale.${TS_APIPUB}"
@@ -412,52 +432,81 @@ for ENTRY in "$API_DIR"/public/* "$API_DIR"/public/.[!.]*; do
     rm -rf "$ENTRY" 2>/dev/null || true
   fi
 done
-if ! cp -r "$REPO_DIR/artifacts/wet3camp/dist/public/." "$API_DIR/public/"; then
-  echo "    ERROR: frontend files could not be copied to $API_DIR/public"
+if ! cp -r "$REPO_DIR/artifacts/wet3camp/dist/public/." "$API_PUBLIC_RELEASE/"; then
+  echo "    ERROR: frontend files could not be copied to $API_PUBLIC_RELEASE"
   set -e
   exit 1
 fi
-if [ ! -s "$API_DIR/public/index.html" ]; then
+if [ ! -s "$API_PUBLIC_RELEASE/index.html" ]; then
   echo "    ERROR: API static fallback index.html is missing or empty"
   set -e
   exit 1
 fi
 while IFS= read -r ASSET_PATH; do
   [ -n "$ASSET_PATH" ] || continue
-  ASSET_FILE="$API_DIR/public${ASSET_PATH}"
+  ASSET_FILE="$API_PUBLIC_RELEASE${ASSET_PATH}"
   if [ ! -s "$ASSET_FILE" ]; then
     echo "    ERROR: API static fallback is missing asset: $ASSET_PATH"
     set -e
     exit 1
   fi
-done < <(grep -oE '(src|href)="(/assets/[^"]+)"' "$API_DIR/public/index.html" | sed -E 's/^[^"]*"([^"]+)".*$/\1/')
+done < <(grep -oE '(src|href)="(/assets/[^"]+)"' "$API_PUBLIC_RELEASE/index.html" | sed -E 's/^[^"]*"([^"]+)".*$/\1/')
 echo "    API static asset manifest validated."
-# Same leftover-ownership disease keeps resurfacing at every "copy build
-# output over an existing live directory" spot on this host (assets/,
-# api-server/public/, and now api-server's own live dist/) — so keep the
-# whole copy phase resilient through here too, rather than re-enabling
-# strict mode too early and hitting it again at the next spot.
-mkdir -p "$API_DIR/dist"
-# Purge/move-aside any leftover-owned files under the live dist dir first,
-# same pattern as WEB_ROOT/api-public above, so the cp below writes cleanly.
-for STALE_LEFTOVER in "$API_DIR"/dist/*.stale.*; do
-  [ -e "$STALE_LEFTOVER" ] || continue
-  mv "$STALE_LEFTOVER" "${STALE_HOLDING_DIR}/$(basename "$STALE_LEFTOVER").requeued.$(date +%s%N)" 2>/dev/null \
-    || rm -rf "$STALE_LEFTOVER" 2>/dev/null || true
-done
+
+OLD_API_PUBLIC="${STALE_HOLDING_DIR}/api-public.stale.${TS_APIPUB}"
+if [ -e "$LIVE_API_PUBLIC" ] && ! mv "$LIVE_API_PUBLIC" "$OLD_API_PUBLIC"; then
+  echo "ERROR: could not move the previous API static release out of the way"
+  set -e
+  exit 1
+fi
+if ! mv "$API_PUBLIC_RELEASE" "$LIVE_API_PUBLIC"; then
+  echo "ERROR: could not activate the staged API static release"
+  if [ -e "$OLD_API_PUBLIC" ]; then mv "$OLD_API_PUBLIC" "$LIVE_API_PUBLIC" 2>/dev/null || true; fi
+  set -e
+  exit 1
+fi
+( rm -rf "$OLD_API_PUBLIC" 2>/dev/null || true ) &
+# Stage the API bundle in a fresh sibling directory for the same reason as
+# the web root and API static fallback above. PM2 keeps using the stable
+# "$API_DIR/dist" path after the atomic directory swap.
+LIVE_API_DIST="$API_DIR/dist"
 TS_APIDIST="$(date +%s%N)"
-for ENTRY in "$API_DIR"/dist/* "$API_DIR"/dist/.[!.]*; do
-  [ -e "$ENTRY" ] || continue
-  case "$(basename "$ENTRY")" in *.stale.*) continue ;; esac
-  STALE_ENTRY="${STALE_HOLDING_DIR}/$(basename "$ENTRY").stale.${TS_APIDIST}"
-  if mv "$ENTRY" "$STALE_ENTRY" 2>/dev/null; then
-    ( rm -rf "$STALE_ENTRY" 2>/dev/null || true ) &
-  else
-    rm -rf "$ENTRY" 2>/dev/null || true
-  fi
-done
-cp -r "$REPO_DIR/artifacts/api-server/dist/." "$API_DIR/dist/"
-cp    "$REPO_DIR/artifacts/api-server/package.json" "$API_DIR/"
+API_DIST_RELEASE="${LIVE_API_DIST}.release.${TS_APIDIST}"
+mkdir -p "$API_DIST_RELEASE"
+if ! cp -r "$REPO_DIR/artifacts/api-server/dist/." "$API_DIST_RELEASE/"; then
+  echo "    ERROR: API bundle could not be copied to $API_DIST_RELEASE"
+  set -e
+  exit 1
+fi
+if [ ! -s "$API_DIST_RELEASE/index.mjs" ]; then
+  echo "    ERROR: staged API bundle is missing dist/index.mjs"
+  set -e
+  exit 1
+fi
+OLD_API_DIST="${STALE_HOLDING_DIR}/api-dist.stale.${TS_APIDIST}"
+if [ -e "$LIVE_API_DIST" ] && ! mv "$LIVE_API_DIST" "$OLD_API_DIST"; then
+  echo "ERROR: could not move the previous API bundle out of the way"
+  set -e
+  exit 1
+fi
+if ! mv "$API_DIST_RELEASE" "$LIVE_API_DIST"; then
+  echo "ERROR: could not activate the staged API bundle"
+  if [ -e "$OLD_API_DIST" ]; then mv "$OLD_API_DIST" "$LIVE_API_DIST" 2>/dev/null || true; fi
+  set -e
+  exit 1
+fi
+( rm -rf "$OLD_API_DIST" 2>/dev/null || true ) &
+
+# Replace package.json through a sibling file so an old package file with
+# restrictive ownership cannot block the release.
+API_PACKAGE_STAGE="$API_DIR/package.json.release.${TS_APIDIST}"
+if ! cp "$REPO_DIR/artifacts/api-server/package.json" "$API_PACKAGE_STAGE" || \
+   ! mv -f "$API_PACKAGE_STAGE" "$API_DIR/package.json"; then
+  echo "    ERROR: API package.json could not be activated"
+  rm -f "$API_PACKAGE_STAGE" 2>/dev/null || true
+  set -e
+  exit 1
+fi
 echo "    Files copied (web root + api-server/public fallback)."
 set -e
 
