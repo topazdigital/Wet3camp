@@ -14,7 +14,7 @@
 
 import type { Request, Response, NextFunction } from 'express'
 import { getPool } from '../lib/db.js'
-import { AREA_LANDING_PAGES, getAreaLandingPage, isAreaRowMatch } from '../lib/location-data.js'
+import { AREA_LANDING_PAGES, CITY_AREA_VALUES, getAreaLandingPage, isAreaRowMatch } from '../lib/location-data.js'
 
 const SITE_URL  = 'https://wet3.camp'
 const DEFAULT_IMAGE = `${SITE_URL}/opengraph.jpg`
@@ -306,6 +306,11 @@ const PAGE_OG: Record<string, PageOg> = {
     title: "Escort Feeds & Latest Updates — Kenya's Escorts | Wet3Camp",
     description: 'Latest photos, posts and updates from verified escorts across Kenya. Follow your favourite escorts on Wet3Camp.',
     keywords: `escort photos Kenya, escort updates Nairobi, escort feed Kenya, ${BASE_KW}`,
+  },
+  '/videos': {
+    title: 'Escort Videos in Kenya | Wet3Camp',
+    description: 'Browse public escort videos and profile updates from Nairobi, Mombasa and other Kenyan cities on Wet3Camp.',
+    keywords: `escort videos Kenya, Nairobi escort videos, Mombasa escort videos, Kenya escort directory`,
   },
   '/live': {
     title: 'Escorts Live Now — Watch Live Streams | Wet3Camp Kenya',
@@ -604,7 +609,8 @@ export async function ogPreviewMiddleware(req: Request, res: Response, next: Nex
   // ── City landing pages: /escorts/:city ───────────────────────────────────────
   const cityMatch = path.match(/^\/escorts\/([^/?#]+)$/)
   if (cityMatch) {
-    const city = CITY_LANDING[cityMatch[1].toLowerCase()]
+    const citySlug = cityMatch[1].toLowerCase()
+    const city = CITY_LANDING[citySlug]
     if (!city) {
       res.status(404).send(buildHtml({
         title: 'City Not Found | Wet3 Camp',
@@ -616,7 +622,79 @@ export async function ogPreviewMiddleware(req: Request, res: Response, next: Nex
       return
     }
 
-    const cityUrl = `${SITE_URL}/escorts/${cityMatch[1].toLowerCase()}`
+    const cityUrl = `${SITE_URL}/escorts/${citySlug}`
+    let cityProfiles: Array<{ id: number | string; name: string; city?: string; area?: string }> = []
+    const pool = getPool()
+    if (pool) {
+      try {
+        const cityValues = CITY_AREA_VALUES[citySlug] ?? [city.name.toLowerCase()]
+        const placeholders = cityValues.map(() => '?').join(', ')
+        const [rows] = await pool.query<any[]>(
+          `SELECT id, name, city, area
+           FROM escorts
+           WHERE is_active = 1 AND LOWER(city) IN (${placeholders})
+           ORDER BY featured DESC, rating DESC, id DESC
+           LIMIT 24`,
+          cityValues,
+        )
+        cityProfiles = Array.isArray(rows) ? rows : []
+      } catch (err) {
+        console.error('[og-city] DB error:', err)
+      }
+    }
+
+    const profileLinks = cityProfiles.map(profile =>
+      `<li><a href="${SITE_URL}/@${profileSlug(profile.name)}">${esc(profile.name)}${profile.area ? ` — ${esc(profile.area)}` : ''}, ${esc(city.name)}</a></li>`
+    ).join('')
+    const profileSection = cityProfiles.length
+      ? `<h2>Profiles in ${esc(city.name)}</h2><p>Browse current public profiles listing ${esc(city.name)} and nearby areas:</p><ul>${profileLinks}</ul>`
+      : '<p>No active profiles are currently listed for this city. Browse the wider Kenya directory for current availability.</p>'
+    const cityFaqs = [
+      {
+        q: `How do I browse escorts in ${city.name}?`,
+        a: `Use the public profiles on this ${city.name} directory page, open a profile to review its listed details, and contact the provider directly to confirm availability.`,
+      },
+      {
+        q: `Does Wet3 Camp process payments for ${city.name} bookings?`,
+        a: 'No. Wet3 Camp provides profile discovery and appointment-request tools. Adults arrange payment and final details directly with the provider.',
+      },
+      {
+        q: `How should I make arrangements safely in ${city.name}?`,
+        a: 'Confirm the profile details, services, location, timing and payment expectations before meeting. Do not send money to anyone who makes unexpected demands, and choose a safe public setting when appropriate.',
+      },
+    ]
+    const faqSection = `<h2>Questions about ${esc(city.name)} profiles</h2><dl>${cityFaqs.map(faq =>
+      `<dt>${esc(faq.q)}</dt><dd>${esc(faq.a)}</dd>`
+    ).join('')}</dl>`
+    const cityBreadcrumb = {
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: 'Home', item: `${SITE_URL}/` },
+        { '@type': 'ListItem', position: 2, name: 'Kenya escorts', item: `${SITE_URL}/` },
+        { '@type': 'ListItem', position: 3, name: `${city.name} escorts`, item: cityUrl },
+      ],
+    }
+    const cityFaqSchema = {
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: cityFaqs.map(faq => ({
+        '@type': 'Question',
+        name: faq.q,
+        acceptedAnswer: { '@type': 'Answer', text: faq.a },
+      })),
+    }
+    const cityItemList = cityProfiles.length ? {
+      '@context': 'https://schema.org',
+      '@type': 'ItemList',
+      name: `Escort profiles in ${city.name}, Kenya`,
+      itemListElement: cityProfiles.map((profile, index) => ({
+        '@type': 'ListItem',
+        position: index + 1,
+        name: profile.name,
+        url: `${SITE_URL}/@${profileSlug(profile.name)}`,
+      })),
+    } : null
     const citySchema = {
       '@context': 'https://schema.org',
       '@type': 'CollectionPage',
@@ -639,6 +717,8 @@ export async function ogPreviewMiddleware(req: Request, res: Response, next: Nex
       `<p>${city.intro}</p>`,
       `<h2>Areas covered in ${city.name}</h2>`,
       `<ul>${areas}</ul>`,
+      profileSection,
+      faqSection,
       `<p><a href="${SITE_URL}/search?city=${encodeURIComponent(city.name)}">Browse ${city.name} profiles</a> · <a href="${SITE_URL}/">View all Kenya profiles</a></p>`,
     ].join('')
 
@@ -650,7 +730,7 @@ export async function ogPreviewMiddleware(req: Request, res: Response, next: Nex
       image: DEFAULT_IMAGE,
       url: cityUrl,
       keywords: `${city.name} escorts, escorts in ${city.name} Kenya, verified escorts ${city.name}, escort directory ${city.name}`,
-      schema: [...BASE_SCHEMAS, citySchema],
+      schema: [...BASE_SCHEMAS, citySchema, cityBreadcrumb, cityFaqSchema, ...(cityItemList ? [cityItemList] : [])],
       body: cityBody,
     }))
     return
