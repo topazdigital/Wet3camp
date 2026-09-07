@@ -130,7 +130,15 @@ add_if_missing "SMTP_HOST"    "mail.wet3.camp"
 add_if_missing "SMTP_PORT"    "587"
 add_if_missing "SMTP_USER"    "support@wet3.camp"
 add_if_missing "SMTP_PASS"    "CHANGE_ME"
-add_if_missing "STATIC_DIR"   "/home/admin/api-server/public"
+# Keep the API's frontend fallback in the build checkout. The API directory on
+# this host is managed by a different owner and cannot create sibling release
+# directories, while the checkout is writable by the deployment user.
+STATIC_FALLBACK_DIR="${REPO_DIR}/artifacts/wet3camp/dist/public"
+if grep -q '^STATIC_DIR=' "$API_ENV"; then
+  sed -i "s#^STATIC_DIR=.*#STATIC_DIR=${STATIC_FALLBACK_DIR}#" "$API_ENV"
+else
+  printf 'STATIC_DIR=%s\n' "$STATIC_FALLBACK_DIR" >> "$API_ENV"
+fi
 # Uploads stay in the build repo folder — this is where the API has always written them
 add_if_missing "UPLOADS_DIR"  "/home/admin/wet3camp-build/artifacts/api-server/uploads"
 
@@ -405,115 +413,32 @@ sed -i "s/__WET3_API_PORT__/${API_PORT}/g" "$WEB_ROOT/.htaccess"
 
 echo "    .htaccess written (static direct, /api/* + bot UA proxied to Node.js, SPA fallback)."
 
-# ALSO copy frontend to api-server/public so Express can serve it as a fallback
-# if the Apache mod_rewrite [P] proxy doesn't work on this server
-# Same stale-ownership hazard as WEB_ROOT above — move aside via a
-# same-filesystem rename into STALE_HOLDING_DIR (see note above; NOT /tmp),
-# so nothing left behind interferes with any later recursive chmod/cp here.
-# Resilient section, same reasoning as the WEB_ROOT copy above.
-set +e
-LIVE_API_PUBLIC="$API_DIR/public"
-TS_APIPUB="$(date +%s%N)"
-API_PUBLIC_RELEASE="${LIVE_API_PUBLIC}.release.${TS_APIPUB}"
-mkdir -p "$API_PUBLIC_RELEASE"
-mkdir -p "$STALE_HOLDING_DIR"
-for STALE_LEFTOVER in "$LIVE_API_PUBLIC"/*.stale.*; do
-  [ -e "$STALE_LEFTOVER" ] || continue
-  mv "$STALE_LEFTOVER" "${STALE_HOLDING_DIR}/$(basename "$STALE_LEFTOVER").requeued.$(date +%s%N)" 2>/dev/null \
-    || rm -rf "$STALE_LEFTOVER" 2>/dev/null || true
-done
-for ENTRY in "$API_PUBLIC_RELEASE"/* "$API_PUBLIC_RELEASE"/.[!.]*; do
-  [ -e "$ENTRY" ] || continue
-  case "$(basename "$ENTRY")" in *.stale.*) continue ;; esac
-  STALE_ENTRY="${STALE_HOLDING_DIR}/$(basename "$ENTRY").stale.${TS_APIPUB}"
-  if mv "$ENTRY" "$STALE_ENTRY" 2>/dev/null; then
-    ( rm -rf "$STALE_ENTRY" >/dev/null 2>&1 </dev/null || true ) &
-  else
-    rm -rf "$ENTRY" 2>/dev/null || true
-  fi
-done
-if ! cp -r "$REPO_DIR/artifacts/wet3camp/dist/public/." "$API_PUBLIC_RELEASE/"; then
-  echo "    ERROR: frontend files could not be copied to $API_PUBLIC_RELEASE"
-  set -e
-  exit 1
-fi
-if [ ! -s "$API_PUBLIC_RELEASE/index.html" ]; then
+# The API serves its frontend fallback directly from the freshly built
+# repository tree. This avoids copying into the restricted API_DIR.
+set -e
+if [ ! -s "$STATIC_FALLBACK_DIR/index.html" ]; then
   echo "    ERROR: API static fallback index.html is missing or empty"
-  set -e
   exit 1
 fi
 while IFS= read -r ASSET_PATH; do
   [ -n "$ASSET_PATH" ] || continue
-  ASSET_FILE="$API_PUBLIC_RELEASE${ASSET_PATH}"
+  ASSET_FILE="$STATIC_FALLBACK_DIR${ASSET_PATH}"
   if [ ! -s "$ASSET_FILE" ]; then
     echo "    ERROR: API static fallback is missing asset: $ASSET_PATH"
-    set -e
     exit 1
   fi
-done < <(grep -oE '(src|href)="(/assets/[^"]+)"' "$API_PUBLIC_RELEASE/index.html" | sed -E 's/^[^"]*"([^"]+)".*$/\1/')
+done < <(grep -oE '(src|href)="(/assets/[^"]+)"' "$STATIC_FALLBACK_DIR/index.html" | sed -E 's/^[^"]*"([^"]+)".*$/\1/')
 echo "    API static asset manifest validated."
 
-OLD_API_PUBLIC="${STALE_HOLDING_DIR}/api-public.stale.${TS_APIPUB}"
-if [ -e "$LIVE_API_PUBLIC" ] && ! mv "$LIVE_API_PUBLIC" "$OLD_API_PUBLIC"; then
-  echo "ERROR: could not move the previous API static release out of the way"
-  set -e
+if [ ! -s "$REPO_DIR/artifacts/api-server/dist/index.mjs" ]; then
+  echo "    ERROR: API bundle is missing dist/index.mjs"
   exit 1
 fi
-if ! mv "$API_PUBLIC_RELEASE" "$LIVE_API_PUBLIC"; then
-  echo "ERROR: could not activate the staged API static release"
-  if [ -e "$OLD_API_PUBLIC" ]; then mv "$OLD_API_PUBLIC" "$LIVE_API_PUBLIC" 2>/dev/null || true; fi
-  set -e
-  exit 1
-fi
-( rm -rf "$OLD_API_PUBLIC" >/dev/null 2>&1 </dev/null || true ) &
-# Stage the API bundle in a fresh sibling directory for the same reason as
-# the web root and API static fallback above. PM2 keeps using the stable
-# "$API_DIR/dist" path after the atomic directory swap.
-LIVE_API_DIST="$API_DIR/dist"
-TS_APIDIST="$(date +%s%N)"
-API_DIST_RELEASE="${LIVE_API_DIST}.release.${TS_APIDIST}"
-mkdir -p "$API_DIST_RELEASE"
-if ! cp -r "$REPO_DIR/artifacts/api-server/dist/." "$API_DIST_RELEASE/"; then
-  echo "    ERROR: API bundle could not be copied to $API_DIST_RELEASE"
-  set -e
-  exit 1
-fi
-if [ ! -s "$API_DIST_RELEASE/index.mjs" ]; then
-  echo "    ERROR: staged API bundle is missing dist/index.mjs"
-  set -e
-  exit 1
-fi
-OLD_API_DIST="${STALE_HOLDING_DIR}/api-dist.stale.${TS_APIDIST}"
-if [ -e "$LIVE_API_DIST" ] && ! mv "$LIVE_API_DIST" "$OLD_API_DIST"; then
-  echo "ERROR: could not move the previous API bundle out of the way"
-  set -e
-  exit 1
-fi
-if ! mv "$API_DIST_RELEASE" "$LIVE_API_DIST"; then
-  echo "ERROR: could not activate the staged API bundle"
-  if [ -e "$OLD_API_DIST" ]; then mv "$OLD_API_DIST" "$LIVE_API_DIST" 2>/dev/null || true; fi
-  set -e
-  exit 1
-fi
-( rm -rf "$OLD_API_DIST" >/dev/null 2>&1 </dev/null || true ) &
-
-# Replace package.json through a sibling file so an old package file with
-# restrictive ownership cannot block the release.
-API_PACKAGE_STAGE="$API_DIR/package.json.release.${TS_APIDIST}"
-if ! cp "$REPO_DIR/artifacts/api-server/package.json" "$API_PACKAGE_STAGE" || \
-   ! mv -f "$API_PACKAGE_STAGE" "$API_DIR/package.json"; then
-  echo "    ERROR: API package.json could not be activated"
-  rm -f "$API_PACKAGE_STAGE" 2>/dev/null || true
-  set -e
-  exit 1
-fi
-echo "    Files copied (web root + api-server/public fallback)."
-set -e
+echo "    API bundle and static fallback validated in the build checkout."
 
 echo ""
 echo "==> [7/7] Starting/restarting API server via PM2..."
-cd "$API_DIR"
-npm install --omit=dev --no-package-lock --silent 2>/dev/null || true
+cd "$REPO_DIR"
 
 # Source the (now-complete) env file so PM2 inherits all vars
 set -a; source "$API_ENV"; set +a
@@ -521,11 +446,12 @@ echo "    Env vars loaded from $API_ENV"
 
 # Test that node can load the bundle before handing to PM2
 echo "    Testing node can load dist/index.mjs..."
-timeout 5 node --enable-source-maps dist/index.mjs 2>&1 | head -20 || true
+timeout 5 node --enable-source-maps "$REPO_DIR/artifacts/api-server/dist/index.mjs" 2>&1 | head -20 || true
 
 # Delete stale entry and always start fresh — avoids "Process N not found" errors
 pm2 delete wet3camp-api 2>/dev/null || true
-pm2 start dist/index.mjs --name wet3camp-api \
+pm2 start "$REPO_DIR/artifacts/api-server/dist/index.mjs" --name wet3camp-api \
+  --cwd "$REPO_DIR" \
   --node-args='--enable-source-maps' \
   --time
 pm2 save
@@ -549,7 +475,7 @@ PM2_LOG_FILE="${WEB_ROOT}/pm2-status.txt"
   pm2 logs wet3camp-api --lines 50 --nostream 2>&1 || true
   echo ""
   echo "=== Direct node test ==="
-  timeout 3 node --enable-source-maps dist/index.mjs 2>&1 | head -10 || true
+  timeout 3 node --enable-source-maps "$REPO_DIR/artifacts/api-server/dist/index.mjs" 2>&1 | head -10 || true
 } > "$PM2_LOG_FILE" 2>&1
 chmod 644 "$PM2_LOG_FILE"
 echo "    PM2 diagnostics written to: https://wet3.camp/pm2-status.txt"
