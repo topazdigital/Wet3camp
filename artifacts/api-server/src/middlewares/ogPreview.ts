@@ -23,6 +23,56 @@ const SITE_NAME = 'Wet3 Camp'
 const profileSlug = (name: string) =>
   name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 
+const PUBLIC_CITY_PAGES = [
+  { name: 'Nairobi', slug: 'nairobi' },
+  { name: 'Mombasa', slug: 'mombasa' },
+  { name: 'Kisumu', slug: 'kisumu' },
+  { name: 'Nakuru', slug: 'nakuru' },
+  { name: 'Eldoret', slug: 'eldoret' },
+]
+
+function buildHomepageDirectoryBody(profiles: Array<{ name?: string; city?: string }>): string {
+  const profileLinks = profiles
+    .filter(profile => profile.name?.trim())
+    .slice(0, 10)
+    .map(profile =>
+      `<li><a href="${SITE_URL}/@${profileSlug(profile.name!)}">${esc(profile.name!)}${profile.city ? ` — ${esc(profile.city)}` : ''}</a></li>`
+    )
+    .join('')
+  const cityLinks = PUBLIC_CITY_PAGES
+    .map(city => `<li><a href="${SITE_URL}/escorts/${city.slug}">${city.name} escorts</a></li>`)
+    .join('')
+
+  return [
+    `<h1><a href="${SITE_URL}/">Verified Escort Profiles in Kenya</a></h1>`,
+    '<p>Browse public escort profiles by city, review the details each provider lists, and contact providers directly to confirm availability.</p>',
+    profileLinks
+      ? `<h2>Featured public profiles</h2><ul>${profileLinks}</ul>`
+      : '',
+    `<h2>Browse escorts by city</h2><ul>${cityLinks}</ul>`,
+  ].join('')
+}
+
+function buildHomepageProfileSchema(profiles: Array<{ name?: string }>): object | null {
+  const items = profiles
+    .filter(profile => profile.name?.trim())
+    .slice(0, 10)
+    .map((profile, index) => ({
+      '@type': 'ListItem',
+      position: index + 1,
+      name: profile.name,
+      url: `${SITE_URL}/@${profileSlug(profile.name!)}`,
+    }))
+  return items.length
+    ? {
+        '@context': 'https://schema.org',
+        '@type': 'ItemList',
+        name: 'Featured public escort profiles in Kenya',
+        itemListElement: items,
+      }
+    : null
+}
+
 // ── Image URL normaliser ──────────────────────────────────────────────────────
 function ogImage(raw: string | null | undefined): string {
   if (!raw || !raw.trim()) return DEFAULT_IMAGE
@@ -947,6 +997,7 @@ export async function ogPreviewMiddleware(req: Request, res: Response, next: Nex
         .then(([rows]) => {
           const featured = Array.isArray(rows) ? rows : []
           const pick = featured.find((r: any) => r.image?.trim()) ?? featured[0]
+          const homepageProfileSchema = buildHomepageProfileSchema(featured)
           const homeMeta = PAGE_OG['/']!
           res.setHeader('Content-Type', 'text/html; charset=utf-8')
           res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=120')
@@ -958,7 +1009,8 @@ export async function ogPreviewMiddleware(req: Request, res: Response, next: Nex
             image: pick?.image ? ogImage(pick.image) : DEFAULT_IMAGE,
             url: `${SITE_URL}/`,
             keywords: homeMeta.keywords,
-            schema: [...BASE_SCHEMAS, HOMEPAGE_EXTRA_SCHEMA],
+            schema: [...BASE_SCHEMAS, HOMEPAGE_EXTRA_SCHEMA, ...(homepageProfileSchema ? [homepageProfileSchema] : [])],
+            body: buildHomepageDirectoryBody(featured),
           }))
         })
         .catch(() => {
