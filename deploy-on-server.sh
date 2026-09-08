@@ -133,11 +133,14 @@ add_if_missing "SMTP_HOST"    "mail.wet3.camp"
 add_if_missing "SMTP_PORT"    "587"
 add_if_missing "SMTP_USER"    "support@wet3.camp"
 add_if_missing "SMTP_PASS"    "CHANGE_ME"
-# Keep the API's frontend fallback in the build checkout. The API directory on
-# this host is managed by a different owner and cannot create sibling release
-# directories, while the checkout is writable by the deployment user. Do not
-# rewrite the env file here because that directory may be read-only.
-STATIC_FALLBACK_DIR="${REPO_DIR}/artifacts/wet3camp/dist/public"
+# Keep the API's frontend fallback in the build checkout. When the committed
+# build is available, use it directly instead of copying it into a second
+# dist/public tree on a disk-constrained host.
+if [ -s "$FRONTEND_PREBUILT_DIR/index.html" ]; then
+  STATIC_FALLBACK_DIR="$FRONTEND_PREBUILT_DIR"
+else
+  STATIC_FALLBACK_DIR="${REPO_DIR}/artifacts/wet3camp/dist/public"
+fi
 # Uploads stay in the build repo folder — this is where the API has always written them
 add_if_missing "UPLOADS_DIR"  "/home/admin/wet3camp-build/artifacts/api-server/uploads"
 
@@ -191,33 +194,23 @@ else
 fi
 
 echo ""
-echo "==> [5/7] Building frontend and API..."
+echo "==> [5/7] Preparing frontend and building API..."
 cd "$REPO_DIR"
-# Same stale-ownership/concurrent-deploy hazard applies to build output dirs
-# (dist/) as it did to node_modules — a previous interrupted build can leave
-# files vite's rimraf can't unlink. Move them aside rather than rm -rf.
-TS_DIST="$(date +%s)"
-for DIST_DIR in "$REPO_DIR/artifacts/wet3camp/dist" "$REPO_DIR/artifacts/api-server/dist"; do
-  if [ -d "$DIST_DIR" ]; then
-    STALE_DIST="${DIST_DIR}.stale.${TS_DIST}"
-    if mv "$DIST_DIR" "$STALE_DIST" 2>/dev/null; then
-      echo "    Moved aside: $DIST_DIR -> $(basename "$STALE_DIST")"
-      ( rm -rf "$STALE_DIST" >/dev/null 2>&1 </dev/null || true ) &
-    else
-      echo "    Could not move aside: $DIST_DIR (unexpected) — continuing anyway."
-    fi
-  fi
-done
 # The production server can run out of memory while Vite transforms the
-# frontend. CI supplies a complete, validated frontend archive when available;
-# keep a local-build fallback for manual deployments.
+# frontend. Use the committed build directly when available; keep a local
+# build fallback for manual deployments.
 if [ -s "$FRONTEND_PREBUILT_DIR/index.html" ]; then
-  mkdir -p "$REPO_DIR/artifacts/wet3camp/dist/public"
-  cp -a "$FRONTEND_PREBUILT_DIR/." "$REPO_DIR/artifacts/wet3camp/dist/public/"
+  FRONTEND_SOURCE="$FRONTEND_PREBUILT_DIR"
   echo "    Using prebuilt frontend from $FRONTEND_PREBUILT_DIR"
 else
+  if [ -d "$REPO_DIR/artifacts/wet3camp/dist" ]; then
+    rm -rf "$REPO_DIR/artifacts/wet3camp/dist" 2>/dev/null || true
+  fi
   PORT=19099 BASE_PATH=/ pnpm --filter "@workspace/wet3camp" run build
+  FRONTEND_SOURCE="$REPO_DIR/artifacts/wet3camp/dist/public"
 fi
+# The API bundle still needs to be rebuilt from the current checkout.
+rm -rf "$REPO_DIR/artifacts/api-server/dist" 2>/dev/null || true
 pnpm --filter "@workspace/api-server" run build
 echo "    Build complete."
 
@@ -279,11 +272,11 @@ for ENTRY in "$WEB_ROOT"/* "$WEB_ROOT"/.[!.]*; do
     rm -rf "$ENTRY" 2>/dev/null || true
   fi
 done
-# Vite outputs to dist/public — copy that subfolder to web root.
+# Copy the validated frontend source to the temporary web root.
 # Do not let a partial/failed copy look like a successful deploy: Apache's SPA
 # fallback would otherwise return index.html for a missing hashed JS asset,
 # leaving fresh browsers with a white page while cached browsers keep working.
-if ! cp -r "$REPO_DIR/artifacts/wet3camp/dist/public/." "$WEB_ROOT/"; then
+if ! cp -r "$FRONTEND_SOURCE/." "$WEB_ROOT/"; then
   echo "    ERROR: frontend files could not be copied to $WEB_ROOT"
   set -e
   exit 1

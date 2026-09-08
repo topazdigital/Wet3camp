@@ -40,6 +40,13 @@ jobs:
               \( -name 'node_modules' -o -name 'node_modules.stale.*' -o -name 'dist' \
               -o -name 'dist.stale.*' -o -name '.deploy-stale' \) \
               -prune -exec rm -rf {} + 2>/dev/null || true
+            for stale in \
+              /home/admin/wet3camp-build/node_modules.stale.* \
+              /home/admin/wet3camp-build/artifacts/*/node_modules.stale.* \
+              /home/admin/wet3camp-build/artifacts/*/dist.stale.*; do
+              [ -e "$stale" ] || continue
+              rm -rf "$stale" 2>/dev/null || true
+            done
             find /home/admin/domains/wet3.camp -maxdepth 1 -type d \
               -name 'public_html.release.*' -prune -exec rm -rf {} + 2>/dev/null || true
             find /home/admin/.pm2/logs -type f -iname '*wet3camp*' \
