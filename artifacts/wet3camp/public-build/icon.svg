@@ -1,0 +1,54 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1a0000"/>
+      <stop offset="1" stop-color="#050000"/>
+    </linearGradient>
+    <linearGradient id="sil" x1="415" y1="62" x2="52" y2="480" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFD700"/>
+      <stop offset="1" stop-color="#8B0000"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="256" cy="256" r="250" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#8B0000" stop-opacity="0.3"/>
+      <stop offset="1" stop-color="#8B0000" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" rx="102" fill="url(#bg)"/>
+  <rect width="512" height="512" rx="102" fill="url(#glow)"/>
+
+  <!-- Head -->
+  <ellipse cx="376" cy="114" rx="40" ry="46" fill="url(#sil)"/>
+
+  <!-- Hair - long flowing behind and down -->
+  <path d="M 348 74 Q 292 28 222 40 Q 154 52 120 108 Q 92 154 108 200 Q 124 234 166 228 Q 138 200 144 154 Q 160 102 218 80 Q 280 58 330 104 Z" fill="url(#sil)"/>
+
+  <!-- Neck -->
+  <path d="M 340 154 C 328 166 322 184 328 200 C 336 214 358 216 370 202 C 382 188 380 164 366 152 Z" fill="url(#sil)"/>
+
+  <!-- Upper torso — reclining diagonally upper-right to center -->
+  <path d="M 348 186 C 384 208 400 254 388 306 C 376 346 338 374 294 382 C 252 388 212 378 184 358 C 160 342 154 314 170 286 C 188 258 228 240 268 228 C 308 216 336 200 342 184 Z" fill="url(#sil)"/>
+
+  <!-- Bust curve — feminine front -->
+  <path d="M 234 240 C 194 262 166 304 166 344 C 166 366 188 382 216 372 C 194 354 188 320 200 286 C 210 256 240 238 274 238 Z" fill="url(#sil)"/>
+
+  <!-- Right arm propping body — angled lower-right toward ground -->
+  <path d="M 372 292 C 402 320 424 360 418 394 C 414 416 390 424 370 412 C 350 400 340 366 340 332 C 340 298 352 280 372 286 Z" fill="url(#sil)"/>
+
+  <!-- Wrist/hand resting on ground -->
+  <ellipse cx="410" cy="412" rx="26" ry="17" transform="rotate(-20 410 412)" fill="url(#sil)"/>
+
+  <!-- Hip — wide, sweeping lower-center-left -->
+  <path d="M 166 336 C 126 330 80 336 52 366 C 34 388 40 422 80 434 C 132 450 206 438 258 410 C 294 388 298 350 264 330 C 230 312 190 326 166 336 Z" fill="url(#sil)"/>
+
+  <!-- Upper legs extending lower-left -->
+  <path d="M 64 410 C 28 406 6 424 6 452 C 6 470 34 480 74 474 C 120 468 160 444 150 412 C 140 390 96 394 64 410 Z" fill="url(#sil)"/>
+
+  <!-- Lower leg — bent, curving back -->
+  <path d="M 12 444 C 0 462 0 484 18 496 C 36 508 68 502 92 480 C 110 460 106 428 82 422 Z" fill="url(#sil)"/>
+
+  <!-- Left arm raised elegantly upward -->
+  <path d="M 228 264 C 200 222 176 176 166 132 C 158 100 170 78 188 84 C 206 90 218 124 222 164 C 228 206 234 238 250 270 Z" fill="url(#sil)"/>
+
+  <!-- Fingertips of raised arm -->
+  <ellipse cx="170" cy="96" rx="20" ry="14" transform="rotate(-35 170 96)" fill="url(#sil)"/>
+</svg>

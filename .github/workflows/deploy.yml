@@ -15,43 +15,7 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - name: Check out the requested commit
-        uses: actions/checkout@v4
-
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.34.5
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: pnpm
-
-      - name: Build frontend outside the memory-constrained server
-        run: |
-          pnpm install --frozen-lockfile
-          PORT=19099 BASE_PATH=/ pnpm --filter "@workspace/wet3camp" run build
-          test -s artifacts/wet3camp/dist/public/index.html
-          asset_count="$(find artifacts/wet3camp/dist/public/assets -type f | wc -l)"
-          test "$asset_count" -gt 0
-          tar -czf wet3camp-frontend.tgz -C artifacts/wet3camp/dist/public .
-          echo "Built and archived $asset_count frontend assets."
-
-      - name: Upload frontend build to server
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: 157.250.205.180
-          username: admin
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          passphrase: ${{ secrets.DEPLOY_SSH_PASSPHRASE }}
-          port: 22
-          source: wet3camp-frontend.tgz
-          target: /tmp/
-          overwrite: true
-
-      - name: Deploy API and activate validated frontend
+      - name: Deploy API and activate committed frontend build
         uses: appleboy/ssh-action@v1.0.3
         env:
           DEPLOY_COMMIT: ${{ github.sha }}
@@ -74,16 +38,9 @@ jobs:
             git checkout main
             git reset --hard "$DEPLOY_COMMIT"
             test "$(git rev-parse HEAD)" = "$DEPLOY_COMMIT"
-            mv /tmp/wet3camp-frontend.tgz /home/admin/wet3camp-build/wet3camp-frontend.tgz
-            rm -rf .frontend-prebuilt
-            mkdir -p .frontend-prebuilt
-            tar -xzf wet3camp-frontend.tgz -C .frontend-prebuilt
-            rm -f wet3camp-frontend.tgz
-            test -s .frontend-prebuilt/index.html
-            test -n "$(find .frontend-prebuilt/assets -type f -name '*.js' -o -name '*.css' | head -1)"
-            FRONTEND_PREBUILT_DIR="/home/admin/wet3camp-build/.frontend-prebuilt" \
-              bash deploy-on-server.sh
-            rm -rf .frontend-prebuilt
+            test -s artifacts/wet3camp/public-build/index.html
+            test -n "$(find artifacts/wet3camp/public-build/assets -type f | head -1)"
+            bash deploy-on-server.sh
             echo "✅ Auto-deploy complete at $(date)"
 
       - name: Verify published frontend assets

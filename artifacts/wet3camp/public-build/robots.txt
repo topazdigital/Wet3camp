@@ -1,0 +1,50 @@
+User-agent: *
+Allow: /
+
+# Escort profile slug routes (e.g. /@jamila, /profile/42)
+Allow: /@
+Allow: /profile/
+Allow: /blog/
+Allow: /search
+Allow: /reviews
+Allow: /faqs
+Allow: /contact
+Allow: /blacklist
+Allow: /testimonials
+Allow: /events
+Allow: /rooms
+Allow: /tours
+Allow: /shop
+Allow: /live
+Allow: /feeds
+Allow: /exclusive
+Allow: /adverts
+
+# Private/account areas — do not index
+Disallow: /admin
+Disallow: /my-profile
+Disallow: /messages
+Disallow: /bookings
+Disallow: /booking
+Disallow: /account
+Disallow: /auth/
+Disallow: /api/
+Disallow: /pending-approval
+Disallow: /featured-upgrade
+Disallow: /choose-role
+
+# Googlebot — minimal delay, let it crawl fast
+User-agent: Googlebot
+Allow: /
+Crawl-delay: 1
+
+User-agent: Bingbot
+Allow: /
+Crawl-delay: 3
+
+User-agent: Slurp
+Allow: /
+Crawl-delay: 10
+
+# All sitemaps
+Sitemap: https://wet3.camp/sitemap.xml

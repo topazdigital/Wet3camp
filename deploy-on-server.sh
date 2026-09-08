@@ -61,6 +61,9 @@ echo "    [diag] offending file parent dir perms: $(ls -ld "$(dirname "$BAD_FILE
 
 WEB_ROOT="/home/admin/domains/wet3.camp/public_html"
 API_DIR="/home/admin/api-server"
+# A complete frontend build is committed here because this host cannot reliably
+# run Vite within its memory limit. Manual deploys may override this path.
+FRONTEND_PREBUILT_DIR="${FRONTEND_PREBUILT_DIR:-$REPO_DIR/artifacts/wet3camp/public-build}"
 # NOTE: your env file is named "env" (not ".env") — keep that name
 API_ENV="$API_DIR/env"
 
@@ -208,7 +211,7 @@ done
 # The production server can run out of memory while Vite transforms the
 # frontend. CI supplies a complete, validated frontend archive when available;
 # keep a local-build fallback for manual deployments.
-if [ -n "${FRONTEND_PREBUILT_DIR:-}" ] && [ -s "$FRONTEND_PREBUILT_DIR/index.html" ]; then
+if [ -s "$FRONTEND_PREBUILT_DIR/index.html" ]; then
   mkdir -p "$REPO_DIR/artifacts/wet3camp/dist/public"
   cp -a "$FRONTEND_PREBUILT_DIR/." "$REPO_DIR/artifacts/wet3camp/dist/public/"
   echo "    Using prebuilt frontend from $FRONTEND_PREBUILT_DIR"

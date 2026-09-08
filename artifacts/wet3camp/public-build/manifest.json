@@ -1,0 +1,79 @@
+{
+  "name": "Wet3 Camp — Kenya's Premier Escort Directory",
+  "short_name": "Wet3 Camp",
+  "description": "Kenya's premium escort directory and booking platform. Find verified escorts in Nairobi, Mombasa and beyond.",
+  "start_url": "/",
+  "id": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "browser"],
+  "background_color": "#0a0a0a",
+  "theme_color": "#8B0000",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "en-KE",
+  "categories": ["lifestyle", "entertainment"],
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/apple-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/opengraph.jpg",
+      "sizes": "1200x630",
+      "type": "image/jpeg",
+      "form_factor": "wide",
+      "label": "Wet3 Camp Desktop"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Browse Escorts",
+      "url": "/exclusive",
+      "description": "Browse all verified escorts"
+    },
+    {
+      "name": "My Bookings",
+      "url": "/bookings",
+      "description": "View your bookings"
+    },
+    {
+      "name": "Messages",
+      "url": "/messages",
+      "description": "Your messages"
+    }
+  ],
+  "prefer_related_applications": false
+}
