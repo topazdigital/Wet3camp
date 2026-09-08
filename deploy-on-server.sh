@@ -205,7 +205,16 @@ for DIST_DIR in "$REPO_DIR/artifacts/wet3camp/dist" "$REPO_DIR/artifacts/api-ser
     fi
   fi
 done
-PORT=19099 BASE_PATH=/ pnpm --filter "@workspace/wet3camp"  run build
+# The production server can run out of memory while Vite transforms the
+# frontend. CI supplies a complete, validated frontend archive when available;
+# keep a local-build fallback for manual deployments.
+if [ -n "${FRONTEND_PREBUILT_DIR:-}" ] && [ -s "$FRONTEND_PREBUILT_DIR/index.html" ]; then
+  mkdir -p "$REPO_DIR/artifacts/wet3camp/dist/public"
+  cp -a "$FRONTEND_PREBUILT_DIR/." "$REPO_DIR/artifacts/wet3camp/dist/public/"
+  echo "    Using prebuilt frontend from $FRONTEND_PREBUILT_DIR"
+else
+  PORT=19099 BASE_PATH=/ pnpm --filter "@workspace/wet3camp" run build
+fi
 pnpm --filter "@workspace/api-server" run build
 echo "    Build complete."
 
