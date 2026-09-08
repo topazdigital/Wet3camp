@@ -317,6 +317,7 @@ set -e
 # copy the validated release into the empty live root.
 LIVE_STALE_DIR="${STALE_HOLDING_DIR}/live.${TS_WEB}"
 mkdir -p "$LIVE_STALE_DIR"
+chmod u+rwx "$LIVE_WEB_ROOT" 2>/dev/null || true
 for LIVE_ENTRY in "$LIVE_WEB_ROOT"/* "$LIVE_WEB_ROOT"/.[!.]*; do
   [ -e "$LIVE_ENTRY" ] || continue
   case "$(basename "$LIVE_ENTRY")" in
