@@ -33,7 +33,19 @@ jobs:
             rm -f /home/admin/wet3camp-build/.git/index.lock \
                   /home/admin/wet3camp-build/.git/config.lock \
                   /home/admin/wet3camp-build/.git/refs/heads/main.lock 2>/dev/null || true
+            # Remove only disposable deployment leftovers before fetching.
+            # Previous failed deploys left stale node_modules/dist/releases
+            # behind, filling the disk and preventing git from writing a pack.
+            find /home/admin/wet3camp-build -maxdepth 3 -type d \
+              \( -name 'node_modules.stale.*' -o -name 'dist.stale.*' -o -name '.deploy-stale' \) \
+              -prune -exec rm -rf {} + 2>/dev/null || true
+            find /home/admin/domains/wet3.camp -maxdepth 1 -type d \
+              -name 'public_html.release.*' -prune -exec rm -rf {} + 2>/dev/null || true
+            find /tmp -maxdepth 1 -type f \
+              \( -name 'wet3camp-*' -o -name 'wet3camp*.log' \) \
+              -delete 2>/dev/null || true
             cd /home/admin/wet3camp-build
+            df -h /home/admin/wet3camp-build || true
             git fetch origin main
             git checkout main
             git reset --hard "$DEPLOY_COMMIT"
