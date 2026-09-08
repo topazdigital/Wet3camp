@@ -313,21 +313,21 @@ echo "    Frontend asset manifest validated."
 chmod -R 755 "$WEB_ROOT" || true
 set -e
 
-# Swap the fully validated frontend into the live path. Renaming directories
-# only needs permission on their parent, so this works even when old assets
-# inside the previous release are owned by another user.
-OLD_WEB_ROOT="${STALE_HOLDING_DIR}/$(basename "$LIVE_WEB_ROOT").stale.${TS_WEB}"
-if [ -e "$LIVE_WEB_ROOT" ] && ! mv "$LIVE_WEB_ROOT" "$OLD_WEB_ROOT"; then
-  echo "ERROR: could not move the previous web release out of the way"
+# Activate the fully validated frontend in place. This hosting account can
+# write to public_html but cannot rename its parent directory, so a directory
+# swap is not permitted. The build uses hashed asset names; copying the new
+# index and assets over the existing root is safe, and old hashed assets are
+# harmless until the next cleanup window.
+if ! cp -a "$WEB_ROOT/." "$LIVE_WEB_ROOT/"; then
+  echo "ERROR: could not copy the validated frontend into the live web root"
   exit 1
 fi
-if ! mv "$WEB_ROOT" "$LIVE_WEB_ROOT"; then
-  echo "ERROR: could not activate the staged web release"
-  if [ -e "$OLD_WEB_ROOT" ]; then mv "$OLD_WEB_ROOT" "$LIVE_WEB_ROOT" 2>/dev/null || true; fi
+if [ ! -s "$LIVE_WEB_ROOT/index.html" ]; then
+  echo "ERROR: live index.html is missing after frontend activation"
   exit 1
 fi
-( rm -rf "$OLD_WEB_ROOT" >/dev/null 2>&1 </dev/null || true ) &
 WEB_ROOT="$LIVE_WEB_ROOT"
+( rm -rf "${LIVE_WEB_ROOT}.release.${TS_WEB}" >/dev/null 2>&1 </dev/null || true ) &
 
 # ── Ensure uploads dir exists; remove any stale symlink in web root ───────────
 # Uploads live permanently in the build repo folder (where the API writes them).
