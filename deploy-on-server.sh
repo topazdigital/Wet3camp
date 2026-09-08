@@ -312,10 +312,22 @@ set -e
 
 # Activate the fully validated frontend in place. This hosting account can
 # write to public_html but cannot rename its parent directory, so a directory
-# swap is not permitted. The build uses hashed asset names; copying the new
-# index and assets over the existing root is safe, and old hashed assets are
-# harmless until the next cleanup window.
-if ! cp -a "$WEB_ROOT/." "$LIVE_WEB_ROOT/"; then
+# swap is not permitted. Move the old entries out of the live directory first
+# (a same-filesystem rename does not require ownership of their contents), then
+# copy the validated release into the empty live root.
+LIVE_STALE_DIR="${STALE_HOLDING_DIR}/live.${TS_WEB}"
+mkdir -p "$LIVE_STALE_DIR"
+for LIVE_ENTRY in "$LIVE_WEB_ROOT"/* "$LIVE_WEB_ROOT"/.[!.]*; do
+  [ -e "$LIVE_ENTRY" ] || continue
+  case "$(basename "$LIVE_ENTRY")" in
+    . | ..) continue ;;
+  esac
+  if ! mv "$LIVE_ENTRY" "$LIVE_STALE_DIR/$(basename "$LIVE_ENTRY")" 2>/dev/null; then
+    echo "ERROR: could not move existing live entry aside: $LIVE_ENTRY"
+    exit 1
+  fi
+done
+if ! cp -r "$WEB_ROOT/." "$LIVE_WEB_ROOT/"; then
   echo "ERROR: could not copy the validated frontend into the live web root"
   exit 1
 fi
@@ -324,7 +336,7 @@ if [ ! -s "$LIVE_WEB_ROOT/index.html" ]; then
   exit 1
 fi
 WEB_ROOT="$LIVE_WEB_ROOT"
-( rm -rf "${LIVE_WEB_ROOT}.release.${TS_WEB}" >/dev/null 2>&1 </dev/null || true ) &
+( rm -rf "$LIVE_STALE_DIR" "${LIVE_WEB_ROOT}.release.${TS_WEB}" >/dev/null 2>&1 </dev/null || true ) &
 
 # ── Ensure uploads dir exists; remove any stale symlink in web root ───────────
 # Uploads live permanently in the build repo folder (where the API writes them).
