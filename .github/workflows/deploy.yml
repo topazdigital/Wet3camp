@@ -48,7 +48,8 @@ jobs:
           passphrase: ${{ secrets.DEPLOY_SSH_PASSPHRASE }}
           port: 22
           source: wet3camp-frontend.tgz
-          target: /home/admin/wet3camp-build/
+          target: /home/admin/
+          overwrite: true
 
       - name: Deploy API and activate validated frontend
         uses: appleboy/ssh-action@v1.0.3
@@ -73,6 +74,7 @@ jobs:
             git checkout main
             git reset --hard "$DEPLOY_COMMIT"
             test "$(git rev-parse HEAD)" = "$DEPLOY_COMMIT"
+            mv /home/admin/wet3camp-frontend.tgz /home/admin/wet3camp-build/wet3camp-frontend.tgz
             rm -rf .frontend-prebuilt
             mkdir -p .frontend-prebuilt
             tar -xzf wet3camp-frontend.tgz -C .frontend-prebuilt
