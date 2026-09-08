@@ -77,27 +77,25 @@ echo "    pnpm $(pnpm --version)"
 echo ""
 echo "==> [2/7] Installing dependencies..."
 cd "$REPO_DIR"
-# Some files inside node_modules can end up owned by a different OS user
-# (e.g. a previous deploy accidentally run as root instead of admin), which
-# makes `rm -rf` fail with EACCES on individual files even though we own the
-# containing directories. Deleting a directory's *contents* needs write
-# access to each file's parent dir; renaming the directory itself only needs
-# write access to the parent (which admin owns), so this sidesteps the
-# problem entirely. This is a pnpm workspace, so EVERY package (root +
-# artifacts/* + lib/*) can have its own nested node_modules — clean all of
-# them, not just the root one. Stale copies are removed best-effort after.
-TS="$(date +%s)"
-while IFS= read -r -d '' NM_DIR; do
-  STALE_DIR="${NM_DIR}.stale.${TS}"
-  if mv "$NM_DIR" "$STALE_DIR" 2>/dev/null; then
-    echo "    Moved aside: $NM_DIR -> $(basename "$STALE_DIR")"
-    ( rm -rf "$STALE_DIR" >/dev/null 2>&1 </dev/null || true ) &
-  else
-    echo "    Could not move aside: $NM_DIR (unexpected) — continuing anyway."
-  fi
-done < <(find "$REPO_DIR" -maxdepth 3 -type d -name node_modules -print0 2>/dev/null)
-CI=true pnpm install --frozen-lockfile --config.confirmModulesPurge=false
-echo "    Done."
+if [ "${SKIP_DEPENDENCIES:-0}" = "1" ]; then
+  echo "    Recovery mode: reusing the existing server dependencies."
+else
+  # Some files inside node_modules can end up owned by a different OS user.
+  # Rename workspace dependency trees before installing so pnpm can recreate
+  # them without getting stuck on stale ownership.
+  TS="$(date +%s)"
+  while IFS= read -r -d '' NM_DIR; do
+    STALE_DIR="${NM_DIR}.stale.${TS}"
+    if mv "$NM_DIR" "$STALE_DIR" 2>/dev/null; then
+      echo "    Moved aside: $NM_DIR -> $(basename "$STALE_DIR")"
+      ( rm -rf "$STALE_DIR" >/dev/null 2>&1 </dev/null || true ) &
+    else
+      echo "    Could not move aside: $NM_DIR (unexpected) — continuing anyway."
+    fi
+  done < <(find "$REPO_DIR" -maxdepth 3 -type d -name node_modules -print0 2>/dev/null)
+  CI=true pnpm install --frozen-lockfile --config.confirmModulesPurge=false
+  echo "    Done."
+fi
 
 echo ""
 echo "==> [3/7] Ensuring env file has all required vars..."
@@ -209,9 +207,12 @@ else
   PORT=19099 BASE_PATH=/ pnpm --filter "@workspace/wet3camp" run build
   FRONTEND_SOURCE="$REPO_DIR/artifacts/wet3camp/dist/public"
 fi
-# The API bundle still needs to be rebuilt from the current checkout.
-rm -rf "$REPO_DIR/artifacts/api-server/dist" 2>/dev/null || true
-pnpm --filter "@workspace/api-server" run build
+if [ "${SKIP_API_BUILD:-0}" = "1" ]; then
+  echo "    Recovery mode: reusing the existing API bundle."
+else
+  rm -rf "$REPO_DIR/artifacts/api-server/dist" 2>/dev/null || true
+  pnpm --filter "@workspace/api-server" run build
+fi
 echo "    Build complete."
 
 echo ""
