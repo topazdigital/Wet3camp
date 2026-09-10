@@ -26,7 +26,15 @@ async function adminFetch(path: string, opts?: RequestInit) {
     ...opts,
     headers,
   })
-  if (!res.ok) throw new Error(await res.text())
+  if (!res.ok) {
+    const raw = await res.text()
+    let message = raw
+    try {
+      const parsed = JSON.parse(raw)
+      message = parsed.message ?? parsed.detail ?? raw
+    } catch {}
+    throw new Error(message || `Request failed (${res.status})`)
+  }
   return res.json()
 }
 
@@ -1016,7 +1024,7 @@ function EditEscortModal({ escort, onClose, onSaved }: { escort: AdminEscort; on
         }
         reader.readAsDataURL(file)
       })
-      const uploadData = await adminFetch('/upload', { method: 'POST', body: JSON.stringify({ data: base64, filename: file.name, type: 'gallery' }) })
+      const uploadData = await adminFetch('/upload', { method: 'POST', body: JSON.stringify({ data: base64, filename: file.name, type: 'admin-gallery' }) })
       if (uploadData?.url) {
         const updated = await adminFetch(`/admin/escorts/${escort.id}/gallery`, {
           method: 'POST',
@@ -1024,7 +1032,7 @@ function EditEscortModal({ escort, onClose, onSaved }: { escort: AdminEscort; on
         })
         setGallery(Array.isArray(updated) ? updated : [])
       }
-    } catch { setError('Gallery upload failed.') }
+    } catch (err: any) { setError(err?.message || 'Gallery upload failed.') }
     setGalleryUploading(false)
     e.target.value = ''
   }
@@ -1032,9 +1040,14 @@ function EditEscortModal({ escort, onClose, onSaved }: { escort: AdminEscort; on
   const deleteGalleryPhoto = async (photoId: string) => {
     setDeletingPhoto(photoId)
     try {
-      await adminFetch(`/admin/escorts/${escort.id}/gallery/${photoId}`, { method: 'DELETE' })
-      setGallery(g => g.filter(p => String(p.id) !== photoId))
-    } catch { setError('Failed to delete photo.') }
+      const data = await adminFetch(`/admin/escorts/${escort.id}/gallery/${photoId}`, { method: 'DELETE' })
+      if (Array.isArray(data.gallery)) {
+        setGallery(data.gallery)
+      } else {
+        setGallery(g => g.filter(p => String(p.id) !== photoId))
+      }
+      if (data.image !== undefined) setForm(f => ({ ...f, image: data.image ?? '' }))
+    } catch (err: any) { setError(err?.message || 'Failed to delete photo.') }
     setDeletingPhoto(null)
   }
 
@@ -1043,7 +1056,8 @@ function EditEscortModal({ escort, onClose, onSaved }: { escort: AdminEscort; on
     try {
       const data = await adminFetch(`/admin/escorts/${escort.id}/gallery/${photoId}/set-profile`, { method: 'PATCH' })
       if (data?.image) setForm(f => ({ ...f, image: data.image }))
-    } catch { setError('Failed to set profile photo.') }
+      if (Array.isArray(data?.gallery)) setGallery(data.gallery)
+    } catch (err: any) { setError(err?.message || 'Failed to set profile photo.') }
     setSettingProfile(null)
   }
 
@@ -1072,9 +1086,9 @@ function EditEscortModal({ escort, onClose, onSaved }: { escort: AdminEscort; on
     setPhotoUploading(true); setError('')
     try {
       const base64 = await compressImage(file)
-      const data = await adminFetch('/upload', { method: 'POST', body: JSON.stringify({ data: base64, filename: file.name, type: 'gallery' }) })
+      const data = await adminFetch('/upload', { method: 'POST', body: JSON.stringify({ data: base64, filename: file.name, type: 'admin-profile' }) })
       if (data?.url) setForm(f => ({ ...f, image: data.url }))
-    } catch { setError('Photo upload failed.') }
+    } catch (err: any) { setError(err?.message || 'Photo upload failed.') }
     setPhotoUploading(false)
     e.target.value = ''
   }
@@ -1540,6 +1554,7 @@ function ReportsTab() {
         <div className="text-center py-10 text-xs text-text-muted">No reports yet.</div>
       ) : (
         <div className="bg-card-bg border border-color rounded-2xl overflow-hidden">
+          <div className="admin-table-scroll">
           <table className="w-full text-xs">
             <thead>
               <tr className="border-b border-color bg-dark-bg">
@@ -1588,6 +1603,7 @@ function ReportsTab() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>
@@ -2229,7 +2245,7 @@ function AdminDashboard() {
   }
 
   return (
-    <div className="flex min-h-screen bg-dark-bg flex-col lg:flex-row">
+    <div className="admin-dashboard-shell flex min-h-screen bg-dark-bg flex-col lg:flex-row">
       <Sidebar />
       <div className="flex-1 w-full overflow-x-hidden lg:pb-0 pb-24 min-w-0">
         <Header />
@@ -2357,6 +2373,7 @@ function AdminDashboard() {
                     <h3 className="text-sm font-bold text-text-light">Staff Accounts</h3>
                     <span className="text-[10px] text-text-muted">{mods.length} account{mods.length!==1?'s':''}</span>
                   </div>
+                  <div className="admin-table-scroll">
                   <table className="w-full text-xs">
                     <thead className="bg-dark-bg border-b border-color"><tr>{['Name','Email','Role','Status','Joined','Actions'].map(h=><th key={h} className="px-4 py-3 text-left font-semibold text-text-muted">{h}</th>)}</tr></thead>
                     <tbody>
@@ -2402,6 +2419,7 @@ function AdminDashboard() {
                       ))}
                     </tbody>
                   </table>
+                  </div>
                 </div>
               )}
             </div>

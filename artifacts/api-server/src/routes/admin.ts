@@ -15,6 +15,14 @@ function requireAdmin(req: AuthRequest, res: any, next: any) {
   next()
 }
 
+async function getAdminGallery(pool: NonNullable<ReturnType<typeof getPool>>, escortId: string | number) {
+  const [rows] = await pool.query<any[]>(
+    'SELECT id, image_url, sort_order FROM escort_gallery WHERE escort_id = ? ORDER BY sort_order ASC, id ASC',
+    [escortId],
+  )
+  return Array.isArray(rows) ? rows : []
+}
+
 function isSmtpPlaceholder(v: string | undefined) {
   return !v || v === 'CHANGE_ME' || v.startsWith('CHANGE_') || v === 'your_smtp_password'
 }
@@ -427,15 +435,13 @@ router.post('/admin/escorts/:id/gallery', requireAuth, requireAdmin, async (req:
     if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
     const { image_url } = req.body as { image_url?: string }
     if (!image_url) { res.status(400).json({ message: 'image_url required' }); return }
+    const [[escort]] = await pool.query<any[]>('SELECT id FROM escorts WHERE id = ? LIMIT 1', [req.params!.id])
+    if (!escort) { res.status(404).json({ message: 'Escort not found' }); return }
     await pool.query(
       'INSERT INTO escort_gallery (escort_id, image_url, sort_order) VALUES (?, ?, 0)',
       [req.params!.id, image_url]
     )
-    const [rows] = await pool.query<any[]>(
-      'SELECT id, image_url, sort_order FROM escort_gallery WHERE escort_id = ? ORDER BY sort_order ASC, id ASC',
-      [req.params!.id]
-    )
-    res.json(Array.isArray(rows) ? rows : [])
+    res.json(await getAdminGallery(pool, String(req.params!.id)))
   } catch (err: any) {
     res.status(500).json({ message: 'Failed to add gallery photo', detail: err?.message ?? '' })
   }
@@ -446,11 +452,26 @@ router.delete('/admin/escorts/:id/gallery/:photoId', requireAuth, requireAdmin, 
   try {
     const pool = getPool()
     if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
+    const [[photo]] = await pool.query<any[]>(
+      'SELECT image_url FROM escort_gallery WHERE id = ? AND escort_id = ? LIMIT 1',
+      [req.params!.photoId, req.params!.id],
+    )
+    if (!photo) { res.status(404).json({ message: 'Gallery photo not found' }); return }
     await pool.query(
       'DELETE FROM escort_gallery WHERE id = ? AND escort_id = ?',
       [req.params!.photoId, req.params!.id]
     )
-    res.json({ success: true })
+    const [[escort]] = await pool.query<any[]>('SELECT image, user_id FROM escorts WHERE id = ? LIMIT 1', [req.params!.id])
+    const gallery = await getAdminGallery(pool, String(req.params!.id))
+    let image = escort?.image ?? null
+    if (image === photo.image_url) {
+      image = gallery[0]?.image_url ?? null
+      await pool.query('UPDATE escorts SET image = ? WHERE id = ?', [image, req.params!.id])
+      if (escort?.user_id) {
+        await pool.query('UPDATE users SET avatar = ? WHERE id = ? AND avatar = ?', [image, escort.user_id, photo.image_url]).catch(() => {})
+      }
+    }
+    res.json({ success: true, image, gallery })
   } catch (err: any) {
     res.status(500).json({ message: 'Failed to delete gallery photo', detail: err?.message ?? '' })
   }
@@ -466,20 +487,21 @@ router.patch('/admin/escorts/:id/gallery/:photoId/set-profile', requireAuth, req
       [req.params!.photoId, req.params!.id]
     )
     if (!photo) { res.status(404).json({ message: 'Photo not found' }); return }
-    const [gallery] = await pool.query<any[]>(
-      'SELECT id, sort_order FROM escort_gallery WHERE escort_id = ? ORDER BY sort_order ASC, id ASC',
-      [req.params!.id]
-    )
-    if (Array.isArray(gallery)) {
+    const gallery = await getAdminGallery(pool, String(req.params!.id))
+    if (gallery.length > 0) {
       for (const [sortOrder, galleryPhoto] of gallery.entries()) {
         await pool.query(
           'UPDATE escort_gallery SET sort_order = ? WHERE id = ? AND escort_id = ?',
-          [galleryPhoto.id === photo.id ? 0 : sortOrder + 1, galleryPhoto.id, req.params!.id]
+          [String(galleryPhoto.id) === String(photo.id) ? 0 : sortOrder + 1, galleryPhoto.id, req.params!.id]
         )
       }
     }
     await pool.query('UPDATE escorts SET image = ? WHERE id = ?', [photo.image_url, req.params!.id])
-    res.json({ success: true, image: photo.image_url })
+    const [[escort]] = await pool.query<any[]>('SELECT user_id FROM escorts WHERE id = ? LIMIT 1', [req.params!.id])
+    if (escort?.user_id) {
+      await pool.query('UPDATE users SET avatar = ? WHERE id = ?', [photo.image_url, escort.user_id]).catch(() => {})
+    }
+    res.json({ success: true, image: photo.image_url, gallery: await getAdminGallery(pool, String(req.params!.id)) })
   } catch (err: any) {
     res.status(500).json({ message: 'Failed to set profile photo', detail: err?.message ?? '' })
   }

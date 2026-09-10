@@ -195,6 +195,35 @@
   .text-text-light   { color: var(--text-light); }
   .text-text-muted   { color: var(--text-muted); }
 
+  /* Admin is intentionally usable on narrow phones as well as desktop. */
+  .admin-table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .admin-table-scroll table {
+    min-width: 640px;
+  }
+
+  @media (max-width: 639px) {
+    .admin-dashboard-shell .grid-cols-2 {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .admin-dashboard-shell .grid-cols-2.sm\:grid-cols-4 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .admin-dashboard-shell > .flex-1 > header + div {
+      gap: 0.75rem;
+    }
+
+    .admin-dashboard-shell .fixed > div {
+      max-height: calc(100dvh - 1rem);
+      margin-block: 0.5rem;
+    }
+  }
+
   .glass {
     backdrop-filter: blur(10px);
     background-color: rgba(255, 255, 255, 0.1);
