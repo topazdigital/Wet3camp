@@ -60,7 +60,10 @@ export function useAllEscorts(params?: { service?: string }) {
     return []
   }, [data])
 
-  const fromApi = !!(data?.data?.length)
+  // An empty array is still a successful API response. Keep it distinct from
+  // the not-yet-loaded state so the grid can render its empty state instead of
+  // showing skeleton cards forever on a fresh development database.
+  const fromApi = Array.isArray(data?.data)
   const total   = data?.total ?? 0
 
   return { escorts, total, fromApi, isLoading: isLoading && !isError }
