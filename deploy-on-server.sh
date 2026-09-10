@@ -405,9 +405,11 @@ Options -Indexes
   RewriteCond %{HTTP_USER_AGENT} "(facebookexternalhit|facebot|WhatsApp|TelegramBot|LinkedInBot|Twitterbot|Slackbot|Discordbot|Applebot|Googlebot|Bingbot|YandexBot|DuckDuckBot|ia_archiver|SemrushBot|AhrefsBot)" [NC]
   RewriteRule ^ http://localhost:__WET3_API_PORT__%{REQUEST_URI} [P,L,QSA]
 
-  # Step 2: Proxy frontend assets to the dedicated API static fallback. This
-  # keeps hashed bundles available even if the hosting layer does not expose
-  # the web-root assets directory correctly.
+  # Step 2: Proxy only missing frontend assets to the dedicated API fallback.
+  # Existing files must be served directly from the web root; proxying every
+  # asset first can turn valid deployed bundles into API 404s when STATIC_DIR
+  # is not present in the PM2 environment.
+  RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_URI} ^/assets/ [NC]
   RewriteRule ^ http://localhost:__WET3_API_PORT__%{REQUEST_URI} [P,L,QSA]
 

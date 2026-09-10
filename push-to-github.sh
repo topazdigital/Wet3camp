@@ -21,6 +21,21 @@ if [ -z "$TOKEN" ]; then
   exit 1
 fi
 
+echo "▶ Building the production frontend..."
+pnpm --filter "@workspace/wet3camp" run build
+
+# The DirectAdmin deploy script intentionally uses this committed build because
+# the production host cannot reliably run Vite within its memory limit.
+echo "▶ Refreshing the committed frontend build..."
+rm -rf artifacts/wet3camp/public-build
+mkdir -p artifacts/wet3camp/public-build
+cp -a artifacts/wet3camp/dist/public/. artifacts/wet3camp/public-build/
+
+if ! git diff --quiet -- artifacts/wet3camp/public-build; then
+  git add artifacts/wet3camp/public-build
+  git commit -m "Refresh production frontend build"
+fi
+
 echo "▶ Pushing to GitHub..."
 
 # Keep the token out of the remote URL and command arguments. Git asks this
