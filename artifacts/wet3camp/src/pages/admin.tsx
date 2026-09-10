@@ -33,6 +33,7 @@ async function adminFetch(path: string, opts?: RequestInit) {
       const parsed = JSON.parse(raw)
       message = parsed.message ?? parsed.detail ?? raw
     } catch {}
+    if (message.trimStart().startsWith('<')) message = `Request failed (${res.status})`
     throw new Error(message || `Request failed (${res.status})`)
   }
   return res.json()
@@ -1040,7 +1041,7 @@ function EditEscortModal({ escort, onClose, onSaved }: { escort: AdminEscort; on
   const deleteGalleryPhoto = async (photoId: string) => {
     setDeletingPhoto(photoId)
     try {
-      const data = await adminFetch(`/admin/escorts/${escort.id}/gallery/${photoId}`, { method: 'DELETE' })
+      const data = await adminFetch(`/admin/escorts/${escort.id}/gallery/${photoId}/delete`, { method: 'POST' })
       if (Array.isArray(data.gallery)) {
         setGallery(data.gallery)
       } else {
@@ -1054,7 +1055,7 @@ function EditEscortModal({ escort, onClose, onSaved }: { escort: AdminEscort; on
   const setAsProfilePhoto = async (photoId: string) => {
     setSettingProfile(photoId)
     try {
-      const data = await adminFetch(`/admin/escorts/${escort.id}/gallery/${photoId}/set-profile`, { method: 'PATCH' })
+      const data = await adminFetch(`/admin/escorts/${escort.id}/gallery/${photoId}/set-profile`, { method: 'POST' })
       if (data?.image) setForm(f => ({ ...f, image: data.image }))
       if (Array.isArray(data?.gallery)) setGallery(data.gallery)
     } catch (err: any) { setError(err?.message || 'Failed to set profile photo.') }

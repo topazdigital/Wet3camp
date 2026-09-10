@@ -448,7 +448,9 @@ router.post('/admin/escorts/:id/gallery', requireAuth, requireAdmin, async (req:
 })
 
 // DELETE /api/admin/escorts/:id/gallery/:photoId
-router.delete('/admin/escorts/:id/gallery/:photoId', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+// The POST alias below is used by the admin UI because the production Apache
+// proxy rejects DELETE requests before they reach Express.
+async function deleteAdminGalleryPhoto(req: AuthRequest, res: any) {
   try {
     const pool = getPool()
     if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
@@ -475,10 +477,14 @@ router.delete('/admin/escorts/:id/gallery/:photoId', requireAuth, requireAdmin, 
   } catch (err: any) {
     res.status(500).json({ message: 'Failed to delete gallery photo', detail: err?.message ?? '' })
   }
-})
+}
+router.delete('/admin/escorts/:id/gallery/:photoId', requireAuth, requireAdmin, deleteAdminGalleryPhoto)
+router.post('/admin/escorts/:id/gallery/:photoId/delete', requireAuth, requireAdmin, deleteAdminGalleryPhoto)
 
 // PATCH /api/admin/escorts/:id/gallery/:photoId/set-profile — set as main profile picture
-router.patch('/admin/escorts/:id/gallery/:photoId/set-profile', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+// The POST alias below is used by the admin UI because the production Apache
+// proxy rejects PATCH requests before they reach Express.
+async function setAdminGalleryProfilePhoto(req: AuthRequest, res: any) {
   try {
     const pool = getPool()
     if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
@@ -505,7 +511,9 @@ router.patch('/admin/escorts/:id/gallery/:photoId/set-profile', requireAuth, req
   } catch (err: any) {
     res.status(500).json({ message: 'Failed to set profile photo', detail: err?.message ?? '' })
   }
-})
+}
+router.patch('/admin/escorts/:id/gallery/:photoId/set-profile', requireAuth, requireAdmin, setAdminGalleryProfilePhoto)
+router.post('/admin/escorts/:id/gallery/:photoId/set-profile', requireAuth, requireAdmin, setAdminGalleryProfilePhoto)
 
 router.patch('/admin/escorts/:id', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
   try {
