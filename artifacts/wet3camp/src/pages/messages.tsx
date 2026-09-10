@@ -765,7 +765,7 @@ export default function MessagesPage() {
       <input ref={anyFileRef} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar" className="hidden" onChange={handleFileSelect} />
 
       <Sidebar />
-      <div className="flex-1 w-full min-w-0 lg:pb-0 overflow-hidden">
+      <div className="flex-1 w-full min-w-0 lg:pb-0 overflow-hidden mobile-bottom-safe">
         <Header />
         <div className="flex h-[calc(100vh-56px)] overflow-hidden pb-16 lg:pb-0">
 

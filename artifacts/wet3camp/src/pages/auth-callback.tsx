@@ -48,7 +48,7 @@ export default function AuthCallback() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-dark-bg flex items-center justify-center">
+    <div className="min-h-screen bg-dark-bg flex items-center justify-center pb-24 lg:pb-0">
       <div className="flex flex-col items-center gap-4">
         <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#8B0000] to-[#FFD700] flex items-center justify-center shadow-lg">
           <Flame size={22} className="text-white" />

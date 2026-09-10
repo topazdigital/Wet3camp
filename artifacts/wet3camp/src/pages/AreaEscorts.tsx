@@ -92,7 +92,7 @@ export default function AreaEscorts() {
     return (
       <div className="flex min-h-screen bg-dark-bg">
         <Sidebar />
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 mobile-bottom-safe lg:pb-0">
           <Header />
           <main className="mx-auto max-w-3xl px-4 py-20 text-center">
             <h1 className="text-2xl font-black text-text-light">Location not found</h1>
@@ -109,7 +109,7 @@ export default function AreaEscorts() {
   return (
     <div className="flex min-h-screen flex-col bg-dark-bg lg:flex-row">
       <Sidebar />
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-1 mobile-bottom-safe lg:pb-0">
         <Header />
         <main>
           <div className="border-b border-color bg-gradient-to-br from-[#260808] via-dark-bg to-dark-bg">

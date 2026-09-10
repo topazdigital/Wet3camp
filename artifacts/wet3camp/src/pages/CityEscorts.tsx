@@ -135,7 +135,7 @@ export default function CityEscorts() {
     return (
       <div className="flex min-h-screen bg-dark-bg">
         <Sidebar />
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 mobile-bottom-safe lg:pb-0">
           <Header />
           <div className="flex items-center justify-center h-64 text-text-muted">City not found.</div>
         </div>
@@ -146,7 +146,7 @@ export default function CityEscorts() {
   return (
     <div className="flex min-h-screen bg-dark-bg">
       <Sidebar />
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 mobile-bottom-safe lg:pb-0">
         <Header />
         <main>
           {/* Hero */}

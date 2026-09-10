@@ -90,7 +90,7 @@ export default function PaymentHistory() {
       <Header />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar />
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 mobile-bottom-safe lg:pb-6">
           <div className="max-w-3xl mx-auto">
             {/* Header */}
             <div className="flex items-center justify-between mb-6">

@@ -69,7 +69,7 @@ export default function ChooseRole() {
   ]
 
   return (
-    <div className="min-h-screen bg-dark-bg flex flex-col items-center justify-center p-4">
+    <div className="min-h-screen bg-dark-bg flex flex-col items-center justify-center p-4 pb-24 lg:pb-4">
       {/* Brand mark */}
       <div className="flex items-center gap-2 mb-8">
         <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#8B0000] to-[#FFD700] flex items-center justify-center shadow-lg shadow-[#8B0000]/30">

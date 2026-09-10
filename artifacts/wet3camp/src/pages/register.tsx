@@ -616,21 +616,21 @@ export default function RegisterPage() {
   const labelCls = "text-[10px] text-text-muted uppercase tracking-widest block mb-1.5"
 
   return (
-    <div className="min-h-screen bg-dark-bg">
+    <div className="min-h-screen bg-dark-bg pb-24 lg:pb-8">
       {/* Top bar */}
-      <div className="sticky top-0 z-40 bg-card-bg border-b border-color px-4 py-3 flex items-center justify-between">
+      <div className="sticky top-0 z-40 bg-card-bg border-b border-color px-3 sm:px-4 py-3 min-h-14 flex items-center justify-between gap-3">
         <Link href="/" className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0">
             <img src="/favicon.svg" alt="Wet3Camp" className="w-full h-full object-cover" />
           </div>
           <span className="text-sm font-black text-text-light">Wet3<span className="text-[#FFD700]">Camp</span></span>
         </Link>
-        <Link href="/login" className="text-xs text-text-muted hover:text-[#FFD700] transition-colors">
-          Have an account? <span className="text-[#FFD700]">Sign in</span>
+        <Link href="/login" className="text-[11px] sm:text-xs text-text-muted hover:text-[#FFD700] transition-colors whitespace-nowrap">
+          <span className="hidden min-[380px]:inline">Have an account? </span><span className="text-[#FFD700]">Sign in</span>
         </Link>
       </div>
 
-      <div className="max-w-lg md:max-w-2xl mx-auto px-4 md:px-10 py-8">
+      <div className="max-w-lg md:max-w-2xl mx-auto px-4 md:px-10 py-6 sm:py-8">
         {/* Progress */}
         <div className="mb-6">
           <div className="flex items-center justify-between mb-2">
@@ -1206,15 +1206,15 @@ export default function RegisterPage() {
 
         {/* Navigation buttons */}
         {!isLastStep && (
-          <div className="flex items-center justify-between mt-8">
+          <div className="registration-step-nav flex items-center justify-between gap-3 mt-8">
             {stepIdx === 0 ? (
-              <Link href="/" className="px-4 py-2.5 border border-color text-text-muted text-sm rounded-xl hover:border-text-muted hover:text-text-light transition-all">← Back</Link>
+              <Link href="/" className="min-h-11 px-4 py-2.5 border border-color text-text-muted text-sm rounded-xl hover:border-text-muted hover:text-text-light transition-all inline-flex items-center touch-manipulation">← Back</Link>
             ) : (
-              <button onClick={back} className="px-4 py-2.5 border border-color text-text-muted text-sm rounded-xl hover:border-text-muted hover:text-text-light transition-all">← Back</button>
+              <button onClick={back} className="min-h-11 px-4 py-2.5 border border-color text-text-muted text-sm rounded-xl hover:border-text-muted hover:text-text-light transition-all touch-manipulation">← Back</button>
             )}
             <button
               onClick={next}
-              className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-[#8B0000] to-[#a00000] text-white font-bold text-sm rounded-xl hover:from-[#a00000] hover:to-[#8B0000] transition-all shadow-lg shadow-[#8B0000]/20"
+              className="min-h-11 flex items-center gap-2 px-5 sm:px-6 bg-gradient-to-r from-[#8B0000] to-[#a00000] text-white font-bold text-sm rounded-xl hover:from-[#a00000] hover:to-[#8B0000] transition-all shadow-lg shadow-[#8B0000]/20 touch-manipulation"
             >
               Continue <ChevronRight size={15} />
             </button>

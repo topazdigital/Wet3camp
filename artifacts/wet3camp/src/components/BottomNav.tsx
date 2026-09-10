@@ -24,7 +24,10 @@ export default function BottomNav() {
   const tabs = [...BASE_TABS, lastTab]
 
   return (
-    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-30 border-t border-color bg-card-bg/95 backdrop-blur-md">
+    <nav
+      className="lg:hidden fixed bottom-0 left-0 right-0 z-30 border-t border-color bg-card-bg/95 backdrop-blur-md"
+      style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+    >
       <div className="flex items-end justify-around px-1 pb-1 pt-1">
         {tabs.map(tab => {
           const Icon = tab.icon

@@ -36,7 +36,7 @@ export default function ForgotPassword() {
   }
 
   return (
-    <div className="min-h-screen bg-dark-bg flex items-center justify-center px-4 py-12">
+    <div className="min-h-screen bg-dark-bg flex items-center justify-center px-4 py-12 pb-24 lg:pb-12">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center gap-2 mb-6 group">
