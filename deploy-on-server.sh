@@ -75,6 +75,16 @@ FRONTEND_PREBUILT_DIR="${FRONTEND_PREBUILT_DIR:-$REPO_DIR/artifacts/wet3camp/pub
 # NOTE: your env file is named "env" (not ".env") — keep that name
 API_ENV="$API_DIR/env"
 
+# Keep failures diagnosable even when the SSH action cannot expose its remote
+# stdout. This marker intentionally contains no environment values or secrets.
+DEPLOY_ERROR_FILE="$WEB_ROOT/deploy-error.txt"
+trap 'rc=$?; {
+  echo "Wet3Camp deploy failed at $(date)";
+  echo "line=${BASH_LINENO[0]} command=${BASH_COMMAND}";
+  echo "api_port=${API_PORT:-unset} port=${PORT:-unset}";
+  echo "exit_code=${rc}";
+} > "$DEPLOY_ERROR_FILE" 2>/dev/null || true; exit "$rc"' ERR
+
 # Read only environment assignments. The server env file is configuration, not
 # an executable shell script; sourcing it can run stale commands left by an
 # older deploy and abort before PM2 startup.
