@@ -189,13 +189,14 @@ pm2 delete wet3camp-api 2>/dev/null || true
 
 port_is_listening() {
   local candidate="$1"
-  if command -v ss &>/dev/null; then
-    ss -ltnH "sport = :${candidate}" 2>/dev/null | grep -q .
-  elif command -v lsof &>/dev/null; then
+  if command -v lsof &>/dev/null; then
     lsof -nP -iTCP:"${candidate}" -sTCP:LISTEN -t 2>/dev/null | grep -q .
-  else
-    (echo >/dev/tcp/127.0.0.1/"${candidate}") 2>/dev/null
+    return $?
   fi
+  # Fallback for hosts without lsof. Curl treats any HTTP response as proof
+  # that the TCP listener is occupied, including 404/500 responses.
+  curl --silent --output /dev/null --connect-timeout 1 --max-time 2 \
+    "http://127.0.0.1:${candidate}/" 2>/dev/null
 }
 
 # Port 8080 is already used by another PM2 application on this host. Keep the
