@@ -504,6 +504,19 @@ timeout 5 node --enable-source-maps "$REPO_DIR/artifacts/api-server/dist/index.m
 
 # Delete stale entry and always start fresh — avoids "Process N not found" errors
 pm2 delete wet3camp-api 2>/dev/null || true
+# PM2 can return before an older process has released the dedicated listener,
+# especially after a previous deploy was interrupted during restart. Clear only
+# this app's isolated port and wait for it to become available before starting
+# the replacement process.
+if command -v fuser &>/dev/null; then
+  fuser -k "${API_PORT}/tcp" 2>/dev/null || true
+fi
+pkill -TERM -f "$REPO_DIR/artifacts/api-server/dist/index.mjs" 2>/dev/null || true
+sleep 2
+if command -v fuser &>/dev/null; then
+  fuser -k "${API_PORT}/tcp" 2>/dev/null || true
+fi
+sleep 1
 pm2 start "$REPO_DIR/artifacts/api-server/dist/index.mjs" --name wet3camp-api \
   --cwd "$REPO_DIR" \
   --node-args='--enable-source-maps' \
