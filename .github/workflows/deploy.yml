@@ -62,7 +62,10 @@ jobs:
             test "$(git rev-parse HEAD)" = "$DEPLOY_COMMIT"
             test -s artifacts/wet3camp/public-build/index.html
             test -n "$(find artifacts/wet3camp/public-build/assets -type f | head -1)"
-            SKIP_DEPENDENCIES=1 SKIP_API_BUILD=1 bash deploy-on-server.sh
+            # The cleanup above removes stale node_modules and dist trees.
+            # Reinstall dependencies and rebuild the API so the deployed PM2
+            # process always contains the current checked-in route handlers.
+            SKIP_DEPENDENCIES=0 SKIP_API_BUILD=0 bash deploy-on-server.sh
             rm -rf /home/admin/wet3camp-build/node_modules.stale.* \
               /home/admin/wet3camp-build/artifacts/*/node_modules.stale.* \
               /home/admin/wet3camp-build/artifacts/*/dist.stale.* 2>/dev/null || true
