@@ -19,3 +19,4 @@
 - [Static asset deploy validation](static-asset-deploy.md) — Apache SPA fallback can mask missing hashed bundles; deployments must validate every asset referenced by index.html
 - [Production API port](production-api-port.md) — shared server port 8080 is occupied; Wet3Camp deployment must isolate API and Apache proxy on its dedicated loopback port
 - [Filtered dependency install](filtered-dependency-install.md) — full workspace installs can hit package-firewall failures; install only the web/API dependency graph to restore preview
+- [Imported preview schema](imported-preview-schema.md) — imported workspaces may skip post-merge setup; apply the existing dev schema before debugging missing-table API errors
