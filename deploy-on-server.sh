@@ -21,7 +21,7 @@ REPO_DIR="/home/admin/wet3camp-build"
 LOCK_FILE="/tmp/wet3camp-deploy.lock"
 if [ -f "$LOCK_FILE" ]; then
   OLD_PID="$(cat "$LOCK_FILE" 2>/dev/null || true)"
-  if [ -n "$OLD_PID" ] && kill -0 "$OLD_PID" 2>/dev/null; then
+  if [ "$OLD_PID" != "$$" ] && [ -n "$OLD_PID" ] && kill -0 "$OLD_PID" 2>/dev/null; then
     echo "==> Previous deploy (PID $OLD_PID) still running — killing it and its children to avoid a race..."
     pkill -9 -P "$OLD_PID" 2>/dev/null || true
     kill -9 "$OLD_PID" 2>/dev/null || true
@@ -48,6 +48,14 @@ if [ -n "${DEPLOY_COMMIT:-}" ] && [ "$(git rev-parse HEAD)" != "$DEPLOY_COMMIT" 
   exit 1
 fi
 echo "    Code is now up to date with GitHub."
+
+# The deploy script itself is part of the repository. Re-exec once after the
+# reset so a server that started with an older copy does not continue running
+# stale deployment logic for the rest of this release.
+if [ "${WET3_DEPLOY_REEXEC:-0}" != "1" ]; then
+  export WET3_DEPLOY_REEXEC=1
+  exec bash "$REPO_DIR/deploy-on-server.sh"
+fi
 
 # --- DIAGNOSTICS: help debug the persistent EACCES node_modules issue ---
 echo "    [diag] whoami: $(whoami)  id: $(id)"
@@ -478,6 +486,13 @@ echo "    PM2 started."
 
 # Wait a moment then capture PM2 logs for diagnosis
 sleep 5
+if ! curl --silent --show-error --fail --max-time 10 "http://127.0.0.1:${API_PORT}/api/healthz" >/tmp/wet3camp-healthz.json; then
+  echo "    ERROR: Wet3Camp API did not respond on port ${API_PORT}."
+  echo "    Recent PM2 logs:"
+  pm2 logs wet3camp-api --lines 40 --nostream 2>/dev/null || true
+  exit 1
+fi
+echo "    API health check passed: http://127.0.0.1:${API_PORT}/api/healthz"
 echo "    PM2 process status:"
 pm2 show wet3camp-api 2>/dev/null || true
 echo "    Recent PM2 logs:"
