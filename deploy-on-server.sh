@@ -75,6 +75,33 @@ FRONTEND_PREBUILT_DIR="${FRONTEND_PREBUILT_DIR:-$REPO_DIR/artifacts/wet3camp/pub
 # NOTE: your env file is named "env" (not ".env") — keep that name
 API_ENV="$API_DIR/env"
 
+# Read only environment assignments. The server env file is configuration, not
+# an executable shell script; sourcing it can run stale commands left by an
+# older deploy and abort before PM2 startup.
+load_api_env() {
+  local line key value
+  while IFS= read -r line || [ -n "$line" ]; do
+    line="${line#"${line%%[![:space:]]*}"}"
+    case "$line" in
+      ""|\#*) continue ;;
+      export\ *) line="${line#export }" ;;
+    esac
+    if [[ "$line" =~ ^([A-Za-z_][A-Za-z0-9_]*)=(.*)$ ]]; then
+      key="${BASH_REMATCH[1]}"
+      value="${BASH_REMATCH[2]}"
+      if [[ "$value" == \"*\" && "$value" == *\" ]]; then
+        value="${value:1:${#value}-2}"
+      elif [[ "$value" == \'*\' && "$value" == *\' ]]; then
+        value="${value:1:${#value}-2}"
+      fi
+      printf -v "$key" '%s' "$value"
+      export "$key"
+    else
+      echo "    Ignoring non-assignment in $API_ENV: ${line:0:48}"
+    fi
+  done < "$API_ENV"
+}
+
 echo ""
 echo "==> [1/7] Installing pnpm (if not already installed)..."
 if ! command -v pnpm &>/dev/null; then
@@ -114,7 +141,7 @@ fi
 
 # Source whatever already exists first
 if [ -f "$API_ENV" ]; then
-  set -a; source "$API_ENV"; set +a
+  load_api_env
 fi
 
 add_if_missing() {
@@ -151,7 +178,7 @@ fi
 add_if_missing "UPLOADS_DIR"  "/home/admin/wet3camp-build/artifacts/api-server/uploads"
 
 # Re-source so all variables (including newly added ones) are available
-set -a; source "$API_ENV"; set +a
+load_api_env
 STATIC_DIR="$STATIC_FALLBACK_DIR"
 export STATIC_DIR
 
@@ -181,7 +208,7 @@ echo "    Env file checked. Edit $API_ENV to fill in any CHANGE_ME values."
 echo ""
 echo "==> [4/7] Running DB migrations..."
 # Re-source to pick up DATABASE_URL
-set -a; source "$API_ENV"; set +a
+load_api_env
 
 if [ -n "$DB_HOST" ] && [ -n "$DB_USER" ] && [ -n "$DB_NAME" ]; then
   MYSQL_CMD="mysql -h${DB_HOST} -P${DB_PORT:-3306} -u${DB_USER} -p${DB_PASS} ${DB_NAME}"
@@ -468,7 +495,7 @@ echo "==> [7/7] Starting/restarting API server via PM2..."
 cd "$REPO_DIR"
 
 # Source the (now-complete) env file so PM2 inherits all vars
-set -a; source "$API_ENV"; set +a
+load_api_env
 echo "    Env vars loaded from $API_ENV"
 
 # Test that node can load the bundle before handing to PM2
