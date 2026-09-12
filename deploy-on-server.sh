@@ -182,16 +182,51 @@ load_api_env
 STATIC_DIR="$STATIC_FALLBACK_DIR"
 export STATIC_DIR
 
+# Stop only the Wet3Camp PM2 entry before checking ports. This lets a normal
+# redeploy reuse its current port, while avoiding a collision with an unrelated
+# application that happens to own the historical default.
+pm2 delete wet3camp-api 2>/dev/null || true
+
+port_is_listening() {
+  local candidate="$1"
+  if command -v ss &>/dev/null; then
+    ss -ltnH "sport = :${candidate}" 2>/dev/null | grep -q .
+  elif command -v lsof &>/dev/null; then
+    lsof -nP -iTCP:"${candidate}" -sTCP:LISTEN -t 2>/dev/null | grep -q .
+  else
+    (echo >/dev/tcp/127.0.0.1/"${candidate}") 2>/dev/null
+  fi
+}
+
 # Port 8080 is already used by another PM2 application on this host. Keep the
-# Wet3Camp API isolated on a dedicated loopback port so its restart cannot
-# fail with EADDRINUSE while Apache continues routing to an older process.
+# Wet3Camp API isolated on a dedicated loopback port. If the configured port
+# is still occupied after deleting Wet3Camp's PM2 process, select and persist
+# the first free port in the private deployment range so Apache and Node stay
+# on the same port for future releases.
 if [ "${PORT:-}" = "8080" ]; then
-  sed -i 's/^PORT=8080$/PORT=18080/' "$API_ENV"
   PORT=18080
-  export PORT
-  echo "    Moved Wet3Camp API from occupied port 8080 to dedicated port $PORT."
 fi
 API_PORT="${PORT:-18080}"
+if port_is_listening "$API_PORT"; then
+  ORIGINAL_API_PORT="$API_PORT"
+  API_PORT=""
+  for CANDIDATE_PORT in 18080 18081 18082 18083 18084 18085 18086 18087 18088 18089; do
+    if ! port_is_listening "$CANDIDATE_PORT"; then
+      API_PORT="$CANDIDATE_PORT"
+      break
+    fi
+  done
+  if [ -z "$API_PORT" ]; then
+    echo "ERROR: no free Wet3Camp API port found in 18080-18089."
+    exit 1
+  fi
+  sed -i -E "s/^PORT=.*/PORT=${API_PORT}/" "$API_ENV"
+  PORT="$API_PORT"
+  export PORT
+  echo "    Port ${ORIGINAL_API_PORT} is occupied; using dedicated port ${API_PORT}."
+else
+  export PORT
+fi
 
 # CRITICAL: construct DATABASE_URL from DB_* vars if not already set.
 # db.ts only reads DATABASE_URL — without this the API cannot connect to MySQL.
@@ -533,6 +568,25 @@ if ! curl --silent --show-error --fail --max-time 10 "http://127.0.0.1:${API_POR
   exit 1
 fi
 echo "    API health check passed: http://127.0.0.1:${API_PORT}/api/healthz"
+for ADMIN_PHOTO_ROUTE in \
+  "/api/admin/escorts/0/gallery/0/set-profile" \
+  "/api/admin/escorts/0/gallery/0/delete"; do
+  ADMIN_PHOTO_STATUS="$(curl --silent --output /dev/null --write-out '%{http_code}' \
+    --max-time 10 -X POST "http://127.0.0.1:${API_PORT}${ADMIN_PHOTO_ROUTE}")"
+  case "$ADMIN_PHOTO_STATUS" in
+    401|403)
+      echo "    Admin photo route registered: ${ADMIN_PHOTO_ROUTE} (${ADMIN_PHOTO_STATUS} unauthenticated)"
+      ;;
+    404)
+      echo "    ERROR: deployed API is missing admin photo route: ${ADMIN_PHOTO_ROUTE}"
+      exit 1
+      ;;
+    *)
+      echo "    ERROR: unexpected admin photo route response ${ADMIN_PHOTO_STATUS}: ${ADMIN_PHOTO_ROUTE}"
+      exit 1
+      ;;
+  esac
+done
 echo "    PM2 process status:"
 pm2 show wet3camp-api 2>/dev/null || true
 echo "    Recent PM2 logs:"
