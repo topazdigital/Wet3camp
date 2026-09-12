@@ -489,7 +489,7 @@ async function setAdminGalleryProfilePhoto(req: AuthRequest, res: any) {
     const pool = getPool()
     if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
     const [[photo]] = await pool.query<any[]>(
-      'SELECT image_url FROM escort_gallery WHERE id = ? AND escort_id = ?',
+      'SELECT id, image_url FROM escort_gallery WHERE id = ? AND escort_id = ?',
       [req.params!.photoId, req.params!.id]
     )
     if (!photo) { res.status(404).json({ message: 'Photo not found' }); return }
