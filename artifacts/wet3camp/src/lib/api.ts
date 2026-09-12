@@ -16,7 +16,11 @@ async function req<T>(path: string, opts?: RequestInit): Promise<T> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
   const t = getToken()
   if (t) headers['Authorization'] = `Bearer ${t}`
-  const res = await fetch(`${BASE}${path}`, { ...opts, headers: { ...headers, ...opts?.headers } })
+  const res = await fetch(`${BASE}${path}`, {
+    cache: 'no-store',
+    ...opts,
+    headers: { ...headers, ...opts?.headers },
+  })
   if (!res.ok) {
     const body = await res.json().catch(() => ({ message: res.statusText }))
     const err = new Error(body.message ?? res.statusText) as Error & { status: number; code?: string }
