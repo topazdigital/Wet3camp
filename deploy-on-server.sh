@@ -605,7 +605,10 @@ echo "    PM2 started."
 
 # Wait a moment then capture PM2 logs for diagnosis
 sleep 5
-if ! curl --silent --show-error --fail --max-time 10 "http://127.0.0.1:${API_PORT}/api/healthz" >/tmp/wet3camp-healthz.json; then
+# Do not write to a shared /tmp filename: older root-run deploys may leave
+# that file owned by root, which would make a healthy API look like a failed
+# deploy when the admin user cannot overwrite it.
+if ! curl --silent --show-error --fail --max-time 10 "http://127.0.0.1:${API_PORT}/api/healthz" >/dev/null; then
   echo "    ERROR: Wet3Camp API did not respond on port ${API_PORT}."
   echo "    Recent PM2 logs:"
   pm2 logs wet3camp-api --lines 40 --nostream 2>/dev/null || true
