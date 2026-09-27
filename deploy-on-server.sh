@@ -200,8 +200,9 @@ pm2 delete wet3camp-api 2>/dev/null || true
 port_is_listening() {
   local candidate="$1"
   if command -v lsof &>/dev/null; then
-    lsof -nP -iTCP:"${candidate}" -sTCP:LISTEN -t 2>/dev/null | grep -q .
-    return $?
+    if lsof -nP -iTCP:"${candidate}" -sTCP:LISTEN -t 2>/dev/null | grep -q .; then
+      return 0
+    fi
   fi
   # On hosts without lsof, inspect both IPv4 and IPv6 listeners. Node often
   # binds as :::PORT, which is not always reachable through 127.0.0.1.
