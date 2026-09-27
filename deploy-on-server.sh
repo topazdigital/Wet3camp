@@ -203,10 +203,20 @@ port_is_listening() {
     lsof -nP -iTCP:"${candidate}" -sTCP:LISTEN -t 2>/dev/null | grep -q .
     return $?
   fi
+  # On hosts without lsof, inspect both IPv4 and IPv6 listeners. Node often
+  # binds as :::PORT, which is not always reachable through 127.0.0.1.
+  if command -v ss &>/dev/null; then
+    if ss -H -ltn 2>/dev/null | awk -v port=":${candidate}" 'index($4, port) > 0 { found=1 } END { exit !found }'; then
+      return 0
+    fi
+  fi
   # Fallback for hosts without lsof. Curl treats any HTTP response as proof
-  # that the TCP listener is occupied, including 404/500 responses.
+  # that the TCP listener is occupied, including 404/500 responses. Probe
+  # both loopback address families because IPv6-only listeners are common.
   curl --silent --output /dev/null --connect-timeout 1 --max-time 2 \
-    "http://127.0.0.1:${candidate}/" 2>/dev/null
+    "http://127.0.0.1:${candidate}/" 2>/dev/null && return 0
+  curl --silent --output /dev/null --connect-timeout 1 --max-time 2 \
+    "http://[::1]:${candidate}/" 2>/dev/null
 }
 
 # Port 8080 is already used by another PM2 application on this host. Keep the
