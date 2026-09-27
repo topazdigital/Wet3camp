@@ -659,10 +659,17 @@ echo ""
 echo "==> [8/8] Running escort scraper in background (real data from all sources)..."
 SCRAPER="$REPO_DIR/artifacts/api-server/scrape-escorts.mjs"
 if [ -f "$SCRAPER" ] && [ -n "$DATABASE_URL" ]; then
-  SCRAPER_LOG="/tmp/wet3camp-scraper.log"
+  # Avoid shared /tmp filenames: an older root-run deploy may have left the
+  # conventional scraper log unwritable to the admin deploy user. Prefer the
+  # API runtime directory and fall back to a per-process /tmp file if needed.
+  SCRAPER_LOG="$API_DIR/wet3camp-scraper.log"
+  if ! touch "$SCRAPER_LOG" 2>/dev/null; then
+    SCRAPER_LOG="/tmp/wet3camp-scraper-${$}.log"
+  fi
   DATABASE_URL="$DATABASE_URL" UPLOADS_DIR="$UPLOADS_REAL" \
-    nohup node "$SCRAPER" --fast > "$SCRAPER_LOG" 2>&1 &
+    nohup node "$SCRAPER" --fast </dev/null > "$SCRAPER_LOG" 2>&1 &
   SCRAPER_PID=$!
+  disown "$SCRAPER_PID" 2>/dev/null || true
   echo "    Scraper running in background (PID: $SCRAPER_PID)"
   echo "    Live log: tail -f $SCRAPER_LOG"
   echo "    When done, new escorts appear in admin panel for approval."
@@ -672,11 +679,15 @@ fi
 
 echo ""
 echo "==> [9/9] Setting up nightly scraper cron job (3 AM Nairobi time = midnight UTC)..."
-SCRAPER_CRON="0 0 * * * source /home/admin/api-server/env && cd /home/admin/wet3camp-build/artifacts/api-server && DATABASE_URL=\"\$DATABASE_URL\" UPLOADS_DIR=\"/home/admin/wet3camp-build/artifacts/api-server/uploads\" /usr/bin/env node scrape-escorts.mjs --fast >> /tmp/wet3camp-scraper-cron.log 2>&1"
+SCRAPER_CRON_LOG="$API_DIR/wet3camp-scraper-cron.log"
+if ! touch "$SCRAPER_CRON_LOG" 2>/dev/null; then
+  SCRAPER_CRON_LOG="/tmp/wet3camp-scraper-cron-${USER:-admin}.log"
+fi
+SCRAPER_CRON="0 0 * * * source /home/admin/api-server/env && cd /home/admin/wet3camp-build/artifacts/api-server && DATABASE_URL=\"\$DATABASE_URL\" UPLOADS_DIR=\"/home/admin/wet3camp-build/artifacts/api-server/uploads\" /usr/bin/env node scrape-escorts.mjs --fast >> \"$SCRAPER_CRON_LOG\" 2>&1"
 # Remove any old scraper cron lines, then append the fresh one
 ( crontab -l 2>/dev/null | grep -v 'scrape-escorts' ; echo "$SCRAPER_CRON" ) | crontab -
 echo "    Cron installed — runs every night at 00:00 UTC (03:00 EAT)."
-echo "    View cron log: tail -f /tmp/wet3camp-scraper-cron.log"
+echo "    View cron log: tail -f $SCRAPER_CRON_LOG"
 
 echo ""
 echo "✅ Deploy complete! https://wet3.camp is now live."
