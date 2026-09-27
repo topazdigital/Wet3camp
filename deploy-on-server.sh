@@ -656,9 +656,9 @@ chmod 644 "$PM2_LOG_FILE"
 echo "    PM2 diagnostics written to: https://wet3.camp/pm2-status.txt"
 
 echo ""
-echo "==> [8/8] Running escort scraper in background (real data from all sources)..."
+echo "==> [8/8] Scheduling escort scraper..."
 SCRAPER="$REPO_DIR/artifacts/api-server/scrape-escorts.mjs"
-if [ -f "$SCRAPER" ] && [ -n "$DATABASE_URL" ]; then
+if [ "${RUN_SCRAPER_NOW:-0}" = "1" ] && [ -f "$SCRAPER" ] && [ -n "$DATABASE_URL" ]; then
   # Avoid shared /tmp filenames: an older root-run deploy may have left the
   # conventional scraper log unwritable to the admin deploy user. Prefer the
   # API runtime directory and fall back to a per-process /tmp file if needed.
@@ -673,6 +673,9 @@ if [ -f "$SCRAPER" ] && [ -n "$DATABASE_URL" ]; then
   echo "    Scraper running in background (PID: $SCRAPER_PID)"
   echo "    Live log: tail -f $SCRAPER_LOG"
   echo "    When done, new escorts appear in admin panel for approval."
+elif [ -f "$SCRAPER" ] && [ -n "$DATABASE_URL" ]; then
+  echo "    Deferred to the nightly cron job so deployment exits cleanly."
+  echo "    Run RUN_SCRAPER_NOW=1 bash deploy-on-server.sh for an immediate scrape."
 else
   echo "    Skipped — SCRAPER not found or DATABASE_URL not set."
 fi
