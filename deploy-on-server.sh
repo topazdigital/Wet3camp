@@ -298,7 +298,10 @@ else
   # filesystem directory rename only needs write access to the parent. Move
   # the old bundle aside before esbuild recreates dist.
   API_DIST_DIR="$REPO_DIR/artifacts/api-server/dist"
-  API_DIST_STALE_DIR="$STALE_HOLDING_DIR/api-dist.$(date +%s%N)"
+  # Keep the destination beside dist rather than inside the shared stale
+  # holding directory; older root-run deployments may have made that holding
+  # directory itself unwritable to the admin deploy user.
+  API_DIST_STALE_DIR="$REPO_DIR/artifacts/api-server/dist.stale.$(date +%s%N)"
   if [ -d "$API_DIST_DIR" ]; then
     if mv "$API_DIST_DIR" "$API_DIST_STALE_DIR" 2>/dev/null; then
       echo "    Moved previous API bundle aside before rebuilding."
