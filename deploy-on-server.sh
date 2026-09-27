@@ -577,25 +577,34 @@ cd "$REPO_DIR"
 load_api_env
 echo "    Env vars loaded from $API_ENV"
 
-# Test that node can load the bundle before handing to PM2
-echo "    Testing node can load dist/index.mjs..."
-timeout 5 node --enable-source-maps "$REPO_DIR/artifacts/api-server/dist/index.mjs" 2>&1 | head -20 || true
-
 # Delete stale entry and always start fresh — avoids "Process N not found" errors
 pm2 delete wet3camp-api 2>/dev/null || true
 # PM2 can return before an older process has released the dedicated listener,
 # especially after a previous deploy was interrupted during restart. Clear only
 # this app's isolated port and wait for it to become available before starting
 # the replacement process.
-if command -v fuser &>/dev/null; then
-  fuser -k "${API_PORT}/tcp" 2>/dev/null || true
-fi
-pkill -TERM -f "$REPO_DIR/artifacts/api-server/dist/index.mjs" 2>/dev/null || true
+stop_api_listeners() {
+  if command -v fuser &>/dev/null; then
+    fuser -k "${API_PORT}/tcp" 2>/dev/null || true
+  elif command -v lsof &>/dev/null; then
+    lsof -nP -t -iTCP:"${API_PORT}" -sTCP:LISTEN 2>/dev/null \
+      | xargs -r kill -KILL 2>/dev/null || true
+  fi
+  pkill -TERM -f "$REPO_DIR/artifacts/api-server/dist/index.mjs" 2>/dev/null || true
+}
+stop_api_listeners
 sleep 2
-if command -v fuser &>/dev/null; then
-  fuser -k "${API_PORT}/tcp" 2>/dev/null || true
-fi
+# A stale orphan may ignore TERM or survive a PM2 delete. Force-kill only
+# listeners matching Wet3Camp's dedicated bundle before starting the release.
+stop_api_listeners
+pkill -KILL -f "$REPO_DIR/artifacts/api-server/dist/index.mjs" 2>/dev/null || true
 sleep 1
+
+# Test that node can load the bundle before handing to PM2. The old listener
+# must already be gone, otherwise this test can succeed against stale code.
+echo "    Testing node can load dist/index.mjs..."
+timeout 5 node --enable-source-maps "$REPO_DIR/artifacts/api-server/dist/index.mjs" 2>&1 | head -20 || true
+
 pm2 start "$REPO_DIR/artifacts/api-server/dist/index.mjs" --name wet3camp-api \
   --cwd "$REPO_DIR" \
   --node-args='--enable-source-maps' \
