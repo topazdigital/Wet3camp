@@ -242,20 +242,10 @@ if port_is_listening "$API_PORT"; then
     echo "ERROR: no free Wet3Camp API port found in 18080-18089."
     exit 1
   fi
-  # sed -i creates its temporary file beside the target. This API directory
-  # does not permit that operation for admin, although the env file itself is
-  # writable. Build the replacement in the checkout, then write the file.
-  PORT_ENV_TMP="$REPO_DIR/.deploy-port-env.$$"
-  sed -E "s/^PORT=.*/PORT=${API_PORT}/" "$API_ENV" > "$PORT_ENV_TMP"
-  if ! cat "$PORT_ENV_TMP" > "$API_ENV"; then
-    rm -f "$PORT_ENV_TMP"
-    echo "ERROR: could not persist selected API port in $API_ENV"
-    exit 1
-  fi
-  rm -f "$PORT_ENV_TMP"
   PORT="$API_PORT"
   export PORT
-  echo "    Port ${ORIGINAL_API_PORT} is occupied; using dedicated port ${API_PORT}."
+  echo "    Port ${ORIGINAL_API_PORT} is occupied; using dedicated port ${API_PORT} for this release."
+  echo "    The protected env file was not modified; Apache and PM2 use this runtime port."
 else
   export PORT
 fi
@@ -276,6 +266,10 @@ echo ""
 echo "==> [4/7] Running DB migrations..."
 # Re-source to pick up DATABASE_URL
 load_api_env
+# load_api_env restores PORT from the protected server env file. Reapply the
+# port selected above so PM2 and the active Apache release stay synchronized.
+PORT="$API_PORT"
+export PORT
 
 if [ -n "$DB_HOST" ] && [ -n "$DB_USER" ] && [ -n "$DB_NAME" ]; then
   MYSQL_CMD="mysql -h${DB_HOST} -P${DB_PORT:-3306} -u${DB_USER} -p${DB_PASS} ${DB_NAME}"
