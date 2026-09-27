@@ -275,6 +275,8 @@ fi
 echo ""
 echo "==> [5/7] Preparing frontend and building API..."
 cd "$REPO_DIR"
+STALE_HOLDING_DIR="${REPO_DIR}/.deploy-stale"
+mkdir -p "$STALE_HOLDING_DIR"
 # The production server can run out of memory while Vite transforms the
 # frontend. Use the committed build directly when available; keep a local
 # build fallback for manual deployments.
@@ -291,7 +293,20 @@ fi
 if [ "${SKIP_API_BUILD:-0}" = "1" ]; then
   echo "    Recovery mode: reusing the existing API bundle."
 else
-  rm -rf "$REPO_DIR/artifacts/api-server/dist" 2>/dev/null || true
+  # A previous manual/root deploy may have left dist owned by root. Removing
+  # individual files then fails for the admin deploy user, while a same-
+  # filesystem directory rename only needs write access to the parent. Move
+  # the old bundle aside before esbuild recreates dist.
+  API_DIST_DIR="$REPO_DIR/artifacts/api-server/dist"
+  API_DIST_STALE_DIR="$STALE_HOLDING_DIR/api-dist.$(date +%s%N)"
+  if [ -d "$API_DIST_DIR" ]; then
+    if mv "$API_DIST_DIR" "$API_DIST_STALE_DIR" 2>/dev/null; then
+      echo "    Moved previous API bundle aside before rebuilding."
+    else
+      echo "    ERROR: could not move the previous API bundle aside: $API_DIST_DIR"
+      exit 1
+    fi
+  fi
   pnpm --filter "@workspace/api-server" run build
 fi
 echo "    Build complete."
@@ -329,7 +344,6 @@ mkdir -p "$WEB_ROOT"
 # A same-filesystem rename only needs write access on the two parent dirs
 # (both admin-owned), never on the moved item's own contents, so it always
 # succeeds regardless of who owns files inside it.
-STALE_HOLDING_DIR="${REPO_DIR}/.deploy-stale"
 mkdir -p "$STALE_HOLDING_DIR"
 # A previous run's background delete of an already-moved-aside stale dir can
 # get orphaned (killed with its parent script but never finishing the rm) and
