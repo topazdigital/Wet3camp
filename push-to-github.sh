@@ -31,9 +31,12 @@ rm -rf artifacts/wet3camp/public-build
 mkdir -p artifacts/wet3camp/public-build
 cp -a artifacts/wet3camp/dist/public/. artifacts/wet3camp/public-build/
 
-if ! git diff --quiet -- artifacts/wet3camp/public-build; then
-  git add artifacts/wet3camp/public-build
-  git commit -m "Refresh production frontend build"
+echo "▶ Preparing the complete release commit..."
+git add -A
+if ! git diff --cached --quiet; then
+  git commit -m "${PUSH_COMMIT_MESSAGE:-Deploy Wet3Camp with isolated SPA routing}"
+else
+  echo "   No local changes need committing."
 fi
 
 echo "▶ Pushing to GitHub..."

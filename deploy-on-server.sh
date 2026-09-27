@@ -391,13 +391,88 @@ echo "    Frontend asset manifest validated."
 chmod -R 755 "$WEB_ROOT" || true
 set -e
 
+# Write .htaccess into the release directory before activation. This keeps the
+# SPA fallback and API proxy in the same validated release as index.html and
+# the hashed assets; a deploy never activates a frontend without its routing
+# rules.
+echo "    Preparing release routing configuration..."
+cat > "$WEB_ROOT/.htaccess" << 'HTACCESS'
+Options -Indexes
+DirectoryIndex index.html
+
+# Serve pre-compressed files
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css application/javascript application/json
+</IfModule>
+
+# --- Cache rules ---
+<FilesMatch "\.(html)$">
+  Header set Cache-Control "no-cache, no-store, must-revalidate"
+  Header set Pragma "no-cache"
+  Header set Expires "0"
+</FilesMatch>
+
+<FilesMatch "\.(js|css|mjs)$">
+  Header set Cache-Control "public, max-age=31536000, immutable"
+</FilesMatch>
+
+<FilesMatch "\.(woff2?|ttf|eot|otf)$">
+  Header set Cache-Control "public, max-age=31536000, immutable"
+</FilesMatch>
+
+<FilesMatch "\.(jpg|jpeg|png|gif|webp|svg|ico)$">
+  Header set Cache-Control "public, max-age=2592000"
+</FilesMatch>
+
+<FilesMatch "\.(json|xml|webmanifest)$">
+  Header set Cache-Control "public, max-age=3600"
+</FilesMatch>
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # Proxy social-media bots to Node.js for dynamic OG metadata.
+  RewriteCond %{HTTP_USER_AGENT} "(facebookexternalhit|facebot|WhatsApp|TelegramBot|LinkedInBot|Twitterbot|Slackbot|Discordbot|Applebot|Googlebot|Bingbot|YandexBot|DuckDuckBot|ia_archiver|SemrushBot|AhrefsBot)" [NC]
+  RewriteRule ^ http://localhost:__WET3_API_PORT__%{REQUEST_URI} [P,L,QSA]
+
+  # Missing frontend assets must be handled by the API fallback, not by the
+  # SPA document. Existing assets are always served directly.
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_URI} ^/assets/ [NC]
+  RewriteRule ^ http://localhost:__WET3_API_PORT__%{REQUEST_URI} [P,L,QSA]
+
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  RewriteCond %{REQUEST_URI} ^/api [NC,OR]
+  RewriteCond %{REQUEST_URI} ^/sitemap [NC,OR]
+  RewriteCond %{REQUEST_URI} ^/google [NC]
+  RewriteRule ^ http://localhost:__WET3_API_PORT__%{REQUEST_URI} [P,L,QSA]
+
+  # This is the critical client-side route fallback (/admin, /login, /@slug).
+  RewriteRule ^ /index.html [L]
+</IfModule>
+HTACCESS
+sed -i "s/__WET3_API_PORT__/${API_PORT}/g" "$WEB_ROOT/.htaccess"
+if [ ! -s "$WEB_ROOT/.htaccess" ]; then
+  echo "    ERROR: release .htaccess is missing or empty"
+  set -e
+  exit 1
+fi
+echo "    Release routing configuration validated."
+
 # Activate the fully validated frontend in place. This hosting account can
 # write to public_html but cannot rename its parent directory, so a directory
 # swap is not permitted. Move the old entries out of the live directory first
 # (a same-filesystem rename does not require ownership of their contents), then
-# copy the validated release into the empty live root.
+# copy the validated release into the empty live root. If activation fails,
+# move any partial release aside and restore the previous release.
 LIVE_STALE_DIR="${STALE_HOLDING_DIR}/live.${TS_WEB}"
+FAILED_RELEASE_DIR="${STALE_HOLDING_DIR}/failed.${TS_WEB}"
 mkdir -p "$LIVE_STALE_DIR"
+mkdir -p "$FAILED_RELEASE_DIR"
 chmod u+rwx "$LIVE_WEB_ROOT" 2>/dev/null || true
 for LIVE_ENTRY in "$LIVE_WEB_ROOT"/* "$LIVE_WEB_ROOT"/.[!.]*; do
   [ -e "$LIVE_ENTRY" ] || continue
@@ -411,14 +486,36 @@ for LIVE_ENTRY in "$LIVE_WEB_ROOT"/* "$LIVE_WEB_ROOT"/.[!.]*; do
 done
 if ! cp -r "$WEB_ROOT/." "$LIVE_WEB_ROOT/"; then
   echo "ERROR: could not copy the validated frontend into the live web root"
+  set +e
+  for FAILED_ENTRY in "$LIVE_WEB_ROOT"/* "$LIVE_WEB_ROOT"/.[!.]*; do
+    [ -e "$FAILED_ENTRY" ] || continue
+    mv "$FAILED_ENTRY" "$FAILED_RELEASE_DIR/$(basename "$FAILED_ENTRY")" 2>/dev/null || true
+  done
+  for OLD_ENTRY in "$LIVE_STALE_DIR"/* "$LIVE_STALE_DIR"/.[!.]*; do
+    [ -e "$OLD_ENTRY" ] || continue
+    mv "$OLD_ENTRY" "$LIVE_WEB_ROOT/$(basename "$OLD_ENTRY")" 2>/dev/null || true
+  done
+  set -e
+  echo "ERROR: previous frontend release restored after activation failure"
   exit 1
 fi
 if [ ! -s "$LIVE_WEB_ROOT/index.html" ]; then
   echo "ERROR: live index.html is missing after frontend activation"
+  set +e
+  for FAILED_ENTRY in "$LIVE_WEB_ROOT"/* "$LIVE_WEB_ROOT"/.[!.]*; do
+    [ -e "$FAILED_ENTRY" ] || continue
+    mv "$FAILED_ENTRY" "$FAILED_RELEASE_DIR/$(basename "$FAILED_ENTRY")" 2>/dev/null || true
+  done
+  for OLD_ENTRY in "$LIVE_STALE_DIR"/* "$LIVE_STALE_DIR"/.[!.]*; do
+    [ -e "$OLD_ENTRY" ] || continue
+    mv "$OLD_ENTRY" "$LIVE_WEB_ROOT/$(basename "$OLD_ENTRY")" 2>/dev/null || true
+  done
+  set -e
+  echo "ERROR: previous frontend release restored after activation failure"
   exit 1
 fi
 WEB_ROOT="$LIVE_WEB_ROOT"
-( rm -rf "$LIVE_STALE_DIR" "${LIVE_WEB_ROOT}.release.${TS_WEB}" >/dev/null 2>&1 </dev/null || true ) &
+( rm -rf "$LIVE_STALE_DIR" "$FAILED_RELEASE_DIR" "${LIVE_WEB_ROOT}.release.${TS_WEB}" >/dev/null 2>&1 </dev/null || true ) &
 
 # ── Ensure uploads dir exists; remove any stale symlink in web root ───────────
 # Uploads live permanently in the build repo folder (where the API writes them).
@@ -431,87 +528,6 @@ rm -f "${WEB_ROOT}/api/uploads"
 # Also remove the /api dir from webroot if it's now empty (prevents potential dir-listing 403)
 rmdir "${WEB_ROOT}/api" 2>/dev/null || true
 echo "    Uploads dir: $UPLOADS_REAL (served via Node.js mod_proxy)"
-
-# Write .htaccess
-# Strategy:
-#   1. Serve real static files/dirs directly (JS/CSS/images from Vite build)
-#   2a. Proxy /api/* and known server routes to Node.js
-#   2b. Proxy social-media bot/crawler requests to Node.js for dynamic OG meta tags
-#       — bots hitting / or /@slug will get the OG middleware response with real photos
-#   3. SPA fallback for all remaining routes (regular browser users)
-cat > "$WEB_ROOT/.htaccess" << 'HTACCESS'
-Options -Indexes
-
-# Serve pre-compressed files
-<IfModule mod_deflate.c>
-  AddOutputFilterByType DEFLATE text/html text/css application/javascript application/json
-</IfModule>
-
-# --- Cache rules ---
-
-# HTML: never cache
-<FilesMatch "\.(html)$">
-  Header set Cache-Control "no-cache, no-store, must-revalidate"
-  Header set Pragma "no-cache"
-  Header set Expires "0"
-</FilesMatch>
-
-# Hashed JS/CSS assets (Vite adds content hash): cache 1 year
-<FilesMatch "\.(js|css|mjs)$">
-  Header set Cache-Control "public, max-age=31536000, immutable"
-</FilesMatch>
-
-# Fonts: cache 1 year
-<FilesMatch "\.(woff2?|ttf|eot|otf)$">
-  Header set Cache-Control "public, max-age=31536000, immutable"
-</FilesMatch>
-
-# Images: cache 30 days
-<FilesMatch "\.(jpg|jpeg|png|gif|webp|svg|ico)$">
-  Header set Cache-Control "public, max-age=2592000"
-</FilesMatch>
-
-# JSON/XML manifests: 1 hour
-<FilesMatch "\.(json|xml|webmanifest)$">
-  Header set Cache-Control "public, max-age=3600"
-</FilesMatch>
-
-<IfModule mod_rewrite.c>
-  RewriteEngine On
-  RewriteBase /
-
-  # Step 1: Proxy social-media bots to Node.js FIRST (before static file check)
-  # Must be first so that / (a directory) is also proxied, not served as index.html.
-  # The OG Preview middleware handles the request and calls next() for non-HTML paths.
-  RewriteCond %{HTTP_USER_AGENT} "(facebookexternalhit|facebot|WhatsApp|TelegramBot|LinkedInBot|Twitterbot|Slackbot|Discordbot|Applebot|Googlebot|Bingbot|YandexBot|DuckDuckBot|ia_archiver|SemrushBot|AhrefsBot)" [NC]
-  RewriteRule ^ http://localhost:__WET3_API_PORT__%{REQUEST_URI} [P,L,QSA]
-
-  # Step 2: Proxy only missing frontend assets to the dedicated API fallback.
-  # Existing files must be served directly from the web root; proxying every
-  # asset first can turn valid deployed bundles into API 404s when STATIC_DIR
-  # is not present in the PM2 environment.
-  RewriteCond %{REQUEST_FILENAME} !-f
-  RewriteCond %{REQUEST_URI} ^/assets/ [NC]
-  RewriteRule ^ http://localhost:__WET3_API_PORT__%{REQUEST_URI} [P,L,QSA]
-
-  # Step 3: Serve real frontend static files/dirs directly for regular browser users
-  RewriteCond %{REQUEST_FILENAME} -f [OR]
-  RewriteCond %{REQUEST_FILENAME} -d
-  RewriteRule ^ - [L]
-
-  # Step 4: Proxy /api/* and known server routes to the dedicated API port
-  RewriteCond %{REQUEST_URI} ^/api [NC,OR]
-  RewriteCond %{REQUEST_URI} ^/sitemap [NC,OR]
-  RewriteCond %{REQUEST_URI} ^/google [NC]
-  RewriteRule ^ http://localhost:__WET3_API_PORT__%{REQUEST_URI} [P,L,QSA]
-
-  # Step 5: SPA fallback — all other routes serve index.html for regular browser users
-  RewriteRule ^ index.html [L]
-</IfModule>
-HTACCESS
-sed -i "s/__WET3_API_PORT__/${API_PORT}/g" "$WEB_ROOT/.htaccess"
-
-echo "    .htaccess written (static direct, /api/* + bot UA proxied to Node.js, SPA fallback)."
 
 # The API serves its frontend fallback directly from the freshly built
 # repository tree. This avoids copying into the restricted API_DIR.

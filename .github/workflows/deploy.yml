@@ -76,6 +76,11 @@ jobs:
         run: |
           set -e
           html="$(curl -fsSL https://wet3.camp/)"
+          admin_html="$(curl -fsSL https://wet3.camp/admin)"
+          printf '%s' "$admin_html" | grep -qi '<!doctype html>'
+          echo "Verified /admin client-side route fallback"
+          curl -fsSL https://wet3.camp/api/healthz >/tmp/wet3camp-healthz.json
+          echo "Verified API health endpoint"
           assets="$(printf '%s' "$html" | grep -oE '(src|href)="/assets/[^"]+"' | sed -E 's/^(src|href)="([^"]+)".*$/\2/' | sort -u)"
           test -n "$assets"
           while IFS= read -r asset; do

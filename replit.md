@@ -22,6 +22,8 @@ Kenya escort marketplace and booking platform — discover, book, and manage com
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - Required env: `DATABASE_URL` — MySQL connection string on live server (`mysql://user:pass@host/db`); Replit dev falls back to Postgres only if no MySQL URL is set.
 - Fresh Replit Postgres dev DB: run `psql "$DATABASE_URL" -f scripts/init-pg-dev.sql` once to create dev tables (migrate.ts skips SQL migrations on Postgres and expects this to already exist). No demo/escort data is seeded — `/api/escorts` returns an empty list until data is added.
+- Fresh imported workspace: if the full mobile-inclusive install is blocked by the package firewall, restore the web/API preview with `pnpm install --frozen-lockfile --filter '@workspace/wet3camp...' --filter '@workspace/api-server...'`.
+- Push a production release with `bash push-to-github.sh`; it refreshes the committed frontend build, commits the full release, and triggers the GitHub deployment workflow.
 
 ## Stack
 
@@ -45,6 +47,7 @@ Kenya escort marketplace and booking platform — discover, book, and manage com
 - **Upsert pattern**: Settings are saved with try-INSERT / catch-UPDATE instead of `ON DUPLICATE KEY UPDATE` to avoid MySQL-specific syntax issues across DB backends
 - **Admin setup endpoint**: `POST /api/auth/setup-admin` — one-time admin creation, disabled after first use
 - **Live deploy**: `cd /home/admin/wet3camp-build && git pull origin main && bash deploy-on-server.sh`
+- The production deploy keeps Wet3Camp on its own API port and writes `.htaccess` into a validated frontend release before activation. It checks `/admin` and `/api/healthz` after deployment; if frontend activation fails, the previous release is restored.
 
 ## Product
 
