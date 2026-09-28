@@ -292,7 +292,8 @@ echo "==> [5/7] Preparing frontend and building API..."
 cd "$REPO_DIR"
 # Use a fresh sibling for every release. A previous manual/root deploy may
 # have left the historical shared .deploy-stale directory unwritable.
-STALE_HOLDING_DIR="${REPO_DIR}/.deploy-stale.$(date +%s%N)"
+LIVE_WEB_ROOT="$WEB_ROOT"
+STALE_HOLDING_DIR="${LIVE_WEB_ROOT}.stale.$(date +%s%N)"
 mkdir -p "$STALE_HOLDING_DIR"
 # The production server can run out of memory while Vite transforms the
 # frontend. Use the committed build directly when available; keep a local
@@ -343,7 +344,6 @@ echo "==> [6/7] Copying files to live folders..."
 # either way — so make this whole section resilient to failures instead of
 # trying to special-case every possible leftover-permission scenario.
 set +e
-LIVE_WEB_ROOT="$WEB_ROOT"
 TS_WEB="$(date +%s%N)"
 WEB_ROOT="${LIVE_WEB_ROOT}.release.${TS_WEB}"
 mkdir -p "$WEB_ROOT"
@@ -355,8 +355,8 @@ mkdir -p "$WEB_ROOT"
 # renaming to a sibling — a sibling rename left the stale dir inside
 # WEB_ROOT, so the `chmod -R` below still recursed into it and failed on
 # files it doesn't own. Clean up the moved-out stale copies in the background.
-# IMPORTANT: this holding dir must be on the SAME filesystem/mount as
-# WEB_ROOT and API_DIR (e.g. a sibling under /home/admin), NOT /tmp.
+# IMPORTANT: this holding dir is deliberately a sibling of WEB_ROOT on the
+# SAME filesystem/mount, NOT a directory in /tmp or the build checkout.
 # `mv` across a filesystem boundary silently falls back to copy+delete, and
 # the delete phase needs write access to the moved directory's OWN contents
 # (which can be denied if it was created by another OS user in the past) —

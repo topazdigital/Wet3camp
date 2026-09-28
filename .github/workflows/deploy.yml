@@ -48,7 +48,8 @@ jobs:
               rm -rf "$stale" 2>/dev/null || true
             done
             find /home/admin/domains/wet3.camp -maxdepth 1 -type d \
-              -name 'public_html.release.*' -prune -exec rm -rf {} + 2>/dev/null || true
+              \( -name 'public_html.release.*' -o -name 'public_html.stale.*' \) \
+              -prune -exec rm -rf {} + 2>/dev/null || true
             find /home/admin/.pm2/logs -type f -iname '*wet3camp*' \
               -exec truncate -s 0 {} + 2>/dev/null || true
             find /tmp -maxdepth 1 -type f \
