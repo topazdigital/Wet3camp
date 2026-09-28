@@ -69,6 +69,14 @@ echo "    [diag] offending file parent dir perms: $(ls -ld "$(dirname "$BAD_FILE
 
 WEB_ROOT="/home/admin/domains/wet3.camp/public_html"
 API_DIR="/home/admin/api-server"
+# Root-run manual deployments may leave the web-root directory itself owned by
+# root. The Actions SSH session uses admin, so repair only this Wet3Camp
+# directory when the hosting account grants passwordless sudo; never recurse
+# into the contents or touch another application's files.
+if [ ! -w "$WEB_ROOT" ] && command -v sudo &>/dev/null && sudo -n true 2>/dev/null; then
+  sudo -n chown admin:admin "$WEB_ROOT" 2>/dev/null || true
+  sudo -n chmod u+rwx "$WEB_ROOT" 2>/dev/null || true
+fi
 # A complete frontend build is committed here because this host cannot reliably
 # run Vite within its memory limit. Manual deploys may override this path.
 FRONTEND_PREBUILT_DIR="${FRONTEND_PREBUILT_DIR:-$REPO_DIR/artifacts/wet3camp/public-build}"
