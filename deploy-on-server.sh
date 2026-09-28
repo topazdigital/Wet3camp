@@ -590,6 +590,10 @@ cd "$REPO_DIR"
 
 # Source the (now-complete) env file so PM2 inherits all vars
 load_api_env
+# The protected env file may retain the historical occupied port. Keep the
+# runtime port selected above so PM2 matches the active Apache release.
+PORT="$API_PORT"
+export PORT
 echo "    Env vars loaded from $API_ENV"
 
 # Delete stale entry and always start fresh — avoids "Process N not found" errors
