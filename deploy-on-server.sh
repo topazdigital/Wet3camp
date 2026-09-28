@@ -502,15 +502,15 @@ echo "    Release routing configuration validated."
 # (a same-filesystem rename does not require ownership of their contents), then
 # copy the validated release into the empty live root. If activation fails,
 # move any partial release aside and restore the previous release.
-LIVE_STALE_DIR="${STALE_HOLDING_DIR}/live.${TS_WEB}"
-FAILED_RELEASE_DIR="${STALE_HOLDING_DIR}/failed.${TS_WEB}"
+LIVE_STALE_DIR="${LIVE_WEB_ROOT}/.deploy-stale.${TS_WEB}"
+FAILED_RELEASE_DIR="${LIVE_WEB_ROOT}/.deploy-failed.${TS_WEB}"
 mkdir -p "$LIVE_STALE_DIR"
 mkdir -p "$FAILED_RELEASE_DIR"
 chmod u+rwx "$LIVE_WEB_ROOT" 2>/dev/null || true
 for LIVE_ENTRY in "$LIVE_WEB_ROOT"/* "$LIVE_WEB_ROOT"/.[!.]*; do
   [ -e "$LIVE_ENTRY" ] || continue
   case "$(basename "$LIVE_ENTRY")" in
-    . | ..) continue ;;
+    . | .. | .deploy-stale.* | .deploy-failed.*) continue ;;
   esac
   if ! mv "$LIVE_ENTRY" "$LIVE_STALE_DIR/$(basename "$LIVE_ENTRY")" 2>/dev/null; then
     echo "ERROR: could not move existing live entry aside: $LIVE_ENTRY"
@@ -522,6 +522,9 @@ if ! cp -r "$WEB_ROOT/." "$LIVE_WEB_ROOT/"; then
   set +e
   for FAILED_ENTRY in "$LIVE_WEB_ROOT"/* "$LIVE_WEB_ROOT"/.[!.]*; do
     [ -e "$FAILED_ENTRY" ] || continue
+    case "$(basename "$FAILED_ENTRY")" in
+      .deploy-stale.* | .deploy-failed.*) continue ;;
+    esac
     mv "$FAILED_ENTRY" "$FAILED_RELEASE_DIR/$(basename "$FAILED_ENTRY")" 2>/dev/null || true
   done
   for OLD_ENTRY in "$LIVE_STALE_DIR"/* "$LIVE_STALE_DIR"/.[!.]*; do
@@ -537,6 +540,9 @@ if [ ! -s "$LIVE_WEB_ROOT/index.html" ]; then
   set +e
   for FAILED_ENTRY in "$LIVE_WEB_ROOT"/* "$LIVE_WEB_ROOT"/.[!.]*; do
     [ -e "$FAILED_ENTRY" ] || continue
+    case "$(basename "$FAILED_ENTRY")" in
+      .deploy-stale.* | .deploy-failed.*) continue ;;
+    esac
     mv "$FAILED_ENTRY" "$FAILED_RELEASE_DIR/$(basename "$FAILED_ENTRY")" 2>/dev/null || true
   done
   for OLD_ENTRY in "$LIVE_STALE_DIR"/* "$LIVE_STALE_DIR"/.[!.]*; do
