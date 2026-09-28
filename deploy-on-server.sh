@@ -73,7 +73,7 @@ API_DIR="/home/admin/api-server"
 # root. The Actions SSH session uses admin, so repair only this Wet3Camp
 # directory when the hosting account grants passwordless sudo; never recurse
 # into the contents or touch another application's files.
-if [ ! -w "$WEB_ROOT" ] && command -v sudo &>/dev/null && sudo -n true 2>/dev/null; then
+if command -v sudo &>/dev/null && sudo -n true 2>/dev/null; then
   sudo -n chown admin:admin "$WEB_ROOT" 2>/dev/null || true
   sudo -n chmod u+rwx "$WEB_ROOT" 2>/dev/null || true
 fi
@@ -512,8 +512,11 @@ echo "    Release routing configuration validated."
 # move any partial release aside and restore the previous release.
 LIVE_STALE_DIR="${LIVE_WEB_ROOT}/.deploy-stale.${TS_WEB}"
 FAILED_RELEASE_DIR="${LIVE_WEB_ROOT}/.deploy-failed.${TS_WEB}"
-mkdir -p "$LIVE_STALE_DIR"
-mkdir -p "$FAILED_RELEASE_DIR"
+if ! mkdir -p "$LIVE_STALE_DIR" "$FAILED_RELEASE_DIR"; then
+  echo "ERROR: could not create live rollback folders"
+  ls -ld "$LIVE_WEB_ROOT" "$LIVE_STALE_DIR" "$FAILED_RELEASE_DIR" 2>&1 || true
+  exit 1
+fi
 chmod u+rwx "$LIVE_WEB_ROOT" 2>/dev/null || true
 for LIVE_ENTRY in "$LIVE_WEB_ROOT"/* "$LIVE_WEB_ROOT"/.[!.]*; do
   [ -e "$LIVE_ENTRY" ] || continue
@@ -522,6 +525,8 @@ for LIVE_ENTRY in "$LIVE_WEB_ROOT"/* "$LIVE_WEB_ROOT"/.[!.]*; do
   esac
   if ! mv "$LIVE_ENTRY" "$LIVE_STALE_DIR/$(basename "$LIVE_ENTRY")" 2>/dev/null; then
     echo "ERROR: could not move existing live entry aside: $LIVE_ENTRY"
+    ls -ld "$LIVE_WEB_ROOT" "$LIVE_ENTRY" "$LIVE_STALE_DIR" 2>&1 || true
+    id 2>&1 || true
     exit 1
   fi
 done
