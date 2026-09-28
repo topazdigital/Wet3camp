@@ -290,7 +290,9 @@ fi
 echo ""
 echo "==> [5/7] Preparing frontend and building API..."
 cd "$REPO_DIR"
-STALE_HOLDING_DIR="${REPO_DIR}/.deploy-stale"
+# Use a fresh sibling for every release. A previous manual/root deploy may
+# have left the historical shared .deploy-stale directory unwritable.
+STALE_HOLDING_DIR="${REPO_DIR}/.deploy-stale.$(date +%s%N)"
 mkdir -p "$STALE_HOLDING_DIR"
 # The production server can run out of memory while Vite transforms the
 # frontend. Use the committed build directly when available; keep a local
@@ -362,7 +364,6 @@ mkdir -p "$WEB_ROOT"
 # A same-filesystem rename only needs write access on the two parent dirs
 # (both admin-owned), never on the moved item's own contents, so it always
 # succeeds regardless of who owns files inside it.
-mkdir -p "$STALE_HOLDING_DIR"
 # A previous run's background delete of an already-moved-aside stale dir can
 # get orphaned (killed with its parent script but never finishing the rm) and
 # leave a "*.stale.*" directory sitting inside WEB_ROOT itself. If left in

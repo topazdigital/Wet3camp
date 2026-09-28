@@ -38,7 +38,7 @@ jobs:
             # behind, filling the disk and preventing git from writing a pack.
             find /home/admin/wet3camp-build -type d \
               \( -name 'node_modules' -o -name 'node_modules.stale.*' -o -name 'dist' \
-              -o -name 'dist.stale.*' -o -name '.deploy-stale' \) \
+              -o -name 'dist.stale.*' -o -name '.deploy-stale' -o -name '.deploy-stale.*' \) \
               -prune -exec rm -rf {} + 2>/dev/null || true
             for stale in \
               /home/admin/wet3camp-build/node_modules.stale.* \
