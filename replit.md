@@ -23,7 +23,7 @@ Kenya escort marketplace and booking platform — discover, book, and manage com
 - Required env: `DATABASE_URL` — MySQL connection string on live server (`mysql://user:pass@host/db`); Replit dev falls back to Postgres only if no MySQL URL is set.
 - Fresh Replit Postgres dev DB: run `psql "$DATABASE_URL" -f scripts/init-pg-dev.sql` once to create dev tables (migrate.ts skips SQL migrations on Postgres and expects this to already exist). No demo/escort data is seeded — `/api/escorts` returns an empty list until data is added.
 - Fresh imported workspace: if the full mobile-inclusive install is blocked by the package firewall, restore the web/API preview with `pnpm install --frozen-lockfile --filter '@workspace/wet3camp...' --filter '@workspace/api-server...'`.
-- Push a production release with `bash push-to-github.sh`; it refreshes the committed frontend build, commits the full release, and triggers the GitHub deployment workflow.
+- After completing and verifying each requested code change, push directly to `main` with `bash push-to-github.sh`; do not create a compare branch or pull request or ask for routine push approval. The script refreshes the committed frontend build and pushes the full release. Every push to `main` triggers `.github/workflows/deploy.yml` and the production deployment. Honor any explicit request to hold a push or deployment.
 
 ## Stack
 
