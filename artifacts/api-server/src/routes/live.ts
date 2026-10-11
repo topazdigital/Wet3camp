@@ -5,6 +5,7 @@ import {
   startLive, endLive, getLiveSession, getAllLiveSessions, isLive,
   addSseClient, removeSseClient, addChatMessage, pinMessage, setLocked,
   addVideoChunk, addVideoSseClient, removeVideoSseClient,
+  getLiveViewerCount,
 } from '../lib/live-store.js'
 import { verifyToken } from '../lib/jwt.js'
 import { getPool } from '../lib/db.js'
@@ -29,6 +30,14 @@ async function optionalAuth(req: any): Promise<{ userId: number | null; displayN
   }
 }
 
+function canManageLive(auth: { userId: number | null; role: string }, session: { escortUserId: number }): boolean {
+  return auth.role === 'admin' || (auth.userId !== null && session.escortUserId === auth.userId)
+}
+
+function canViewLive(auth: { userId: number | null; role: string }, session: { isLocked: boolean; escortUserId: number }): boolean {
+  return !session.isLocked || canManageLive(auth, session)
+}
+
 // ── POST /live/:escortId/stream — broadcaster sends video chunk ───────────────
 router.post('/live/:escortId/stream',
   express.raw({ type: '*/*', limit: '8mb' }),
@@ -49,6 +58,9 @@ router.post('/live/:escortId/stream',
 
     const isInit = req.headers['x-is-init'] === 'true'
     const mimeType = (req.headers['x-mime-type'] as string) || 'video/webm'
+    if (!/^video\/(webm|mp4)(;|$)/i.test(mimeType)) {
+      res.status(415).json({ message: 'Unsupported live video format' }); return
+    }
 
     addVideoChunk(String(req.params.escortId), data.toString('base64'), isInit, mimeType)
     res.json({ ok: true })
@@ -59,17 +71,20 @@ router.post('/live/:escortId/stream',
 router.get('/live/:escortId/video', async (req, res) => {
   const session = getLiveSession(req.params.escortId)
   if (!session) { res.status(404).json({ message: 'Stream not found' }); return }
+  const auth = await optionalAuth(req)
+  if (!canViewLive(auth, session)) { res.status(403).json({ message: 'This stream is private' }); return }
 
   const clientId = randomBytes(8).toString('hex')
   const escortKey = String(req.params.escortId)
 
   res.setHeader('Content-Type', 'text/event-stream')
-  res.setHeader('Cache-Control', 'no-cache')
+  res.setHeader('Cache-Control', 'no-cache, no-transform')
   res.setHeader('Connection', 'keep-alive')
+  res.setHeader('X-Accel-Buffering', 'no')
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.flushHeaders()
 
-  addVideoSseClient(escortKey, clientId, res)
+  addVideoSseClient(escortKey, clientId, res, auth.userId)
 
   // Keepalive comment every 20s to prevent proxy/CDN timeouts
   const ping = setInterval(() => {
@@ -84,7 +99,7 @@ router.get('/live/:escortId/video', async (req, res) => {
 
 // ── GET /live — list all active streams ─────────────────────────────────────
 router.get('/live', (_req, res) => {
-  const sessions = getAllLiveSessions()
+  const sessions = getAllLiveSessions().filter(s => !s.isLocked)
   res.json(sessions.map(s => ({
     id: String(s.escortId),
     escortId: s.escortId,
@@ -95,16 +110,18 @@ router.get('/live', (_req, res) => {
     area: s.escortArea,
     title: s.title,
     startedAt: s.startedAt,
-    viewerCount: s.clients.size,
+    viewerCount: getLiveViewerCount(s),
     isLocked: s.isLocked,
     lockedTier: s.lockedTier,
   })))
 })
 
 // ── GET /live/:escortId — single stream info ─────────────────────────────────
-router.get('/live/:escortId', (req, res) => {
+router.get('/live/:escortId', async (req, res) => {
   const session = getLiveSession(req.params.escortId)
   if (!session) { res.status(404).json({ message: 'Stream not found or ended' }); return }
+  const auth = await optionalAuth(req)
+  if (!canViewLive(auth, session)) { res.status(403).json({ message: 'This stream is private' }); return }
   res.json({
     id: String(session.escortId),
     escortId: session.escortId,
@@ -115,9 +132,10 @@ router.get('/live/:escortId', (req, res) => {
     area: session.escortArea,
     title: session.title,
     startedAt: session.startedAt,
-    viewerCount: session.clients.size,
+    viewerCount: getLiveViewerCount(session),
     isLocked: session.isLocked,
     lockedTier: session.lockedTier,
+    isBroadcaster: canManageLive(auth, session),
     recentMessages: session.messages.slice(-50),
     pinnedMessageId: session.pinnedMessageId,
   })
@@ -140,14 +158,15 @@ router.post('/live/start', async (req, res) => {
   if (!escort) { res.status(404).json({ message: 'Escort profile not found' }); return }
   if (isLive(escort.id)) { res.status(409).json({ message: 'You are already live' }); return }
 
-  const { title } = req.body as { title?: string }
+  const { title } = (req.body ?? {}) as { title?: string }
+  const cleanTitle = typeof title === 'string' ? title.trim().slice(0, 100) : ''
   const session = startLive(escort.id, {
     name: escort.name,
     image: escort.image,
     tier: escort.tier,
     city: escort.city,
     area: escort.area,
-    title: title || `${escort.name} is Live`,
+    title: cleanTitle || `${escort.name} is Live`,
     userId: auth.userId!,
   })
 
@@ -195,17 +214,9 @@ router.post('/live/:escortId/end', async (req, res) => {
   if (!auth.userId) { res.status(401).json({ message: 'Login required' }); return }
 
   const escortId = parseInt(req.params.escortId, 10)
-  if (auth.role !== 'admin') {
-    const pool = getPool()
-    if (pool) {
-      const [[escort]] = await pool.query<any[]>(
-        'SELECT id FROM escorts WHERE id = ? AND user_id = ? LIMIT 1',
-        [escortId, auth.userId]
-      )
-      if (!escort) { res.status(403).json({ message: 'Not your stream' }); return }
-    }
-  }
-
+  const session = getLiveSession(escortId)
+  if (!session) { res.status(404).json({ message: 'Stream not found' }); return }
+  if (!canManageLive(auth, session)) { res.status(403).json({ message: 'Not your stream' }); return }
   const ended = endLive(escortId)
   if (!ended) { res.status(404).json({ message: 'Stream not found' }); return }
   res.json({ ok: true })
@@ -217,19 +228,21 @@ router.get('/live/:escortId/events', async (req, res) => {
   if (!session) { res.status(404).json({ message: 'Stream not found' }); return }
 
   const auth = await optionalAuth(req)
+  if (!canViewLive(auth, session)) { res.status(403).json({ message: 'This stream is private' }); return }
   const clientId = randomBytes(8).toString('hex')
   const displayName = auth.displayName
 
   res.setHeader('Content-Type', 'text/event-stream')
-  res.setHeader('Cache-Control', 'no-cache')
+  res.setHeader('Cache-Control', 'no-cache, no-transform')
   res.setHeader('Connection', 'keep-alive')
+  res.setHeader('X-Accel-Buffering', 'no')
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.flushHeaders()
 
   // Send initial state
   res.write(`data: ${JSON.stringify({
     type: 'init',
-    viewerCount: session.clients.size + 1,
+    viewerCount: getLiveViewerCount(session) + (auth.userId === session.escortUserId ? 0 : 1),
     recentMessages: session.messages.slice(-50),
     pinnedMessageId: session.pinnedMessageId,
     isLocked: session.isLocked,
@@ -256,6 +269,8 @@ router.post('/live/:escortId/chat', async (req, res) => {
   if (!session) { res.status(404).json({ message: 'Stream not found' }); return }
 
   const auth = await optionalAuth(req)
+  if (!canViewLive(auth, session)) { res.status(403).json({ message: 'This stream is private' }); return }
+  if (!auth.userId) { res.status(401).json({ message: 'Login required to chat' }); return }
   const { text } = req.body as { text: string }
   if (!text || text.trim().length === 0) { res.status(400).json({ message: 'Message required' }); return }
   if (text.trim().length > 300) { res.status(400).json({ message: 'Message too long' }); return }
@@ -276,6 +291,7 @@ router.post('/live/:escortId/react', async (req, res) => {
   if (!session) { res.status(404).json({ message: 'Stream not found' }); return }
 
   const auth = await optionalAuth(req)
+  if (!canViewLive(auth, session)) { res.status(403).json({ message: 'This stream is private' }); return }
   const { emoji } = req.body as { emoji: string }
   const allowed = ['❤️','🔥','😍','💯','👑','😘','💋','🎉','💪','✨']
   if (!allowed.includes(emoji)) { res.status(400).json({ message: 'Invalid emoji' }); return }
@@ -297,6 +313,7 @@ router.post('/live/:escortId/gift', async (req, res) => {
   if (!session) { res.status(404).json({ message: 'Stream not found' }); return }
 
   const auth = await optionalAuth(req)
+  if (!canViewLive(auth, session)) { res.status(403).json({ message: 'This stream is private' }); return }
   const GIFTS: Record<string, string> = {
     rose: '🌹', diamond: '💎', crown: '👑', heart: '💖', fire: '🔥',
     star: '⭐', champagne: '🍾', ring: '💍', kiss: '💋', trophy: '🏆',
@@ -323,9 +340,12 @@ router.post('/live/:escortId/pin', async (req, res) => {
   const auth = await optionalAuth(req)
   if (!auth.userId) { res.status(401).json({ message: 'Login required' }); return }
 
-  const { messageId } = req.body as { messageId: string }
-  if (!messageId) { res.status(400).json({ message: 'messageId required' }); return }
-  pinMessage(req.params.escortId, messageId)
+  const session = getLiveSession(req.params.escortId)
+  if (!session) { res.status(404).json({ message: 'Stream not found' }); return }
+  if (!canManageLive(auth, session)) { res.status(403).json({ message: 'Only the broadcaster can pin messages' }); return }
+  const { messageId } = (req.body ?? {}) as { messageId?: string | null }
+  if (messageId !== null && typeof messageId !== 'string') { res.status(400).json({ message: 'A messageId or null is required' }); return }
+  if (!pinMessage(req.params.escortId, messageId ?? null)) { res.status(404).json({ message: 'Message not found' }); return }
   res.json({ ok: true })
 })
 
@@ -334,8 +354,12 @@ router.post('/live/:escortId/lock', async (req, res) => {
   const auth = await optionalAuth(req)
   if (!auth.userId) { res.status(401).json({ message: 'Login required' }); return }
 
-  const { locked, tier } = req.body as { locked: boolean; tier?: string }
-  setLocked(req.params.escortId, locked, tier ?? null)
+  const session = getLiveSession(req.params.escortId)
+  if (!session) { res.status(404).json({ message: 'Stream not found' }); return }
+  if (!canManageLive(auth, session)) { res.status(403).json({ message: 'Only the broadcaster can lock the stream' }); return }
+  const { locked } = (req.body ?? {}) as { locked?: boolean }
+  if (typeof locked !== 'boolean') { res.status(400).json({ message: 'locked must be true or false' }); return }
+  setLocked(req.params.escortId, locked, null)
   res.json({ ok: true })
 })
 

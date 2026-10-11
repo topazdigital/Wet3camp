@@ -3,8 +3,8 @@ name: Filtered dependency install
 description: Dependency installation behavior for the imported Wet3Camp workspace
 ---
 
-When preview dependencies are missing, installing the complete workspace can fail on a package-firewall download from the mobile/migration graph. Installing only the web and API workspace dependency graphs restores the development preview without changing application structure.
+When preview dependencies are missing, install only the web and API workspace dependency graphs; a complete workspace install can hit package-firewall failures in the mobile/migration graph. If the filtered install is blocked on an old transitive package version, update its direct parent dependency to a current compatible version, then retry the filtered frozen install rather than adding a package override.
 
-**Why:** The imported workspace includes a separate Expo artifact and a broad lockfile; the web/API artifacts are sufficient for the primary preview and may have a clean cached dependency path.
+**Why:** The firewall can reject a specific outdated artifact even when newer compatible releases are available; a parent update resolves the stale transitive pin while keeping the lockfile reproducible.
 
-**How to apply:** Prefer a frozen filtered install for `@workspace/wet3camp...` and `@workspace/api-server...` before troubleshooting application code when the preview reports missing `vite` or `esbuild`.
+**How to apply:** Prefer `pnpm install --frozen-lockfile --filter '@workspace/wet3camp...' --filter '@workspace/api-server...'` before troubleshooting missing `vite` or `esbuild`; only update the blocking dependency chain when the install names a blocked version.

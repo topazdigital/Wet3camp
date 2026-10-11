@@ -1,18 +1,14 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import Header from '@/components/Header'
 import Sidebar from '@/components/Sidebar'
 import { Users, Star, Eye, Radio, Zap, CheckCircle2, Lock, Gift, Share2 } from 'lucide-react'
-import { Link } from 'wouter'
+import { Link, useLocation } from 'wouter'
 import { useSEO } from '@/lib/useSEO'
 import { useAuth } from '@/lib/auth-context'
 import { api } from '@/lib/api'
+import { setPendingLiveStream } from '@/lib/live-broadcaster'
 
 const TIER_COLORS: Record<string, string> = { elite: '#8B0000', vip: '#FF4500', premium: '#B8860B' }
-
-function fakeViewers(id: string | number) {
-  const n = typeof id === 'string' ? parseInt(id, 10) || 1 : id
-  return Math.floor(((n * 137 + 31) % 2000) + 80)
-}
 
 export default function LivePage() {
   useSEO({
@@ -30,6 +26,13 @@ export default function LivePage() {
   const [liveTitle, setLiveTitle] = useState('')
   const [startingLive, setStartingLive] = useState(false)
   const [liveError, setLiveError] = useState('')
+  const [cameraError, setCameraError] = useState('')
+  const [cameraPending, setCameraPending] = useState(false)
+  const [previewStream, setPreviewStream] = useState<MediaStream | null>(null)
+  const previewVideoRef = useRef<HTMLVideoElement>(null)
+  const handingOffStream = useRef(false)
+  const cameraRequestId = useRef(0)
+  const [, setLocation] = useLocation()
 
   const isEscort = user?.role === 'escort' || user?.role === 'admin'
   const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') ?? '' : ''
@@ -50,10 +53,74 @@ export default function LivePage() {
     ? streams.filter(s => ['elite', 'vip'].includes(s.tier?.toLowerCase() ?? ''))
     : streams
 
-  const totalViewers = streams.reduce((s, l) => s + (l.viewerCount || fakeViewers(l.id)), 0)
+  const totalViewers = streams.reduce((sum, stream) => sum + (Number(stream.viewerCount) || 0), 0)
+
+  useEffect(() => {
+    const url = new URL(window.location.href)
+    if (url.searchParams.get('start') === '1' && isEscort) {
+      setIsGoingLive(true)
+      url.searchParams.delete('start')
+      window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`)
+    }
+  }, [isEscort])
+
+  useEffect(() => {
+    if (!previewStream) return
+    if (previewVideoRef.current) previewVideoRef.current.srcObject = previewStream
+    return () => {
+      if (!handingOffStream.current) previewStream.getTracks().forEach(track => track.stop())
+    }
+  }, [previewStream])
+
+  async function prepareCamera() {
+    if (cameraPending) return
+    setCameraError('')
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setCameraError('Camera access needs a secure browser connection. Open Wet3 Camp over HTTPS and try again.')
+      return
+    }
+    if (typeof MediaRecorder === 'undefined') {
+      setCameraError('This browser cannot broadcast live video. Try Chrome or Firefox.')
+      return
+    }
+    const requestId = ++cameraRequestId.current
+    setCameraPending(true)
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 720 }, height: { ideal: 480 }, frameRate: { ideal: 24 }, facingMode: 'user' },
+        audio: true,
+      })
+      if (cameraRequestId.current !== requestId) {
+        stream.getTracks().forEach(track => track.stop())
+        return
+      }
+      handingOffStream.current = false
+      setPreviewStream(stream)
+    } catch (error: any) {
+      if (cameraRequestId.current === requestId) {
+        setCameraError(error?.name === 'NotAllowedError'
+          ? 'Camera or microphone permission was denied. Allow access in your browser settings and try again.'
+          : error?.message || 'Could not access your camera or microphone.')
+      }
+    } finally {
+      if (cameraRequestId.current === requestId) setCameraPending(false)
+    }
+  }
+
+  function stopPreview() {
+    cameraRequestId.current += 1
+    setCameraPending(false)
+    handingOffStream.current = false
+    previewStream?.getTracks().forEach(track => track.stop())
+    setPreviewStream(null)
+  }
 
   async function startGoLive() {
     if (startingLive) return
+    if (!previewStream) {
+      setCameraError('Enable your camera and microphone before starting the live stream.')
+      return
+    }
     setStartingLive(true)
     setLiveError('')
     try {
@@ -64,10 +131,14 @@ export default function LivePage() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.message || 'Failed to start stream')
-      window.location.href = `/live/${data.escortId}?broadcast=true`
+      setPendingLiveStream(previewStream)
+      handingOffStream.current = true
+      setPreviewStream(null)
+      setLocation(`/live/${data.escortId}?broadcast=true`)
     } catch (e: any) {
       setLiveError(e.message)
-      setStartingLive(false)
+    } finally {
+      if (!handingOffStream.current) setStartingLive(false)
     }
   }
 
@@ -121,34 +192,52 @@ export default function LivePage() {
           {/* Go Live modal */}
           {isGoingLive && (
             <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-              <div className="bg-card-bg border border-[#8B0000]/40 rounded-2xl p-6 w-full max-w-sm">
+              <div className="bg-card-bg border border-[#8B0000]/40 rounded-2xl p-6 w-full max-w-sm max-h-[90vh] overflow-y-auto">
                 <div className="flex items-center gap-2 mb-4">
                   <div className="w-8 h-8 rounded-full bg-[#E91E63]/20 flex items-center justify-center">
                     <Radio size={16} className="text-[#E91E63]" />
                   </div>
                   <h3 className="text-base font-bold text-text-light">Go Live</h3>
                 </div>
-                <p className="text-xs text-text-muted mb-4">Start a live stream and let thousands of clients discover you in real time.</p>
+                <p className="text-xs text-text-muted mb-4">Check your camera and microphone first. Your video is sent only after you choose Start Streaming.</p>
+                {previewStream ? (
+                  <div className="relative aspect-video overflow-hidden rounded-xl bg-black mb-3">
+                    <video ref={previewVideoRef} muted autoPlay playsInline className="w-full h-full object-cover" />
+                    <span className="absolute bottom-2 left-2 rounded-full bg-black/70 px-2 py-1 text-[10px] text-white">Camera preview · not live</span>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={prepareCamera}
+                    disabled={cameraPending}
+                    className="w-full py-2.5 mb-3 bg-dark-bg border border-color rounded-xl text-sm font-semibold text-text-light hover:border-[#E91E63]/50"
+                  >
+                    {cameraPending ? 'Requesting camera & microphone…' : 'Enable camera & microphone'}
+                  </button>
+                )}
+                {cameraError && <p className="text-xs text-red-400 mb-3">{cameraError}</p>}
                 <input
                   value={liveTitle}
                   onChange={e => setLiveTitle(e.target.value)}
                   placeholder="Stream title (optional)"
+                  maxLength={100}
                   className="w-full bg-dark-bg border border-color rounded-xl px-3 py-2.5 text-sm text-text-light placeholder:text-text-muted outline-none focus:border-[#8B0000]/60 mb-3"
                 />
                 {liveError && <p className="text-xs text-red-400 mb-3">{liveError}</p>}
                 <div className="flex gap-2">
                   <button
-                    onClick={() => setIsGoingLive(false)}
-                    className="flex-1 py-2.5 border border-color rounded-xl text-sm text-text-muted hover:text-text-light transition-colors"
+                    onClick={() => { stopPreview(); setIsGoingLive(false); setLiveError(''); setCameraError('') }}
+                    disabled={startingLive}
+                    className="flex-1 py-2.5 border border-color rounded-xl text-sm text-text-muted hover:text-text-light transition-colors disabled:opacity-50"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={startGoLive}
-                    disabled={startingLive}
+                    disabled={startingLive || !previewStream}
                     className="flex-1 py-2.5 bg-[#E91E63] hover:bg-[#c2185b] disabled:opacity-60 rounded-xl text-sm font-bold text-white transition-colors flex items-center justify-center gap-1.5"
                   >
-                    {startingLive ? (
+                     {startingLive ? (
                       <><div className="w-3.5 h-3.5 rounded-full border-2 border-white/30 border-t-white animate-spin" /> Starting…</>
                     ) : (
                       <><Radio size={13} /> Start Streaming</>
@@ -182,7 +271,7 @@ export default function LivePage() {
           {!loading && filtered.length > 0 && (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2.5 px-3 sm:px-5 py-4">
               {filtered.map(stream => {
-                const viewers = stream.viewerCount || fakeViewers(stream.id)
+                const viewers = Number(stream.viewerCount) || 0
                 const isHot = ['elite', 'vip'].includes(stream.tier?.toLowerCase() ?? '')
                 const elapsed = stream.startedAt ? Math.floor((Date.now() - stream.startedAt) / 60000) : 0
                 return (
@@ -252,7 +341,7 @@ export default function LivePage() {
               {isEscort ? (
                 /* Logged in as escort → start stream directly */
                 <div>
-                  <p className="text-xs text-text-muted mb-3">Ready to go live? Stream to thousands of clients right now.</p>
+                   <p className="text-xs text-text-muted mb-3">Start a live video and your followers will be notified.</p>
                   <button
                     onClick={() => setIsGoingLive(true)}
                     className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#E91E63] text-white text-sm font-bold rounded-xl hover:bg-[#c2185b] transition-colors"
@@ -271,7 +360,7 @@ export default function LivePage() {
               ) : (
                 /* Not logged in */
                 <div>
-                  <p className="text-xs text-text-muted mb-3">Are you an escort? Go live and get discovered by thousands of clients.</p>
+                  <p className="text-xs text-text-muted mb-3">Are you an escort? Go live so your followers can discover you in real time.</p>
                   <Link href="/register?role=escort" className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#E91E63] text-white text-sm font-bold rounded-xl hover:bg-[#c2185b] transition-colors">
                     <Radio size={14} /> Join &amp; Go Live
                   </Link>

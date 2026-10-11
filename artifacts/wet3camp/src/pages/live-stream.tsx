@@ -5,9 +5,10 @@ import { getSlug } from '@/data/escorts'
 import {
   Eye, Radio, X, Send, Heart, Flame, Crown, Star, Gift, Lock, Unlock,
   Share2, UserPlus, Pin, Users, Zap, Check,
-  Mic, MicOff, Video, VideoOff, Camera, CameraOff,
+  Mic, MicOff, Video, VideoOff, Camera, CameraOff, Volume2, VolumeX,
 } from 'lucide-react'
 import { useSEO } from '@/lib/useSEO'
+import { takePendingLiveStream } from '@/lib/live-broadcaster'
 
 interface ChatMsg {
   id: string
@@ -48,8 +49,6 @@ export default function LiveStreamPage() {
   const [, params] = useRoute('/live/:escortId')
   const escortId = params?.escortId ?? ''
   const [location] = useLocation()
-  const isBroadcaster = new URLSearchParams(location.split('?')[1] ?? '').get('broadcast') === 'true'
-
   const { user } = useAuth()
   const [session, setSession] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -64,6 +63,12 @@ export default function LiveStreamPage() {
   const [copied, setCopied] = useState(false)
   const [isLocked, setIsLocked] = useState(false)
   const [ended, setEnded] = useState(false)
+  const [broadcastStatus, setBroadcastStatus] = useState<'connecting' | 'live' | 'error'>('connecting')
+  const [broadcastError, setBroadcastError] = useState('')
+  const [videoAvailable, setVideoAvailable] = useState(false)
+  const [playbackError, setPlaybackError] = useState('')
+  const [soundEnabled, setSoundEnabled] = useState(false)
+  const [liveActionError, setLiveActionError] = useState('')
 
   // Camera / video state (replaces Jitsi)
   const [cameraState, setCameraState] = useState<'idle'|'loading'|'active'|'denied'|'error'>('idle')
@@ -81,15 +86,23 @@ export default function LiveStreamPage() {
   const mediaSourceUrlRef  = useRef<string | null>(null)
   const videoQueueRef      = useRef<ArrayBuffer[]>([])
   const videoSseRef        = useRef<EventSource | null>(null)
+  const sourceOpenHandlerRef = useRef<(() => void) | null>(null)
+  const endingRef = useRef(false)
   const token = (typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null) ?? ''
+  const wantsBroadcaster = new URLSearchParams(location.split('?')[1] ?? '').get('broadcast') === 'true'
+  const isBroadcaster = wantsBroadcaster && session?.isBroadcaster === true
 
   useSEO({ title: session ? `${session.name} Live — Wet3Camp` : 'Live Stream', noIndex: true })
 
   // Load session info
   useEffect(() => {
     if (!escortId) return
-    fetch(`/api/live/${escortId}`)
-      .then(r => { if (!r.ok) throw new Error('Stream not found'); return r.json() })
+    fetch(`/api/live/${escortId}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+      .then(async r => {
+        const data = await r.json().catch(() => ({}))
+        if (!r.ok) throw new Error(data.message || 'Stream not found')
+        return data
+      })
       .then(d => {
         setSession(d)
         setMessages(d.recentMessages ?? [])
@@ -102,51 +115,60 @@ export default function LiveStreamPage() {
         setLoading(false)
       })
       .catch(e => { setError(e.message); setLoading(false) })
-  }, [escortId])
+  }, [escortId, token])
 
   // ── Broadcaster: start camera when session is ready ───────────────────────
   useEffect(() => {
     if (!session || !isBroadcaster) return
     startCamera()
     return () => {
+      if (!endingRef.current && token) {
+        void fetch(`/api/live/${escortId}/end`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          keepalive: true,
+        }).catch(() => {})
+      }
       localStreamRef.current?.getTracks().forEach(t => t.stop())
       try { mediaRecorderRef.current?.stop() } catch {}
+      localStreamRef.current = null
+      mediaRecorderRef.current = null
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.escortId, isBroadcaster])
+  }, [session?.escortId, isBroadcaster, escortId, token])
 
   // ── Viewer: start MediaSource video player when session is ready ──────────
   useEffect(() => {
     if (!session || isBroadcaster) return
-    if (!('MediaSource' in window)) return
-    startVideoPlayer()
-    return () => {
-      videoSseRef.current?.close()
-      videoSseRef.current = null
-      videoQueueRef.current = []
-      if (sourceBufferRef.current) {
-        try { sourceBufferRef.current.removeEventListener('updateend', processVideoQueue) } catch {}
-        sourceBufferRef.current = null
-      }
-      if (mediaSourceUrlRef.current) {
-        URL.revokeObjectURL(mediaSourceUrlRef.current)
-        mediaSourceUrlRef.current = null
-      }
-      mediaSourceRef.current = null
+    if (!('MediaSource' in window) || typeof MediaSource.isTypeSupported !== 'function') {
+      setPlaybackError('Live video playback is not supported by this browser. Try Chrome or Firefox.')
+      return
     }
+    startVideoPlayer()
+    return () => tearDownVideoPlayer()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.escortId, isBroadcaster])
 
   async function startCamera() {
     setCameraState('loading')
+    setBroadcastStatus('connecting')
+    setBroadcastError('')
+    let stream: MediaStream | null = null
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 720 }, height: { ideal: 480 }, frameRate: { ideal: 24 }, facingMode: 'user' },
-        audio: true,
-      })
+      stream = takePendingLiveStream()
+      if (!stream) {
+        if (!navigator.mediaDevices?.getUserMedia) {
+          throw new Error('Camera access needs a secure browser connection. Open Wet3 Camp over HTTPS.')
+        }
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: 720 }, height: { ideal: 480 }, frameRate: { ideal: 24 }, facingMode: 'user' },
+          audio: true,
+        })
+      }
       localStreamRef.current = stream
       if (localVideoRef.current) { localVideoRef.current.srcObject = stream }
       setCameraState('active')
+      if (typeof MediaRecorder === 'undefined') throw new Error('This browser cannot broadcast live video. Try Chrome or Firefox.')
 
       // Choose best supported codec
       const mimeType = [
@@ -161,34 +183,55 @@ export default function LiveStreamPage() {
         videoBitsPerSecond: 600_000,
       })
       mediaRecorderRef.current = mr
-      let isFirst = true
+      let initChunkAccepted = false
+      let uploadChain = Promise.resolve()
 
       mr.ondataavailable = async (e) => {
         if (!e.data.size) return
-        const ab = await e.data.arrayBuffer()
-        const actualMime = mr.mimeType || mimeType || 'video/webm'
-        fetch(`/api/live/${escortId}/stream`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/octet-stream',
-            Authorization: `Bearer ${token}`,
-            'X-Mime-Type': actualMime,
-            'X-Is-Init': isFirst ? 'true' : 'false',
-          },
-          body: ab,
-        }).catch(() => {})
-        isFirst = false
+        const chunk = e.data
+        uploadChain = uploadChain.then(async () => {
+          const response = await fetch(`/api/live/${escortId}/stream`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/octet-stream',
+              Authorization: `Bearer ${token}`,
+              'X-Mime-Type': mr.mimeType || mimeType || 'video/webm',
+              'X-Is-Init': initChunkAccepted ? 'false' : 'true',
+            },
+            body: await chunk.arrayBuffer(),
+          })
+          const result = await response.json().catch(() => ({}))
+          if (!response.ok) throw new Error(result.message || `Video upload failed (${response.status})`)
+          initChunkAccepted = true
+          setBroadcastStatus('live')
+          setBroadcastError('')
+        }).catch((error: any) => {
+          setBroadcastStatus('error')
+          setBroadcastError(error?.message || 'Live video could not reach the server. Check your connection.')
+        })
       }
 
+      mr.onerror = () => {
+        setBroadcastStatus('error')
+        setBroadcastError('Your browser stopped recording. Check camera and microphone permissions.')
+      }
       mr.start(2000) // 2-second chunks
     } catch (e: any) {
+      stream?.getTracks().forEach(track => track.stop())
+      localStreamRef.current = null
       setCameraState(e?.name === 'NotAllowedError' ? 'denied' : 'error')
+      setBroadcastStatus('error')
+      setBroadcastError(e?.message || 'Could not access your camera or microphone.')
     }
   }
 
   function tearDownVideoPlayer() {
     videoSseRef.current?.close()
     videoSseRef.current = null
+    if (mediaSourceRef.current && sourceOpenHandlerRef.current) {
+      mediaSourceRef.current.removeEventListener('sourceopen', sourceOpenHandlerRef.current)
+    }
+    sourceOpenHandlerRef.current = null
     videoQueueRef.current = []
     if (sourceBufferRef.current) {
       try { sourceBufferRef.current.removeEventListener('updateend', processVideoQueue) } catch {}
@@ -204,6 +247,9 @@ export default function LiveStreamPage() {
 
   function startVideoPlayer() {
     tearDownVideoPlayer() // clean any prior state
+    setVideoAvailable(false)
+    setVideoReady(false)
+    setPlaybackError('')
 
     const ms = new MediaSource()
     mediaSourceRef.current = ms
@@ -214,8 +260,10 @@ export default function LiveStreamPage() {
     }
 
     const onSourceOpen = () => {
+      sourceOpenHandlerRef.current = null
       const es = new EventSource(`/api/live/${escortId}/video?token=${encodeURIComponent(token)}`)
       videoSseRef.current = es
+      es.onopen = () => setPlaybackError('')
 
       es.onmessage = (e) => {
         if (e.data === ': ping') return  // keepalive comment
@@ -230,14 +278,20 @@ export default function LiveStreamPage() {
               startVideoPlayer()
               return
             }
+            if (!MediaSource.isTypeSupported(mimeType)) {
+              setPlaybackError(`This browser cannot play the broadcaster's video format (${mimeType}). Try Chrome or Firefox.`)
+              es.close()
+              return
+            }
             try {
               const sb = ms.addSourceBuffer(mimeType)
               sourceBufferRef.current = sb
               sb.mode = 'sequence'
               sb.addEventListener('updateend', processVideoQueue)
               sb.appendBuffer(ab)
-              setVideoReady(true)
-            } catch {}
+            } catch {
+              setPlaybackError('The live video could not be opened in this browser.')
+            }
             return
           }
 
@@ -246,20 +300,26 @@ export default function LiveStreamPage() {
         } catch {}
       }
 
-      es.onerror = () => {}
+      es.onerror = () => {
+        if (!videoReady) setPlaybackError('Reconnecting to the live video…')
+      }
     }
 
     if (ms.readyState === 'open') {
       onSourceOpen()
     } else {
+      sourceOpenHandlerRef.current = onSourceOpen
       ms.addEventListener('sourceopen', onSourceOpen, { once: true })
     }
   }
 
   function processVideoQueue() {
     const sb = sourceBufferRef.current
+    if (sb?.buffered.length) setVideoAvailable(true)
     if (!sb || sb.updating || !videoQueueRef.current.length) return
-    try { sb.appendBuffer(videoQueueRef.current.shift()!) } catch {}
+    try { sb.appendBuffer(videoQueueRef.current.shift()!) } catch {
+      setPlaybackError('The live video connection was interrupted. Reconnecting…')
+    }
   }
 
   // ── SSE for real-time chat/viewer/events ──────────────────────────────────
@@ -284,18 +344,23 @@ export default function LiveStreamPage() {
         } else if (data.type === 'viewer_count') {
           setViewerCount(data.count)
         } else if (data.type === 'pinned') {
-          setPinnedMsg(data.message)
+          setPinnedMsg(data.message ?? null)
         } else if (data.type === 'ended') {
           setEnded(true)
           es.close()
         } else if (data.type === 'lock_change') {
           setIsLocked(data.isLocked)
+          if (data.isLocked && !isBroadcaster) {
+            es.close()
+            tearDownVideoPlayer()
+            setError('The broadcaster made this stream private.')
+          }
         }
       } catch {}
     }
     es.onerror = () => {}
     return () => es.close()
-  }, [escortId, loading, error, token])
+  }, [escortId, loading, error, token, isBroadcaster])
 
   // Auto-scroll chat
   useEffect(() => {
@@ -312,59 +377,115 @@ export default function LiveStreamPage() {
   const sendChat = useCallback(async () => {
     if (!chatInput.trim() || sending) return
     setSending(true)
+    setLiveActionError('')
     try {
-      await fetch(`/api/live/${escortId}/chat`, {
+      const response = await fetch(`/api/live/${escortId}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ text: chatInput.trim() }),
       })
+      const result = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(result.message || 'Could not send your message')
       setChatInput('')
+    } catch (e: any) {
+      setLiveActionError(e.message || 'Could not send your message')
     } finally { setSending(false) }
   }, [chatInput, escortId, token, sending])
 
   const sendReaction = useCallback(async (emoji: string) => {
-    spawnFloat(emoji)
-    fetch(`/api/live/${escortId}/react`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ emoji }),
-    }).catch(() => {})
+    setLiveActionError('')
+    try {
+      const response = await fetch(`/api/live/${escortId}/react`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ emoji }),
+      })
+      const result = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(result.message || 'Could not send reaction')
+    } catch (e: any) {
+      setLiveActionError(e.message || 'Could not send reaction')
+    }
   }, [escortId, token])
 
-  const sendGift = useCallback(async (giftId: string, giftEmoji: string) => {
-    spawnFloat(giftEmoji)
-    setShowGifts(false)
-    fetch(`/api/live/${escortId}/gift`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ giftId }),
-    }).catch(() => {})
+  const sendGift = useCallback(async (giftId: string) => {
+    setLiveActionError('')
+    try {
+      const response = await fetch(`/api/live/${escortId}/gift`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ giftId }),
+      })
+      const result = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(result.message || 'Could not send gift')
+      setShowGifts(false)
+    } catch (e: any) {
+      setLiveActionError(e.message || 'Could not send gift')
+    }
   }, [escortId, token])
 
   const endStream = useCallback(async () => {
     if (!confirm('End your live stream?')) return
-    localStreamRef.current?.getTracks().forEach(t => t.stop())
-    try { mediaRecorderRef.current?.stop() } catch {}
-    await fetch(`/api/live/${escortId}/end`, {
-      method: 'POST', headers: { Authorization: `Bearer ${token}` },
-    })
-    window.location.href = '/my-profile'
+    setLiveActionError('')
+    endingRef.current = true
+    try {
+      const response = await fetch(`/api/live/${escortId}/end`, {
+        method: 'POST', headers: { Authorization: `Bearer ${token}` },
+      })
+      const result = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(result.message || 'Could not end the live stream')
+      localStreamRef.current?.getTracks().forEach(t => t.stop())
+      try { mediaRecorderRef.current?.stop() } catch {}
+      window.location.href = '/my-profile'
+    } catch (e: any) {
+      endingRef.current = false
+      setLiveActionError(e.message || 'Could not end the live stream')
+    }
   }, [escortId, token])
 
   const shareLink = useCallback(() => {
     const url = `${window.location.origin}/live/${escortId}`
-    navigator.clipboard.writeText(url).catch(() => {})
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    if (!navigator.clipboard?.writeText) {
+      setLiveActionError('Clipboard access is unavailable. Copy the address from your browser bar.')
+      return
+    }
+    navigator.clipboard.writeText(url).then(() => {
+      setLiveActionError('')
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }).catch(() => setLiveActionError('Could not copy the link. Copy the address from your browser bar.'))
   }, [escortId])
 
-  const pinMsg = useCallback(async (msgId: string) => {
-    fetch(`/api/live/${escortId}/pin`, {
+  const pinMsg = useCallback(async (msgId: string | null) => {
+    setLiveActionError('')
+    try {
+      const response = await fetch(`/api/live/${escortId}/pin`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ messageId: msgId }),
-    }).catch(() => {})
+      })
+      const result = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(result.message || 'Could not update the pinned message')
+    } catch (e: any) {
+      setLiveActionError(e.message || 'Could not update the pinned message')
+    }
   }, [escortId, token])
+
+  const toggleLiveLock = useCallback(async () => {
+    const locked = !isLocked
+    setLiveActionError('')
+    try {
+      const response = await fetch(`/api/live/${escortId}/lock`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ locked }),
+      })
+      const result = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(result.message || 'Could not change stream privacy')
+      setIsLocked(locked)
+    } catch (e: any) {
+      setLiveActionError(e.message || 'Could not change stream privacy')
+    }
+  }, [escortId, isLocked, token])
 
   const toggleMic = () => {
     localStreamRef.current?.getAudioTracks().forEach(t => { t.enabled = micMuted })
@@ -398,8 +519,8 @@ export default function LiveStreamPage() {
     <div className="flex items-center justify-center min-h-screen bg-dark-bg">
       <div className="text-center p-8">
         <Radio size={48} className="text-[#8B0000]/40 mx-auto mb-4" />
-        <h2 className="text-xl font-bold text-text-light mb-2">{ended ? 'Stream Ended' : 'Stream Not Found'}</h2>
-        <p className="text-sm text-text-muted mb-6">{ended ? 'The escort has ended this live stream.' : 'This stream may have ended or doesn\'t exist.'}</p>
+        <h2 className="text-xl font-bold text-text-light mb-2">{ended ? 'Stream Ended' : 'Stream Unavailable'}</h2>
+        <p className="text-sm text-text-muted mb-6">{ended ? 'The escort has ended this live stream.' : error || 'This stream may have ended or doesn\'t exist.'}</p>
         <Link href="/live" className="px-5 py-2.5 bg-[#8B0000] text-white text-sm font-bold rounded-xl hover:bg-[#a00000] transition-colors">Browse Live</Link>
       </div>
     </div>
@@ -415,9 +536,11 @@ export default function LiveStreamPage() {
             <Link href="/live" className="text-white/70 hover:text-white transition-colors">
               <X size={18} />
             </Link>
-            <div className="flex items-center gap-1.5 bg-[#E91E63] px-2.5 py-1 rounded-full">
+            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full ${!isBroadcaster || broadcastStatus === 'live' ? 'bg-[#E91E63]' : 'bg-amber-600'}`}>
               <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
-              <span className="text-[10px] font-bold text-white">LIVE</span>
+              <span className="text-[10px] font-bold text-white">
+                {!isBroadcaster || broadcastStatus === 'live' ? 'LIVE' : broadcastStatus === 'error' ? 'VIDEO ISSUE' : 'CONNECTING'}
+              </span>
             </div>
             {session?.image && (
               <img src={session.image} alt={session.name} className="w-7 h-7 rounded-full object-cover border border-[#E91E63]/50" />
@@ -436,6 +559,16 @@ export default function LiveStreamPage() {
               {copied ? <Check size={12} className="text-[#28a745]" /> : <Share2 size={12} className="text-white" />}
               <span className="text-[10px] text-white">{copied ? 'Copied!' : 'Share'}</span>
             </button>
+            {!isBroadcaster && (
+              <button
+                onClick={() => setSoundEnabled(value => !value)}
+                title={soundEnabled ? 'Mute live audio' : 'Turn on live audio'}
+                aria-label={soundEnabled ? 'Mute live audio' : 'Turn on live audio'}
+                className="flex items-center justify-center w-7 h-7 bg-white/10 hover:bg-white/20 rounded-full text-white"
+              >
+                {soundEnabled ? <Volume2 size={13} /> : <VolumeX size={13} />}
+              </button>
+            )}
             {isBroadcaster && (
               <button onClick={endStream} className="flex items-center gap-1 bg-[#E91E63] hover:bg-[#c2185b] px-3 py-1 rounded-full transition-colors">
                 <span className="text-[10px] font-bold text-white">End Live</span>
@@ -495,18 +628,36 @@ export default function LiveStreamPage() {
             <>
               <video
                 ref={remoteVideoRef}
+                muted={!soundEnabled}
                 autoPlay
                 playsInline
                 className="w-full h-full object-cover"
-                onPlay={() => setVideoReady(true)}
+                onPlay={() => { setVideoReady(true); setPlaybackError('') }}
+                onError={() => setPlaybackError('The live video could not be played. Try Chrome or Firefox.')}
               />
               {/* Waiting for stream */}
               {!videoReady && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 gap-4">
                   <div className="w-10 h-10 rounded-full border-2 border-[#E91E63] border-t-transparent animate-spin" />
                   <div className="text-center">
-                    <p className="text-sm text-white/70 font-semibold mb-1">Connecting to live stream…</p>
-                    <p className="text-xs text-white/40">Stream will start playing shortly</p>
+                    <p className="text-sm text-white/70 font-semibold mb-1">
+                      {playbackError || (videoAvailable ? 'Live video is ready' : 'Waiting for live video…')}
+                    </p>
+                    <p className="text-xs text-white/40 mb-3">
+                      {videoAvailable ? 'Tap to start playback. Audio is muted until you turn it on.' : 'The broadcaster may still be connecting their camera.'}
+                    </p>
+                    <button
+                      type="button"
+                      disabled={!videoAvailable}
+                      onClick={() => {
+                        void remoteVideoRef.current?.play().then(() => setPlaybackError('')).catch(() => {
+                          setPlaybackError('Tap Play Live again or try another browser.')
+                        })
+                      }}
+                      className="px-4 py-2 rounded-full bg-[#E91E63] text-white text-xs font-bold disabled:opacity-40"
+                    >
+                      Play Live
+                    </button>
                   </div>
                   {session?.image && (
                     <img src={session.image} alt={session.name} className="w-20 h-20 rounded-full object-cover border-4 border-[#E91E63]/40" />
@@ -535,7 +686,7 @@ export default function LiveStreamPage() {
               <Pin size={12} className="text-[#FFD700] flex-shrink-0 mt-0.5" />
               <p className="text-[11px] text-white flex-1">{pinnedMsg.text}</p>
               {isBroadcaster && (
-                <button onClick={() => setPinnedMsg(null)} className="text-white/50 hover:text-white">
+                <button onClick={() => pinMsg(null)} className="text-white/50 hover:text-white" aria-label="Unpin message">
                   <X size={12} />
                 </button>
               )}
@@ -550,6 +701,14 @@ export default function LiveStreamPage() {
             <div className="flex items-center gap-1 text-[10px] text-white/60">
               <Users size={12} />
               <span>{viewerCount} watching</span>
+            </div>
+            <div
+              role="status"
+              title={broadcastError || undefined}
+              className={`flex items-center gap-1.5 text-[10px] font-semibold ${broadcastStatus === 'live' ? 'text-green-300' : broadcastStatus === 'error' ? 'text-red-300' : 'text-amber-200'}`}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${broadcastStatus === 'live' ? 'bg-green-400' : broadcastStatus === 'error' ? 'bg-red-400' : 'bg-amber-300 animate-pulse'}`} />
+              {broadcastStatus === 'live' ? 'Video connected' : broadcastStatus === 'error' ? 'Video issue' : 'Connecting video'}
             </div>
 
             <button
@@ -569,20 +728,15 @@ export default function LiveStreamPage() {
             </button>
 
             <button
-              onClick={async () => {
-                const locked = !isLocked
-                setIsLocked(locked)
-                fetch(`/api/live/${escortId}/lock`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                  body: JSON.stringify({ locked, tier: locked ? 'premium' : null }),
-                }).catch(() => {})
-              }}
+              onClick={toggleLiveLock}
               className={`flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[11px] font-semibold transition-colors ${isLocked ? 'bg-[#FFD700]/20 text-[#FFD700]' : 'bg-white/10 text-white/60 hover:text-white'}`}
+              title={isLocked ? 'Only you and admins can watch this stream' : 'Make this stream visible only to you and admins'}
             >
               {isLocked ? <Lock size={11} /> : <Unlock size={11} />}
-              {isLocked ? 'Locked' : 'Lock Stream'}
+              {isLocked ? 'Private' : 'Make Private'}
             </button>
+            {broadcastError && <span className="text-[10px] text-red-300 truncate max-w-48">{broadcastError}</span>}
+            {liveActionError && <span role="alert" className="text-[10px] text-red-300 truncate max-w-48">{liveActionError}</span>}
           </div>
         ) : (
           /* Viewer controls */
@@ -618,7 +772,7 @@ export default function LiveStreamPage() {
               {GIFTS.map(g => (
                 <button
                   key={g.id}
-                  onClick={() => sendGift(g.id, g.emoji)}
+                  onClick={() => sendGift(g.id)}
                   className="flex flex-col items-center gap-1 p-2 bg-dark-bg hover:bg-[#8B0000]/20 border border-color/40 hover:border-[#8B0000]/40 rounded-xl transition-all"
                 >
                   <span className="text-2xl">{g.emoji}</span>
@@ -683,6 +837,7 @@ export default function LiveStreamPage() {
 
         {/* Chat input */}
         <div className="px-2 pb-3 flex-shrink-0">
+          {liveActionError && !isBroadcaster && <p role="alert" className="text-[10px] text-red-300 mb-1 px-1">{liveActionError}</p>}
           <div className="flex items-center gap-1.5 bg-dark-bg border border-color rounded-xl px-2 py-1.5">
             <input
               value={chatInput}

@@ -24,6 +24,7 @@ interface SseClient {
 interface VideoSseClient {
   res: Response
   clientId: string
+  userId: number | null
 }
 
 export interface LiveSession {
@@ -48,6 +49,7 @@ export interface LiveSession {
   videoMimeType: string
   videoClients: Map<string, VideoSseClient>
   videoSeq: number
+  lastVideoChunkAt: number
 }
 
 const sessions = new Map<string, LiveSession>()
@@ -84,6 +86,7 @@ export function startLive(
     videoMimeType: 'video/webm',
     videoClients: new Map(),
     videoSeq: 0,
+    lastVideoChunkAt: Date.now(),
   }
   sessions.set(String(escortId), session)
   return session
@@ -94,6 +97,7 @@ export function startLive(
 export function addVideoChunk(escortId: string, b64: string, isInit: boolean, mimeType: string): void {
   const session = sessions.get(escortId)
   if (!session) return
+  session.lastVideoChunkAt = Date.now()
   if (isInit) {
     session.videoInitChunk = b64
     session.videoMimeType = mimeType
@@ -107,10 +111,10 @@ export function addVideoChunk(escortId: string, b64: string, isInit: boolean, mi
   broadcastVideo(session, { b64, mimeType: session.videoMimeType, isInit, seq })
 }
 
-export function addVideoSseClient(escortId: string, clientId: string, res: Response): void {
+export function addVideoSseClient(escortId: string, clientId: string, res: Response, userId: number | null): void {
   const session = sessions.get(escortId)
   if (!session) return
-  session.videoClients.set(clientId, { res, clientId })
+  session.videoClients.set(clientId, { res, clientId, userId })
   // Send init chunk first so viewer can set up SourceBuffer
   if (session.videoInitChunk) {
     try {
@@ -210,15 +214,21 @@ export function addChatMessage(
   return full
 }
 
-export function pinMessage(escortId: string, messageId: string): void {
+export function pinMessage(escortId: string, messageId: string | null): boolean {
   const session = sessions.get(escortId)
-  if (!session) return
-  session.pinnedMessageId = messageId
-  const msg = session.messages.find(m => m.id === messageId)
-  if (msg) {
-    msg.pinned = true
-    broadcast(session, { type: 'pinned', message: msg })
+  if (!session) return false
+  if (!messageId) {
+    session.pinnedMessageId = null
+    for (const msg of session.messages) msg.pinned = false
+    broadcast(session, { type: 'pinned', message: null })
+    return true
   }
+  const msg = session.messages.find(m => m.id === messageId)
+  if (!msg) return false
+  session.pinnedMessageId = messageId
+  for (const item of session.messages) item.pinned = item.id === messageId
+  broadcast(session, { type: 'pinned', message: msg })
+  return true
 }
 
 export function setLocked(escortId: string, locked: boolean, tier: string | null): void {
@@ -226,7 +236,20 @@ export function setLocked(escortId: string, locked: boolean, tier: string | null
   if (!session) return
   session.isLocked = locked
   session.lockedTier = tier
+  if (locked) {
+    for (const [id, client] of session.clients) {
+      if (client.userId === session.escortUserId) continue
+      try { client.res.write(`data: ${JSON.stringify({ type: 'lock_change', isLocked: true, lockedTier: tier })}\n\n`); client.res.end() } catch {}
+      session.clients.delete(id)
+    }
+    for (const [id, client] of session.videoClients) {
+      if (client.userId === session.escortUserId) continue
+      try { client.res.end() } catch {}
+      session.videoClients.delete(id)
+    }
+  }
   broadcast(session, { type: 'lock_change', isLocked: locked, lockedTier: tier })
+  broadcastViewerCount(session)
 }
 
 export function broadcast(session: LiveSession, data: any): void {
@@ -237,7 +260,11 @@ export function broadcast(session: LiveSession, data: any): void {
 }
 
 function broadcastViewerCount(session: LiveSession): void {
-  broadcast(session, { type: 'viewer_count', count: session.clients.size })
+  broadcast(session, { type: 'viewer_count', count: getLiveViewerCount(session) })
+}
+
+export function getLiveViewerCount(session: LiveSession): number {
+  return Array.from(session.clients.values()).filter(client => client.userId !== session.escortUserId).length
 }
 
 setInterval(() => {
@@ -248,3 +275,13 @@ setInterval(() => {
     }
   }
 }, 20000)
+
+// Sessions with no accepted video chunks are not actually live. Expire abandoned
+// starts, closed tabs, and camera failures instead of advertising them forever.
+const staleSessionSweep = setInterval(() => {
+  const now = Date.now()
+  for (const session of sessions.values()) {
+    if (now - session.lastVideoChunkAt > 90_000) endLive(session.escortId)
+  }
+}, 15_000)
+staleSessionSweep.unref?.()

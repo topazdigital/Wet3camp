@@ -490,17 +490,7 @@ export default function MyProfile() {
                     {/* Go Live button — top of quick actions for escorts */}
                     {user?.role === 'escort' && (
                       <button
-                        onClick={async () => {
-                          const token = localStorage.getItem('auth_token') ?? ''
-                          const res = await fetch('/api/live/start', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                            body: JSON.stringify({ title: '' }),
-                          })
-                          const data = await res.json()
-                          if (res.ok) window.location.href = `/live/${data.escortId}?broadcast=true`
-                          else alert(data.message || 'Failed to start stream')
-                        }}
+                        onClick={() => { window.location.href = '/live?start=1' }}
                         className="w-full flex items-center gap-3 px-3 py-2.5 bg-gradient-to-r from-[#E91E63]/20 to-[#8B0000]/10 hover:from-[#E91E63]/30 border border-[#E91E63]/30 hover:border-[#E91E63]/50 rounded-xl transition-all text-left"
                       >
                         <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-[#E91E63]/20 relative">
