@@ -1,4 +1,4 @@
-import { Home, Radio, Newspaper, Star, ShoppingBag, Megaphone, Calendar, Video, Hotel, Plane, MessageSquare, Heart, Ban, MessageCircle, HelpCircle, Mail, Shield, Smartphone, X, Menu, BookOpen, Gift } from 'lucide-react'
+import { Home, Radio, Newspaper, Star, ShoppingBag, Megaphone, Calendar, Video, Hotel, Plane, MessageSquare, Heart, Ban, MessageCircle, HelpCircle, Mail, Shield, Smartphone, X, Menu, BookOpen, Gift, UserPlus } from 'lucide-react'
 import { Link, useLocation } from 'wouter'
 import { useState, useEffect } from 'react'
 import { useSidebar } from '@/lib/sidebar-context'
@@ -40,6 +40,7 @@ const NAV_SECTIONS = [
     title: 'Support',
     items: [
       { icon: HelpCircle,    label: 'FAQs',            href: '/faqs' },
+      { icon: UserPlus,      label: 'For Escorts',     href: '/for-escorts', highlight: true },
       { icon: Mail,          label: 'Contact Admin',   href: '/contact' },
       { icon: Gift,          label: 'Refer & Earn',    href: '/referral', highlight: true },
       { icon: Smartphone,    label: 'Install App',     href: '/install', highlight: true },
@@ -182,8 +183,8 @@ export default function Sidebar() {
           <div className="p-3 border-t border-color">
             <div className="bg-gradient-to-br from-[#8B0000]/30 to-[#1a0000] rounded-xl p-3 border border-[#8B0000]/20">
               <p className="text-xs font-bold text-text-light mb-1">List Your Profile</p>
-              <p className="text-[10px] text-text-muted mb-2.5 leading-snug">Start earning today — verified profiles get 3× more inquiries.</p>
-              <Link href="/register" className="block text-center text-xs font-bold py-1.5 rounded-lg bg-[#8B0000] text-white hover:bg-[#a00000] transition-colors">
+              <p className="text-[10px] text-text-muted mb-2.5 leading-snug">Create a free profile and choose whether to add optional visibility.</p>
+              <Link href="/register?role=escort" className="block text-center text-xs font-bold py-1.5 rounded-lg bg-[#8B0000] text-white hover:bg-[#a00000] transition-colors">
                 Register as Escort
               </Link>
             </div>

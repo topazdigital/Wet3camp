@@ -151,15 +151,16 @@ export default function RegisterPage() {
   // Detect OAuth escort-setup mode (?step=escort in URL) and referral code (?ref=CODE)
   const searchParams = new URLSearchParams(window.location.search)
   const isOAuthEscortSetup = searchParams.get('step') === 'escort'
+  const isEscortRegistration = searchParams.get('role') === 'escort'
   const referralCode = searchParams.get('ref') ?? localStorage.getItem('wet3_ref') ?? ''
   // Persist ref code across page navigations
   if (searchParams.get('ref')) localStorage.setItem('wet3_ref', searchParams.get('ref')!)
 
   // Step management
-  const [role, setRole]             = useState<'client'|'escort'|null>(isOAuthEscortSetup ? 'escort' : null)
+  const [role, setRole]             = useState<'client'|'escort'|null>(isOAuthEscortSetup || isEscortRegistration ? 'escort' : null)
   const [authMethod, setAuthMethod] = useState<'manual'|'oauth'|null>(isOAuthEscortSetup ? 'oauth' : null)
   const [oauthProvider, setOauthProvider] = useState<string|null>(isOAuthEscortSetup ? 'oauth' : null)
-  const [stepIdx, setStepIdx]       = useState(0)
+  const [stepIdx, setStepIdx]       = useState(isEscortRegistration && !isOAuthEscortSetup ? 1 : 0)
 
   // Basic details
   const [name, setName]             = useState('')
@@ -660,7 +661,7 @@ export default function RegisterPage() {
             <div className="grid grid-cols-2 gap-4">
               {[
                 { r:'client', icon:'👤', title:"I'm a Client", desc:'Browse and connect with escorts', perks:['Access all profiles','Private messaging','Discreet billing','Rate escorts'], color:'#2196F3' },
-                { r:'escort', icon:'⭐', title:"I'm an Escort", desc:'List your profile and earn', perks:['Get verified badge','More bookings','Manage schedule','Secure payments'], color:'#8B0000' },
+                { r:'escort', icon:'⭐', title:"I'm an Escort", desc:'Create and manage your profile', perks:['Free Standard profile','Set your own rates and services','Keep your details up to date','Optional paid visibility upgrades'], color:'#8B0000' },
               ].map(({ r, icon, title, desc, perks, color }) => (
                 <button key={r} onClick={() => setRole(r as 'client'|'escort')} className={`p-5 rounded-2xl border-2 text-left transition-all ${role === r ? 'border-[#8B0000] bg-[#8B0000]/10' : 'border-color bg-card-bg hover:border-[#8B0000]/40'}`}>
                   <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl mb-3" style={{ backgroundColor: color + '20' }}>{icon}</div>
@@ -1060,7 +1061,7 @@ export default function RegisterPage() {
             <div className="p-4 bg-[#FFD700]/10 border border-[#FFD700]/20 rounded-2xl">
               <p className="text-xs font-bold text-[#FFD700] mb-2">💡 Pricing Tips</p>
               <ul className="space-y-1">
-                {['Start competitively to build reviews quickly','Elite escorts charge KES 8,000–20,000/hr','Verified escorts earn 3× more bookings'].map(t => (
+                {['Set rates that work for you','A complete profile helps clients understand your offer','Keep your services and availability up to date'].map(t => (
                   <li key={t} className="text-[11px] text-text-muted flex items-start gap-2"><span className="text-[#FFD700] mt-0.5">•</span>{t}</li>
                 ))}
               </ul>

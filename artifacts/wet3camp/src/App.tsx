@@ -17,6 +17,7 @@ const Admin           = lazy(() => import("@/pages/admin"))
 const Adverts         = lazy(() => import("@/pages/adverts"))
 const Blacklist       = lazy(() => import("@/pages/blacklist"))
 const Contact         = lazy(() => import("@/pages/contact"))
+const ForEscorts      = lazy(() => import("@/pages/for-escorts"))
 const Events          = lazy(() => import("@/pages/events"))
 const Exclusive       = lazy(() => import("@/pages/exclusive"))
 const Faqs            = lazy(() => import("@/pages/faqs"))
@@ -99,6 +100,7 @@ function Router() {
         <Route path="/adverts" component={Adverts} />
         <Route path="/blacklist" component={Blacklist} />
         <Route path="/contact" component={Contact} />
+        <Route path="/for-escorts" component={ForEscorts} />
         <Route path="/events" component={Events} />
         <Route path="/exclusive" component={Exclusive} />
         <Route path="/faqs" component={Faqs} />

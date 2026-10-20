@@ -19,6 +19,7 @@ Allow: /live
 Allow: /feeds
 Allow: /exclusive
 Allow: /adverts
+Allow: /for-escorts
 
 # Private/account areas — do not index
 Disallow: /admin

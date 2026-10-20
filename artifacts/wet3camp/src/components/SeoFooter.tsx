@@ -19,6 +19,7 @@ const SERVICES = [
 const TIERS = ['Elite', 'VIP', 'Premium', 'Standard']
 
 const RESOURCES = [
+  { label: 'Advertise your profile', href: '/for-escorts' },
   { label: 'Blog & Guides', href: '/blog' },
   { label: 'Safety Tips', href: '/blog/escort-safety-tips-kenya' },
   { label: 'Escort Rates 2025', href: '/blog/nairobi-escort-rates-2025' },

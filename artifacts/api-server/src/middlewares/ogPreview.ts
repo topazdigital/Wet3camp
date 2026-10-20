@@ -329,7 +329,7 @@ async function fetchCityPhoto(city?: string): Promise<string> {
 }
 
 // ── Per-page static OG data ───────────────────────────────────────────────────
-interface PageOg { title: string; description: string; keywords?: string; image?: string; type?: string }
+interface PageOg { title: string; description: string; keywords?: string; image?: string; type?: string; body?: string; schema?: object | object[] }
 
 const PAGE_OG: Record<string, PageOg> = {
   '/': {
@@ -422,6 +422,22 @@ const PAGE_OG: Record<string, PageOg> = {
     title: 'Join Free — Create Your Account | Wet3Camp Kenya',
     description: 'Create a free Wet3 Camp account to save profiles, manage bookings and connect with escorts across Kenya.',
     keywords: `join wet3camp, escort registration Kenya, create escort profile Kenya, ${BASE_KW}`,
+  },
+  '/for-escorts': {
+    title: 'Advertise Your Escort Profile in Kenya | Wet3Camp Directory',
+    description: 'Create a free escort profile on Wet3Camp for consenting adults in Nairobi and across Kenya. Manage your listing and choose optional visibility upgrades.',
+    keywords: 'advertise escort profile Kenya, escort advertising Nairobi, list escort profile Kenya, escort directory advertising Kenya',
+    body: `<main><nav aria-label="Breadcrumb"><a href="${SITE_URL}/">Home</a> / For Escorts</nav><h1>List your escort profile in Kenya on Wet3Camp</h1><p>Create a profile if you are an adult escort who wants to manage your own listing. Standard registration is free. Optional paid visibility upgrades are available.</p><p><a href="${SITE_URL}/register?role=escort">Create your free escort profile</a></p><h2>Free registration and optional profile tiers</h2><p>Standard: free. Premium: KES 2,200 per month. VIP: KES 4,500 per month. Elite: KES 8,500 per month. Featured placement is separate: KES 500 for 3 days, KES 1,500 weekly, or KES 4,500 monthly. Confirm current prices and inclusions before purchasing.</p><p>Paid visibility is advertising placement, not a promise of views, enquiries, bookings, income, or a particular search position.</p><h2>A listing you manage</h2><p>Share only the details and images you have permission to publish. Set your own rates and services, and keep profile information current. Profile submissions are reviewed before publication.</p><h2>How Wet3Camp works</h2><p>Wet3Camp is a directory. It does not arrange appointments, collect client booking payments, or take a commission on arrangements. Adults decide whether to contact each other and make any arrangements directly.</p><h2>Who can register?</h2><p>Registration is for consenting adults aged 18 or older who want to publish their own profile or are authorized to manage it. Do not submit or promote a profile without permission.</p><p><a href="${SITE_URL}/register?role=escort">Start free escort registration</a> · <a href="${SITE_URL}/tier-benefits">Compare profile tiers</a> · <a href="${SITE_URL}/contact">Contact support</a></p></main>`,
+    schema: {
+      '@context': 'https://schema.org',
+      '@type': 'WebPage',
+      '@id': `${SITE_URL}/for-escorts#webpage`,
+      name: 'Advertise Your Escort Profile in Kenya | Wet3Camp Directory',
+      description: 'Create a free escort profile on Wet3Camp for consenting adults in Nairobi and across Kenya. Manage your listing and choose optional visibility upgrades.',
+      url: `${SITE_URL}/for-escorts`,
+      inLanguage: 'en-KE',
+      isPartOf: { '@id': `${SITE_URL}/#website` },
+    },
   },
   '/login': {
     title: 'Sign In to Wet3Camp | Kenya Escort Directory',
@@ -1124,7 +1140,10 @@ export async function ogPreviewMiddleware(req: Request, res: Response, next: Nex
       keywords: staticOg.keywords,
       type: staticOg.type,
       noIndex,
-      schema: BASE_SCHEMAS,
+      schema: staticOg.schema
+        ? [...BASE_SCHEMAS, ...(Array.isArray(staticOg.schema) ? staticOg.schema : [staticOg.schema])]
+        : BASE_SCHEMAS,
+      body: staticOg.body,
     }))
     return
   }

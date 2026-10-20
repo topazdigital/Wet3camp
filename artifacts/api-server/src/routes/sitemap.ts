@@ -17,6 +17,7 @@ const STATIC_PAGES = [
   { loc: '/search',        changefreq: 'hourly',  priority: '0.9' },
   { loc: '/exclusive',     changefreq: 'daily',   priority: '0.9' },
   { loc: '/adverts',       changefreq: 'daily',   priority: '0.8' },
+  { loc: '/for-escorts',   changefreq: 'weekly',  priority: '0.9' },
   { loc: '/feeds',         changefreq: 'hourly',  priority: '0.8' },
   { loc: '/live',          changefreq: 'always',  priority: '0.8' },
   { loc: '/events',        changefreq: 'daily',   priority: '0.7' },
