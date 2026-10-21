@@ -53,7 +53,12 @@ export default function Sidebar() {
   const [localIsOpen, setLocalIsOpen] = useState(true)
   const [localIsMobile, setLocalIsMobile] = useState(false)
   const [location] = useLocation()
-  const { isAdmin } = useAuth()
+  const { isAdmin, isLoggedIn, isEscort, isPendingEscort } = useAuth()
+  const sidebarCta = isEscort
+    ? isPendingEscort
+      ? { href: '/pending-approval', title: 'Profile under review', description: 'Check the status of your submission.', label: 'View Review Status' }
+      : { href: '/my-profile', title: 'Your Escort Listing', description: 'Update your profile or review visibility options.', label: 'Manage My Listing' }
+    : { href: '/register?role=escort', title: 'List Your Profile', description: 'Create a free profile and choose whether to add optional visibility.', label: 'Register as Escort' }
 
   let isOpen = localIsOpen, setIsOpen = setLocalIsOpen, isMobile = localIsMobile
   try {
@@ -179,13 +184,13 @@ export default function Sidebar() {
         </nav>
 
         {/* Bottom CTA */}
-        {isOpen && (
+        {isOpen && (!isLoggedIn || isEscort) && (
           <div className="p-3 border-t border-color">
             <div className="bg-gradient-to-br from-[#8B0000]/30 to-[#1a0000] rounded-xl p-3 border border-[#8B0000]/20">
-              <p className="text-xs font-bold text-text-light mb-1">List Your Profile</p>
-              <p className="text-[10px] text-text-muted mb-2.5 leading-snug">Create a free profile and choose whether to add optional visibility.</p>
-              <Link href="/register?role=escort" className="block text-center text-xs font-bold py-1.5 rounded-lg bg-[#8B0000] text-white hover:bg-[#a00000] transition-colors">
-                Register as Escort
+              <p className="text-xs font-bold text-text-light mb-1">{sidebarCta.title}</p>
+              <p className="text-[10px] text-text-muted mb-2.5 leading-snug">{sidebarCta.description}</p>
+              <Link href={sidebarCta.href} className="block text-center text-xs font-bold py-1.5 rounded-lg bg-[#8B0000] text-white hover:bg-[#a00000] transition-colors">
+                {sidebarCta.label}
               </Link>
             </div>
           </div>
