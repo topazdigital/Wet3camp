@@ -15,6 +15,7 @@
 import type { Request, Response, NextFunction } from 'express'
 import { getPool } from '../lib/db.js'
 import { AREA_LANDING_PAGES, CITY_AREA_VALUES, getAreaLandingPage, isAreaRowMatch } from '../lib/location-data.js'
+import { readPlatformPricing, type PlatformPricing } from '../lib/platform-pricing.js'
 
 const SITE_URL  = 'https://wet3.camp'
 const DEFAULT_IMAGE = `${SITE_URL}/opengraph.jpg`
@@ -22,6 +23,12 @@ const SITE_NAME = 'Wet3 Camp'
 
 const profileSlug = (name: string) =>
   name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+
+const formatKes = (amount: number) => `KES ${amount.toLocaleString('en-KE')}`
+
+function buildForEscortsBody(pricing: PlatformPricing): string {
+  return `<main><nav aria-label="Breadcrumb"><a href="${SITE_URL}/">Home</a> / For Escorts</nav><h1>List your escort profile in Kenya on Wet3Camp</h1><p>Create a profile if you are an adult escort who wants to manage your own listing. Standard registration is free. Optional paid visibility upgrades are available.</p><p><a href="${SITE_URL}/register?role=escort">Create your free escort profile</a></p><h2>Free registration and optional profile tiers</h2><p>Standard: free. Premium: ${formatKes(pricing.profileTiers.premium)} per month. VIP: ${formatKes(pricing.profileTiers.vip)} per month. Elite: ${formatKes(pricing.profileTiers.elite)} per month. Featured placement is separate: ${formatKes(pricing.featured.threeDay)} for 3 days, ${formatKes(pricing.featured.weekly)} weekly, or ${formatKes(pricing.featured.monthly)} monthly. Confirm current prices and inclusions before purchasing.</p><p>Paid visibility is advertising placement, not a promise of views, enquiries, bookings, income, or a particular search position.</p><h2>A listing you manage</h2><p>Share only the details and images you have permission to publish. Set your own rates and services, and keep profile information current. Profile submissions are reviewed before publication.</p><h2>How Wet3Camp works</h2><p>Wet3Camp is a directory. It does not arrange appointments, collect client booking payments, or take a commission on arrangements. Adults decide whether to contact each other and make any arrangements directly.</p><h2>Who can register?</h2><p>Registration is for consenting adults aged 18 or older who want to publish their own profile or are authorized to manage it. Do not submit or promote a profile without permission.</p><p><a href="${SITE_URL}/register?role=escort">Start free escort registration</a> · <a href="${SITE_URL}/tier-benefits">Compare profile tiers</a> · <a href="${SITE_URL}/contact">Contact support</a></p></main>`
+}
 
 const PUBLIC_CITY_PAGES = [
   { name: 'Nairobi', slug: 'nairobi' },
@@ -1130,8 +1137,20 @@ export async function ogPreviewMiddleware(req: Request, res: Response, next: Nex
   const staticOg = PAGE_OG[pathKey]
   if (staticOg) {
     const noIndex = ['/login', '/register', '/install', '/blacklist'].includes(pathKey)
+    let body = staticOg.body
+    if (pathKey === '/for-escorts') {
+      body = `<main><nav aria-label="Breadcrumb"><a href="${SITE_URL}/">Home</a> / For Escorts</nav><h1>List your escort profile in Kenya on Wet3Camp</h1><p>Standard registration is free. Current optional tier and featured placement prices are available on this page. Confirm the current price and inclusions before purchasing.</p><p>Paid visibility is advertising placement, not a promise of views, enquiries, bookings, income, or a particular search position.</p></main>`
+      const pool = getPool()
+      if (pool) {
+        try {
+          body = buildForEscortsBody(await readPlatformPricing(pool))
+        } catch (err: any) {
+          console.error('[og-for-escorts] Could not load live pricing:', err?.message ?? err)
+        }
+      }
+    }
     res.setHeader('Content-Type', 'text/html; charset=utf-8')
-    res.setHeader('Cache-Control', 'public, max-age=3600')
+    res.setHeader('Cache-Control', pathKey === '/for-escorts' ? 'no-store' : 'public, max-age=3600')
     res.send(buildHtml({
       title: staticOg.title,
       description: staticOg.description,
@@ -1143,7 +1162,7 @@ export async function ogPreviewMiddleware(req: Request, res: Response, next: Nex
       schema: staticOg.schema
         ? [...BASE_SCHEMAS, ...(Array.isArray(staticOg.schema) ? staticOg.schema : [staticOg.schema])]
         : BASE_SCHEMAS,
-      body: staticOg.body,
+      body,
     }))
     return
   }

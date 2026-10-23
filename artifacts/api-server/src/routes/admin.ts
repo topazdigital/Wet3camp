@@ -5,6 +5,11 @@ import { setEscortOnline } from '../lib/online-store.js'
 import { sendEscortApprovedEmail, sendEscortRejectedEmail, sendTelegramNotification } from '../lib/mailer.js'
 import { signToken } from '../lib/jwt.js'
 import { downloadAndStoreImage } from '../lib/image-download.js'
+import {
+  isValidPlatformPricing,
+  platformPricingSettings,
+  readPlatformPricing,
+} from '../lib/platform-pricing.js'
 
 const router = Router()
 
@@ -857,6 +862,49 @@ async function upsertSetting(pool: any, key: string, value: string) {
     await pool.query('UPDATE platform_settings SET `value` = ?, updated_at = NOW() WHERE `key` = ?', [value, key])
   }
 }
+
+router.get('/public/pricing', async (_req, res) => {
+  res.setHeader('Cache-Control', 'no-store')
+  try {
+    const pool = getPool()
+    if (!pool) { res.status(503).json({ message: 'Pricing is temporarily unavailable' }); return }
+    res.json({ pricing: await readPlatformPricing(pool) })
+  } catch (err: any) {
+    console.error('[public/pricing GET]', err?.message ?? err)
+    res.status(503).json({ message: 'Pricing is temporarily unavailable' })
+  }
+})
+
+router.get('/admin/pricing', requireAuth, requireAdmin, async (_req: AuthRequest, res) => {
+  try {
+    const pool = getPool()
+    if (!pool) { res.status(503).json({ message: 'Database not configured' }); return }
+    res.json({ pricing: await readPlatformPricing(pool) })
+  } catch (err: any) {
+    console.error('[admin/pricing GET]', err?.message ?? err)
+    res.status(500).json({ message: 'Could not load pricing settings' })
+  }
+})
+
+router.put('/admin/pricing', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  if (!isValidPlatformPricing(req.body)) {
+    res.status(400).json({ message: 'Enter a whole-number price greater than zero for every item' })
+    return
+  }
+
+  const pool = getPool()
+  if (!pool) { res.status(503).json({ message: 'Database not configured' }); return }
+
+  try {
+    for (const [key, value] of platformPricingSettings(req.body)) {
+      await upsertSetting(pool, key, value)
+    }
+    res.json({ success: true, pricing: await readPlatformPricing(pool) })
+  } catch (err: any) {
+    console.error('[admin/pricing PUT]', err?.message ?? err)
+    res.status(500).json({ message: 'Failed to save pricing settings' })
+  }
+})
 
 router.post('/admin/settings', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
   try {

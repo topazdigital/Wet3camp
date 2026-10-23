@@ -5,6 +5,7 @@ import { useSEO } from '@/lib/useSEO'
 import { Crown, Star, Diamond, Check, X, Zap, Eye, BarChart2, Shield, ArrowRight, Flame } from 'lucide-react'
 import { Link } from 'wouter'
 import { useAuth } from '@/lib/auth-context'
+import { formatKes, usePublicPricing, type PublicPricing } from '@/lib/pricing'
 
 // ─── Tier data ────────────────────────────────────────────────────────────────
 
@@ -17,7 +18,8 @@ const TIERS = [
     color: '#FFD700',
     darkColor: '#B8860B',
     glowColor: '#FFD700',
-    price: 'KES 8,500 / mo',
+    priceKey: 'elite' as const,
+    price: null,
     popular: true,
     icon: Crown,
     benefits: [
@@ -42,7 +44,8 @@ const TIERS = [
     color: '#FF4500',
     darkColor: '#c93500',
     glowColor: '#FF4500',
-    price: 'KES 4,500 / mo',
+    priceKey: 'vip' as const,
+    price: null,
     popular: false,
     icon: Star,
     benefits: [
@@ -64,7 +67,8 @@ const TIERS = [
     color: '#B8860B',
     darkColor: '#8B6914',
     glowColor: '#B8860B',
-    price: 'KES 2,200 / mo',
+    priceKey: 'premium' as const,
+    price: null,
     popular: false,
     icon: Zap,
     benefits: [
@@ -84,6 +88,7 @@ const TIERS = [
     color: '#9E9E9E',
     darkColor: '#757575',
     glowColor: '#9E9E9E',
+    priceKey: null,
     price: 'FREE',
     popular: false,
     icon: Shield,
@@ -111,8 +116,23 @@ const COMPARISON_ROWS = [
 
 // ─── Sub-components ────────────────────────────────────────────────────────────
 
-function TierCard({ tier, isCurrentTier }: { tier: typeof TIERS[number]; isCurrentTier?: boolean }) {
+function TierCard({
+  tier,
+  isCurrentTier,
+  pricing,
+  pricingLoading,
+}: {
+  tier: typeof TIERS[number]
+  isCurrentTier?: boolean
+  pricing: PublicPricing | null
+  pricingLoading: boolean
+}) {
   const Icon = tier.icon
+  const priceText = tier.priceKey
+    ? pricing
+      ? formatKes(pricing.profileTiers[tier.priceKey])
+      : pricingLoading ? 'Loading…' : 'Unavailable'
+    : tier.price
   return (
     <div
       className={`relative flex flex-col rounded-2xl overflow-hidden border transition-all ${
@@ -140,8 +160,8 @@ function TierCard({ tier, isCurrentTier }: { tier: typeof TIERS[number]; isCurre
         </div>
 
         <div className="flex items-baseline gap-1 mb-1">
-          <span className="text-2xl font-black" style={{ color: tier.color }}>{tier.price.split(' / ')[0]}</span>
-          <span className="text-sm text-text-muted">/ month</span>
+          <span className="text-2xl font-black" style={{ color: tier.color }}>{priceText ?? '—'}</span>
+          {tier.priceKey && <span className="text-sm text-text-muted">/ month</span>}
         </div>
 
         {isCurrentTier ? (
@@ -183,6 +203,7 @@ function TierCard({ tier, isCurrentTier }: { tier: typeof TIERS[number]; isCurre
 export default function TierBenefitsPage() {
   useSEO({ title: 'Tier Benefits — Wet3Camp', noIndex: true })
   const { user } = useAuth()
+  const { pricing, loading: pricingLoading, error: pricingError } = usePublicPricing()
   const [showComparison, setShowComparison] = useState(false)
 
   const currentTier = 'standard'
@@ -212,9 +233,10 @@ export default function TierBenefitsPage() {
           {/* Tier cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
             {TIERS.map(tier => (
-              <TierCard key={tier.id} tier={tier} isCurrentTier={tier.id === currentTier} />
+              <TierCard key={tier.id} tier={tier} isCurrentTier={tier.id === currentTier} pricing={pricing} pricingLoading={pricingLoading} />
             ))}
           </div>
+          {pricingError && <p className="mb-8 text-center text-xs text-[#EF4444]" role="status">{pricingError}</p>}
 
           {/* Key stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">

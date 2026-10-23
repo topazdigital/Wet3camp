@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { getPool } from '../lib/db.js'
 import { requireAuth, type AuthRequest } from '../middlewares/requireAuth.js'
+import { featuredPriceForPaymentType, readPlatformPricing } from '../lib/platform-pricing.js'
 
 const router = Router()
 
@@ -149,12 +150,34 @@ router.post('/payments/initiate', requireAuth, async (req: AuthRequest, res) => 
     const pool = getPool()
     if (!pool) { res.status(503).json({ message: 'Database not configured' }); return }
 
-    const { phone, amount, type, description } = req.body as {
+    const { phone, amount: requestedAmount, type, description } = req.body as {
       phone?: string; amount?: number; type?: string; description?: string
     }
 
-    if (!phone || !amount || !type) {
+    if (!phone || requestedAmount === undefined || !type) {
       res.status(400).json({ message: 'phone, amount, and type are required' }); return
+    }
+
+    const parsedAmount = Number(requestedAmount)
+    if (!Number.isSafeInteger(parsedAmount) || parsedAmount < 1) {
+      res.status(400).json({ message: 'Enter a valid payment amount' }); return
+    }
+
+    let amount = parsedAmount
+    if (type.startsWith('featured_')) {
+      const pricing = await readPlatformPricing(pool)
+      const currentFeaturedPrice = featuredPriceForPaymentType(type, pricing)
+      if (currentFeaturedPrice === null) {
+        res.status(400).json({ message: 'Unknown featured placement option' }); return
+      }
+      if (parsedAmount !== currentFeaturedPrice) {
+        res.status(409).json({
+          message: 'The featured price changed. Review the current price and try again.',
+          amount: currentFeaturedPrice,
+        })
+        return
+      }
+      amount = currentFeaturedPrice
     }
 
     const cleanPhone = phone.replace(/\s/g, '').replace(/^\+/, '')

@@ -9,6 +9,7 @@ import { Link } from 'wouter'
 import { useFollow } from '@/lib/follow-context'
 import { useSEO } from '@/lib/useSEO'
 import { useMpesaPayment } from '@/lib/mpesa'
+import { formatKes, usePublicPricing } from '@/lib/pricing'
 
 const TABS = ['Overview', 'My Bookings', 'My Rooms', 'Edit Profile', 'Gallery', 'Followers', 'Get Featured', 'Instagram Import', 'Subscription', 'Earnings']
 
@@ -17,6 +18,7 @@ const PLACEHOLDER_IMG = 'https://images.unsplash.com/photo-1531746020798-e6953c6
 export default function MyProfile() {
   useSEO({ title: 'My Profile — Dashboard', noIndex: true })
   const { user } = useAuth()
+  const { pricing, loading: pricingLoading, error: pricingError } = usePublicPricing()
   const [activeTab, setActiveTab] = useState('Overview')
   const [editSaved, setEditSaved] = useState(false)
 
@@ -960,19 +962,23 @@ export default function MyProfile() {
                 <p className="text-sm text-text-muted">Pay via M-Pesa and get placed at the top of search results and the homepage carousel.</p>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-                {[
-                  { id:'basic', name:'3-Day Boost', price:500, duration:'3 days', color:'#6B7280', perks:['Top of search','Featured badge','2× visibility'] },
-                  { id:'weekly', name:'Weekly Featured', price:1500, duration:'7 days', color:'#B8860B', perks:['Homepage carousel','5× visibility','"Featured" badge'], popular:true },
-                  { id:'monthly', name:'Monthly Elite', price:4500, duration:'30 days', color:'#8B0000', perks:['Top position always','10× visibility','Analytics','Priority support'] },
+                {pricing ? [
+                  { id:'basic', name:'3-Day Boost', price:pricing.featured.threeDay, duration:'3 days', color:'#6B7280', perks:['Top of search','Featured badge','2× visibility'] },
+                  { id:'weekly', name:'Weekly Featured', price:pricing.featured.weekly, duration:'7 days', color:'#B8860B', perks:['Homepage carousel','5× visibility','"Featured" badge'], popular:true },
+                  { id:'monthly', name:'Monthly Elite', price:pricing.featured.monthly, duration:'30 days', color:'#8B0000', perks:['Top position always','10× visibility','Analytics','Priority support'] },
                 ].map(plan => (
                   <div key={plan.id} className={`relative bg-dark-bg border-2 rounded-2xl p-4 cursor-pointer transition-all hover:scale-[1.02] ${plan.popular?'border-[#FFD700]':'border-color'}`}>
                     {plan.popular && <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 bg-[#FFD700] text-black text-[9px] font-black rounded-full">POPULAR</div>}
                     <p className="text-xs text-text-muted mb-1">{plan.name}</p>
-                    <p className="text-xl font-black mb-0.5" style={{ color: plan.color }}>KES {plan.price.toLocaleString()}</p>
+                    <p className="text-xl font-black mb-0.5" style={{ color: plan.color }}>{formatKes(plan.price)}</p>
                     <p className="text-[10px] text-text-muted mb-3">for {plan.duration}</p>
                     {plan.perks.map(p => <div key={p} className="flex items-center gap-1.5 text-[10px] text-text-muted mb-1"><CheckCircle2 size={10} style={{color:plan.color}}/>{p}</div>)}
                   </div>
-                ))}
+                )) : (
+                  <div className="sm:col-span-3 rounded-xl border border-color p-4 text-center text-xs text-text-muted" role="status">
+                    {pricingLoading ? 'Loading current prices…' : pricingError || 'Current prices are temporarily unavailable.'}
+                  </div>
+                )}
               </div>
               <Link href="/featured-upgrade" className="w-full flex items-center justify-center gap-2 py-3.5 bg-gradient-to-r from-[#8B0000] to-[#a00000] text-white font-black text-sm rounded-xl hover:from-[#a00000] hover:to-[#8B0000] transition-all shadow-lg shadow-[#8B0000]/30">
                 <Smartphone size={15} /> Choose a Plan & Pay with M-Pesa

@@ -22,3 +22,4 @@
 - [Server deploy self-update](server-deploy-self-update.md) — a deploy script that resets its own checkout must re-exec once before PM2 work, then health-check the dedicated API port
 - [Production route synchronization](production-route-sync.md) — wet3.camp can serve an older API than checked-in source; verify critical routes live after the GitHub deploy completes
 - [Escort landing density](escort-landing-density.md) — Keep escort acquisition pages compact and responsive across phone, tablet, and desktop
+- [Admin-managed escort pricing](admin-managed-escort-pricing.md) — Keep featured placement display prices and M-Pesa charges aligned; account subscriptions are separate

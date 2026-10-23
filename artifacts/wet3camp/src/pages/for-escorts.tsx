@@ -18,6 +18,7 @@ import {
 import Header from '@/components/Header'
 import Sidebar from '@/components/Sidebar'
 import { useAuth } from '@/lib/auth-context'
+import { formatKes, usePublicPricing } from '@/lib/pricing'
 import { SITE_URL, useSEO } from '@/lib/useSEO'
 
 const PAGE_TITLE = 'Advertise Your Escort Profile in Kenya | Wet3Camp Directory'
@@ -25,9 +26,15 @@ const PAGE_DESCRIPTION =
   'Create a free escort profile on Wet3Camp for consenting adults in Nairobi and across Kenya. Manage your listing and choose optional visibility upgrades.'
 
 const monthlyPlans = [
-  { name: 'Premium', price: 'KES 2,200', note: 'per month', tone: 'gold' },
-  { name: 'VIP', price: 'KES 4,500', note: 'per month', tone: 'wine' },
-  { name: 'Elite', price: 'KES 8,500', note: 'per month', tone: 'bright' },
+  { name: 'Premium', key: 'premium' as const, note: 'per month', tone: 'gold' },
+  { name: 'VIP', key: 'vip' as const, note: 'per month', tone: 'wine' },
+  { name: 'Elite', key: 'elite' as const, note: 'per month', tone: 'bright' },
+]
+
+const featuredPlans = [
+  { term: '3 days', key: 'threeDay' as const },
+  { term: 'Weekly', key: 'weekly' as const },
+  { term: 'Monthly', key: 'monthly' as const },
 ]
 
 const faqs = [
@@ -70,6 +77,7 @@ function SectionEyebrow({ children }: { children: string }) {
 export default function ForEscortsPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null)
   const { isLoggedIn, isEscort, isPendingEscort } = useAuth()
+  const { pricing, loading: pricingLoading, error: pricingError } = usePublicPricing()
   const primaryAction = isEscort
     ? isPendingEscort
       ? { href: '/pending-approval', label: 'Check review status' }
@@ -253,18 +261,22 @@ export default function ForEscortsPage() {
                   <span className="text-[10px] text-[#9b8a82]">KES · current displayed prices</span>
                 </div>
                 <div className="divide-y divide-[#493136]">
-                  {monthlyPlans.map((plan) => (
+                  {pricing ? monthlyPlans.map((plan) => (
                     <div key={plan.name} className="flex items-center justify-between gap-4 py-2.5" data-testid={`price-tier-${plan.name.toLowerCase()}`}>
                       <div className="flex items-center gap-3">
                         <span className={`h-2 w-2 rounded-full ${plan.tone === 'bright' ? 'bg-[#b98d54]' : plan.tone === 'wine' ? 'bg-[#a83d4b]' : 'bg-[#d5b66b]'}`} />
                         <span className="text-sm font-semibold text-[#e8ded2]">{plan.name}</span>
                       </div>
                       <div className="text-right">
-                        <span className="font-mono text-sm font-semibold text-[#e6d7bd]">{plan.price}</span>
+                        <span className="font-mono text-sm font-semibold text-[#e6d7bd]">{formatKes(pricing.profileTiers[plan.key])}</span>
                         <span className="ml-2 text-xs text-[#94847c]">{plan.note}</span>
                       </div>
                     </div>
-                  ))}
+                  )) : (
+                    <div className="py-3 text-xs text-[#a99b94]" role="status">
+                      {pricingLoading ? 'Loading current prices…' : pricingError || 'Prices are temporarily unavailable.'}
+                    </div>
+                  )}
                 </div>
                 <div className="mt-4 border border-[#493136] bg-[#171113] p-3.5 sm:p-4">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -276,16 +288,16 @@ export default function ForEscortsPage() {
                       <p className="mt-2 text-xs leading-5 text-[#a99b94]">A separate optional visibility purchase, available in three durations.</p>
                     </div>
                     <dl className="grid flex-1 grid-cols-3 gap-2 sm:max-w-sm">
-                      {[
-                        { term: '3 days', amount: 'KES 500' },
-                        { term: 'Weekly', amount: 'KES 1,500' },
-                        { term: 'Monthly', amount: 'KES 4,500' },
-                      ].map((item) => (
+                      {pricing ? featuredPlans.map((item) => (
                         <div key={item.term} className="border-l border-[#70404a] pl-3" data-testid={`price-featured-${item.term.toLowerCase().replace(' ', '-')}`}>
                           <dt className="text-[10px] uppercase tracking-wider text-[#95847d]">{item.term}</dt>
-                          <dd className="mt-1 font-mono text-xs font-semibold text-[#e6d7bd]">{item.amount}</dd>
+                          <dd className="mt-1 font-mono text-xs font-semibold text-[#e6d7bd]">{formatKes(pricing.featured[item.key])}</dd>
                         </div>
-                      ))}
+                      )) : (
+                        <div className="col-span-3 text-right text-xs text-[#a99b94]" role="status">
+                          {pricingLoading ? 'Loading current prices…' : pricingError || 'Prices are temporarily unavailable.'}
+                        </div>
+                      )}
                     </dl>
                   </div>
                 </div>

@@ -1,16 +1,17 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import Header from '@/components/Header'
 import Sidebar from '@/components/Sidebar'
 import { Crown, CheckCircle2, Smartphone, Loader2, AlertCircle, Star, TrendingUp, Eye, ArrowRight, RefreshCw, X } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { Link } from 'wouter'
 import { useMpesaPayment } from '@/lib/mpesa'
+import { formatKes, usePublicPricing } from '@/lib/pricing'
 
-const PLANS = [
+const PLAN_OPTIONS = [
   {
     id: 'basic',
+    priceKey: 'threeDay' as const,
     name: '3-Day Boost',
-    price: 500,
     duration: '3 days',
     color: '#6B7280',
     perks: ['Top of search results', 'Featured badge on profile', '2× more visibility', 'City-level promotion'],
@@ -18,8 +19,8 @@ const PLANS = [
   },
   {
     id: 'weekly',
+    priceKey: 'weekly' as const,
     name: 'Weekly Featured',
-    price: 1500,
     duration: '7 days',
     color: '#B8860B',
     perks: ['Homepage carousel spot', 'Top of all searches', '5× more visibility', 'City + national exposure', '"Featured" verified badge'],
@@ -27,8 +28,8 @@ const PLANS = [
   },
   {
     id: 'monthly',
+    priceKey: 'monthly' as const,
     name: 'Monthly Elite',
-    price: 4500,
     duration: '30 days',
     color: '#8B0000',
     perks: ['Permanent top position', 'Homepage banner slot', '10× more visibility', 'Full national promotion', 'Priority support', 'Analytics dashboard', '"Elite Featured" badge'],
@@ -38,20 +39,43 @@ const PLANS = [
 
 export default function FeaturedUpgradePage() {
   const { user } = useAuth()
-  const [selected, setSelected] = useState<typeof PLANS[0] | null>(null)
+  const [selectedId, setSelectedId] = useState<typeof PLAN_OPTIONS[number]['id'] | null>(null)
   const [step, setStep] = useState<'select' | 'pay'>('select')
   const [phone, setPhone] = useState('')
   const [phoneError, setPhoneError] = useState('')
+  const [priceNotice, setPriceNotice] = useState('')
   const mpesa = useMpesaPayment()
+  const { pricing, loading: pricingLoading, error: pricingError, refresh: refreshPricing } = usePublicPricing()
+  const plans = pricing
+    ? PLAN_OPTIONS.map(plan => ({ ...plan, price: pricing.featured[plan.priceKey] }))
+    : []
+  const selected = plans.find(plan => plan.id === selectedId) ?? null
+
+  useEffect(() => {
+    if (mpesa.error.toLowerCase().includes('price changed')) void refreshPricing()
+  }, [mpesa.error, refreshPricing])
 
   const handlePay = async () => {
+    if (!selected) return
     const clean = phone.replace(/\D/g, '')
     if (!clean || clean.length < 9) { setPhoneError('Enter a valid M-Pesa phone number.'); return }
     setPhoneError('')
+    setPriceNotice('')
+    const latestPricing = await refreshPricing()
+    if (!latestPricing) {
+      setPriceNotice('We could not confirm the current price. Please try again before paying.')
+      return
+    }
+    const latestAmount = latestPricing.featured[selected.priceKey]
+    if (latestAmount !== selected.price) {
+      setStep('select')
+      setPriceNotice('The price was just updated. Review the new amount before continuing.')
+      return
+    }
     await mpesa.initiate({
       phone: clean.startsWith('254') ? clean : '254' + (clean.startsWith('0') ? clean.slice(1) : clean),
-      amount: selected!.price,
-      type: `featured_${selected!.id}`,
+      amount: latestAmount,
+      type: `featured_${selected.id}`,
     })
   }
 
@@ -91,10 +115,10 @@ export default function FeaturedUpgradePage() {
           ) : step === 'select' ? (
             <>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-8">
-                {PLANS.map(plan => (
+                {pricing ? plans.map(plan => (
                   <button
                     key={plan.id}
-                    onClick={() => setSelected(plan)}
+                    onClick={() => { setSelectedId(plan.id); setPriceNotice('') }}
                     className={`relative text-left bg-card-bg border-2 rounded-2xl p-6 transition-all hover:scale-[1.02] ${selected?.id === plan.id ? 'border-[#8B0000] ring-1 ring-[#8B0000]/50' : plan.popular ? 'border-[#FFD700]' : 'border-color hover:border-text-muted'}`}
                   >
                     {plan.popular && (
@@ -106,7 +130,7 @@ export default function FeaturedUpgradePage() {
                       <Crown size={18} style={{ color: plan.color }} />
                     </div>
                     <p className="text-xs text-text-muted uppercase tracking-widest mb-1">{plan.name}</p>
-                    <p className="text-2xl font-black mb-0.5" style={{ color: plan.color }}>KES {plan.price.toLocaleString()}</p>
+                    <p className="text-2xl font-black mb-0.5" style={{ color: plan.color }}>{formatKes(plan.price)}</p>
                     <p className="text-[11px] text-text-muted mb-4">for {plan.duration}</p>
                     <div className="space-y-2">
                       {plan.perks.map(p => (
@@ -122,8 +146,13 @@ export default function FeaturedUpgradePage() {
                       </div>
                     )}
                   </button>
-                ))}
+                )) : (
+                  <div className="sm:col-span-3 rounded-2xl border border-color bg-card-bg p-6 text-center text-sm text-text-muted" role="status">
+                    {pricingLoading ? 'Loading current prices…' : pricingError || 'Current prices are temporarily unavailable. Please try again later.'}
+                  </div>
+                )}
               </div>
+              {priceNotice && <p className="mb-5 text-center text-xs text-[#d5b66b]" role="status">{priceNotice}</p>}
 
               <div className="grid grid-cols-3 gap-4 mb-8">
                 {[[Eye, '+500%', 'More Profile Views'], [Star, '3hrs', 'Avg Approval Time'], [TrendingUp, '8×', 'More Bookings']].map(([Icon, v, l]) => (
@@ -138,10 +167,10 @@ export default function FeaturedUpgradePage() {
               <div className="text-center">
                 <button
                   onClick={() => selected && setStep('pay')}
-                  disabled={!selected}
+                  disabled={!selected || pricingLoading}
                   className="px-8 py-3.5 bg-gradient-to-r from-[#8B0000] to-[#a00000] text-white font-black text-sm rounded-xl disabled:opacity-40 hover:from-[#a00000] hover:to-[#8B0000] transition-all shadow-lg shadow-[#8B0000]/30 flex items-center gap-2 mx-auto"
                 >
-                  <Smartphone size={16} /> Pay via M-Pesa — KES {selected?.price.toLocaleString() ?? '0'}
+                  <Smartphone size={16} /> Pay via M-Pesa — {selected ? formatKes(selected.price) : 'select a plan'}
                 </button>
               </div>
             </>
@@ -161,7 +190,7 @@ export default function FeaturedUpgradePage() {
                   </p>
                   <div className="bg-card-bg border border-color rounded-2xl p-4 mb-5 text-left space-y-2">
                     <div className="flex justify-between"><span className="text-xs text-text-muted">Plan</span><span className="text-xs font-bold text-text-light">{selected?.name}</span></div>
-                    <div className="flex justify-between"><span className="text-xs text-text-muted">Amount</span><span className="text-xs font-bold text-[#28a745]">KES {selected?.price.toLocaleString()}</span></div>
+                    <div className="flex justify-between"><span className="text-xs text-text-muted">Amount</span><span className="text-xs font-bold text-[#28a745]">{selected ? formatKes(selected.price) : '—'}</span></div>
                     <div className="flex justify-between"><span className="text-xs text-text-muted">Reference</span><span className="text-xs font-mono text-[#FFD700]">{mpesa.txRef}</span></div>
                     <div className="flex justify-between"><span className="text-xs text-text-muted">Status</span><span className="text-xs font-bold text-[#28a745]">✓ Payment Received</span></div>
                   </div>
@@ -205,7 +234,7 @@ export default function FeaturedUpgradePage() {
                   {mpesa.stage === 'waiting' && (
                     <div className="bg-card-bg border border-color rounded-2xl p-4 text-left space-y-2 mb-4">
                       <div className="flex justify-between"><span className="text-xs text-text-muted">Plan</span><span className="text-xs font-bold text-text-light">{selected?.name}</span></div>
-                      <div className="flex justify-between"><span className="text-xs text-text-muted">Amount</span><span className="text-xs font-bold text-[#28a745]">KES {selected?.price.toLocaleString()}</span></div>
+                      <div className="flex justify-between"><span className="text-xs text-text-muted">Amount</span><span className="text-xs font-bold text-[#28a745]">{selected ? formatKes(selected.price) : '—'}</span></div>
                     </div>
                   )}
                   <p className="text-[10px] text-text-muted">Waiting for M-Pesa confirmation (up to 2 min)…</p>
@@ -226,7 +255,7 @@ export default function FeaturedUpgradePage() {
                   <div className="bg-dark-bg border border-color rounded-xl p-3 mb-4 text-center">
                     <p className="text-[10px] text-text-muted">Paying for</p>
                     <p className="text-sm font-bold text-text-light">{selected?.name}</p>
-                    <p className="text-xl font-black text-[#28a745]">KES {selected?.price.toLocaleString()}</p>
+                    <p className="text-xl font-black text-[#28a745]">{selected ? formatKes(selected.price) : '—'}</p>
                   </div>
 
                   {(phoneError || mpesa.error) && (

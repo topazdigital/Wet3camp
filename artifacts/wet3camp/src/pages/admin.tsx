@@ -154,6 +154,178 @@ function TextSettingField({ label, placeholder, settingKey, hint, type: inputTyp
   )
 }
 
+type PricingDraft = {
+  profileTiers: { premium: string; vip: string; elite: string }
+  featured: { threeDay: string; weekly: string; monthly: string }
+}
+
+function toPricingDraft(pricing: any): PricingDraft {
+  return {
+    profileTiers: {
+      premium: String(pricing.profileTiers.premium),
+      vip: String(pricing.profileTiers.vip),
+      elite: String(pricing.profileTiers.elite),
+    },
+    featured: {
+      threeDay: String(pricing.featured.threeDay),
+      weekly: String(pricing.featured.weekly),
+      monthly: String(pricing.featured.monthly),
+    },
+  }
+}
+
+function AdminPricingEditor() {
+  const [draft, setDraft] = useState<PricingDraft | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let active = true
+    adminFetch('/admin/pricing')
+      .then((data: any) => {
+        if (active) setDraft(toPricingDraft(data.pricing))
+      })
+      .catch((err: any) => {
+        if (active) setError(err?.message ?? 'Could not load pricing settings.')
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+    return () => { active = false }
+  }, [])
+
+  const updateTierPrice = (key: keyof PricingDraft['profileTiers'], value: string) => {
+    setDraft(current => current
+      ? { ...current, profileTiers: { ...current.profileTiers, [key]: value } }
+      : current)
+    setSaved(false)
+  }
+
+  const updateFeaturedPrice = (key: keyof PricingDraft['featured'], value: string) => {
+    setDraft(current => current
+      ? { ...current, featured: { ...current.featured, [key]: value } }
+      : current)
+    setSaved(false)
+  }
+
+  const save = async () => {
+    if (!draft) return
+    const parsePrice = (value: string) => {
+      if (!/^\d+$/.test(value.trim())) return null
+      const amount = Number(value)
+      return Number.isSafeInteger(amount) && amount > 0 ? amount : null
+    }
+    const premium = parsePrice(draft.profileTiers.premium)
+    const vip = parsePrice(draft.profileTiers.vip)
+    const elite = parsePrice(draft.profileTiers.elite)
+    const threeDay = parsePrice(draft.featured.threeDay)
+    const weekly = parsePrice(draft.featured.weekly)
+    const monthly = parsePrice(draft.featured.monthly)
+
+    if ([premium, vip, elite, threeDay, weekly, monthly].some(value => value === null)) {
+      setError('Enter a whole-number KES price greater than zero in every field.')
+      setSaved(false)
+      return
+    }
+
+    setSaving(true)
+    setError('')
+    setSaved(false)
+    try {
+      const result = await adminFetch('/admin/pricing', {
+        method: 'PUT',
+        body: JSON.stringify({
+          profileTiers: { premium, vip, elite },
+          featured: { threeDay, weekly, monthly },
+        }),
+      })
+      setDraft(toPricingDraft(result.pricing))
+      setSaved(true)
+    } catch (err: any) {
+      setError(err?.message ?? 'Could not save pricing settings.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const renderPriceField = (
+    label: string,
+    value: string,
+    onChange: (value: string) => void,
+  ) => (
+    <label key={label} className="block">
+      <span className="mb-1.5 block text-[10px] text-text-muted uppercase tracking-widest">{label}</span>
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-text-muted">KES</span>
+        <input
+          type="number"
+          min="1"
+          step="1"
+          inputMode="numeric"
+          value={value}
+          onChange={event => onChange(event.target.value)}
+          disabled={loading || saving}
+          className="min-w-0 flex-1 rounded-xl border border-color bg-dark-bg px-3 py-2 text-sm text-text-light focus:border-[#FFD700] focus:outline-none disabled:opacity-60"
+        />
+      </div>
+    </label>
+  )
+
+  return (
+    <section className="bg-card-bg border border-[#FFD700]/20 rounded-2xl p-5" aria-labelledby="admin-pricing-heading">
+      <div className="mb-4">
+        <h3 id="admin-pricing-heading" className="text-sm font-bold text-text-light flex items-center gap-2">
+          <Crown size={14} className="text-[#FFD700}" /> Advertised Pricing
+        </h3>
+        <p className="mt-1 text-[10px] leading-relaxed text-text-muted">
+          Monthly tier prices update the escort and tier pages. Featured placement prices also control their M-Pesa charges.
+        </p>
+      </div>
+
+      {loading ? (
+        <p className="py-4 text-xs text-text-muted" role="status">Loading saved prices…</p>
+      ) : draft ? (
+        <div className="space-y-5">
+          <div>
+            <h4 className="mb-3 text-[10px] font-bold uppercase tracking-widest text-[#d5b66b]">Monthly profile tiers</h4>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              {renderPriceField('Premium / month', draft.profileTiers.premium, value => updateTierPrice('premium', value))}
+              {renderPriceField('VIP / month', draft.profileTiers.vip, value => updateTierPrice('vip', value))}
+              {renderPriceField('Elite / month', draft.profileTiers.elite, value => updateTierPrice('elite', value))}
+            </div>
+          </div>
+
+          <div>
+            <h4 className="mb-3 text-[10px] font-bold uppercase tracking-widest text-[#d5b66b]">Featured placement</h4>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              {renderPriceField('3 days', draft.featured.threeDay, value => updateFeaturedPrice('threeDay', value))}
+              {renderPriceField('Weekly', draft.featured.weekly, value => updateFeaturedPrice('weekly', value))}
+              {renderPriceField('Monthly', draft.featured.monthly, value => updateFeaturedPrice('monthly', value))}
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 border-t border-color pt-4">
+            <button
+              type="button"
+              onClick={save}
+              disabled={saving}
+              className="inline-flex items-center gap-2 rounded-xl bg-[#8B0000] px-5 py-2.5 text-xs font-bold text-white transition-all hover:bg-[#a00000] disabled:opacity-60"
+            >
+              {saving ? <RefreshCw size={13} className="animate-spin" /> : <Save size={13} />}
+              {saving ? 'Saving…' : 'Save pricing'}
+            </button>
+            {saved && <span className="text-xs text-[#28a745]" role="status">Saved. Public prices and featured checkout are updated.</span>}
+          </div>
+        </div>
+      ) : null}
+
+      {error && <p className="mt-3 text-xs text-[#EF4444]" role="alert">{error}</p>}
+    </section>
+  )
+}
+
 function TestAllConnectionsButton() {
   const [status, setStatus] = useState<'idle'|'loading'|'done'>('idle')
   const [results, setResults] = useState<Record<string,{ok:boolean;message:string}>>({})
@@ -2444,28 +2616,7 @@ function AdminDashboard() {
                 ))}
               </div>
 
-              {/* Pricing editor */}
-              <div className="bg-card-bg border border-[#FFD700]/20 rounded-2xl p-5">
-                <h3 className="text-sm font-bold text-text-light mb-4 flex items-center gap-2"><Crown size={14} className="text-[#FFD700]"/>Featured Pricing</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-                  {[['3-Day Boost','KES','500'],['Weekly Featured','KES','1500'],['Monthly Elite','KES','4500']].map(([plan,cur,def])=>(
-                    <div key={plan}>
-                      <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">{plan}</label>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-text-muted">{cur}</span>
-                        <input type="number" defaultValue={def} className="flex-1 px-3 py-2 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#FFD700] transition-all"/>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="flex items-center gap-3">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" defaultChecked className="w-3.5 h-3.5 accent-[#8B0000]"/>
-                    <span className="text-xs text-text-muted">Require admin approval before going live</span>
-                  </label>
-                </div>
-                <button className="mt-4 px-5 py-2 bg-[#8B0000] text-white text-xs font-bold rounded-xl hover:bg-[#a00000] transition-all">Save Pricing</button>
-              </div>
+              <AdminPricingEditor />
 
               {/* Request list */}
               <div className="bg-card-bg border border-color rounded-2xl overflow-hidden">
