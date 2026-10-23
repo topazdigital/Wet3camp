@@ -99,7 +99,7 @@ export default function PaymentHistory() {
                   <CreditCard size={20} className="text-[#8B0000]" />
                   Payment History
                 </h1>
-                <p className="text-xs text-text-muted mt-0.5">Your M-Pesa payments and subscription records</p>
+                <p className="text-xs text-text-muted mt-0.5">Your M-Pesa payment history</p>
               </div>
               <button onClick={load} className="p-2 rounded-lg border border-color hover:border-[#8B0000]/50 transition-colors">
                 <RefreshCw size={14} className={`text-text-muted ${loading ? 'animate-spin' : ''}`} />

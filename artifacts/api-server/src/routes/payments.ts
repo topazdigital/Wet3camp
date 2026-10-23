@@ -144,7 +144,7 @@ router.post('/admin/payments/payhero/test', requireAuth, async (req: AuthRequest
 })
 
 // ─── Universal payment initiation ─────────────────────────────────────────────
-// Used by: adverts, featured-upgrade, bookings, my-profile
+// Used by: adverts, featured-upgrade, bookings
 router.post('/payments/initiate', requireAuth, async (req: AuthRequest, res) => {
   try {
     const pool = getPool()
@@ -156,6 +156,11 @@ router.post('/payments/initiate', requireAuth, async (req: AuthRequest, res) => 
 
     if (!phone || requestedAmount === undefined || !type) {
       res.status(400).json({ message: 'phone, amount, and type are required' }); return
+    }
+
+    if (['monthly', 'quarterly', 'annual', 'subscription'].includes(type.trim().toLowerCase())) {
+      res.status(410).json({ message: 'Escort platform subscriptions are no longer offered. Standard profiles are free.' })
+      return
     }
 
     const parsedAmount = Number(requestedAmount)
@@ -269,33 +274,6 @@ router.get('/payments/history', requireAuth, async (req: AuthRequest, res) => {
     res.json({ payments: rows as any[] })
   } catch (err: any) {
     res.status(500).json({ payments: [], message: 'Failed to load history' })
-  }
-})
-
-// ─── Poll subscription payment status (kept for backwards compat) ─────────────
-router.get('/payments/subscription/status/:txRef', requireAuth, async (req: AuthRequest, res) => {
-  try {
-    const pool = getPool()
-    if (!pool) { res.status(503).json({ message: 'Database not configured' }); return }
-
-    const [rows] = await pool.query<any[]>(
-      'SELECT status, amount, plan, expires_at FROM subscriptions WHERE tx_ref = ? AND user_id = ?',
-      [req.params!.txRef, req.userId]
-    ).catch(() => [[]])
-
-    const sub = (rows as any[])[0]
-    if (!sub) { res.status(404).json({ message: 'Transaction not found' }); return }
-
-    res.json({
-      status:    sub.status,
-      amount:    sub.amount,
-      plan:      sub.plan,
-      expiresAt: sub.expires_at,
-      paid:      sub.status === 'paid',
-      failed:    sub.status === 'failed' || sub.status === 'cancelled',
-    })
-  } catch (err: any) {
-    res.status(500).json({ message: 'Failed to check status' })
   }
 })
 

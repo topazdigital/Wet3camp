@@ -565,9 +565,6 @@ function PlatformSettingsForm() {
     { label: 'Featured 3-Day (KES)',      key: 'featured_3day',      def: '500',                                    section: 'featured' },
     { label: 'Featured Weekly (KES)',     key: 'featured_weekly',    def: '1500',                                   section: 'featured' },
     { label: 'Featured Monthly (KES)',    key: 'featured_monthly',   def: '4500',                                   section: 'featured' },
-    { label: 'Subscription Monthly (KES)',key: 'sub_monthly',        def: '500',                                    section: 'subscriptions' },
-    { label: 'Subscription Quarterly (KES)',key:'sub_quarterly',     def: '1200',                                   section: 'subscriptions' },
-    { label: 'Subscription Annual (KES)', key: 'sub_annual',         def: '4000',                                   section: 'subscriptions' },
   ]
   const [values, setValues]   = useState<Record<string,string>>({})
   const [approval, setApproval] = useState(true)
@@ -606,7 +603,6 @@ function PlatformSettingsForm() {
     { id: 'general',       label: 'General'                 },
     { id: 'tiers',         label: 'Tier Subscription Prices' },
     { id: 'featured',      label: 'Featured Placement Prices' },
-    { id: 'subscriptions', label: 'Platform Subscription Prices' },
   ]
 
   return (
@@ -1915,9 +1911,9 @@ function RevenueDashboard() {
 
   const statCards = [
     { label: 'Total Revenue', value: `KES ${Number(summary.totalRevenue).toLocaleString()}`, icon: DollarSign, color: '#FFD700' },
-    { label: 'Paid Subscriptions', value: summary.paidCount, icon: CheckCircle2, color: '#28a745' },
+    { label: 'Paid Transactions', value: summary.paidCount, icon: CheckCircle2, color: '#28a745' },
     { label: 'Pending Payments', value: summary.pendingCount, icon: AlertTriangle, color: '#FF9800' },
-    { label: 'Avg per Sub', value: summary.paidCount > 0 ? `KES ${Math.round(summary.totalRevenue / summary.paidCount).toLocaleString()}` : '—', icon: TrendingUp, color: '#2196F3' },
+    { label: 'Average Payment', value: summary.paidCount > 0 ? `KES ${Math.round(summary.totalRevenue / summary.paidCount).toLocaleString()}` : '—', icon: TrendingUp, color: '#2196F3' },
   ]
 
   return (
@@ -1941,7 +1937,7 @@ function RevenueDashboard() {
           <TrendingUp size={14} className="text-[#28a745]"/>Daily Revenue — Last 30 Days
         </h3>
         {daily.length === 0
-          ? <p className="text-xs text-text-muted text-center py-6">No paid transactions yet. Revenue will appear here once escorts pay for subscriptions.</p>
+          ? <p className="text-xs text-text-muted text-center py-6">No paid transactions yet. Revenue will appear here when users pay for optional services.</p>
           : (
             <ResponsiveContainer width="100%" height={180}>
               <LineChart data={daily} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
@@ -1966,7 +1962,7 @@ function RevenueDashboard() {
             <Award size={14} className="text-[#FFD700]"/>Top Escorts by Revenue
           </h3>
           {topEscorts.length === 0
-            ? <p className="text-xs text-text-muted text-center py-6">No paid subscriptions yet.</p>
+            ? <p className="text-xs text-text-muted text-center py-6">No paid transactions yet.</p>
             : (
               <div className="space-y-2">
                 {topEscorts.map((e: any, i: number) => (
@@ -1978,7 +1974,7 @@ function RevenueDashboard() {
                     </div>
                     <div className="text-right">
                       <p className="text-xs font-bold text-[#FFD700]">KES {Number(e.total).toLocaleString()}</p>
-                      <p className="text-[10px] text-text-muted">{e.txns} sub{e.txns !== 1 ? 's' : ''}</p>
+                      <p className="text-[10px] text-text-muted">{e.txns} payment{e.txns !== 1 ? 's' : ''}</p>
                     </div>
                   </div>
                 ))}

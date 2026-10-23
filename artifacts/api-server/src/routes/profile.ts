@@ -3,7 +3,6 @@ import { createHash } from 'crypto'
 import { getPool } from '../lib/db.js'
 import { requireAuth, type AuthRequest } from '../middlewares/requireAuth.js'
 import { setEscortOnline } from '../lib/online-store.js'
-import { triggerStkPush } from './payments.js'
 
 function hashPassword(p: string) { return createHash('sha256').update(p).digest('hex') }
 
@@ -267,99 +266,6 @@ router.get('/profile/escort/followers', requireAuth, async (req: AuthRequest, re
     })
   } catch {
     res.status(500).json({ message: 'Failed to fetch followers' })
-  }
-})
-
-// ─── Subscribe (create/renew subscription) ─────────────────────────────────────
-router.post('/profile/escort/subscribe', requireAuth, async (req: AuthRequest, res) => {
-  try {
-    const pool = getPool()
-    if (!pool) { res.status(503).json({ message: 'Database not configured' }); return }
-
-    const { plan, phone } = req.body as { plan?: string; phone?: string }
-    if (!plan || !phone) { res.status(400).json({ message: 'plan and phone are required' }); return }
-
-    const validPlans: Record<string, { days: number; amount: number }> = {
-      monthly:   { days: 30,  amount: 500  },
-      quarterly: { days: 90,  amount: 1200 },
-      annual:    { days: 365, amount: 4000 },
-    }
-    const planInfo = validPlans[plan]
-    if (!planInfo) { res.status(400).json({ message: 'Invalid plan. Choose monthly, quarterly, or annual.' }); return }
-
-    // Get escort ID
-    const [[escort]] = await pool.query<any[]>('SELECT id FROM escorts WHERE user_id = ?', [req.userId])
-
-    const expiresAt = new Date()
-    expiresAt.setDate(expiresAt.getDate() + planInfo.days)
-
-    const txRef = 'SUB-' + Date.now().toString(36).toUpperCase() + '-' + Math.random().toString(36).slice(2, 6).toUpperCase()
-    const cleanPhone = phone.replace(/\s/g, '').replace(/^\+/, '')
-
-    await pool.query(
-      `INSERT INTO subscriptions (user_id, escort_id, plan, amount, phone, tx_ref, status, expires_at)
-       VALUES (?, ?, ?, ?, ?, ?, 'pending', ?)`,
-      [req.userId, escort?.id ?? null, plan, planInfo.amount, cleanPhone, txRef, expiresAt]
-    )
-
-    // Trigger real PayHero STK Push
-    const siteUrl = process.env.SITE_URL
-      ?? (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : 'https://wet3.camp')
-
-    const stkResult = await triggerStkPush(pool, {
-      phone:       cleanPhone,
-      amount:      planInfo.amount,
-      txRef,
-      callbackUrl: `${siteUrl}/api/payments/payhero/callback`,
-    })
-
-    if (!stkResult.success) {
-      // Log the failure but don't block — subscription record exists, payment can be retried
-      console.warn('[subscribe] STK push failed:', stkResult.message)
-    }
-
-    res.json({
-      txRef,
-      plan,
-      amount:      planInfo.amount,
-      expiresAt:   expiresAt.toISOString(),
-      stkSent:     stkResult.success,
-      message:     stkResult.success
-        ? 'M-Pesa prompt sent to your phone. Enter your PIN to complete payment.'
-        : `Subscription created. ${stkResult.message}`,
-    })
-  } catch (err: any) {
-    res.status(500).json({ message: 'Failed to initiate subscription', detail: err?.message ?? '' })
-  }
-})
-
-// ─── Subscription status ───────────────────────────────────────────────────────
-router.get('/profile/escort/subscription', requireAuth, async (req: AuthRequest, res) => {
-  try {
-    const pool = getPool()
-    if (!pool) { res.status(503).json({ message: 'Database not configured' }); return }
-
-    const [subs] = await pool.query<any[]>(
-      `SELECT * FROM subscriptions WHERE user_id = ? ORDER BY expires_at DESC LIMIT 1`,
-      [req.userId]
-    ).catch(() => [[]])
-
-    const sub = Array.isArray(subs) ? subs[0] : null
-
-    if (!sub) {
-      res.json({ active: false, plan: null, expiresAt: null })
-    } else {
-      const expiresAt = sub.expires_at ? new Date(sub.expires_at) : null
-      const active = expiresAt ? expiresAt > new Date() : false
-      res.json({
-        active,
-        plan:      sub.plan ?? null,
-        expiresAt: expiresAt ? expiresAt.toISOString() : null,
-        status:    sub.status ?? null,
-      })
-    }
-  } catch {
-    res.status(500).json({ message: 'Failed to fetch subscription' })
   }
 })
 

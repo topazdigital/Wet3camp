@@ -1084,7 +1084,7 @@ router.get('/admin/revenue', requireAuth, requireAdmin, async (_req: AuthRequest
        ORDER BY day ASC`
     ).catch(() => [[]])
 
-    // Top 8 escorts by subscription revenue
+    // Top 8 escorts by payment revenue
     const [topEscortsRows] = await pool.query<any[]>(
       `SELECT e.id, e.name, e.city, e.tier, SUM(s.amount) AS total, COUNT(*) AS txns
        FROM subscriptions s

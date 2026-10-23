@@ -1,5 +1,5 @@
 - [Wet3Camp stack](wet3camp-stack.md) — MySQL/mysql2, Express 5 (port 8080), React+Vite (port 19099), Expo mobile; JWT auth in localStorage as 'auth_token'
-- [Wet3Camp pre-existing TS errors](wet3camp-ts-errors.md) — Several non-blocking TS errors exist before any edits; don't treat as regressions
+- [Wet3Camp pre-existing TS errors](wet3camp-ts-errors.md) — Web and API typechecks have existing errors; production builds pass, don't treat unrelated failures as regressions
 - [Notifications schema migration](notifications-schema.md) — old schema had title/body/read; new schema uses text/link/dot/avatar/read_at; idempotent ALTER TABLE statements added to wet3camp-migration.sql
 - [Booking policy decision](booking-policy.md) — platform does NOT process payments; bookings are appointment-requests only; escorts+clients arrange payment offline; STK push intentionally excluded
 - [Tier ordering protocol](tier-protocol.md) — elite > vip > premium > standard > free; search page shows Elite section first (large cards), VIP (medium), Premium, then Standard list cards
@@ -9,7 +9,7 @@
 - [Live streaming system](live-streaming.md) — live video is an ephemeral native browser stream relayed by the API process; don't promise recording or continuity through API restarts.
 - [MySQL-only production rule](mysql-only.md) — Replit PostgreSQL is DEV-ONLY fallback; NEVER add pg-specific SQL, NEVER add RETURNING/::cast syntax to app code; CompatPool in db.ts handles translation; pool.query<T[]>() returns [rows, fields] style tuple for both backends
 - [Wouter v3 at-sign routing](wouter-at-routing.md) — Wouter v3 cannot match /@:slug patterns; use AtProfileRoute component + useLocation() regex instead
-- [GitHub auto-deploy setup](github-autodeploy.md) — GITHUB_TOKEN in Replit Secrets; run `bash push-to-github.sh` from Shell to push; GitHub Actions (.github/workflows/deploy.yml) auto-deploys to server; needs DEPLOY_SSH_KEY in GitHub repo Secrets
+- [Manual GitHub deployment](github-autodeploy.md) — run `bash push-to-github.sh` from Shell to push; server deployment is no longer triggered automatically
 - [MySQL shop/rooms column names](mysql-shop-columns.md) — live MySQL shop_products uses price_kes + image_url (not price/image); frontend handles both via nullish coalescing; INSERT seed data uses price_kes/image_url; feed_likes+feed_comments added to migration SQL 2026-06-28
 - [Apache uploads symlink 403](apache-uploads-symlink.md) — shared hosting Apache 403s symlinks before mod_rewrite; use mod_proxy for /api/uploads/* instead; never ln -sfn into web root
 - [Blog admin architecture](blog-admin-architecture.md) — admin blog CRUD now hits real backend API/DB (not localStorage); inline `![]()`/`[video]()` tokens; publish auto-pings IndexNow

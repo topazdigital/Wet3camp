@@ -1,10 +1,10 @@
 ---
-name: Admin-managed escort pricing
-description: Product decision for advertised profile-tier prices and featured placement checkout.
+name: Free escort listings and optional visibility pricing
+description: Product decision for free Standard listings and separately priced optional visibility.
 ---
 
-The escort advertising and tier pages use prices managed in Admin. Featured placement prices are the source of truth for the matching M-Pesa charge; stale or altered amounts must not be charged. Account subscription plans are a separate product and remain unchanged by these prices.
+Standard escort listings are free. Do not charge a separate platform/account subscription to keep an escort profile active. Paid tiers and featured placement are optional visibility products, not prerequisites for listing.
 
-**Why:** The user wants to adjust offers in Admin without code changes and chose to have featured checkout follow the advertised price.
+**Why:** The user stated the site is free for escorts and agreed to remove the separate platform subscription while retaining optional paid visibility.
 
-**How to apply:** Keep the advertised featured amounts and featured payment validation on the same saved configuration. Do not map profile-tier display amounts onto the separate account subscription plans without explicit direction.
+**How to apply:** Keep free Standard access independent of payment and preserve existing payment history. Keep featured checkout amounts aligned with the active advertised pricing. Treat optional tier pricing separately from featured placement.

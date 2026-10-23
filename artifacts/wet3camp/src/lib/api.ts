@@ -171,12 +171,6 @@ export const api = {
       req<any>('/profile/escort', { method: 'PATCH', body: JSON.stringify(d) }),
     getEarnings: () => req<any>('/profile/escort/earnings'),
     getFollowers: () => req<any>('/profile/escort/followers'),
-    getSubscription: () => req<any>('/profile/escort/subscription'),
-    subscribe: (plan: string, phone: string) =>
-      req<{ txRef: string; expiresAt: string; plan: string }>('/profile/escort/subscribe', {
-        method: 'POST',
-        body: JSON.stringify({ plan, phone }),
-      }),
   },
 
   upload: {

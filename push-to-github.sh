@@ -3,12 +3,12 @@
 # push-to-github.sh
 #
 # Pushes latest Replit changes to GitHub.
-# GitHub Actions then automatically deploys to wet3.camp.
+# GitHub pushes no longer deploy automatically; deploy to the server manually.
 #
 # Run from the Replit Shell tab:
 #   bash push-to-github.sh
 #
-# GITHUB_TOKEN is stored in Replit Secrets — no input needed.
+# GITHUB_TOKEN or GITHUB_PERSONAL_ACCESS_TOKEN is stored in Replit Secrets — no input needed.
 # ============================================================
 
 set -e
@@ -66,7 +66,7 @@ git push "https://github.com/topazdigital/Wet3camp.git" main
 echo ""
 echo "✅ Pushed to GitHub!"
 echo ""
-echo "🚀 GitHub Actions is now deploying automatically to wet3.camp"
-echo "   Watch progress at: https://github.com/topazdigital/Wet3camp/actions"
+echo "ℹ️  This push will not deploy to wet3.camp automatically."
+echo "   Deploy to the server manually when you are ready."
 echo ""
-echo "   (Make sure DEPLOY_SSH_KEY is set in GitHub repo Secrets for auto-deploy to work)"
+echo "   (The optional manual GitHub Actions deploy needs DEPLOY_SSH_KEY in repo Secrets.)"

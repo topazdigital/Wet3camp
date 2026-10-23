@@ -1,23 +1,27 @@
 ---
-name: GitHub auto-deploy setup
-description: GITHUB_TOKEN in Replit Secrets; push via Shell; GitHub Actions auto-deploys to server
+name: Manual GitHub deployment
+description: Push to GitHub from Replit Shell; server deployment is not triggered by pushes
 ---
 
 ## Rule
-`GITHUB_TOKEN` is set in Replit Secrets. Do NOT ask the user to provide it — it is already there.
+`GITHUB_TOKEN` or `GITHUB_PERSONAL_ACCESS_TOKEN` is set in Replit Secrets. Do NOT ask the user to provide it — it is already there.
 
 ## Current deploy flow
-1. Agent makes changes in Replit
-2. User runs `bash push-to-github.sh` from the **Replit Shell tab** — this pushes to GitHub
-3. GitHub Actions (`.github/workflows/deploy.yml`) triggers on push to `main` and SSHs into server to run `deploy-on-server.sh`
-4. For step 3 to work, `DEPLOY_SSH_KEY` must be set in **GitHub repo Secrets** (Settings → Secrets → Actions)
+1. Agent makes changes in Replit.
+2. User runs `bash push-to-github.sh` from the **Replit Shell tab** — this builds the frontend, commits if needed, and pushes to GitHub.
+3. GitHub Actions does not run on `main` pushes. A manual `workflow_dispatch` can deploy to the server if the user chooses.
+4. The user may instead deploy to the server manually after reviewing the GitHub push.
+
+**Why:** The user wants GitHub as a code backup but deploys to the server themselves, so a push must not deploy production.
+
+**How to apply:** Push with `bash push-to-github.sh` from Replit Shell. Use the manual GitHub Actions workflow only when explicitly choosing an automated server deployment.
 
 ## Why git push is blocked from the agent
 `git push` is blocked in the Replit main-agent sandbox as a destructive git operation. The user MUST run `bash push-to-github.sh` from the Shell tab. This is a platform-level restriction, not a token issue.
 
 ## Credentials
-- `GITHUB_TOKEN` — in Replit Secrets ✅ (never ask again)
-- `DEPLOY_SSH_KEY` — must be in GitHub repo Secrets for GitHub Actions to SSH into server
+- `GITHUB_TOKEN` or `GITHUB_PERSONAL_ACCESS_TOKEN` — in Replit Secrets ✅ (never ask again)
+- `DEPLOY_SSH_KEY` — required in GitHub repo Secrets only when manually running the GitHub Actions deployment
 - `DEPLOY_SSH_PASSPHRASE` — optional, also in GitHub repo Secrets if key has passphrase
 - Server: root@157.250.205.180, build dir: /home/admin/wet3camp-build
 
@@ -26,4 +30,4 @@ description: GITHUB_TOKEN in Replit Secrets; push via Shell; GitHub Actions auto
 - Frontend handles both via `p.price ?? p.price_kes` and `p.image ?? p.image_url`
 - All seed INSERTs in migration SQL use `price_kes`/`image_url`
 
-**How to apply:** If user asks why auto-deploy isn't working — check DEPLOY_SSH_KEY is set in GitHub repo Secrets. The GITHUB_TOKEN is fine.
+For a manual GitHub Actions deployment, check that `DEPLOY_SSH_KEY` is set in GitHub repo Secrets.

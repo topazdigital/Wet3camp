@@ -219,7 +219,7 @@ export default function TierBenefitsPage() {
           {/* Page header */}
           <div className="text-center mb-10">
             <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-[#FFD700]/10 border border-[#FFD700]/30 rounded-full text-[#FFD700] text-xs font-bold mb-4">
-              <Crown size={13} /> Escort Subscription Tiers
+              <Crown size={13} /> Escort Profile Tiers
             </div>
             <h1 className="text-3xl md:text-4xl font-black text-text-light mb-3">
               Grow Your Business on<br />
@@ -313,8 +313,8 @@ export default function TierBenefitsPage() {
             <div className="space-y-4">
               {[
                 { q: 'Can I change my tier at any time?', a: 'Yes. Upgrade or downgrade anytime. Changes take effect immediately.' },
-                { q: 'How are payments handled with clients?', a: 'Wet3Camp does not process booking payments. You arrange payment directly with each client — cash, M-Pesa, or whatever you prefer. The platform only charges escorts for their subscription tier.' },
-                { q: 'What happens if I cancel my subscription?', a: 'Your profile drops to the Free tier. Your profile stays visible but loses placement and badges.' },
+                { q: 'How are payments handled with clients?', a: 'Wet3Camp does not process booking payments. You arrange payment directly with each client — cash, M-Pesa, or whatever you prefer. Standard profiles are free; optional visibility services are separate.' },
+                { q: 'What if I stop using a paid tier?', a: 'Your profile can remain visible on the free Standard tier. It will no longer have the extra placement and badges described for paid tiers.' },
                 { q: 'Is the Elite tier really worth it?', a: "Elite escorts get daily carousel features, homepage placement, and the client 'Elite filter' — making you the first escort clients see when browsing. Most Elite escorts see a significant increase in enquiries within the first week." },
               ].map(item => (
                 <div key={item.q} className="border-b border-color/40 pb-4 last:border-0 last:pb-0">
