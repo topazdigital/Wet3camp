@@ -34,7 +34,7 @@ cp -a artifacts/wet3camp/dist/public/. artifacts/wet3camp/public-build/
 echo "▶ Preparing the complete release commit..."
 git add -A
 if ! git diff --cached --quiet; then
-  git commit -m "${PUSH_COMMIT_MESSAGE:-Deploy Wet3Camp with isolated SPA routing}"
+  git commit -m "${PUSH_COMMIT_MESSAGE:-Update Wet3Camp application}"
 else
   echo "   No local changes need committing."
 fi
