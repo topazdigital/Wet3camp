@@ -185,6 +185,22 @@ CREATE TABLE IF NOT EXISTS followers (
   UNIQUE (user_id, escort_id)
 );
 
+CREATE TABLE IF NOT EXISTS escort_profile_events (
+  id           BIGSERIAL PRIMARY KEY,
+  escort_id    INTEGER      NOT NULL,
+  event_type   VARCHAR(32)  NOT NULL,
+  visitor_hash CHAR(64)     NOT NULL,
+  source       VARCHAR(24)  NOT NULL DEFAULT 'direct',
+  city_context VARCHAR(80)  DEFAULT NULL,
+  created_at   TIMESTAMP    NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_profile_events_escort_created
+  ON escort_profile_events (escort_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_profile_events_escort_type_created
+  ON escort_profile_events (escort_id, event_type, created_at);
+CREATE INDEX IF NOT EXISTS idx_profile_events_escort_visitor_created
+  ON escort_profile_events (escort_id, visitor_hash, created_at);
+
 CREATE TABLE IF NOT EXISTS adverts (
   id          SERIAL PRIMARY KEY,
   escort_id   INTEGER      DEFAULT NULL,

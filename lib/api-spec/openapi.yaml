@@ -24,7 +24,53 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /profile/escort/analytics:
+    get:
+      operationId: getEscortProfileAnalytics
+      tags: [profile]
+      summary: Get private analytics for the signed-in escort
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: range
+          required: false
+          schema:
+            type: string
+            enum: [7d, 30d, 90d]
+            default: 30d
+      responses:
+        "200":
+          description: Aggregated profile performance for the signed-in escort
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EscortProfileAnalytics"
+        "401":
+          description: Authentication required
+        "403":
+          description: Escort account required
+  /profile/escort/analytics/events:
+    post:
+      operationId: trackEscortProfileEvent
+      tags: [profile]
+      summary: Record an anonymous public profile interaction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EscortProfileEventInput"
+      responses:
+        "204":
+          description: Event accepted
+        "400":
+          description: Invalid analytics event
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
   schemas:
     HealthStatus:
       type: object
@@ -33,4 +79,90 @@ components:
           type: string
       required:
         - status
+    EscortProfileEventInput:
+      type: object
+      properties:
+        escortId:
+          type: integer
+          minimum: 1
+        eventType:
+          type: string
+          enum:
+            - profile_view
+            - whatsapp_click
+            - telegram_click
+            - call_click
+            - sms_click
+            - share_click
+            - platform_message_click
+        sessionKey:
+          type: string
+          minLength: 16
+          maxLength: 128
+        source:
+          type: string
+          enum: [site, search, google, social, direct, other]
+          default: direct
+        cityContext:
+          type: string
+          maxLength: 80
+      required: [escortId, eventType, sessionKey]
+    EscortProfileAnalytics:
+      type: object
+      properties:
+        range:
+          type: string
+          enum: [7d, 30d, 90d]
+        totals:
+          $ref: "#/components/schemas/EscortProfileMetricTotals"
+        daily:
+          type: array
+          items:
+            $ref: "#/components/schemas/EscortProfileDailyMetric"
+        sources:
+          type: array
+          items:
+            $ref: "#/components/schemas/EscortProfileBreakdown"
+        cities:
+          type: array
+          items:
+            $ref: "#/components/schemas/EscortProfileBreakdown"
+      required: [range, totals, daily, sources, cities]
+    EscortProfileMetricTotals:
+      type: object
+      properties:
+        views: { type: integer }
+        whatsappClicks: { type: integer }
+        telegramClicks: { type: integer }
+        callClicks: { type: integer }
+        smsClicks: { type: integer }
+        shareClicks: { type: integer }
+        platformMessageClicks: { type: integer }
+        bookingRequests: { type: integer }
+      required:
+        - views
+        - whatsappClicks
+        - telegramClicks
+        - callClicks
+        - smsClicks
+        - shareClicks
+        - platformMessageClicks
+        - bookingRequests
+    EscortProfileDailyMetric:
+      allOf:
+        - $ref: "#/components/schemas/EscortProfileMetricTotals"
+        - type: object
+          properties:
+            date:
+              type: string
+              format: date
+          required: [date]
+    EscortProfileBreakdown:
+      type: object
+      properties:
+        name:
+          type: string
+        views:
+          type: integer
+      required: [name, views]
 

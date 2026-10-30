@@ -7,6 +7,51 @@ import { setEscortOnline } from '../lib/online-store.js'
 function hashPassword(p: string) { return createHash('sha256').update(p).digest('hex') }
 
 const router = Router()
+const analyticsEventTypes = new Set([
+  'profile_view',
+  'whatsapp_click',
+  'telegram_click',
+  'call_click',
+  'sms_click',
+  'share_click',
+  'platform_message_click',
+])
+const analyticsSources = new Set(['site', 'search', 'google', 'social', 'direct', 'other'])
+const analyticsCities = new Set([
+  'Nairobi',
+  'Mombasa',
+  'Kisumu',
+  'Nakuru',
+  'Eldoret',
+  'Thika',
+  'Malindi',
+  'Nyeri',
+  'Machakos',
+  'Kitale',
+])
+const analyticsMetrics = [
+  'views',
+  'whatsappClicks',
+  'telegramClicks',
+  'callClicks',
+  'smsClicks',
+  'shareClicks',
+  'platformMessageClicks',
+  'bookingRequests',
+] as const
+
+function analyticsDateKey(value: unknown): string {
+  if (value instanceof Date) return value.toISOString().slice(0, 10)
+  return String(value ?? '').slice(0, 10)
+}
+
+function analyticsDayStart(days: number): { dateKey: string; sqlValue: string } {
+  const start = new Date()
+  start.setUTCHours(0, 0, 0, 0)
+  start.setUTCDate(start.getUTCDate() - (days - 1))
+  const dateKey = start.toISOString().slice(0, 10)
+  return { dateKey, sqlValue: `${dateKey} 00:00:00` }
+}
 
 router.get('/profile/escort', requireAuth, async (req: AuthRequest, res) => {
   try {
@@ -266,6 +311,169 @@ router.get('/profile/escort/followers', requireAuth, async (req: AuthRequest, re
     })
   } catch {
     res.status(500).json({ message: 'Failed to fetch followers' })
+  }
+})
+
+// Public, anonymous event ingestion. Only claimed profiles are tracked.
+router.post('/profile/escort/analytics/events', async (req, res) => {
+  try {
+    const pool = getPool()
+    if (!pool) { res.status(503).json({ message: 'Database not configured' }); return }
+
+    const body = req.body as Record<string, unknown>
+    const escortId = Number(body.escortId)
+    const eventType = String(body.eventType ?? '')
+    const sessionKey = String(body.sessionKey ?? '')
+    if (!Number.isInteger(escortId) || escortId < 1
+      || !analyticsEventTypes.has(eventType)
+      || sessionKey.length < 16 || sessionKey.length > 128) {
+      res.status(400).json({ message: 'Invalid analytics event' }); return
+    }
+
+    const userAgent = String(req.headers['user-agent'] ?? '')
+    if (/\b(bot|crawler|spider|slurp|preview|headless)\b/i.test(userAgent)) {
+      res.status(204).end(); return
+    }
+
+    const [[escort]] = await pool.query<any[]>(
+      'SELECT id FROM escorts WHERE id = ? AND is_active = 1 AND user_id IS NOT NULL',
+      [escortId]
+    )
+    if (!escort) { res.status(204).end(); return }
+
+    const visitorHash = createHash('sha256').update(sessionKey).digest('hex')
+    const sourceCandidate = String(body.source ?? 'direct')
+    const source = analyticsSources.has(sourceCandidate) ? sourceCandidate : 'other'
+    const cityCandidate = String(body.cityContext ?? '').replace(/[\u0000-\u001f\u007f]/g, '').trim()
+    const cityContext = analyticsCities.has(cityCandidate) ? cityCandidate : null
+
+    if (eventType === 'profile_view') {
+      const dedupeSince = new Date(Date.now() - 30 * 60 * 1000)
+      const [[priorView]] = await pool.query<any[]>(
+        `SELECT id FROM escort_profile_events
+         WHERE escort_id = ? AND event_type = ? AND visitor_hash = ? AND created_at >= ?
+         LIMIT 1`,
+        [escortId, eventType, visitorHash, dedupeSince]
+      )
+      if (priorView) { res.status(204).end(); return }
+    }
+
+    await pool.query(
+      `INSERT INTO escort_profile_events
+       (escort_id, event_type, visitor_hash, source, city_context, created_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [escortId, eventType, visitorHash, source, cityContext, new Date()]
+    )
+    res.status(204).end()
+  } catch {
+    res.status(500).json({ message: 'Failed to record profile analytics' })
+  }
+})
+
+// Owner-only performance summary. The escort ID is always resolved from auth.
+router.get('/profile/escort/analytics', requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const pool = getPool()
+    if (!pool) { res.status(503).json({ message: 'Database not configured' }); return }
+    if (req.userRole !== 'escort') { res.status(403).json({ message: 'Escort account required' }); return }
+
+    const rangeParam = String(req.query.range ?? '30d')
+    const range = rangeParam === '7d' || rangeParam === '90d' ? rangeParam : '30d'
+    const days = Number.parseInt(range, 10)
+    const { dateKey: startDate, sqlValue: since } = analyticsDayStart(days)
+
+    const [[escort]] = await pool.query<any[]>(
+      'SELECT id FROM escorts WHERE user_id = ?',
+      [req.userId]
+    )
+    if (!escort) { res.status(404).json({ message: 'Escort profile not found' }); return }
+    const escortId = escort.id
+
+    const [eventTotals] = await pool.query<any[]>(
+      `SELECT event_type, COUNT(*) AS total
+       FROM escort_profile_events
+       WHERE escort_id = ? AND created_at >= ?
+       GROUP BY event_type`,
+      [escortId, since]
+    )
+    const [dailyEvents] = await pool.query<any[]>(
+      `SELECT DATE(created_at) AS event_day, event_type, COUNT(*) AS total
+       FROM escort_profile_events
+       WHERE escort_id = ? AND created_at >= ?
+       GROUP BY DATE(created_at), event_type
+       ORDER BY event_day ASC`,
+      [escortId, since]
+    )
+    const [bookingRows] = await pool.query<any[]>(
+      `SELECT DATE(created_at) AS event_day, COUNT(*) AS total
+       FROM bookings
+       WHERE escort_id = ? AND created_at >= ?
+       GROUP BY DATE(created_at)
+       ORDER BY event_day ASC`,
+      [escortId, since]
+    )
+    const [sourceRows] = await pool.query<any[]>(
+      `SELECT source AS name, COUNT(*) AS views
+       FROM escort_profile_events
+       WHERE escort_id = ? AND event_type = 'profile_view' AND created_at >= ?
+       GROUP BY source
+       ORDER BY views DESC
+       LIMIT 6`,
+      [escortId, since]
+    )
+    const [cityRows] = await pool.query<any[]>(
+      `SELECT city_context AS name, COUNT(*) AS views
+       FROM escort_profile_events
+       WHERE escort_id = ? AND event_type = 'profile_view'
+         AND city_context IS NOT NULL AND created_at >= ?
+       GROUP BY city_context
+       ORDER BY views DESC
+       LIMIT 6`,
+      [escortId, since]
+    )
+
+    const eventToMetric: Record<string, typeof analyticsMetrics[number]> = {
+      profile_view: 'views',
+      whatsapp_click: 'whatsappClicks',
+      telegram_click: 'telegramClicks',
+      call_click: 'callClicks',
+      sms_click: 'smsClicks',
+      share_click: 'shareClicks',
+      platform_message_click: 'platformMessageClicks',
+    }
+    const totals = Object.fromEntries(analyticsMetrics.map(metric => [metric, 0])) as Record<typeof analyticsMetrics[number], number>
+    for (const row of eventTotals as any[]) {
+      const metric = eventToMetric[String(row.event_type)]
+      if (metric) totals[metric] = Number(row.total) || 0
+    }
+
+    const dailyByDate = new Map<string, Record<typeof analyticsMetrics[number], number>>()
+    for (let offset = 0; offset < days; offset++) {
+      const date = new Date(`${startDate}T00:00:00.000Z`)
+      date.setUTCDate(date.getUTCDate() + offset)
+      const key = date.toISOString().slice(0, 10)
+      dailyByDate.set(key, Object.fromEntries(analyticsMetrics.map(metric => [metric, 0])) as Record<typeof analyticsMetrics[number], number>)
+    }
+    for (const row of dailyEvents as any[]) {
+      const metric = eventToMetric[String(row.event_type)]
+      const day = dailyByDate.get(analyticsDateKey(row.event_day))
+      if (metric && day) day[metric] = Number(row.total) || 0
+    }
+    for (const row of bookingRows as any[]) {
+      const day = dailyByDate.get(analyticsDateKey(row.event_day))
+      if (day) day.bookingRequests = Number(row.total) || 0
+      totals.bookingRequests += Number(row.total) || 0
+    }
+
+    res.json({
+      range,
+      totals,
+      daily: [...dailyByDate.entries()].map(([date, metrics]) => ({ date, ...metrics })),
+      sources: (sourceRows as any[]).map(row => ({ name: String(row.name || 'direct'), views: Number(row.views) || 0 })),
+      cities: (cityRows as any[]).map(row => ({ name: String(row.name), views: Number(row.views) || 0 })),
+    })
+  } catch {
+    res.status(500).json({ message: 'Failed to fetch profile analytics' })
   }
 })
 

@@ -9,6 +9,7 @@ import { api } from '@/lib/api'
 import type { ApiEscort } from '@/lib/api'
 import { useFavorites } from '@/lib/favorites-context'
 import { getSlug } from '@/data/escorts'
+import { rememberProfileSearchContext } from '@/lib/profile-analytics'
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
@@ -238,6 +239,10 @@ export default function SearchPage() {
     setArea(p.get('area') ?? '')
     if (p.get('service')) setService(p.get('service') ?? '')
   }, [location])
+
+  useEffect(() => {
+    rememberProfileSearchContext(city)
+  }, [city])
 
   useSEO({
     title: service ? `${service.replace(/-/g,' ')} Escorts Kenya` : query ? `Search: ${query} — Kenya Escorts` : 'Search Escorts — Kenya',

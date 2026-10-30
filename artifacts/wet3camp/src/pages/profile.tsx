@@ -11,6 +11,7 @@ import { useSEO } from '@/lib/useSEO'
 import { api } from '@/lib/api'
 import type { ApiEscort } from '@/lib/api'
 import { getSlug } from '@/data/escorts'
+import { trackProfileEvent } from '@/lib/profile-analytics'
 
 const TIER_STYLE: Record<string, { bg: string; text: string; label: string }> = {
   Elite:    { bg: '#8B0000',  text: '#fff', label: '★ ELITE'   },
@@ -168,6 +169,7 @@ export default function ProfilePage() {
   const profileUrl = escort ? `https://wet3.camp/@${getSlug(escort.name)}` : ''
 
   const handleShare = async (method?: 'whatsapp' | 'telegram' | 'copy') => {
+    if (method && escort?.id && !isOwnProfile) trackProfileEvent(escort.id, 'share_click')
     const url = profileUrl
     const text = escort ? `Check out ${escort.name} on Wet3Camp — Kenya's #1 escort directory 🔥` : ''
     if (method === 'whatsapp') {
@@ -202,6 +204,11 @@ export default function ProfilePage() {
   }, [escort?.image])
 
   const isOwnProfile = !!(user?.id && (escort as any)?.user_id && String((escort as any).user_id) === user.id)
+
+  useEffect(() => {
+    if (!escort?.id || isOwnProfile) return
+    trackProfileEvent(escort.id, 'profile_view')
+  }, [escort?.id, isOwnProfile])
 
   return (
     <div className="flex min-h-screen bg-dark-bg flex-col lg:flex-row">
@@ -381,7 +388,7 @@ export default function ProfilePage() {
                   <div className="mt-1 mb-3 flex items-center gap-2 px-3 py-2.5 rounded-xl border bg-[#28a745]/5 border-[#28a745]/20">
                     <CheckCircle2 size={13} className="text-[#28a745] flex-shrink-0" />
                     <p className="text-xs text-[#28a745] font-semibold flex-1">Verified — this escort manages her own profile</p>
-                    <Link href={`/messages?to=${escort.id}`} className="px-3 py-1.5 bg-[#28a745] text-white text-[10px] font-black rounded-lg hover:bg-[#22913c] transition-all flex items-center gap-1.5 flex-shrink-0">
+                    <Link href={`/messages?to=${escort.id}`} onClick={() => trackProfileEvent(escort.id, 'platform_message_click')} className="px-3 py-1.5 bg-[#28a745] text-white text-[10px] font-black rounded-lg hover:bg-[#22913c] transition-all flex items-center gap-1.5 flex-shrink-0">
                       <MessageSquare size={10} /> Message
                     </Link>
                   </div>
@@ -418,20 +425,20 @@ export default function ProfilePage() {
                   <div className={`w-2 h-2 rounded-full ${escort.available ? 'bg-[#28a745] animate-pulse' : 'bg-gray-500'}`} />
                   <span className={`text-xs font-bold ${escort.available ? 'text-[#28a745]' : 'text-text-muted'}`}>{escort.available ? 'Available Now' : 'Currently Busy'}</span>
                 </div>
-                <a href={waLink(escort.phone, escort.name, escort.pricing?.incall || escort.pricing?.hourly, `https://wet3.camp/@${getSlug(escort.name)}`)} target="_blank" rel="noopener noreferrer" className="w-full py-3 bg-[#25D366] hover:bg-[#20ba5a] text-white font-black rounded-xl transition-all flex items-center justify-center gap-2 text-sm">
+                <a href={waLink(escort.phone, escort.name, escort.pricing?.incall || escort.pricing?.hourly, `https://wet3.camp/@${getSlug(escort.name)}`)} target="_blank" rel="noopener noreferrer" onClick={() => !isOwnProfile && trackProfileEvent(escort.id, 'whatsapp_click')} className="w-full py-3 bg-[#25D366] hover:bg-[#20ba5a] text-white font-black rounded-xl transition-all flex items-center justify-center gap-2 text-sm">
                   <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
                   WhatsApp {escort.name.split(' ')[0]}
                 </a>
-                <a href={tgLink(escort.name)} target="_blank" rel="noopener noreferrer" className="w-full py-3 bg-[#229ED9] hover:bg-[#1a8fc2] text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2 text-sm">
+                <a href={tgLink(escort.name)} target="_blank" rel="noopener noreferrer" onClick={() => !isOwnProfile && trackProfileEvent(escort.id, 'telegram_click')} className="w-full py-3 bg-[#229ED9] hover:bg-[#1a8fc2] text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2 text-sm">
                   <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.820 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
                   Telegram
                 </a>
                 {escort.phone && (
                   <div className="flex gap-2">
-                    <a href={`tel:${escort.phone}`} className="flex-1 py-2.5 bg-dark-bg border border-color text-text-light font-bold rounded-xl transition-all hover:border-[#28a745]/50 flex items-center justify-center gap-2 text-sm">
+                    <a href={`tel:${escort.phone}`} onClick={() => !isOwnProfile && trackProfileEvent(escort.id, 'call_click')} className="flex-1 py-2.5 bg-dark-bg border border-color text-text-light font-bold rounded-xl transition-all hover:border-[#28a745]/50 flex items-center justify-center gap-2 text-sm">
                       <Phone size={14} className="text-[#28a745]" /> Call
                     </a>
-                    <a href={`sms:${escort.phone}`} className="flex-1 py-2.5 bg-dark-bg border border-color text-text-light font-bold rounded-xl transition-all hover:border-[#25D366]/50 flex items-center justify-center gap-2 text-sm">
+                    <a href={`sms:${escort.phone}`} onClick={() => !isOwnProfile && trackProfileEvent(escort.id, 'sms_click')} className="flex-1 py-2.5 bg-dark-bg border border-color text-text-light font-bold rounded-xl transition-all hover:border-[#25D366]/50 flex items-center justify-center gap-2 text-sm">
                       <MessageCircle size={14} className="text-[#25D366]" /> SMS
                     </a>
                   </div>
@@ -439,11 +446,11 @@ export default function ProfilePage() {
                 {escort.phone && (
                   <div className="text-center py-1">
                     <p className="text-[9px] text-text-muted">Phone / WhatsApp</p>
-                    <a href={`tel:${escort.phone}`} className="text-sm font-black text-text-light hover:text-[#25D366] transition-colors">{escort.phone}</a>
+                  <a href={`tel:${escort.phone}`} onClick={() => !isOwnProfile && trackProfileEvent(escort.id, 'call_click')} className="text-sm font-black text-text-light hover:text-[#25D366] transition-colors">{escort.phone}</a>
                   </div>
                 )}
                 {!isOwnProfile && isLoggedIn && (
-                  <Link href="/messages" className="w-full py-2.5 bg-card-bg border border-color text-text-light font-semibold rounded-xl transition-all hover:border-[#FFD700]/50 flex items-center justify-center gap-2 text-sm">
+                  <Link href="/messages" onClick={() => trackProfileEvent(escort.id, 'platform_message_click')} className="w-full py-2.5 bg-card-bg border border-color text-text-light font-semibold rounded-xl transition-all hover:border-[#FFD700]/50 flex items-center justify-center gap-2 text-sm">
                     <MessageCircle size={14} /> Message {escort.name.split(' ')[0]}
                   </Link>
                 )}
@@ -590,22 +597,22 @@ export default function ProfilePage() {
                   </div>
 
                   <div className="space-y-2.5">
-                    <a href={waLink(escort.phone, escort.name, escort.pricing?.incall || escort.pricing?.hourly, `https://wet3.camp/@${getSlug(escort.name)}`)} target="_blank" rel="noopener noreferrer" className="w-full py-3.5 bg-[#25D366] hover:bg-[#20ba5a] text-white font-black rounded-xl transition-all shadow-lg shadow-[#25D366]/20 flex items-center justify-center gap-2 text-sm">
+                <a href={waLink(escort.phone, escort.name, escort.pricing?.incall || escort.pricing?.hourly, `https://wet3.camp/@${getSlug(escort.name)}`)} target="_blank" rel="noopener noreferrer" onClick={() => !isOwnProfile && trackProfileEvent(escort.id, 'whatsapp_click')} className="w-full py-3.5 bg-[#25D366] hover:bg-[#20ba5a] text-white font-black rounded-xl transition-all shadow-lg shadow-[#25D366]/20 flex items-center justify-center gap-2 text-sm">
                       <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
                       WhatsApp {escort.name.split(' ')[0]}
                     </a>
 
-                    <a href={tgLink(escort.name)} target="_blank" rel="noopener noreferrer" className="w-full py-3 bg-[#229ED9] hover:bg-[#1a8fc2] text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2 text-sm">
+                    <a href={tgLink(escort.name)} target="_blank" rel="noopener noreferrer" onClick={() => !isOwnProfile && trackProfileEvent(escort.id, 'telegram_click')} className="w-full py-3 bg-[#229ED9] hover:bg-[#1a8fc2] text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2 text-sm">
                       <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.820 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
                       Telegram
                     </a>
 
                     {escort.phone && (
                       <div className="flex gap-2 mb-1">
-                        <a href={`tel:${escort.phone}`} className="flex-1 py-3 bg-dark-bg border border-color text-text-light font-bold rounded-xl transition-all hover:border-[#28a745]/50 flex items-center justify-center gap-2 text-sm">
+                        <a href={`tel:${escort.phone}`} onClick={() => !isOwnProfile && trackProfileEvent(escort.id, 'call_click')} className="flex-1 py-3 bg-dark-bg border border-color text-text-light font-bold rounded-xl transition-all hover:border-[#28a745]/50 flex items-center justify-center gap-2 text-sm">
                           <Phone size={14} className="text-[#28a745]" /> Call
                         </a>
-                        <a href={`sms:${escort.phone}`} className="flex-1 py-3 bg-dark-bg border border-color text-text-light font-bold rounded-xl transition-all hover:border-[#25D366]/50 flex items-center justify-center gap-2 text-sm">
+                        <a href={`sms:${escort.phone}`} onClick={() => !isOwnProfile && trackProfileEvent(escort.id, 'sms_click')} className="flex-1 py-3 bg-dark-bg border border-color text-text-light font-bold rounded-xl transition-all hover:border-[#25D366]/50 flex items-center justify-center gap-2 text-sm">
                           <MessageCircle size={14} className="text-[#25D366]" /> SMS
                         </a>
                       </div>
@@ -613,7 +620,7 @@ export default function ProfilePage() {
                     {escort.phone && (
                       <div className="px-3 py-2 bg-dark-bg/60 rounded-xl border border-color/50 text-center mb-1">
                         <p className="text-[9px] text-text-muted mb-0.5">Phone / WhatsApp</p>
-                        <a href={`tel:${escort.phone}`} className="text-sm font-black text-text-light hover:text-[#25D366] transition-colors">{escort.phone}</a>
+                        <a href={`tel:${escort.phone}`} onClick={() => !isOwnProfile && trackProfileEvent(escort.id, 'call_click')} className="text-sm font-black text-text-light hover:text-[#25D366] transition-colors">{escort.phone}</a>
                       </div>
                     )}
                     {isOwnProfile ? (
@@ -622,7 +629,7 @@ export default function ProfilePage() {
                       <>
                         {isLoggedIn && (
                           <>
-                            <Link href={`/messages?to=${escort.id}`} className="w-full py-2.5 bg-card-bg border border-color text-text-light font-semibold rounded-xl transition-all hover:border-[#FFD700]/50 flex items-center justify-center gap-2 text-sm"><MessageCircle size={14} /> Send Platform Message</Link>
+                            <Link href={`/messages?to=${escort.id}`} onClick={() => trackProfileEvent(escort.id, 'platform_message_click')} className="w-full py-2.5 bg-card-bg border border-color text-text-light font-semibold rounded-xl transition-all hover:border-[#FFD700]/50 flex items-center justify-center gap-2 text-sm"><MessageCircle size={14} /> Send Platform Message</Link>
                             <button onClick={() => toggleFollow(escort.id)} className={`w-full py-2.5 border rounded-xl font-medium text-sm transition-all flex items-center justify-center gap-2 ${following ? 'bg-[#8B0000]/10 border-[#8B0000]/40 text-[#8B0000]' : 'bg-dark-bg border-color text-text-muted hover:border-text-muted'}`}>
                               {following ? <><UserCheck size={13} /> Following</> : <><Users size={13} /> Follow {escort.name.split(' ')[0]}</>}
                             </button>

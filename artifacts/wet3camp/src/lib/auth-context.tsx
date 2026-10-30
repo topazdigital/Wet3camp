@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react'
 import { api, setToken, clearToken, getToken, type ApiUser } from './api'
+import { setAuthTokenGetter } from '@workspace/api-client-react'
 
 export type UserRole = 'client' | 'escort' | 'admin'
 
@@ -27,6 +28,8 @@ const AuthContext = createContext<AuthCtx>({
 
 const KEY = 'w3c_user'
 const SS_KEY = 'w3c_ss_user'
+
+setAuthTokenGetter(getToken)
 
 function apiUserToAuthUser(u: ApiUser): AuthUser {
   return {

@@ -9,8 +9,9 @@ import { Link } from 'wouter'
 import { useFollow } from '@/lib/follow-context'
 import { useSEO } from '@/lib/useSEO'
 import { formatKes, usePublicPricing } from '@/lib/pricing'
+import EscortAnalyticsPanel from '@/components/EscortAnalyticsPanel'
 
-const TABS = ['Overview', 'My Bookings', 'My Rooms', 'Edit Profile', 'Gallery', 'Followers', 'Get Featured', 'Instagram Import', 'Earnings']
+const TABS = ['Overview', 'Analytics', 'My Bookings', 'My Rooms', 'Edit Profile', 'Gallery', 'Followers', 'Get Featured', 'Instagram Import', 'Earnings']
 
 const PLACEHOLDER_IMG = 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=600&h=800&fit=crop&crop=face'
 
@@ -403,11 +404,11 @@ export default function MyProfile() {
         <div className="px-4 sm:px-6 border-b border-color">
           <div className="flex gap-1 overflow-x-auto scrollbar-hide">
             {TABS.filter(tab => {
-              const escortOnly = ['My Bookings', 'Gallery', 'Followers', 'Get Featured', 'Instagram Import', 'Earnings']
+              const escortOnly = ['Analytics', 'My Bookings', 'Gallery', 'Followers', 'Get Featured', 'Instagram Import', 'Earnings']
               if (user?.role !== 'escort' && escortOnly.includes(tab)) return false
               return true
             }).map(tab => (
-              <button key={tab} onClick={() => setActiveTab(tab)} className={`flex-shrink-0 px-4 py-3 text-xs font-semibold transition-all border-b-2 ${activeTab === tab ? 'text-[#FFD700] border-[#FFD700]' : 'text-text-muted border-transparent hover:text-text-light'}`}>{tab}</button>
+              <button key={tab} onClick={() => setActiveTab(tab)} data-testid={`tab-profile-${tab.toLowerCase().replace(/\s+/g, '-')}`} aria-pressed={activeTab === tab} className={`flex-shrink-0 px-4 py-3 text-xs font-semibold transition-all border-b-2 ${activeTab === tab ? 'text-[#FFD700] border-[#FFD700]' : 'text-text-muted border-transparent hover:text-text-light'}`}>{tab}</button>
             ))}
           </div>
         </div>
@@ -527,6 +528,8 @@ export default function MyProfile() {
               </div>
             </div>
           )}
+
+          {activeTab === 'Analytics' && user?.role === 'escort' && <EscortAnalyticsPanel />}
 
           {/* ── MY BOOKINGS (escort side) ───────────────────────────────── */}
           {activeTab === 'My Bookings' && (
