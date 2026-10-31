@@ -23,7 +23,7 @@ Kenya escort marketplace and booking platform — discover, book, and manage com
 - Required env: `DATABASE_URL` — MySQL connection string on live server (`mysql://user:pass@host/db`); Replit dev falls back to Postgres only if no MySQL URL is set.
 - Fresh Replit Postgres dev DB: run `psql "$DATABASE_URL" -f scripts/init-pg-dev.sql` once to create dev tables (migrate.ts skips SQL migrations on Postgres and expects this to already exist). No demo/escort data is seeded — `/api/escorts` returns an empty list until data is added.
 - Fresh imported workspace: if the full mobile-inclusive install is blocked by the package firewall, restore the web/API preview with `pnpm install --frozen-lockfile --filter '@workspace/wet3camp...' --filter '@workspace/api-server...'`.
-- After completing and verifying each requested code change, push directly to `main` with `bash push-to-github.sh`; do not create a compare branch or pull request or ask for routine push approval. The script refreshes the committed frontend build and pushes the full release. Every push to `main` triggers `.github/workflows/deploy.yml` and the production deployment. Honor any explicit request to hold a push or deployment.
+- After completing and verifying each requested code change, push directly to `main` with `bash push-to-github.sh`; do not create a compare branch or pull request or ask for routine push approval. The script refreshes the committed frontend build and pushes the release, but does not deploy to the server. Production deployment is started separately over SSH with `bash /home/admin/wet3camp-build/deploy-on-server.sh`.
 
 ## Stack
 
@@ -38,7 +38,8 @@ Kenya escort marketplace and booking platform — discover, book, and manage com
 - `artifacts/api-server/src/lib/db.ts` — dual-DB shim: MySQL on live, PostgreSQL on Replit
 - `artifacts/api-server/src/routes/admin.ts` — admin panel API (escorts, settings, test-connections)
 - `artifacts/wet3camp/src/pages/admin.tsx` — admin panel UI
-- `artifacts/wet3camp-migration.sql` — run this in phpMyAdmin before deploying (creates platform_settings, rooms, etc.)
+- `artifacts/wet3camp-migration.sql` — full legacy bootstrap for fresh/manual database setup; it includes seed data and is not run during routine deployments.
+- `artifacts/wet3camp-migrations/*.sql` — focused, idempotent MySQL migrations applied automatically by the server deploy before the API build. Add one file per schema change; do not include destructive cleanup or seed inserts.
 
 ## Architecture decisions
 
@@ -60,11 +61,11 @@ Kenya escort marketplace and booking platform — discover, book, and manage com
 
 - Live server: `wet3.camp` using MySQL database `admin_wet3camp`
 - Deploy via PowerShell git push → server-side `git pull` + `deploy-on-server.sh`
-- Always run `wet3camp-migration.sql` in phpMyAdmin before deploying new code
+- Routine production schema changes are applied from `artifacts/wet3camp-migrations/` during server deployment; no phpMyAdmin step is needed for those migrations.
 
 ## Gotchas
 
-- Run `wet3camp-migration.sql` in phpMyAdmin FIRST, then deploy code — migration creates `platform_settings` table which is required for admin settings to save
+- For a fresh production database, review and apply the full legacy bootstrap before deployment. Routine deploys use only the focused migrations in `artifacts/wet3camp-migrations/`.
 - The `CompatPool` adds `RETURNING id` only when `id` is not in the INSERT columns — key-value tables (`platform_settings`) have no `id` column and must not get `RETURNING id`
 - `platform_settings` column is literally named `key` (a reserved word in both MySQL and PostgreSQL) — always quote it
 

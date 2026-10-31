@@ -279,20 +279,44 @@ load_api_env
 PORT="$API_PORT"
 export PORT
 
-if [ -n "$DB_HOST" ] && [ -n "$DB_USER" ] && [ -n "$DB_NAME" ]; then
-  MYSQL_CMD="mysql -h${DB_HOST} -P${DB_PORT:-3306} -u${DB_USER} -p${DB_PASS} ${DB_NAME}"
-  MIGRATION_SQL="$REPO_DIR/artifacts/wet3camp-migration.sql"
-  if [ -f "$MIGRATION_SQL" ]; then
-    echo "    Applying $MIGRATION_SQL ..."
-    # Run each statement; continue on non-fatal errors (e.g. column already exists)
-    $MYSQL_CMD --force < "$MIGRATION_SQL" 2>&1 | grep -v "^$" | sed 's/^/    /' || true
-    echo "    Migration applied (safe to re-run — all statements use IF NOT EXISTS)."
-  else
-    echo "    WARNING: Migration file not found at $MIGRATION_SQL"
+if [ -n "$DB_HOST" ] && [ -n "$DB_USER" ] && [ -n "$DB_PASS" ] && [ -n "$DB_NAME" ]; then
+  MYSQL_ARGS=(-h "$DB_HOST" -P "${DB_PORT:-3306}" -u "$DB_USER" "-p${DB_PASS}")
+  MIGRATION_DIR="$REPO_DIR/artifacts/wet3camp-migrations"
+  if [ ! -d "$MIGRATION_DIR" ]; then
+    echo "    ERROR: Focused migration directory is missing: $MIGRATION_DIR"
+    exit 1
   fi
+
+  shopt -s nullglob
+  MIGRATION_FILES=("$MIGRATION_DIR"/*.sql)
+  shopt -u nullglob
+  if [ "${#MIGRATION_FILES[@]}" -eq 0 ]; then
+    echo "    ERROR: No SQL migrations found in $MIGRATION_DIR"
+    exit 1
+  fi
+
+  for MIGRATION_SQL in "${MIGRATION_FILES[@]}"; do
+    echo "    Applying $(basename "$MIGRATION_SQL") ..."
+    if ! mysql "${MYSQL_ARGS[@]}" "$DB_NAME" < "$MIGRATION_SQL"; then
+      echo "    ERROR: Migration failed: $(basename "$MIGRATION_SQL")"
+      exit 1
+    fi
+  done
+
+  if ! ANALYTICS_TABLE="$(mysql "${MYSQL_ARGS[@]}" --database="$DB_NAME" --batch --skip-column-names \
+    -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'escort_profile_events'")"; then
+    echo "    ERROR: Could not verify escort_profile_events after migration."
+    exit 1
+  fi
+  if [ "$ANALYTICS_TABLE" != "1" ]; then
+    echo "    ERROR: escort_profile_events is still missing after migration."
+    exit 1
+  fi
+  echo "    Verified required analytics table: escort_profile_events"
 else
-  echo "    WARNING: DB env vars not found in $API_ENV — skipping migrations."
-  echo "             Edit $API_ENV and fill in DB_HOST, DB_USER, DB_PASS, DB_NAME."
+  echo "    ERROR: DB env vars not found in $API_ENV — refusing to deploy without migrations."
+  echo "           Set DB_HOST, DB_USER, DB_PASS, and DB_NAME in the server env file."
+  exit 1
 fi
 
 echo ""
