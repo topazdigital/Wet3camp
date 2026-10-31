@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { getPool } from '../lib/db.js'
 import { CITY_AREA_VALUES } from '../lib/location-data.js'
+import { getPublicLocationDirectory, MIN_INDEXABLE_LOCATION_PROFILES } from '../lib/public-locations.js'
 
 const router = Router()
 
@@ -57,13 +58,29 @@ router.get('/services/popular', async (_req, res) => {
   }
 })
 
+// ── GET /escorts/locations ────────────────────────────────────────────────────
+router.get('/escorts/locations', async (_req, res) => {
+  try {
+    const locations = await getPublicLocationDirectory()
+    res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300')
+    res.json(locations.map(({ sourcePairs: _citySources, ...city }) => ({
+      ...city,
+      areas: city.areas.map(({ sourcePairs: _areaSources, ...area }) => area),
+      indexable: city.profileCount >= MIN_INDEXABLE_LOCATION_PROFILES,
+    })))
+  } catch (err) {
+    console.error('[escorts] locations error:', err)
+    res.status(503).json({ message: 'Location directory is temporarily unavailable' })
+  }
+})
+
 // ── GET /escorts ──────────────────────────────────────────────────────────────
 router.get('/escorts', async (req, res) => {
   try {
     const {
       city, area, tier, available, featured, online,
       limit = '100', offset = '0', sort = 'featured',
-      q, service, gender,
+      q, service, gender, exactLocation, claimedOnly,
     } = req.query as Record<string, string>
 
     const lim = Math.min(parseInt(limit, 10) || 100, 200)
@@ -76,26 +93,37 @@ router.get('/escorts', async (req, res) => {
     const params: unknown[] = []
 
     if (city) {
-      const key = city.toLowerCase()
-      const areas = CITY_AREA_VALUES[key]
-      if (areas && areas.length) {
-        const placeholders = areas.map(() => '?').join(', ')
-        conditions.push(`LOWER(e.city) IN (${placeholders})`)
-        params.push(...areas)
+      if (exactLocation === '1') {
+        conditions.push('LOWER(TRIM(e.city)) = LOWER(TRIM(?))')
+        params.push(city)
       } else {
-        // Worldwide fallback: match city OR area with LIKE so "London" matches "London West" etc.
-        conditions.push('(LOWER(e.city) LIKE LOWER(?) OR LOWER(e.area) LIKE LOWER(?))')
-        params.push(`%${city}%`, `%${city}%`)
+        const key = city.toLowerCase()
+        const areas = CITY_AREA_VALUES[key]
+        if (areas && areas.length) {
+          const placeholders = areas.map(() => '?').join(', ')
+          conditions.push(`LOWER(e.city) IN (${placeholders})`)
+          params.push(...areas)
+        } else {
+          // Worldwide fallback: match city OR area with LIKE so "London" matches "London West" etc.
+          conditions.push('(LOWER(e.city) LIKE LOWER(?) OR LOWER(e.area) LIKE LOWER(?))')
+          params.push(`%${city}%`, `%${city}%`)
+        }
       }
     }
-    if (area) {
-      const areaValues = area.toLowerCase().split(',').map(value => value.trim()).filter(Boolean)
-      if (areaValues.length) {
-        const placeholders = areaValues.map(() => '?').join(', ')
-        conditions.push(`(LOWER(e.area) IN (${placeholders}) OR LOWER(e.city) IN (${placeholders}))`)
-        params.push(...areaValues, ...areaValues)
+    if (area !== undefined && (area !== '' || exactLocation === '1')) {
+      if (exactLocation === '1') {
+        conditions.push("LOWER(TRIM(COALESCE(e.area, ''))) = LOWER(TRIM(?))")
+        params.push(area)
+      } else {
+        const areaValues = area.toLowerCase().split(',').map(value => value.trim()).filter(Boolean)
+        if (areaValues.length) {
+          const placeholders = areaValues.map(() => '?').join(', ')
+          conditions.push(`(LOWER(e.area) IN (${placeholders}) OR LOWER(e.city) IN (${placeholders}))`)
+          params.push(...areaValues, ...areaValues)
+        }
       }
     }
+    if (claimedOnly === '1') conditions.push('e.user_id IS NOT NULL')
     if (tier)      { conditions.push('LOWER(e.tier) = LOWER(?)'); params.push(tier) }
     if (available) { conditions.push('e.available = 1') }
     if (featured)  { conditions.push('e.featured = 1') }

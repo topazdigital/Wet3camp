@@ -15,6 +15,12 @@
 import type { Request, Response, NextFunction } from 'express'
 import { getPool } from '../lib/db.js'
 import { AREA_LANDING_PAGES, CITY_AREA_VALUES, getAreaLandingPage, isAreaRowMatch } from '../lib/location-data.js'
+import {
+  getPublicLocationDirectory,
+  getPublicLocationProfiles,
+  type PublicLocationArea,
+  type PublicLocationCity,
+} from '../lib/public-locations.js'
 import { readPlatformPricing, type PlatformPricing } from '../lib/platform-pricing.js'
 
 const SITE_URL  = 'https://wet3.camp'
@@ -38,7 +44,10 @@ const PUBLIC_CITY_PAGES = [
   { name: 'Eldoret', slug: 'eldoret' },
 ]
 
-function buildHomepageDirectoryBody(profiles: Array<{ name?: string; city?: string }>): string {
+function buildHomepageDirectoryBody(
+  profiles: Array<{ name?: string; city?: string }>,
+  dynamicCities: PublicLocationCity[] = [],
+): string {
   const profileLinks = profiles
     .filter(profile => profile.name?.trim())
     .slice(0, 10)
@@ -46,8 +55,12 @@ function buildHomepageDirectoryBody(profiles: Array<{ name?: string; city?: stri
       `<li><a href="${SITE_URL}/@${profileSlug(profile.name!)}">${esc(profile.name!)}${profile.city ? ` — ${esc(profile.city)}` : ''}</a></li>`
     )
     .join('')
-  const cityLinks = PUBLIC_CITY_PAGES
-    .map(city => `<li><a href="${SITE_URL}/escorts/${city.slug}">${city.name} escorts</a></li>`)
+  const cities = new Map(PUBLIC_CITY_PAGES.map(city => [city.slug, city]))
+  for (const city of dynamicCities) {
+    if (city.indexable && !cities.has(city.slug)) cities.set(city.slug, { name: city.name, slug: city.slug })
+  }
+  const cityLinks = [...cities.values()]
+    .map(city => `<li><a href="${SITE_URL}/escorts/${city.slug}">${esc(city.name)} escorts</a></li>`)
     .join('')
 
   return [
@@ -601,7 +614,31 @@ export async function ogPreviewMiddleware(req: Request, res: Response, next: Nex
   // ── Area landing pages: /escorts/:city/:area ────────────────────────────────
   const areaMatch = path.match(/^\/escorts\/([^/?#]+)\/([^/?#]+)$/)
   if (areaMatch) {
-    const areaPage = getAreaLandingPage(areaMatch[1].toLowerCase(), areaMatch[2].toLowerCase())
+    const staticAreaPage = getAreaLandingPage(areaMatch[1].toLowerCase(), areaMatch[2].toLowerCase())
+    let dynamicCity: PublicLocationCity | undefined
+    let dynamicArea: PublicLocationArea | undefined
+    if (!staticAreaPage) {
+      try {
+        const directory = await getPublicLocationDirectory()
+        dynamicCity = directory.find(city => city.slug === areaMatch[1].toLowerCase())
+        dynamicArea = dynamicCity?.areas.find(area => area.slug === areaMatch[2].toLowerCase())
+      } catch (err) {
+        console.error('[og-area] location directory error:', err)
+      }
+    }
+    const areaPage = staticAreaPage ?? (dynamicArea && dynamicCity ? {
+      citySlug: dynamicArea.citySlug,
+      cityName: dynamicArea.cityName,
+      slug: dynamicArea.slug,
+      name: dynamicArea.name,
+      filterValues: [dynamicArea.sourceArea || dynamicArea.filterArea],
+      nearby: dynamicCity.areas
+        .filter(area => area.slug !== dynamicArea.slug)
+        .slice(0, 4)
+        .map(area => area.name),
+      description: `Browse active public profiles listing ${dynamicArea.name}, ${dynamicArea.cityName}. Confirm profile details and availability directly.`,
+      intro: `These profiles list ${dynamicArea.name} as their area in ${dynamicArea.cityName}. Profile information is provided by the profile owners.`,
+    } : undefined)
     if (!areaPage) {
       res.status(404).send(buildHtml({
         title: 'Location Not Found | Wet3 Camp',
@@ -614,36 +651,50 @@ export async function ogPreviewMiddleware(req: Request, res: Response, next: Nex
     }
 
     let matchingProfiles: Array<{ id: number | string; name: string; city?: string; area?: string }> = []
-    const pool = getPool()
-    if (pool) {
+    if (dynamicArea) {
       try {
-        const [rows] = await pool.query<any[]>(
-          'SELECT id, name, city, area FROM escorts WHERE is_active = 1 LIMIT 10000'
-        )
-        matchingProfiles = (rows as Array<{ id: number | string; name: string; city?: string; area?: string }>)
-          .filter(row => isAreaRowMatch(areaPage, row))
+        matchingProfiles = await getPublicLocationProfiles(dynamicArea.sourcePairs, 24)
       } catch (err) {
-        console.error('[og-area] DB error:', err)
+        console.error('[og-area] dynamic profile query error:', err)
+      }
+    } else {
+      const pool = getPool()
+      if (pool) {
+        try {
+          const [rows] = await pool.query<any[]>(
+            'SELECT id, name, city, area FROM escorts WHERE is_active = 1 LIMIT 10000'
+          )
+          matchingProfiles = (rows as Array<{ id: number | string; name: string; city?: string; area?: string }>)
+            .filter(row => isAreaRowMatch(areaPage, row))
+        } catch (err) {
+          console.error('[og-area] DB error:', err)
+        }
       }
     }
 
     const areaUrl = `${SITE_URL}/escorts/${areaPage.citySlug}/${areaPage.slug}`
     const nearbyLinks = areaPage.nearby.map(nearby => {
+      const dynamicNearbyPage = dynamicCity?.areas.find(page =>
+        page.name.toLowerCase() === nearby.toLowerCase()
+      )
       const nearbyPage = AREA_LANDING_PAGES.find(page =>
         page.citySlug === areaPage.citySlug && page.name.toLowerCase() === nearby.toLowerCase()
       )
-      return nearbyPage
+      return dynamicNearbyPage
+        ? `<li><a href="${SITE_URL}/escorts/${dynamicNearbyPage.citySlug}/${dynamicNearbyPage.slug}">${esc(dynamicNearbyPage.name)} escorts</a></li>`
+        : nearbyPage
         ? `<li><a href="${SITE_URL}/escorts/${nearbyPage.citySlug}/${nearbyPage.slug}">${esc(nearbyPage.name)} escorts</a></li>`
         : `<li>${esc(nearby)}</li>`
     }).join('')
     const profileLinks = matchingProfiles.slice(0, 24).map(profile =>
       `<li><a href="${SITE_URL}/@${profileSlug(profile.name)}">${esc(profile.name)} — ${esc(areaPage.name)}, ${esc(areaPage.cityName)}</a></li>`
     ).join('')
-    const profileSection = matchingProfiles.length
-      ? `<h2>Profiles in ${esc(areaPage.name)}</h2><p>${matchingProfiles.length} active profile${matchingProfiles.length === 1 ? '' : 's'} currently list this area.</p><ul>${profileLinks}</ul>`
+    const areaProfileCount = dynamicArea?.profileCount ?? matchingProfiles.length
+    const profileSection = areaProfileCount
+      ? `<h2>Profiles in ${esc(areaPage.name)}</h2><p>${areaProfileCount} active profile${areaProfileCount === 1 ? '' : 's'} currently list this area.</p><ul>${profileLinks}</ul>`
       : '<p>There are no active profiles listing this area yet. Browse the wider city directory for current availability.</p>'
     const areaBody = [
-      `<h1><a href="${areaUrl}">Verified Escorts in ${esc(areaPage.name)}, ${esc(areaPage.cityName)}</a></h1>`,
+      `<h1><a href="${areaUrl}">${dynamicArea ? 'Active' : 'Verified'} Escort Profiles in ${esc(areaPage.name)}, ${esc(areaPage.cityName)}</a></h1>`,
       `<p>${esc(areaPage.intro)}</p>`,
       profileSection,
       `<h2>Nearby areas</h2><ul>${nearbyLinks}</ul>`,
@@ -661,19 +712,19 @@ export async function ogPreviewMiddleware(req: Request, res: Response, next: Nex
         containedInPlace: { '@type': 'City', name: areaPage.cityName, addressCountry: 'KE' },
       },
       isPartOf: { '@type': 'WebSite', name: SITE_NAME, url: SITE_URL },
-      numberOfItems: matchingProfiles.length,
+      numberOfItems: areaProfileCount,
     }
 
     res.setHeader('Content-Type', 'text/html; charset=utf-8')
     res.setHeader('Cache-Control', 'public, max-age=3600, stale-while-revalidate=7200')
     res.status(200).send(buildHtml({
-      title: `Verified Escorts in ${areaPage.name}, ${areaPage.cityName} | ${SITE_NAME}`,
+      title: `${dynamicArea ? 'Active' : 'Verified'} Escort Profiles in ${areaPage.name}, ${areaPage.cityName} | ${SITE_NAME}`,
       description: areaPage.description,
       image: DEFAULT_IMAGE,
       url: areaUrl,
       keywords: `${areaPage.name} escorts, escorts in ${areaPage.name}, verified escorts ${areaPage.name}, ${areaPage.cityName} escorts`,
       schema: [...BASE_SCHEMAS, areaSchema],
-      noIndex: matchingProfiles.length === 0,
+      noIndex: dynamicArea ? !dynamicArea.indexable : matchingProfiles.length === 0,
       body: areaBody,
     }))
     return
@@ -685,6 +736,86 @@ export async function ogPreviewMiddleware(req: Request, res: Response, next: Nex
     const citySlug = cityMatch[1].toLowerCase()
     const city = CITY_LANDING[citySlug]
     if (!city) {
+      let dynamicCity: PublicLocationCity | undefined
+      try {
+        const directory = await getPublicLocationDirectory()
+        dynamicCity = directory.find(location => location.slug === citySlug)
+      } catch (err) {
+        console.error('[og-city] location directory error:', err)
+      }
+
+      if (dynamicCity) {
+        let profiles: Array<{ id: number | string; name: string; city?: string; area?: string }> = []
+        try {
+          profiles = await getPublicLocationProfiles(dynamicCity.sourcePairs, 24)
+        } catch (err) {
+          console.error('[og-city] dynamic profile query error:', err)
+        }
+
+        const cityUrl = `${SITE_URL}/escorts/${dynamicCity.slug}`
+        const profileLinks = profiles.map(profile =>
+          `<li><a href="${SITE_URL}/@${profileSlug(profile.name)}">${esc(profile.name)}${profile.area ? ` — ${esc(profile.area)}` : ''}, ${esc(dynamicCity!.name)}</a></li>`
+        ).join('')
+        const areaLinks = dynamicCity.areas.map(area =>
+          `<li><a href="${SITE_URL}/escorts/${area.citySlug}/${area.slug}">${esc(area.name)} escorts</a></li>`
+        ).join('')
+        const pageDescription = `Browse active public profiles listing ${dynamicCity.name}, Kenya. Profile details and availability are provided by profile owners.`
+        const itemList = profiles.length ? {
+          '@context': 'https://schema.org',
+          '@type': 'ItemList',
+          name: `Public profiles in ${dynamicCity.name}, Kenya`,
+          itemListElement: profiles.map((profile, index) => ({
+            '@type': 'ListItem',
+            position: index + 1,
+            name: profile.name,
+            url: `${SITE_URL}/@${profileSlug(profile.name)}`,
+          })),
+        } : null
+        const citySchema = {
+          '@context': 'https://schema.org',
+          '@type': 'CollectionPage',
+          name: `Escort Profiles in ${dynamicCity.name}, Kenya | ${SITE_NAME}`,
+          description: pageDescription,
+          url: cityUrl,
+          about: { '@type': 'Place', name: dynamicCity.name, addressCountry: 'KE' },
+          isPartOf: { '@type': 'WebSite', name: SITE_NAME, url: SITE_URL },
+          numberOfItems: dynamicCity.profileCount,
+        }
+        const cityBreadcrumb = {
+          '@context': 'https://schema.org',
+          '@type': 'BreadcrumbList',
+          itemListElement: [
+            { '@type': 'ListItem', position: 1, name: 'Home', item: `${SITE_URL}/` },
+            { '@type': 'ListItem', position: 2, name: 'Kenya profiles', item: `${SITE_URL}/` },
+            { '@type': 'ListItem', position: 3, name: `${dynamicCity.name} profiles`, item: cityUrl },
+          ],
+        }
+        const body = [
+          `<h1><a href="${cityUrl}">Active Escort Profiles in ${esc(dynamicCity.name)}</a></h1>`,
+          `<p>${esc(pageDescription)}</p>`,
+          `<p>${dynamicCity.profileCount} active profile${dynamicCity.profileCount === 1 ? '' : 's'} currently list this location.</p>`,
+          profiles.length
+            ? `<h2>Public profiles</h2><ul>${profileLinks}</ul>`
+            : '<p>There are no active public profiles to display right now.</p>',
+          areaLinks ? `<h2>Areas with active listings</h2><ul>${areaLinks}</ul>` : '',
+          `<p><a href="${SITE_URL}/">Browse all Kenya profiles</a></p>`,
+        ].join('')
+
+        res.setHeader('Content-Type', 'text/html; charset=utf-8')
+        res.setHeader('Cache-Control', 'public, max-age=900, stale-while-revalidate=1800')
+        res.status(200).send(buildHtml({
+          title: `Escort Profiles in ${dynamicCity.name}, Kenya | ${SITE_NAME}`,
+          description: pageDescription,
+          image: DEFAULT_IMAGE,
+          url: cityUrl,
+          keywords: `${dynamicCity.name} escort profiles, profiles in ${dynamicCity.name}, Kenya directory`,
+          schema: [...BASE_SCHEMAS, citySchema, cityBreadcrumb, ...(itemList ? [itemList] : [])],
+          noIndex: !dynamicCity.indexable,
+          body,
+        }))
+        return
+      }
+
       res.status(404).send(buildHtml({
         title: 'City Not Found | Wet3 Camp',
         description: 'This city landing page could not be found.',
@@ -777,14 +908,26 @@ export async function ogPreviewMiddleware(req: Request, res: Response, next: Nex
       about: { '@type': 'Place', name: city.name, addressCountry: 'KE' },
       isPartOf: { '@type': 'WebSite', name: SITE_NAME, url: SITE_URL },
     }
-    const areas = city.areas.map(area => {
+    const areaLinksBySlug = new Map<string, string>()
+    city.areas.forEach(area => {
       const areaPage = AREA_LANDING_PAGES.find(page =>
         page.citySlug === cityMatch[1].toLowerCase() && page.name.toLowerCase() === area.toLowerCase()
       )
-      return areaPage
+      const key = areaPage?.slug ?? area.toLowerCase()
+      areaLinksBySlug.set(key, areaPage
         ? `<li><a href="${SITE_URL}/escorts/${areaPage.citySlug}/${areaPage.slug}">${esc(areaPage.name)} escorts</a></li>`
-        : `<li>${esc(area)}</li>`
-    }).join('')
+        : `<li>${esc(area)}</li>`)
+    })
+    try {
+      const directory = await getPublicLocationDirectory()
+      const directoryCity = directory.find(location => location.slug === citySlug)
+      for (const area of directoryCity?.areas ?? []) {
+        areaLinksBySlug.set(area.slug, `<li><a href="${SITE_URL}/escorts/${area.citySlug}/${area.slug}">${esc(area.name)} escorts</a></li>`)
+      }
+    } catch (err) {
+      console.error('[og-city] dynamic area links error:', err)
+    }
+    const areas = [...areaLinksBySlug.values()].join('')
     const cityBody = [
       `<h1><a href="${cityUrl}">Verified Escorts in ${city.name}</a></h1>`,
       `<p>${city.intro}</p>`,
@@ -1017,10 +1160,14 @@ export async function ogPreviewMiddleware(req: Request, res: Response, next: Nex
          ORDER BY e.featured DESC, e.rating DESC, e.id DESC, eg.sort_order ASC
          LIMIT 10`
       )
-        .then(([rows]) => {
+        .then(async ([rows]) => {
           const featured = Array.isArray(rows) ? rows : []
           const pick = featured.find((r: any) => r.image?.trim()) ?? featured[0]
           const homepageProfileSchema = buildHomepageProfileSchema(featured)
+          const dynamicCities = await getPublicLocationDirectory().catch(err => {
+            console.error('[og-home] location directory error:', err)
+            return []
+          })
           const homeMeta = PAGE_OG['/']!
           res.setHeader('Content-Type', 'text/html; charset=utf-8')
           res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=120')
@@ -1033,7 +1180,7 @@ export async function ogPreviewMiddleware(req: Request, res: Response, next: Nex
             url: `${SITE_URL}/`,
             keywords: homeMeta.keywords,
             schema: [...BASE_SCHEMAS, HOMEPAGE_EXTRA_SCHEMA, ...(homepageProfileSchema ? [homepageProfileSchema] : [])],
-            body: buildHomepageDirectoryBody(featured),
+            body: buildHomepageDirectoryBody(featured, dynamicCities),
           }))
         })
         .catch(() => {

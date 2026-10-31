@@ -4,22 +4,24 @@ import Sidebar from '@/components/Sidebar'
 import Header from '@/components/Header'
 import SeoFooter from '@/components/SeoFooter'
 import { useSEO } from '@/lib/useSEO'
-import { api } from '@/lib/api'
+import { api, type ApiLocationCity } from '@/lib/api'
 import { getSlug } from '@/data/escorts'
 import { getAreaPagesForCity } from '@/data/area-pages'
 import { ChevronRight, MapPin, Shield, Star } from 'lucide-react'
 
-const CITY_DATA: Record<string, {
+type CityPageData = {
   displayName: string
   description: string
   areas: string[]
   intro: string
   faqs: { q: string; a: string }[]
   hotels: string[]
-  image: string
-  tier: string
-  population: string
-}> = {
+  image?: string
+  tier?: string
+  population?: string
+}
+
+const CITY_DATA: Record<string, CityPageData> = {
   nairobi: {
     displayName: 'Nairobi',
     description: "Find verified escort profiles in Kenya's capital, including Westlands, Kilimani, Karen and Nairobi CBD.",
@@ -102,14 +104,58 @@ const CITY_DATA: Record<string, {
   },
 }
 
+function CityProfileImage({ src, name }: { src?: string | null; name: string }) {
+  const [failed, setFailed] = useState(false)
+  if (!src || failed) {
+    return (
+      <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#1a1a1a] to-[#351313]">
+        <span className="text-5xl font-black text-[#8B0000]/60">{name.charAt(0).toUpperCase()}</span>
+      </div>
+    )
+  }
+  return (
+    <img
+      src={src}
+      alt={name}
+      width="300"
+      height="400"
+      loading="lazy"
+      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+      onError={() => setFailed(true)}
+    />
+  )
+}
+
 export default function CityEscorts() {
   const [, params] = useRoute('/escorts/:city')
   const cityKey = (params?.city ?? '').toLowerCase()
-  const city = CITY_DATA[cityKey]
-  const areaPages = getAreaPagesForCity(cityKey)
+  const staticCity = CITY_DATA[cityKey]
+  const [locationCity, setLocationCity] = useState<ApiLocationCity | null>(null)
 
   const [escorts, setEscorts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const city: CityPageData | undefined = staticCity ?? (locationCity ? {
+    displayName: locationCity.name,
+    description: `Browse active profiles in ${locationCity.name}, Kenya. Profile details and availability are managed by their owners; confirm information directly.`,
+    areas: locationCity.areas.map(area => area.name),
+    intro: `These public profiles list ${locationCity.name} as their location. Compare the details provided by each profile owner and confirm availability directly.`,
+    faqs: [],
+    hotels: [],
+  } : undefined)
+  const staticAreaPages = getAreaPagesForCity(cityKey)
+  const dynamicAreaPages = (locationCity?.areas ?? []).map(area => ({
+    citySlug: area.citySlug,
+    cityName: area.cityName,
+    slug: area.slug,
+    name: area.name,
+    filterArea: area.filterArea,
+    nearby: [],
+    description: `Browse active public profiles listing ${area.name}, ${area.cityName}. Confirm profile details and availability directly.`,
+    intro: `These profiles list ${area.name} as their area in ${area.cityName}. Profile information is provided by the profile owners.`,
+  }))
+  const areaPages = [...new Map(
+    [...dynamicAreaPages, ...staticAreaPages].map(area => [area.slug, area]),
+  ).values()]
 
   useSEO({
     title: city
@@ -120,15 +166,60 @@ export default function CityEscorts() {
       ? `${city.displayName} escorts, escorts in ${city.displayName} Kenya, verified escorts ${city.displayName}, ${city.areas.slice(0, 3).map(a => `${a} escorts`).join(', ')}`
       : undefined,
     canonicalPath: `/escorts/${cityKey}`,
-    noIndex: !city,
+    noIndex: !city || (!staticCity && !locationCity?.indexable),
   })
 
   useEffect(() => {
-    if (!city) return
+    let active = true
+    setLocationCity(null)
+    setEscorts([])
     setLoading(true)
-    api.escorts.list({ city: city.displayName, limit: 24 })
-      .then(res => { setEscorts(res.data ?? []); setLoading(false) })
-      .catch(() => setLoading(false))
+
+    if (staticCity) {
+      api.escorts.list({ city: staticCity.displayName, limit: 24 })
+        .then(response => {
+          if (active) setEscorts(response.data ?? [])
+        })
+        .catch(() => {
+          if (active) setEscorts([])
+        })
+        .finally(() => {
+          if (active) setLoading(false)
+        })
+    }
+
+    api.escorts.locations()
+      .then(locations => {
+        if (!active || staticCity) return
+        const match = locations.find(location => location.slug === cityKey) ?? null
+        setLocationCity(match)
+
+        if (!match) {
+          setLoading(false)
+          return
+        }
+        return api.escorts.list({
+          city: match.sourceCity,
+          exactLocation: true,
+          claimedOnly: true,
+          limit: 24,
+          sort: 'featured',
+        }).then(response => {
+          if (active) setEscorts(response.data ?? [])
+        }).catch(() => {
+          if (active) setEscorts([])
+        }).finally(() => {
+          if (active) setLoading(false)
+        })
+      })
+      .catch(() => {
+        if (active && !staticCity) {
+          setLocationCity(null)
+          setLoading(false)
+        }
+      })
+
+    return () => { active = false }
   }, [cityKey])
 
   if (!city) {
@@ -137,7 +228,9 @@ export default function CityEscorts() {
         <Sidebar />
         <div className="flex-1 min-w-0 mobile-bottom-safe lg:pb-0">
           <Header />
-          <div className="flex items-center justify-center h-64 text-text-muted">City not found.</div>
+          <div className="flex items-center justify-center h-64 text-text-muted">
+            {loading ? 'Loading current location…' : 'City not found.'}
+          </div>
         </div>
       </div>
     )
@@ -151,7 +244,9 @@ export default function CityEscorts() {
         <main>
           {/* Hero */}
           <div className="relative h-56 overflow-hidden">
-            <img src={city.image} alt={`${city.displayName} escorts`} width="1200" height="400" className="w-full h-full object-cover opacity-40" />
+            {city.image
+              ? <img src={city.image} alt={`${city.displayName} escorts`} width="1200" height="400" className="w-full h-full object-cover opacity-40" />
+              : <div className="absolute inset-0 bg-gradient-to-br from-[#310d0d] via-[#171313] to-dark-bg" />}
             <div className="absolute inset-0 bg-gradient-to-t from-dark-bg via-dark-bg/60 to-transparent" />
             <div className="absolute bottom-0 left-0 right-0 p-6">
               <div className="flex items-center gap-2 text-xs text-text-muted mb-1">
@@ -169,18 +264,24 @@ export default function CityEscorts() {
           <div className="max-w-5xl mx-auto px-4 py-8">
             {/* Stats bar */}
             <div className="flex flex-wrap gap-4 mb-8 p-4 bg-card-bg border border-color rounded-xl">
-              <div className="flex items-center gap-2 text-sm">
-                <MapPin size={14} className="text-[#8B0000]" />
-                <span className="text-text-muted">Population: <strong className="text-text-light">{city.population}</strong></span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <Shield size={14} className="text-green-400" />
-                <span className="text-text-muted">All profiles verified</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <Star size={14} className="text-yellow-400" />
-                <span className="text-text-muted">Top tier: <strong className="text-text-light">{city.tier}</strong></span>
-              </div>
+              {city.population && (
+                <div className="flex items-center gap-2 text-sm">
+                  <MapPin size={14} className="text-[#8B0000]" />
+                  <span className="text-text-muted">Population: <strong className="text-text-light">{city.population}</strong></span>
+                </div>
+              )}
+              {staticCity && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Shield size={14} className="text-green-400" />
+                  <span className="text-text-muted">All profiles verified</span>
+                </div>
+              )}
+              {city.tier && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Star size={14} className="text-yellow-400" />
+                  <span className="text-text-muted">Top tier: <strong className="text-text-light">{city.tier}</strong></span>
+                </div>
+              )}
               <Link href={`/search?city=${city.displayName}`} className="ml-auto inline-flex items-center gap-1 px-4 py-1.5 bg-[#8B0000] text-white text-xs font-bold rounded-lg hover:bg-[#a00000] transition-all">
                 All {city.displayName} Escorts <ChevronRight size={12} />
               </Link>
@@ -192,26 +293,28 @@ export default function CityEscorts() {
             </div>
 
             {/* Areas */}
-            <div className="mb-8">
-              <h2 className="text-lg font-black text-text-light mb-3">Top Areas in {city.displayName}</h2>
-              <div className="flex flex-wrap gap-2">
-                {areaPages.map(areaPage => (
-                  <Link
-                    key={areaPage.slug}
-                    href={`/escorts/${cityKey}/${areaPage.slug}`}
-                    data-testid={`link-city-area-${areaPage.slug}`}
-                    className="flex items-center gap-1 px-3 py-1.5 bg-card-bg border border-color rounded-full text-xs text-text-muted hover:border-[#8B0000]/50 hover:text-text-light transition-all"
-                  >
-                    <MapPin size={10} className="text-[#8B0000]" /> {areaPage.name}
-                  </Link>
-                ))}
+            {areaPages.length > 0 && (
+              <div className="mb-8">
+                <h2 className="text-lg font-black text-text-light mb-3">Areas in {city.displayName}</h2>
+                <div className="flex flex-wrap gap-2">
+                  {areaPages.map(areaPage => (
+                    <Link
+                      key={areaPage.slug}
+                      href={`/escorts/${cityKey}/${areaPage.slug}`}
+                      data-testid={`link-city-area-${areaPage.slug}`}
+                      className="flex items-center gap-1 px-3 py-1.5 bg-card-bg border border-color rounded-full text-xs text-text-muted hover:border-[#8B0000]/50 hover:text-text-light transition-all"
+                    >
+                      <MapPin size={10} className="text-[#8B0000]" /> {areaPage.name}
+                    </Link>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Escort grid */}
             <div className="mb-10">
               <h2 className="text-lg font-black text-text-light mb-4">
-                Verified Escorts in {city.displayName}
+                {staticCity ? 'Verified Escorts' : 'Active Profiles'} in {city.displayName}
                 {!loading && escorts.length > 0 && <span className="text-sm font-normal text-text-muted ml-2">({escorts.length} profiles)</span>}
               </h2>
               {loading ? (
@@ -226,15 +329,7 @@ export default function CityEscorts() {
                     <Link key={e.id} href={`/@${getSlug(e.name)}`} className="group block">
                       <div className="bg-card-bg border border-color rounded-xl overflow-hidden hover:border-[#8B0000]/40 transition-all">
                         <div className="aspect-[3/4] overflow-hidden relative">
-                           <img
-                            src={e.image || '/api/placeholder-escort.jpg'}
-                            alt={e.name}
-                             width="300"
-                             height="400"
-                             loading="lazy"
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                            onError={ev => { (ev.target as HTMLImageElement).src = '/api/placeholder-escort.jpg' }}
-                          />
+                          <CityProfileImage src={e.image} name={e.name} />
                           {e.verified && (
                             <span className="absolute top-2 right-2 bg-green-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">✓</span>
                           )}
@@ -265,41 +360,47 @@ export default function CityEscorts() {
             </div>
 
             {/* Hotels */}
-            <div className="mb-8">
-              <h2 className="text-lg font-black text-text-light mb-3">Top Hotels for Escort Meetups in {city.displayName}</h2>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {city.hotels.map(hotel => (
-                  <div key={hotel} className="flex items-center gap-2 p-3 bg-card-bg border border-color rounded-lg text-xs text-text-muted">
-                    <Shield size={10} className="text-[#8B0000] flex-shrink-0" />
-                    {hotel}
-                  </div>
-                ))}
+            {city.hotels.length > 0 && (
+              <div className="mb-8">
+                <h2 className="text-lg font-black text-text-light mb-3">Top Hotels for Escort Meetups in {city.displayName}</h2>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {city.hotels.map(hotel => (
+                    <div key={hotel} className="flex items-center gap-2 p-3 bg-card-bg border border-color rounded-lg text-xs text-text-muted">
+                      <Shield size={10} className="text-[#8B0000] flex-shrink-0" />
+                      {hotel}
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* FAQ — structured data for SEO */}
-            <div className="mb-8">
-              <h2 className="text-lg font-black text-text-light mb-4">FAQ — Escorts in {city.displayName}</h2>
-              <div className="space-y-3">
-                {city.faqs.map((faq, i) => (
-                  <details key={i} className="bg-card-bg border border-color rounded-xl p-4">
-                    <summary className="text-sm font-bold text-text-light cursor-pointer">{faq.q}</summary>
-                    <p className="text-sm text-text-muted mt-3 leading-relaxed">{faq.a}</p>
-                  </details>
-                ))}
+            {city.faqs.length > 0 && (
+              <>
+                <div className="mb-8">
+                  <h2 className="text-lg font-black text-text-light mb-4">FAQ — Escorts in {city.displayName}</h2>
+                  <div className="space-y-3">
+                    {city.faqs.map((faq, i) => (
+                      <details key={i} className="bg-card-bg border border-color rounded-xl p-4">
+                        <summary className="text-sm font-bold text-text-light cursor-pointer">{faq.q}</summary>
+                        <p className="text-sm text-text-muted mt-3 leading-relaxed">{faq.a}</p>
+                      </details>
+                    ))}
+                  </div>
               </div>
-            </div>
 
-            {/* FAQ JSON-LD */}
-            <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
-              '@context': 'https://schema.org',
-              '@type': 'FAQPage',
-              mainEntity: city.faqs.map(faq => ({
-                '@type': 'Question',
-                name: faq.q,
-                acceptedAnswer: { '@type': 'Answer', text: faq.a },
-              })),
-            }) }} />
+                {/* FAQ JSON-LD */}
+                <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
+                  '@context': 'https://schema.org',
+                  '@type': 'FAQPage',
+                  mainEntity: city.faqs.map(faq => ({
+                    '@type': 'Question',
+                    name: faq.q,
+                    acceptedAnswer: { '@type': 'Answer', text: faq.a },
+                  })),
+                }) }} />
+              </>
+            )}
 
             {/* Breadcrumb JSON-LD */}
             <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
@@ -315,7 +416,11 @@ export default function CityEscorts() {
             {/* CTA */}
             <div className="mt-8 p-6 bg-gradient-to-br from-[#8B0000]/20 to-transparent border border-[#8B0000]/30 rounded-2xl text-center">
               <h3 className="text-base font-black text-text-light mb-1">Ready to Browse {city.displayName} Escorts?</h3>
-              <p className="text-xs text-text-muted mb-4">All profiles verified · Browse free · Book via WhatsApp</p>
+              <p className="text-xs text-text-muted mb-4">
+                {staticCity
+                  ? 'All profiles verified · Browse free · Book via WhatsApp'
+                  : 'Public profile details · Browse free · Contact providers directly'}
+              </p>
               <div className="flex justify-center gap-3">
                 <Link href={`/search?city=${city.displayName}`} className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#8B0000] text-white text-sm font-black rounded-xl hover:bg-[#a00000] transition-all">
                   Browse Escorts <ChevronRight size={14} />

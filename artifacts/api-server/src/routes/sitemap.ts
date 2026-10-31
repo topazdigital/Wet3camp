@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { getPool } from '../lib/db.js'
 import { AREA_LANDING_PAGES, isAreaRowMatch } from '../lib/location-data.js'
+import { getPublicLocationDirectory, MIN_INDEXABLE_LOCATION_PROFILES } from '../lib/public-locations.js'
 
 const router = Router()
 
@@ -165,6 +166,27 @@ router.get('/sitemap-cities.xml', async (_req, res) => {
     if (activeRows.some(row => isAreaRowMatch(areaPage, row))) {
       lines.push(url(`${BASE}/escorts/${areaPage.citySlug}/${areaPage.slug}`, today, 'daily', '0.85'))
     }
+  }
+  const knownCitySlugs = new Set(CITY_PAGES)
+  const knownAreaPaths = new Set(AREA_LANDING_PAGES.map(page => `${page.citySlug}/${page.slug}`))
+  try {
+    const locations = await getPublicLocationDirectory()
+    for (const city of locations) {
+      if (!knownCitySlugs.has(city.slug) && city.profileCount >= MIN_INDEXABLE_LOCATION_PROFILES) {
+        lines.push(url(`${BASE}/escorts/${city.slug}`, today, 'daily', '0.90'))
+      }
+      for (const area of city.areas) {
+        const key = `${area.citySlug}/${area.slug}`
+        if (
+          !knownAreaPaths.has(key) &&
+          area.profileCount >= MIN_INDEXABLE_LOCATION_PROFILES
+        ) {
+          lines.push(url(`${BASE}/escorts/${area.citySlug}/${area.slug}`, today, 'daily', '0.80'))
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[sitemap-cities] dynamic location error:', err)
   }
 
   res.send([

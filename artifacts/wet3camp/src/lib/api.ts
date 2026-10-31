@@ -47,6 +47,27 @@ export interface ApiEscort {
   gallery?: string[]
 }
 
+export interface ApiLocationArea {
+  citySlug: string
+  cityName: string
+  slug: string
+  name: string
+  filterArea: string
+  sourceCity: string
+  sourceArea: string
+  profileCount: number
+  indexable: boolean
+}
+
+export interface ApiLocationCity {
+  name: string
+  slug: string
+  sourceCity: string
+  profileCount: number
+  indexable: boolean
+  areas: ApiLocationArea[]
+}
+
 export interface ApiUser {
   id: string; name: string; email: string; role: 'user' | 'escort' | 'admin'
   avatar: string | null; phone: string | null
@@ -55,10 +76,10 @@ export interface ApiUser {
 
 export const api = {
   escorts: {
-    list: (p?: { city?: string; area?: string; tier?: string; available?: string; featured?: boolean; sort?: string; limit?: number; offset?: number; service?: string }) => {
+    list: (p?: { city?: string; area?: string; tier?: string; available?: string; featured?: boolean; sort?: string; limit?: number; offset?: number; service?: string; exactLocation?: boolean; claimedOnly?: boolean }) => {
       const params = new URLSearchParams()
       if (p?.city)      params.set('city',      p.city)
-      if (p?.area)      params.set('area',      p.area)
+      if (typeof p?.area === 'string' && (p.area || p.exactLocation)) params.set('area', p.area)
       if (p?.tier)      params.set('tier',      p.tier)
       if (p?.available) params.set('available', p.available)
       if (p?.featured)  params.set('featured',  '1')
@@ -66,9 +87,12 @@ export const api = {
       if (p?.limit)     params.set('limit',     String(p.limit))
       if (p?.offset)    params.set('offset',    String(p.offset))
       if (p?.service)   params.set('service',   p.service)
+      if (p?.exactLocation) params.set('exactLocation', '1')
+      if (p?.claimedOnly) params.set('claimedOnly', '1')
       const qs = params.toString()
       return req<{ data: ApiEscort[]; total: number }>(`/escorts${qs ? '?' + qs : ''}`)
     },
+    locations: () => req<ApiLocationCity[]>('/escorts/locations'),
     meta: () => req<{ total: number; verified: number; online: number; cities: number; byCity: { city: string; count: number }[] }>('/escorts/stats'),
     get: (id: string) => req<ApiEscort>(`/escorts/${id}`),
     claim: (id: string, message?: string) =>
