@@ -21,6 +21,10 @@ export default function MyProfile() {
   const { pricing, loading: pricingLoading, error: pricingError } = usePublicPricing()
   const [activeTab, setActiveTab] = useState('Overview')
   const [editSaved, setEditSaved] = useState(false)
+  const visibleTabs = TABS.filter(tab => {
+    const escortOnly = ['Analytics', 'My Bookings', 'Gallery', 'Followers', 'Get Featured', 'Instagram Import', 'Earnings']
+    return user?.role === 'escort' || !escortOnly.includes(tab)
+  })
 
   // Real escort profile loaded from API
   const [escortProfile, setEscortProfile] = useState<any>(null)
@@ -400,14 +404,20 @@ export default function MyProfile() {
           })}
         </div>
 
-        {/* Tabs — escort-only tabs hidden for clients */}
+        {/* Profile section navigation — picker on smaller screens, tabs on desktop */}
         <div className="px-4 sm:px-6 border-b border-color">
-          <div className="flex gap-1 overflow-x-auto scrollbar-hide">
-            {TABS.filter(tab => {
-              const escortOnly = ['Analytics', 'My Bookings', 'Gallery', 'Followers', 'Get Featured', 'Instagram Import', 'Earnings']
-              if (user?.role !== 'escort' && escortOnly.includes(tab)) return false
-              return true
-            }).map(tab => (
+          <label htmlFor="profile-section-select" className="sr-only">Profile section</label>
+          <select
+            id="profile-section-select"
+            data-testid="profile-section-select"
+            value={activeTab}
+            onChange={event => setActiveTab(event.target.value)}
+            className="lg:hidden my-3 w-full appearance-none rounded-xl border border-color bg-card-bg px-4 py-3 text-base font-semibold text-text-light focus:border-[#FFD700] focus:outline-none focus:ring-1 focus:ring-[#FFD700]"
+          >
+            {visibleTabs.map(tab => <option key={tab} value={tab}>{tab}</option>)}
+          </select>
+          <div className="hidden lg:flex gap-1 overflow-x-auto scrollbar-hide">
+            {visibleTabs.map(tab => (
               <button key={tab} onClick={() => setActiveTab(tab)} data-testid={`tab-profile-${tab.toLowerCase().replace(/\s+/g, '-')}`} aria-pressed={activeTab === tab} className={`flex-shrink-0 px-4 py-3 text-xs font-semibold transition-all border-b-2 ${activeTab === tab ? 'text-[#FFD700] border-[#FFD700]' : 'text-text-muted border-transparent hover:text-text-light'}`}>{tab}</button>
             ))}
           </div>
