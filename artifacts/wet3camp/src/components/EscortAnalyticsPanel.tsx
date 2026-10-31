@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { AlertCircle, BarChart3, CalendarDays, MapPin, MessageCircle, Phone, RefreshCw, Send, Share2, Smartphone, Eye } from 'lucide-react'
+import { AlertCircle, BarChart3, CalendarDays, MessageCircle, Phone, RefreshCw, Send, Share2, Smartphone, Eye } from 'lucide-react'
 import { getGetEscortProfileAnalyticsQueryKey, useGetEscortProfileAnalytics } from '@workspace/api-client-react'
 
 type Range = '7d' | '30d' | '90d'
