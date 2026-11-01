@@ -23,33 +23,40 @@ function isMysqlUrl(url: string): boolean {
   return url.startsWith('mysql://') || url.startsWith('mysql2://')
 }
 
+export type CompatQuery = (sql: string, params?: unknown[]) => Promise<[any, any]>
+
 export class CompatPool {
   private type: 'pg' | 'mysql' = 'pg'
   private pgPool: pg.Pool | null = null
   private mysqlPool: any = null
+  private mysqlPoolPromise: Promise<any> | null = null
+  private connectionString: string
 
   constructor(connectionString: string) {
+    this.connectionString = connectionString
     if (isMysqlUrl(connectionString)) {
       this.type = 'mysql'
-      import('mysql2/promise').then(m => {
-        this.mysqlPool = m.default.createPool(connectionString)
-      }).catch(e => {
-        console.error('[db] mysql2 import failed:', e.message)
-      })
     } else {
       this.type = 'pg'
       this.pgPool = new Pool({ connectionString, max: 10 })
     }
   }
 
+  private async getMysqlPool(): Promise<any> {
+    if (this.mysqlPool) return this.mysqlPool
+    if (!this.mysqlPoolPromise) {
+      this.mysqlPoolPromise = import('mysql2/promise').then(m => {
+        this.mysqlPool = m.default.createPool(this.connectionString)
+        return this.mysqlPool
+      })
+    }
+    return this.mysqlPoolPromise
+  }
+
   async query<T = any>(sql: string, params: unknown[] = []): Promise<[T[] | any, any]> {
     if (this.type === 'mysql') {
-      if (!this.mysqlPool) {
-        const m = await import('mysql2/promise')
-        const connStr = process.env.DATABASE_URL!
-        this.mysqlPool = m.default.createPool(connStr)
-      }
-      return this.mysqlPool.query(sql, params) as Promise<[T[] | any, any]>
+      const mysqlPool = await this.getMysqlPool()
+      return mysqlPool.query(sql, params) as Promise<[T[] | any, any]>
     }
 
     let pgSql = this.translateSQL(sql)
@@ -73,6 +80,59 @@ export class CompatPool {
     }
 
     return [result.rows as T[], result.fields as any]
+  }
+
+  async transaction<T>(work: (query: CompatQuery) => Promise<T>): Promise<T> {
+    if (this.type === 'mysql') {
+      const connection = await (await this.getMysqlPool()).getConnection()
+      let started = false
+      try {
+        await connection.beginTransaction()
+        started = true
+        const query: CompatQuery = (sql, params = []) => connection.query(sql, params)
+        const result = await work(query)
+        await connection.commit()
+        return result
+      } catch (error) {
+        if (started) await connection.rollback().catch(() => {})
+        throw error
+      } finally {
+        connection.release()
+      }
+    }
+
+    const client = await this.pgPool!.connect()
+    let started = false
+    try {
+      await client.query('BEGIN')
+      started = true
+      const query: CompatQuery = async (sql, params = []) => {
+        const result = await client.query(this.translateSQL(sql), params as any[])
+        return [result.rows, result.fields as any]
+      }
+      const result = await work(query)
+      await client.query('COMMIT')
+      return result
+    } catch (error) {
+      if (started) await client.query('ROLLBACK').catch(() => {})
+      throw error
+    } finally {
+      client.release()
+    }
+  }
+
+  async getExistingTables(tableNames: string[]): Promise<Set<string>> {
+    const names = [...new Set(tableNames.map(name => name.toLowerCase()))]
+    if (names.length === 0) return new Set()
+    const schemaFilter = this.type === 'mysql'
+      ? 'table_schema = DATABASE()'
+      : 'table_schema = current_schema()'
+    const placeholders = names.map(() => '?').join(', ')
+    const [rows] = await this.query<any[]>(
+      `SELECT table_name FROM information_schema.tables WHERE ${schemaFilter} AND table_name IN (${placeholders})`,
+      names,
+    )
+    return new Set((rows as any[]).map(row => String(row.table_name).toLowerCase()))
   }
 
   private translateSQL(sql: string): string {

@@ -39,11 +39,71 @@ async function adminFetch(path: string, opts?: RequestInit) {
   return res.json()
 }
 
+async function startAdminViewAs(userId: string | number) {
+  const nonce = crypto.randomUUID()
+  const target = window.open(`/view-as?nonce=${encodeURIComponent(nonce)}`, '_blank')
+  if (!target) throw new Error('Allow pop-ups for this site, then try again.')
+
+  return new Promise<void>((resolve, reject) => {
+    let issuedSession: { token: string; user: Record<string, any> } | null = null
+    let targetReady = false
+    let settled = false
+    let timeoutId: number | undefined
+
+    const cleanup = () => {
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId)
+      window.removeEventListener('message', onMessage)
+    }
+    const fail = (message: string) => {
+      if (settled) return
+      settled = true
+      cleanup()
+      target.close()
+      reject(new Error(message))
+    }
+    const sendSession = () => {
+      if (!issuedSession || !targetReady || settled) return
+      target.postMessage({
+        type: 'w3c-view-as-session',
+        nonce,
+        token: issuedSession.token,
+        user: issuedSession.user,
+      }, window.location.origin)
+    }
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin || event.source !== target || event.data?.nonce !== nonce) return
+      if (event.data?.type === 'w3c-view-as-ready') {
+        targetReady = true
+        sendSession()
+      } else if (event.data?.type === 'w3c-view-as-started') {
+        settled = true
+        cleanup()
+        resolve()
+      } else if (event.data?.type === 'w3c-view-as-error') {
+        fail(String(event.data.message || 'Could not start the user session.'))
+      }
+    }
+
+    window.addEventListener('message', onMessage)
+    timeoutId = window.setTimeout(() => fail('The user session did not start. Close the new tab and try again.'), 20000)
+    adminFetch(`/admin/impersonate/${encodeURIComponent(String(userId))}`, { method: 'POST' })
+      .then(data => {
+        if (!data?.token || !data?.user) {
+          fail(data?.message || 'Could not create the user session.')
+          return
+        }
+        issuedSession = data
+        sendSession()
+      })
+      .catch((error: any) => fail(error?.message || 'Could not create the user session.'))
+  })
+}
+
 interface AdminEscort {
   id: string; name: string; city: string; tier: string
   online: boolean | number; is_active: boolean | number; verified: boolean | number
   featured?: boolean | number; price_hourly?: number; bookings_count?: number
-  image?: string; user_id?: string | number | null
+  image?: string; user_id?: string | number | null; user_role?: string | null
 }
 
 const TABS = ['Overview','Escorts','Claims','Clients','Bookings','Revenue','Moderators','Featured','Blog','API Keys','Settings','Reports']
@@ -430,6 +490,8 @@ function ClientsTab() {
   const [clients, setClients] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError]   = useState('')
+  const [actionError, setActionError] = useState('')
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
 
   useEffect(() => {
     setLoading(true)
@@ -439,11 +501,46 @@ function ClientsTab() {
       .finally(() => setLoading(false))
   }, [])
 
-  const deactivate = async (id: string) => {
+  const deactivate = async (client: any) => {
+    const id = String(client.id)
+    setActionError('')
+    setActionLoading(`deactivate-${id}`)
     try {
       await adminFetch(`/admin/users/${id}`, { method: 'DELETE' })
       setClients(p => p.filter(c => c.id !== id))
-    } catch {}
+    } catch (err: any) {
+      setActionError(err?.message || 'Could not deactivate this account.')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const deletePermanently = async (client: any) => {
+    const id = String(client.id)
+    const name = client.display_name || client.username || client.email || `User ${id}`
+    if (!window.confirm(`Permanently delete "${name}" and all account data, including any linked escort profile?\n\nThis cannot be undone.`)) return
+    setActionError('')
+    setActionLoading(`delete-${id}`)
+    try {
+      await adminFetch(`/admin/users/${id}/permanent`, { method: 'DELETE' })
+      setClients(p => p.filter(c => String(c.id) !== id))
+    } catch (err: any) {
+      setActionError(err?.message || 'Could not permanently delete this account.')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const viewAs = async (client: any) => {
+    setActionError('')
+    setActionLoading(`view-${client.id}`)
+    try {
+      await startAdminViewAs(String(client.id))
+    } catch (err: any) {
+      setActionError(err?.message || 'Could not open this user session.')
+    } finally {
+      setActionLoading(null)
+    }
   }
 
   return (
@@ -452,6 +549,7 @@ function ClientsTab() {
         <h3 className="text-sm font-bold text-text-light">Registered Users</h3>
         {!loading && <span className="text-[10px] text-text-muted">{clients.length} total</span>}
       </div>
+      {actionError && <div role="alert" className="mx-4 mt-4 p-3 bg-[#EF4444]/10 border border-[#EF4444]/20 rounded-xl text-xs text-[#EF4444]">{actionError}</div>}
       {loading && <div className="flex items-center justify-center py-16 gap-2 text-text-muted"><div className="w-4 h-4 border-2 border-text-muted/30 border-t-text-muted rounded-full animate-spin"/><span className="text-sm">Loading…</span></div>}
       {!loading && error && <div className="m-4 p-3 bg-[#EF4444]/10 border border-[#EF4444]/20 rounded-xl"><p className="text-xs text-[#EF4444]">{error}</p></div>}
       {!loading && !error && (
@@ -478,22 +576,30 @@ function ClientsTab() {
                     <div className="flex items-center gap-1">
                       {c.role !== 'admin' && (
                         <button
-                          onClick={() => {
-                            const token = localStorage.getItem('w3c_token')
-                            fetch(`/api/admin/impersonate/${c.id}`, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } })
-                              .then(r => r.json()).then(data => {
-                                if (!data.token) { alert(data.message ?? 'Impersonation failed'); return }
-                                const name = c.display_name || c.username || c.email
-                                const url = `/view-as?token=${encodeURIComponent(data.token)}&name=${encodeURIComponent(name)}&role=${c.role}&uid=${c.id}&redirect=/`
-                                window.open(url, '_blank')
-                              }).catch(() => alert('Impersonation failed'))
-                          }}
+                          onClick={() => viewAs(c)}
+                          disabled={actionLoading === `view-${c.id}`}
                           title="View As User"
-                          className="p-1.5 text-[#2196F3] rounded-lg hover:bg-dark-bg"
-                        ><Eye size={13}/></button>
+                          data-testid={`button-view-as-user-${c.id}`}
+                          className="p-1.5 text-[#2196F3] rounded-lg hover:bg-dark-bg disabled:opacity-50"
+                        >{actionLoading === `view-${c.id}` ? <div className="w-3 h-3 border border-current/40 border-t-current rounded-full animate-spin"/> : <Eye size={13}/>}</button>
                       )}
                       {c.role !== 'admin' && (
-                        <button onClick={() => deactivate(c.id)} title="Deactivate" className="p-1.5 text-[#EF4444] rounded-lg hover:bg-dark-bg"><XCircle size={13}/></button>
+                        <>
+                          <button
+                            onClick={() => deactivate(c)}
+                            disabled={actionLoading === `deactivate-${c.id}`}
+                            title="Deactivate"
+                            data-testid={`button-deactivate-user-${c.id}`}
+                            className="p-1.5 text-[#FF9800] rounded-lg hover:bg-dark-bg disabled:opacity-50"
+                          ><XCircle size={13}/></button>
+                          <button
+                            onClick={() => deletePermanently(c)}
+                            disabled={actionLoading === `delete-${c.id}`}
+                            title="Permanently delete account"
+                            data-testid={`button-delete-user-${c.id}`}
+                            className="p-1.5 text-[#EF4444] rounded-lg hover:bg-dark-bg disabled:opacity-50"
+                          >{actionLoading === `delete-${c.id}` ? <div className="w-3 h-3 border border-current/40 border-t-current rounded-full animate-spin"/> : <Trash2 size={13}/>}</button>
+                        </>
                       )}
                     </div>
                   </td>

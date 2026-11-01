@@ -1,5 +1,10 @@
 import { Router } from 'express'
 import { getPool } from '../lib/db.js'
+import {
+  ADMIN_ACCOUNT_CLEANUP_TABLES,
+  deleteEscortProfileData,
+  permanentlyDeleteUser,
+} from '../lib/admin-account-cleanup.js'
 import { requireAuth, type AuthRequest } from '../middlewares/requireAuth.js'
 import { setEscortOnline } from '../lib/online-store.js'
 import { sendEscortApprovedEmail, sendEscortRejectedEmail, sendTelegramNotification } from '../lib/mailer.js'
@@ -18,6 +23,11 @@ function requireAdmin(req: AuthRequest, res: any, next: any) {
     res.status(403).json({ message: 'Admin access required' }); return
   }
   next()
+}
+
+function parsePositiveId(value: string | undefined): number | null {
+  const id = Number(value)
+  return Number.isSafeInteger(id) && id > 0 ? id : null
 }
 
 async function getAdminGallery(pool: NonNullable<ReturnType<typeof getPool>>, escortId: string | number) {
@@ -94,7 +104,8 @@ router.get('/admin/escorts', requireAuth, requireAdmin, async (req: AuthRequest,
     const status = (req.query as any).status
     let sql = `SELECT e.*,
       u.email AS user_email,
-      COALESCE(u.display_name, u.username) AS user_display_name
+      COALESCE(u.display_name, u.username) AS user_display_name,
+      u.role AS user_role
       FROM escorts e
       LEFT JOIN users u ON u.id = e.user_id`
     if (status === 'pending') sql += ' WHERE e.is_active = 0 AND e.verified = 0'
@@ -560,12 +571,40 @@ router.delete('/admin/escorts/:id', requireAuth, requireAdmin, async (req: AuthR
   try {
     const pool = getPool()
     if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
-    await pool.query('DELETE FROM escort_gallery WHERE escort_id = ?', [req.params!.id]).catch(() => {})
-    await pool.query('DELETE FROM escort_languages WHERE escort_id = ?', [req.params!.id]).catch(() => {})
-    await pool.query('DELETE FROM escort_services WHERE escort_id = ?', [req.params!.id]).catch(() => {})
-    await pool.query('DELETE FROM escorts WHERE id = ?', [req.params!.id])
-    res.json({ success: true })
-  } catch {
+    const escortId = parsePositiveId(req.params!.id)
+    if (!escortId) { res.status(400).json({ message: 'Invalid escort ID' }); return }
+    const tables = await pool.getExistingTables([...ADMIN_ACCOUNT_CLEANUP_TABLES])
+    const result = await pool.transaction(async query => {
+      const [escortRows] = await query(
+        'SELECT id, user_id FROM escorts WHERE id = ? LIMIT 1',
+        [escortId],
+      )
+      const escort = (escortRows as any[])[0]
+      if (!escort) return { status: 'not_found' as const }
+
+      if (escort.user_id != null) {
+        const [userRows] = await query(
+          'SELECT id, role FROM users WHERE id = ? LIMIT 1',
+          [escort.user_id],
+        )
+        const user = (userRows as any[])[0]
+        if (user?.role === 'admin') return { status: 'protected' as const }
+        if (user) {
+          const deleted = await permanentlyDeleteUser(query, user.id, tables)
+          return { status: 'deleted' as const, deleted }
+        }
+      }
+
+      await deleteEscortProfileData(query, escortId, tables)
+      return { status: 'deleted' as const, deleted: { userId: null, escortIds: [String(escortId)] } }
+    })
+    if (result.status === 'not_found') { res.status(404).json({ message: 'Escort not found' }); return }
+    if (result.status === 'protected') {
+      res.status(409).json({ message: 'An admin account cannot be removed through the escort list' }); return
+    }
+    res.json({ success: true, deletedUserId: result.deleted?.userId ?? null, deletedEscortIds: result.deleted?.escortIds ?? [] })
+  } catch (err: any) {
+    console.error('[DELETE /admin/escorts/:id]', err?.message ?? err)
     res.status(500).json({ message: 'Failed to delete escort' })
   }
 })
@@ -574,16 +613,40 @@ router.post('/admin/impersonate/:userId', requireAuth, requireAdmin, async (req:
   try {
     const pool = getPool()
     if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
+    const userId = parsePositiveId(req.params!.userId)
+    if (!userId) { res.status(400).json({ message: 'Invalid user ID' }); return }
+    if (userId === Number(req.userId)) {
+      res.status(400).json({ message: 'You cannot impersonate your own admin account' }); return
+    }
     const [[user]] = await pool.query<any[]>(
-      "SELECT id, email, role, COALESCE(display_name, username, email) AS name FROM users WHERE id = ? LIMIT 1",
-      [req.params!.id]
+      `SELECT u.id, u.email, u.role, u.is_active,
+        COALESCE(u.display_name, u.username, u.email) AS name,
+        e.id AS escort_id, e.is_active AS escort_is_active
+       FROM users u
+       LEFT JOIN escorts e ON e.user_id = u.id
+       WHERE u.id = ? LIMIT 1`,
+      [userId]
     )
     if (!user) { res.status(404).json({ message: 'User not found' }); return }
+    if (user.role === 'admin') { res.status(403).json({ message: 'Admin accounts cannot be impersonated' }); return }
+    if (!Number(user.is_active)) { res.status(403).json({ message: 'This account is inactive. Reactivate it before viewing as the user.' }); return }
+    if (user.role === 'escort' && !user.escort_id) {
+      res.status(409).json({ message: 'This escort account has no linked profile yet' }); return
+    }
     const token = await signToken(
       { id: user.id, role: user.role, email: user.email, impersonating: true, impersonatedBy: req.userId ?? 'admin' },
-      '2h'
+      '15m'
     )
-    res.json({ token, user: { id: String(user.id), name: user.name || user.email, email: user.email, role: user.role } })
+    res.json({
+      token,
+      user: {
+        id: String(user.id),
+        name: user.name || user.email,
+        email: user.email,
+        role: user.role,
+        approved: user.role === 'escort' ? !!Number(user.escort_is_active) : true,
+      },
+    })
   } catch (err: any) {
     console.error('[POST /admin/impersonate]', err?.message ?? err)
     res.status(500).json({ message: 'Failed to create impersonation token' })
@@ -960,6 +1023,44 @@ router.delete('/admin/cleanup-seed-escorts', requireAuth, requireAdmin, async (r
   } catch (err: any) {
     console.error('[cleanup-seed-escorts]', err)
     res.status(500).json({ message: 'Failed to delete seed escorts', detail: err?.message ?? '' })
+  }
+})
+
+router.delete('/admin/users/:id/permanent', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const pool = getPool()
+    if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
+    const userId = parsePositiveId(req.params!.id)
+    if (!userId) { res.status(400).json({ message: 'Invalid user ID' }); return }
+    if (userId === Number(req.userId)) {
+      res.status(400).json({ message: 'You cannot delete your own admin account' }); return
+    }
+
+    const tables = await pool.getExistingTables([...ADMIN_ACCOUNT_CLEANUP_TABLES])
+    const result = await pool.transaction(async query => {
+      const [userRows] = await query(
+        'SELECT id, email, role FROM users WHERE id = ? LIMIT 1',
+        [userId],
+      )
+      const user = (userRows as any[])[0]
+      if (!user) return { status: 'not_found' as const }
+      if (user.role === 'admin') return { status: 'protected' as const }
+      const deleted = await permanentlyDeleteUser(query, user.id, tables)
+      return { status: 'deleted' as const, deleted }
+    })
+
+    if (result.status === 'not_found') { res.status(404).json({ message: 'User not found' }); return }
+    if (result.status === 'protected') {
+      res.status(403).json({ message: 'Admin accounts cannot be permanently deleted here' }); return
+    }
+    res.json({
+      success: true,
+      deletedUserId: result.deleted?.userId ?? String(userId),
+      deletedEscortIds: result.deleted?.escortIds ?? [],
+    })
+  } catch (err: any) {
+    console.error('[DELETE /admin/users/:id/permanent]', err?.message ?? err)
+    res.status(500).json({ message: 'Account deletion failed; no changes were committed' })
   }
 })
 
