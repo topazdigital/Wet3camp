@@ -77,10 +77,11 @@ function PageLoader() {
   )
 }
 
-function ProtectedRoute({ component: Component, adminOnly = false }: { component: React.ComponentType; adminOnly?: boolean }) {
-  const { isLoggedIn, isAdmin, isPendingEscort } = useAuth();
+function ProtectedRoute({ component: Component, adminOnly = false, escortOnly = false }: { component: React.ComponentType; adminOnly?: boolean; escortOnly?: boolean }) {
+  const { isLoggedIn, isAdmin, isEscort, isPendingEscort } = useAuth();
   if (!isLoggedIn) return <Redirect to="/login" />;
   if (adminOnly && !isAdmin) return <Redirect to="/" />;
+  if (escortOnly && !isEscort) return <Redirect to="/account" />;
   if (isPendingEscort) return <Redirect to="/pending-approval" />;
   return <Component />;
 }
@@ -114,7 +115,7 @@ function Router() {
         <Route path="/messages">{() => <ProtectedRoute component={Messages} />}</Route>
         <Route path="/booking">{() => <Redirect to="/" />}</Route>
         <Route path="/bookings">{() => <Redirect to="/" />}</Route>
-        <Route path="/my-profile">{() => <ProtectedRoute component={MyProfile} />}</Route>
+        <Route path="/my-profile">{() => <ProtectedRoute component={MyProfile} escortOnly />}</Route>
         <Route path="/profile" component={Profile} />
         <Route path="/profile/:slug" component={Profile} />
         <Route path="/register" component={Register} />

@@ -227,13 +227,18 @@ CREATE TABLE IF NOT EXISTS blacklist (
 CREATE TABLE IF NOT EXISTS messages (
   id          SERIAL PRIMARY KEY,
   sender_id   INTEGER   NOT NULL,
-  receiver_id INTEGER   NOT NULL,
-  body        TEXT      NOT NULL,
-  read        SMALLINT  NOT NULL DEFAULT 0,
+  escort_id   INTEGER   DEFAULT NULL,
+  content     TEXT      DEFAULT NULL,
+  is_from_escort SMALLINT NOT NULL DEFAULT 0,
+  read_at     TIMESTAMP DEFAULT NULL,
   created_at  TIMESTAMP NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_messages_sender ON messages (sender_id);
-CREATE INDEX IF NOT EXISTS idx_messages_receiver ON messages (receiver_id);
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS escort_id INTEGER DEFAULT NULL;
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS content TEXT DEFAULT NULL;
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS is_from_escort SMALLINT NOT NULL DEFAULT 0;
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS read_at TIMESTAMP DEFAULT NULL;
+CREATE INDEX IF NOT EXISTS idx_messages_escort_id ON messages (escort_id);
 
 CREATE TABLE IF NOT EXISTS notifications (
   id         SERIAL PRIMARY KEY,
