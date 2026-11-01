@@ -24,7 +24,7 @@ import {
 import { readPlatformPricing, type PlatformPricing } from '../lib/platform-pricing.js'
 
 const SITE_URL  = 'https://wet3.camp'
-const DEFAULT_IMAGE = `${SITE_URL}/opengraph.jpg`
+const DEFAULT_IMAGE = `${SITE_URL}/opengraph.png`
 const SITE_NAME = 'Wet3 Camp'
 
 const profileSlug = (name: string) =>
@@ -200,7 +200,7 @@ const BASE_SCHEMAS = [
     '@id': `${SITE_URL}/#organization`,
     name: SITE_NAME,
     url: SITE_URL,
-    logo: { '@type': 'ImageObject', url: `${SITE_URL}/favicon.svg`, width: 512, height: 512 },
+    logo: { '@type': 'ImageObject', url: `${SITE_URL}/icon-512.png`, width: 512, height: 512 },
     description: 'Verified escort profiles across Nairobi, Mombasa, Kisumu and major Kenyan cities.',
     areaServed: [
       { '@type': 'City', name: 'Nairobi', addressCountry: 'KE' },
@@ -221,7 +221,7 @@ const HOMEPAGE_EXTRA_SCHEMA = {
   name: 'Wet3 Camp — Kenya Escort Directory',
   url: SITE_URL,
   description: 'Find verified escort profiles in Nairobi, Mombasa, Kisumu, Nakuru, Eldoret and across Kenya.',
-  image: `${SITE_URL}/opengraph.jpg`,
+  image: `${SITE_URL}/opengraph.png`,
   address: { '@type': 'PostalAddress', addressLocality: 'Nairobi', addressCountry: 'KE' },
   geo: { '@type': 'GeoCoordinates', latitude: -1.2921, longitude: 36.8219 },
   areaServed: { '@type': 'Country', name: 'Kenya' },
@@ -1054,7 +1054,7 @@ export async function ogPreviewMiddleware(req: Request, res: Response, next: Nex
         image: staticBlog.image,
         url: fullUrl,
         author: { '@type': 'Organization', name: SITE_NAME },
-        publisher: { '@type': 'Organization', name: SITE_NAME, logo: { '@type': 'ImageObject', url: `${SITE_URL}/favicon.svg` } },
+        publisher: { '@type': 'Organization', name: SITE_NAME, logo: { '@type': 'ImageObject', url: `${SITE_URL}/icon-512.png` } },
         mainEntityOfPage: fullUrl,
       }
       res.setHeader('Content-Type', 'text/html; charset=utf-8')

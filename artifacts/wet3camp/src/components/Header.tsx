@@ -167,13 +167,14 @@ export default function Header() {
     <header className={`sticky top-0 z-40 w-full transition-all duration-300 ${scrolled ? 'bg-card-bg/95 backdrop-blur-md shadow-lg shadow-black/30 border-b border-color' : 'bg-card-bg border-b border-color'}`}>
       <div className="w-full px-3 sm:px-5 h-14 flex items-center gap-2">
         {/* Logo (mobile) */}
-        <Link href="/" className="flex lg:hidden items-center gap-2 flex-shrink-0 group">
-          <div className="w-8 h-8 rounded-full overflow-hidden shadow-md flex-shrink-0 bg-[#1a0a0a]">
-            <img src="/logo-woman.png" alt="Wet3Camp" className="w-full h-full object-cover" />
-          </div>
-          <span className="text-text-light font-bold text-sm tracking-tight group-hover:text-secondary-color transition-colors">
-            Wet3<span className="text-secondary-color">Camp</span>
-          </span>
+        <Link href="/" aria-label="Wet3 Camp home" className="flex lg:hidden items-center flex-shrink-0 group">
+          <img
+            src="/wet3camp-wordmark.png"
+            alt="Wet3Camp — Your time, your company, your way"
+            width="1200"
+            height="400"
+            className="h-11 w-[136px] object-contain object-left"
+          />
         </Link>
 
         {/* Desktop search */}

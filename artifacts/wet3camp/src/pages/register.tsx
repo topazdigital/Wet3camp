@@ -620,11 +620,14 @@ export default function RegisterPage() {
     <div className="min-h-screen bg-dark-bg pb-24 lg:pb-8">
       {/* Top bar */}
       <div className="sticky top-0 z-40 bg-card-bg border-b border-color px-3 sm:px-4 py-3 min-h-14 flex items-center justify-between gap-3">
-        <Link href="/" className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0">
-            <img src="/favicon.svg" alt="Wet3Camp" className="w-full h-full object-cover" />
-          </div>
-          <span className="text-sm font-black text-text-light">Wet3<span className="text-[#FFD700]">Camp</span></span>
+        <Link href="/" aria-label="Wet3 Camp home" className="flex items-center">
+          <img
+            src="/wet3camp-wordmark.png"
+            alt="Wet3Camp — Your time, your company, your way"
+            width="1200"
+            height="400"
+            className="h-9 w-[108px] object-contain object-left"
+          />
         </Link>
         <Link href="/login" className="text-[11px] sm:text-xs text-text-muted hover:text-[#FFD700] transition-colors whitespace-nowrap">
           <span className="hidden min-[380px]:inline">Have an account? </span><span className="text-[#FFD700]">Sign in</span>

@@ -4,7 +4,7 @@ export const SITE_NAME = 'Wet3 Camp'
 export const SITE_URL = 'https://wet3.camp'
 export const DEFAULT_TITLE = 'Verified Escorts in Kenya | Nairobi, Mombasa & More'
 export const DEFAULT_DESC = 'Browse verified escort profiles in Nairobi, Mombasa, Kisumu and cities across Kenya. Compare profiles, services and availability, then contact directly on Wet3 Camp.'
-export const DEFAULT_OG_IMAGE = `${SITE_URL}/opengraph.jpg`
+export const DEFAULT_OG_IMAGE = `${SITE_URL}/opengraph.png`
 
 // Keep metadata focused on genuine search intent. Search engines largely ignore
 // keyword tags, and competitor names or unsubstantiated claims can look spammy.
@@ -209,7 +209,7 @@ export function useSEO({
         "url": SITE_URL,
         "logo": {
           "@type": "ImageObject",
-          "url": `${SITE_URL}/favicon.svg`,
+          "url": `${SITE_URL}/icon-512.png`,
           "width": 512,
           "height": 512
         },

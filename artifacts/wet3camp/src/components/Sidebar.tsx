@@ -94,16 +94,19 @@ export default function Sidebar() {
         {/* Logo */}
         <div className={`flex items-center h-14 border-b border-color sticky top-0 bg-card-bg z-10 flex-shrink-0 ${isOpen ? 'px-4 gap-3' : 'px-0 justify-center'}`}>
           {isOpen && (
-            <Link href="/" className="flex items-center gap-2.5 flex-1 min-w-0">
-              <div className="w-8 h-8 rounded-full overflow-hidden shadow-lg flex-shrink-0 bg-[#1a0a0a]">
-                <img src="/logo-woman.png" alt="Wet3Camp" className="w-full h-full object-cover" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm font-bold text-text-light leading-none">
-                  Wet3<span className="text-secondary-color">Camp</span>
-                </p>
-                <p className="text-[10px] text-text-muted leading-tight mt-0.5">Premium Platform</p>
-              </div>
+            <Link href="/" aria-label="Wet3 Camp home" className="flex items-center flex-1 min-w-0">
+              <img
+                src="/wet3camp-wordmark.png"
+                alt="Wet3Camp — Your time, your company, your way"
+                width="1200"
+                height="400"
+                className="h-12 w-full max-w-[168px] object-contain object-left"
+              />
+            </Link>
+          )}
+          {!isOpen && (
+            <Link href="/" aria-label="Wet3 Camp home" className="h-7 w-7 flex-shrink-0">
+              <img src="/icon-192.png" alt="Wet3Camp" width="192" height="192" className="h-full w-full rounded-md object-cover" />
             </Link>
           )}
           <button

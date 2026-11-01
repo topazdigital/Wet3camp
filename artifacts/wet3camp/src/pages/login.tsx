@@ -134,13 +134,13 @@ export default function LoginPage() {
         <div className="absolute bottom-0 right-0 w-64 h-64 rounded-full opacity-10 blur-3xl" style={{ background: '#FFD700' }} />
 
         <Link href="/" className="flex items-center gap-3 relative z-10">
-          <div className="w-10 h-10 rounded-xl overflow-hidden shadow-lg flex-shrink-0">
-            <img src="/favicon.svg" alt="Wet3Camp" className="w-full h-full object-cover" />
-          </div>
-          <div>
-            <p className="text-lg font-bold text-text-light">Wet3<span className="text-[#FFD700]">Camp</span></p>
-            <p className="text-[10px] text-text-muted uppercase tracking-widest">Premium Platform</p>
-          </div>
+          <img
+            src="/wet3camp-wordmark.png"
+            alt="Wet3Camp — Your time, your company, your way"
+            width="1200"
+            height="400"
+            className="w-[220px] max-w-full h-auto object-contain object-left"
+          />
         </Link>
 
         <div className="relative z-10 space-y-8">
@@ -181,11 +181,14 @@ export default function LoginPage() {
       {/* Right form */}
       <div className="flex-1 flex flex-col mobile-bottom-safe lg:pb-0">
         <div className="lg:hidden flex items-center justify-between px-5 py-4 border-b border-color">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0">
-              <img src="/favicon.svg" alt="Wet3Camp" className="w-full h-full object-cover" />
-            </div>
-            <span className="font-bold text-text-light text-sm">Wet3<span className="text-[#FFD700]">Camp</span></span>
+          <Link href="/" aria-label="Wet3 Camp home" className="flex items-center">
+            <img
+              src="/wet3camp-wordmark.png"
+              alt="Wet3Camp — Your time, your company, your way"
+              width="1200"
+              height="400"
+              className="h-9 w-[108px] object-contain object-left"
+            />
           </Link>
           <Link href="/register" className="text-xs text-[#FFD700] font-semibold">Sign up →</Link>
         </div>
