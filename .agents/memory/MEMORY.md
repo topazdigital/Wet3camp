@@ -24,3 +24,5 @@
 - [Escort landing density](escort-landing-density.md) — Keep escort acquisition pages compact and responsive across phone, tablet, and desktop
 - [Admin-managed escort pricing](admin-managed-escort-pricing.md) — Keep featured placement display prices and M-Pesa charges aligned; account subscriptions are separate
 - [Profile analytics privacy](profile-analytics.md) — Track only claimed active profiles; keep visitor identity anonymous and label contact actions as taps, not outcomes
+- [Dynamic location SEO](dynamic-location-seo.md) — Build location landing pages from active claimed profiles and keep indexing thresholds consistent across pages, crawler HTML, and sitemap
+- [Mobile profile tabs](mobile-profile-tabs.md) — User confirmed the phone profile-section navigation works; leave it alone unless asked
