@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import Header from '@/components/Header'
 import Sidebar from '@/components/Sidebar'
 import { useAuth } from '@/lib/auth-context'
+import { broadcastAccountDeleted } from '@/lib/api'
 import {
   Shield, Users, Calendar, BarChart2, Settings, Plus, Trash2, Edit2, CheckCircle2, XCircle,
   AlertTriangle, Lock, Mail, Eye, EyeOff, TrendingUp, Crown, Key, Instagram,
@@ -522,7 +523,8 @@ function ClientsTab() {
     setActionError('')
     setActionLoading(`delete-${id}`)
     try {
-      await adminFetch(`/admin/users/${id}/permanent/delete`, { method: 'POST' })
+      const result = await adminFetch(`/admin/users/${id}/permanent/delete`, { method: 'POST' })
+      broadcastAccountDeleted(result.deletedUserId ?? id)
       setClients(p => p.filter(c => String(c.id) !== id))
     } catch (err: any) {
       setActionError(err?.message || 'Could not permanently delete this account.')
@@ -2228,6 +2230,7 @@ function EscortsTab() {
     setActionLoading(id + '_delete')
     try {
       const result = await adminFetch(`/admin/escorts/${id}/delete`, { method: 'POST' })
+      if (result.deletedUserId) broadcastAccountDeleted(result.deletedUserId)
       const deletedIds = new Set([id, ...(result.deletedEscortIds ?? []).map((deletedId: string | number) => String(deletedId))])
       setEscorts(prev => prev.filter(e => !deletedIds.has(String(e.id))))
     } catch (err: any) {

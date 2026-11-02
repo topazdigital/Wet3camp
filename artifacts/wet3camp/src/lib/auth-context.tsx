@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react'
-import { api, setToken, clearToken, getToken, type ApiUser } from './api'
+import { api, setToken, clearToken, getToken, ACCOUNT_DELETED_EVENT_KEY, type ApiUser } from './api'
 import { setAuthTokenGetter } from '@workspace/api-client-react'
 
 export type UserRole = 'client' | 'escort' | 'admin'
@@ -81,13 +81,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try { sessionStorage.removeItem(SS_KEY) } catch {}
   }, [])
 
+  const clearInvalidSession = useCallback(() => {
+    const impersonating = hasImpersonationSession()
+    clearToken()
+    try {
+      sessionStorage.removeItem(SS_KEY)
+      if (!impersonating) localStorage.removeItem(KEY)
+    } catch {}
+    setUser(null)
+    window.location.replace(impersonating ? '/admin' : '/login')
+  }, [])
+
+  // When an admin deletes an account in another tab, end its session immediately.
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== ACCOUNT_DELETED_EVENT_KEY || !event.newValue || !user?.id) return
+      try {
+        const payload = JSON.parse(event.newValue)
+        if (String(payload.userId) === String(user.id)) clearInvalidSession()
+      } catch {}
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [user?.id, clearInvalidSession])
+
   // On mount, refresh approved status from server so approved escorts
   // don't stay stuck on the pending-approval page after admin approves them
   useEffect(() => {
     const token = getToken()
     if (!token || !user) return
     fetch('/api/auth/me', { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.ok ? r.json() : null)
+      .then(async r => {
+        if ([401, 403, 404].includes(r.status)) {
+          clearInvalidSession()
+          return null
+        }
+        return r.ok ? r.json() : null
+      })
       .then(data => {
         if (!data) return
         const updated: AuthUser = {
@@ -104,7 +134,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       })
       .catch(() => {})
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [clearInvalidSession])
 
   const loginWithApi = useCallback(async (email: string, password: string): Promise<{ success: boolean; user?: AuthUser; error?: string }> => {
     try {

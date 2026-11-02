@@ -123,6 +123,7 @@ function buildHtml(opts: {
   title:       string
   description: string
   image:       string
+  imageAlt?:   string
   url:         string
   keywords?:   string
   type?:       string
@@ -133,6 +134,7 @@ function buildHtml(opts: {
   const t   = esc(opts.title)
   const d   = esc(opts.description)
   const i   = esc(opts.image)
+  const ia  = esc(opts.imageAlt ?? opts.title)
   const u   = esc(opts.url)
   const tp  = esc(opts.type ?? 'website')
   const kw  = opts.keywords ? esc(opts.keywords) : ''
@@ -157,6 +159,7 @@ ${kw ? `<meta name="keywords" content="${kw}"/>` : ''}
 <meta property="og:description" content="${d}"/>
 <meta property="og:image" content="${i}"/>
 <meta property="og:image:secure_url" content="${i}"/>
+<meta property="og:image:alt" content="${ia}"/>
 <meta property="og:image:width" content="1200"/>
 <meta property="og:image:height" content="630"/>
 <meta property="og:url" content="${u}"/>
@@ -169,6 +172,7 @@ ${kw ? `<meta name="keywords" content="${kw}"/>` : ''}
 <meta name="twitter:title" content="${t}"/>
 <meta name="twitter:description" content="${d}"/>
 <meta name="twitter:image" content="${i}"/>
+<meta name="twitter:image:alt" content="${ia}"/>
 <!-- Canonical -->
 <link rel="canonical" href="${u}"/>
 ${jsonLd}
@@ -607,7 +611,9 @@ export async function ogPreviewMiddleware(req: Request, res: Response, next: Nex
   const ua = req.headers['user-agent'] ?? ''
   if (!isBot(ua)) { next(); return }
 
-  const path    = req.path
+  // Apache's SPA rewrite sends social crawlers to /index.html; normalize it so
+  // homepage sharing gets the same metadata as requests to /.
+  const path    = req.path === '/index.html' ? '/' : req.path
   const query   = req.query as Record<string, string>
   const fullUrl = `${SITE_URL}${path}${Object.keys(query).length ? '?' + new URLSearchParams(query).toString() : ''}`
 
@@ -1173,10 +1179,9 @@ export async function ogPreviewMiddleware(req: Request, res: Response, next: Nex
           res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=120')
           res.send(buildHtml({
             title: homeMeta.title,
-            description: pick
-              ? `Meet ${pick.name} and browse verified escort profiles in ${pick.city} and across Kenya. Compare services and availability on Wet3 Camp.`
-              : homeMeta.description,
-            image: pick?.image ? ogImage(pick.image) : DEFAULT_IMAGE,
+            description: homeMeta.description,
+            image: DEFAULT_IMAGE,
+            imageAlt: 'Wet3 Camp official logo and brand preview',
             url: `${SITE_URL}/`,
             keywords: homeMeta.keywords,
             schema: [...BASE_SCHEMAS, HOMEPAGE_EXTRA_SCHEMA, ...(homepageProfileSchema ? [homepageProfileSchema] : [])],

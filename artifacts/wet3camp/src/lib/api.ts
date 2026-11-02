@@ -1,6 +1,17 @@
 const BASE = '/api'
 const TOKEN_KEY = 'w3c_token'
 const IMPERSONATION_KEY = 'w3c_ss_user'
+export const ACCOUNT_DELETED_EVENT_KEY = 'w3c_account_deleted'
+
+export function broadcastAccountDeleted(userId: string | number) {
+  try {
+    localStorage.setItem(ACCOUNT_DELETED_EVENT_KEY, JSON.stringify({
+      userId: String(userId),
+      at: Date.now(),
+    }))
+    localStorage.removeItem(ACCOUNT_DELETED_EVENT_KEY)
+  } catch {}
+}
 
 export function getToken(): string | null {
   try { return sessionStorage.getItem(TOKEN_KEY) || localStorage.getItem(TOKEN_KEY) } catch { return null }
