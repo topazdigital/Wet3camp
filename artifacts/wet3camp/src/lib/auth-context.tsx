@@ -31,6 +31,10 @@ const SS_KEY = 'w3c_ss_user'
 
 setAuthTokenGetter(getToken)
 
+function hasImpersonationSession() {
+  try { return !!sessionStorage.getItem(SS_KEY) } catch { return false }
+}
+
 function apiUserToAuthUser(u: ApiUser): AuthUser {
   return {
     id:    u.id,
@@ -53,7 +57,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch { return null }
   })
 
-  const isImpersonating = !!sessionStorage.getItem(SS_KEY)
+  const isImpersonating = hasImpersonationSession()
 
   const login = useCallback((u: AuthUser) => {
     setUser(u)
@@ -65,8 +69,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [isImpersonating])
 
   const logout = useCallback(() => {
+    const impersonating = hasImpersonationSession()
     setUser(null)
     clearToken()
+    if (impersonating) {
+      try { sessionStorage.removeItem(SS_KEY) } catch {}
+      window.location.assign('/admin')
+      return
+    }
     try { localStorage.removeItem(KEY) } catch {}
     try { sessionStorage.removeItem(SS_KEY) } catch {}
   }, [])
@@ -87,7 +97,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           avatar: data.avatar ?? user.avatar,
         }
         setUser(updated)
-        try { localStorage.setItem(KEY, JSON.stringify(updated)) } catch {}
+        try {
+          if (sessionStorage.getItem(SS_KEY)) sessionStorage.setItem(SS_KEY, JSON.stringify(updated))
+          else localStorage.setItem(KEY, JSON.stringify(updated))
+        } catch {}
       })
       .catch(() => {})
   // eslint-disable-next-line react-hooks/exhaustive-deps

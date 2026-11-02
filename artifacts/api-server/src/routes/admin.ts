@@ -573,7 +573,7 @@ router.delete('/admin/escorts/:id', requireAuth, requireAdmin, async (req: AuthR
     if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
     const escortId = parsePositiveId(req.params!.id)
     if (!escortId) { res.status(400).json({ message: 'Invalid escort ID' }); return }
-    const tables = await pool.getExistingTables([...ADMIN_ACCOUNT_CLEANUP_TABLES])
+    const columns = await pool.getExistingColumns([...ADMIN_ACCOUNT_CLEANUP_TABLES])
     const result = await pool.transaction(async query => {
       const [escortRows] = await query(
         'SELECT id, user_id FROM escorts WHERE id = ? LIMIT 1',
@@ -590,12 +590,12 @@ router.delete('/admin/escorts/:id', requireAuth, requireAdmin, async (req: AuthR
         const user = (userRows as any[])[0]
         if (user?.role === 'admin') return { status: 'protected' as const }
         if (user) {
-          const deleted = await permanentlyDeleteUser(query, user.id, tables)
+          const deleted = await permanentlyDeleteUser(query, user.id, columns)
           return { status: 'deleted' as const, deleted }
         }
       }
 
-      await deleteEscortProfileData(query, escortId, tables)
+      await deleteEscortProfileData(query, escortId, columns)
       return { status: 'deleted' as const, deleted: { userId: null, escortIds: [String(escortId)] } }
     })
     if (result.status === 'not_found') { res.status(404).json({ message: 'Escort not found' }); return }
@@ -1036,7 +1036,7 @@ router.delete('/admin/users/:id/permanent', requireAuth, requireAdmin, async (re
       res.status(400).json({ message: 'You cannot delete your own admin account' }); return
     }
 
-    const tables = await pool.getExistingTables([...ADMIN_ACCOUNT_CLEANUP_TABLES])
+    const columns = await pool.getExistingColumns([...ADMIN_ACCOUNT_CLEANUP_TABLES])
     const result = await pool.transaction(async query => {
       const [userRows] = await query(
         'SELECT id, email, role FROM users WHERE id = ? LIMIT 1',
@@ -1045,7 +1045,7 @@ router.delete('/admin/users/:id/permanent', requireAuth, requireAdmin, async (re
       const user = (userRows as any[])[0]
       if (!user) return { status: 'not_found' as const }
       if (user.role === 'admin') return { status: 'protected' as const }
-      const deleted = await permanentlyDeleteUser(query, user.id, tables)
+      const deleted = await permanentlyDeleteUser(query, user.id, columns)
       return { status: 'deleted' as const, deleted }
     })
 

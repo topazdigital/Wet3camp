@@ -1,15 +1,25 @@
 const BASE = '/api'
 const TOKEN_KEY = 'w3c_token'
+const IMPERSONATION_KEY = 'w3c_ss_user'
 
 export function getToken(): string | null {
   try { return sessionStorage.getItem(TOKEN_KEY) || localStorage.getItem(TOKEN_KEY) } catch { return null }
 }
 export function setToken(t: string) {
-  try { localStorage.setItem(TOKEN_KEY, t) } catch {}
+  try {
+    if (sessionStorage.getItem(IMPERSONATION_KEY)) sessionStorage.setItem(TOKEN_KEY, t)
+    else localStorage.setItem(TOKEN_KEY, t)
+  } catch {}
 }
 export function clearToken() {
-  try { localStorage.removeItem(TOKEN_KEY) } catch {}
-  try { sessionStorage.removeItem(TOKEN_KEY) } catch {}
+  try {
+    if (sessionStorage.getItem(IMPERSONATION_KEY)) {
+      sessionStorage.removeItem(TOKEN_KEY)
+    } else {
+      localStorage.removeItem(TOKEN_KEY)
+      sessionStorage.removeItem(TOKEN_KEY)
+    }
+  } catch {}
 }
 
 async function req<T>(path: string, opts?: RequestInit): Promise<T> {

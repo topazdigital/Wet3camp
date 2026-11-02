@@ -52,6 +52,7 @@ const USER_CHILD_TABLES: ReadonlyArray<readonly [string, string]> = [
   ['followers', 'user_id'],
   ['notifications', 'user_id'],
   ['messages', 'sender_id'],
+  ['messages', 'receiver_id'],
   ['subscriptions', 'user_id'],
   ['profile_claims', 'user_id'],
   ['referrals', 'user_id'],
@@ -63,12 +64,12 @@ const USER_CHILD_TABLES: ReadonlyArray<readonly [string, string]> = [
 
 async function deleteRows(
   query: CompatQuery,
-  tables: Set<string>,
+  columns: Set<string>,
   table: string,
   column: string,
   value: string | number,
 ) {
-  if (tables.has(table)) {
+  if (columns.has(`${table}.${column}`)) {
     await query(`DELETE FROM ${table} WHERE ${column} = ?`, [value])
   }
 }
@@ -76,12 +77,12 @@ async function deleteRows(
 export async function deleteEscortProfileData(
   query: CompatQuery,
   escortId: string | number,
-  tables: Set<string>,
+  columns: Set<string>,
 ) {
   for (const [table, column] of ESCORT_CHILD_TABLES) {
-    await deleteRows(query, tables, table, column, escortId)
+    await deleteRows(query, columns, table, column, escortId)
   }
-  if (tables.has('adverts')) {
+  if (columns.has('adverts.escort_id')) {
     await query('UPDATE adverts SET escort_id = NULL WHERE escort_id = ?', [escortId])
   }
   await query('DELETE FROM escorts WHERE id = ?', [escortId])
@@ -90,7 +91,7 @@ export async function deleteEscortProfileData(
 export async function permanentlyDeleteUser(
   query: CompatQuery,
   userId: string | number,
-  tables: Set<string>,
+  columns: Set<string>,
 ) {
   const [userRows] = await query(
     'SELECT id, email, role FROM users WHERE id = ? LIMIT 1',
@@ -106,26 +107,26 @@ export async function permanentlyDeleteUser(
   const escortIds = (escortRows as any[]).map(row => String(row.id))
 
   for (const escortId of escortIds) {
-    await deleteEscortProfileData(query, escortId, tables)
+    await deleteEscortProfileData(query, escortId, columns)
   }
 
   for (const [table, column] of USER_CHILD_TABLES) {
-    await deleteRows(query, tables, table, column, userId)
+    await deleteRows(query, columns, table, column, userId)
   }
 
-  if (user.email && tables.has('password_resets')) {
+  if (user.email && columns.has('password_resets.email')) {
     await query('DELETE FROM password_resets WHERE email = ?', [user.email])
   }
-  if (user.email && tables.has('room_bookings')) {
+  if (user.email && columns.has('room_bookings.guest_email')) {
     await query('DELETE FROM room_bookings WHERE guest_email = ?', [user.email])
   }
-  if (tables.has('referrals')) {
+  if (columns.has('referrals.referred_user_id')) {
     await query('UPDATE referrals SET referred_user_id = NULL WHERE referred_user_id = ?', [userId])
   }
-  if (tables.has('blacklist')) {
+  if (columns.has('blacklist.reported_by')) {
     await query('UPDATE blacklist SET reported_by = NULL WHERE reported_by = ?', [userId])
   }
-  if (tables.has('blacklist_reports')) {
+  if (columns.has('blacklist_reports.reported_by')) {
     await query('UPDATE blacklist_reports SET reported_by = NULL WHERE reported_by = ?', [userId])
   }
 

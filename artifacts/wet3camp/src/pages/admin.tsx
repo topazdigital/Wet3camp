@@ -507,7 +507,7 @@ function ClientsTab() {
     setActionLoading(`deactivate-${id}`)
     try {
       await adminFetch(`/admin/users/${id}`, { method: 'DELETE' })
-      setClients(p => p.filter(c => c.id !== id))
+      setClients(p => p.filter(c => String(c.id) !== id))
     } catch (err: any) {
       setActionError(err?.message || 'Could not deactivate this account.')
     } finally {
@@ -2125,6 +2125,7 @@ function EscortsTab() {
   const [escorts, setEscorts] = useState<AdminEscort[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [actionError, setActionError] = useState('')
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all'|'pending'|'active'>('all')
   const [actionLoading, setActionLoading] = useState<string|null>(null)
@@ -2222,13 +2223,18 @@ function EscortsTab() {
   }
 
   const handleDeleteForever = async (id: string, name: string) => {
-    if (!window.confirm(`⚠️ PERMANENTLY DELETE "${name}"?\n\nThis removes the escort and ALL their data (gallery, services, languages) from the database forever.\n\nThis CANNOT be undone.`)) return
+    if (!window.confirm(`Permanently delete "${name}" and all associated data, including any linked login account?\n\nThis cannot be undone.`)) return
+    setActionError('')
     setActionLoading(id + '_delete')
     try {
-      await adminFetch(`/admin/escorts/${id}`, { method: 'DELETE' })
-      setEscorts(prev => prev.filter(e => e.id !== id))
-    } catch {}
-    setActionLoading(null)
+      const result = await adminFetch(`/admin/escorts/${id}`, { method: 'DELETE' })
+      const deletedIds = new Set([id, ...(result.deletedEscortIds ?? []).map((deletedId: string | number) => String(deletedId))])
+      setEscorts(prev => prev.filter(e => !deletedIds.has(String(e.id))))
+    } catch (err: any) {
+      setActionError(err?.message || 'Could not permanently delete this escort.')
+    } finally {
+      setActionLoading(null)
+    }
   }
 
   const pendingCount = escorts.filter(e => !Boolean(e.is_active) && !Boolean(e.verified)).length
@@ -2243,6 +2249,7 @@ function EscortsTab() {
 
   return (
     <div className="space-y-4">
+      {actionError && <div role="alert" data-testid="admin-escort-action-error" className="p-3 bg-[#EF4444]/10 border border-[#EF4444]/20 rounded-xl text-xs text-[#EF4444]">{actionError}</div>}
       <BulkOnlinePanel escorts={escorts} onBulkToggle={handleBulkToggle} />
       <div className="flex items-center gap-3 p-3.5 bg-[#EF4444]/10 border border-[#EF4444]/30 rounded-2xl">
         <Trash2 size={14} className="text-[#EF4444] flex-shrink-0" />
@@ -2396,25 +2403,38 @@ function EscortsTab() {
                               {actionLoading === e.id + '_reject' ? <div className="w-2.5 h-2.5 border border-[#EF4444]/40 border-t-[#EF4444] rounded-full animate-spin" /> : <XCircle size={10}/>}
                               Reject
                             </button>
+                            <button
+                              onClick={() => handleDeleteForever(e.id, e.name)}
+                              disabled={actionLoading === e.id + '_delete'}
+                              title="Permanently delete profile and linked account"
+                              data-testid={`button-delete-escort-${e.id}`}
+                              className="p-1.5 text-[#EF4444] bg-[#EF4444]/10 rounded-lg hover:bg-[#EF4444]/20 disabled:opacity-50"
+                            >
+                              {actionLoading === e.id + '_delete'
+                                ? <div className="w-3.5 h-3.5 border border-[#EF4444]/40 border-t-[#EF4444] rounded-full animate-spin" />
+                                : <Trash2 size={13}/>}
+                            </button>
                           </>
                         ) : (
                           <>
                             <button onClick={() => setEditEscort(e)} className="p-1.5 text-text-muted hover:text-text-light rounded-lg hover:bg-dark-bg" title="Edit"><Edit2 size={13}/></button>
                             <button
                               onClick={() => {
-                                const uid = e.user_id ? String(e.user_id) : null
-                                if (!uid) { alert('This escort has no linked user account.'); return }
-                                const token = localStorage.getItem('w3c_token')
-                                fetch(`/api/admin/impersonate/${uid}`, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } })
-                                  .then(r => r.json()).then(data => {
-                                    if (!data.token) { alert(data.message ?? 'Impersonation failed'); return }
-                                    const url = `/view-as?token=${encodeURIComponent(data.token)}&name=${encodeURIComponent(e.name)}&role=escort&uid=${uid}&redirect=/my-profile`
-                                    window.open(url, '_blank')
-                                  }).catch(() => alert('Impersonation failed'))
+                                if (!e.user_id) {
+                                  window.open(`/profile/${encodeURIComponent(e.id)}`, '_blank', 'noopener,noreferrer')
+                                  return
+                                }
+                                setActionError('')
+                                setActionLoading(e.id + '_view')
+                                startAdminViewAs(String(e.user_id))
+                                  .catch((err: any) => setActionError(err?.message || 'Could not open this escort session.'))
+                                  .finally(() => setActionLoading(null))
                               }}
-                              className="p-1.5 text-[#2196F3] hover:bg-dark-bg rounded-lg"
-                              title="View As Escort"
-                            ><Eye size={13}/></button>
+                              disabled={actionLoading === e.id + '_view'}
+                              className="p-1.5 text-[#2196F3] hover:bg-dark-bg rounded-lg disabled:opacity-50"
+                              title={e.user_id ? 'View as linked escort account' : 'Preview public profile; no login account is linked'}
+                              data-testid={`button-view-as-escort-${e.id}`}
+                            >{actionLoading === e.id + '_view' ? <div className="w-3.5 h-3.5 border border-current/40 border-t-current rounded-full animate-spin"/> : <Eye size={13}/>}</button>
                             {Boolean(e.is_active) && (
                               <button
                                 onClick={() => handleReject(e.id)}
@@ -2432,6 +2452,7 @@ function EscortsTab() {
                               disabled={actionLoading === e.id + '_delete'}
                               className="p-1.5 text-[#EF4444] bg-[#EF4444]/10 rounded-lg hover:bg-[#EF4444]/20 disabled:opacity-50"
                               title="Delete Forever — removes from database permanently"
+                              data-testid={`button-delete-escort-${e.id}`}
                             >
                               {actionLoading === e.id + '_delete'
                                 ? <div className="w-3.5 h-3.5 border border-[#EF4444]/40 border-t-[#EF4444] rounded-full animate-spin" />

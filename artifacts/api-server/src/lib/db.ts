@@ -135,6 +135,22 @@ export class CompatPool {
     return new Set((rows as any[]).map(row => String(row.table_name).toLowerCase()))
   }
 
+  async getExistingColumns(tableNames: string[]): Promise<Set<string>> {
+    const names = [...new Set(tableNames.map(name => name.toLowerCase()))]
+    if (names.length === 0) return new Set()
+    const schemaFilter = this.type === 'mysql'
+      ? 'table_schema = DATABASE()'
+      : 'table_schema = current_schema()'
+    const placeholders = names.map(() => '?').join(', ')
+    const [rows] = await this.query<any[]>(
+      `SELECT table_name, column_name FROM information_schema.columns WHERE ${schemaFilter} AND table_name IN (${placeholders})`,
+      names,
+    )
+    return new Set((rows as any[]).map(row =>
+      `${String(row.table_name).toLowerCase()}.${String(row.column_name).toLowerCase()}`
+    ))
+  }
+
   private translateSQL(sql: string): string {
     let s = sql
 
