@@ -96,7 +96,7 @@ if [ -n "${DATABASE_URL:-}" ]; then
   if pgrep -f "scrape-escorts.mjs" > /dev/null 2>&1; then
     echo "  Scraper already running — skipping."
   else
-    cd "$API_DIR" && nohup node scrape-escorts.mjs --fast \
+    cd "$API_DIR" && nohup node scrape-escorts.mjs --fast --source=nairobiraha \
       > /tmp/scraper-$(date +%Y%m%d-%H%M%S).log 2>&1 &
     echo "  Scraper started in background (PID $!)"
     echo "  Logs: /tmp/scraper-*.log"

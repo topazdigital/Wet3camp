@@ -739,7 +739,7 @@ if [ "${RUN_SCRAPER_NOW:-0}" = "1" ] && [ -f "$SCRAPER" ] && [ -n "$DATABASE_URL
     SCRAPER_LOG="/tmp/wet3camp-scraper-${$}.log"
   fi
   DATABASE_URL="$DATABASE_URL" UPLOADS_DIR="$UPLOADS_REAL" \
-    nohup node "$SCRAPER" --fast </dev/null > "$SCRAPER_LOG" 2>&1 &
+    nohup node "$SCRAPER" --fast --source=nairobiraha </dev/null > "$SCRAPER_LOG" 2>&1 &
   SCRAPER_PID=$!
   disown "$SCRAPER_PID" 2>/dev/null || true
   echo "    Scraper running in background (PID: $SCRAPER_PID)"
@@ -758,7 +758,7 @@ SCRAPER_CRON_LOG="$API_DIR/wet3camp-scraper-cron.log"
 if ! touch "$SCRAPER_CRON_LOG" 2>/dev/null; then
   SCRAPER_CRON_LOG="/tmp/wet3camp-scraper-cron-${USER:-admin}.log"
 fi
-SCRAPER_CRON="0 0 * * * source /home/admin/api-server/env && cd /home/admin/wet3camp-build/artifacts/api-server && DATABASE_URL=\"\$DATABASE_URL\" UPLOADS_DIR=\"/home/admin/wet3camp-build/artifacts/api-server/uploads\" /usr/bin/env node scrape-escorts.mjs --fast >> \"$SCRAPER_CRON_LOG\" 2>&1"
+SCRAPER_CRON="0 0 * * * source /home/admin/api-server/env && cd /home/admin/wet3camp-build/artifacts/api-server && DATABASE_URL=\"\$DATABASE_URL\" UPLOADS_DIR=\"/home/admin/wet3camp-build/artifacts/api-server/uploads\" /usr/bin/env node scrape-escorts.mjs --fast --source=nairobiraha >> \"$SCRAPER_CRON_LOG\" 2>&1"
 # Remove any old scraper cron lines, then append the fresh one
 ( crontab -l 2>/dev/null | grep -v 'scrape-escorts' ; echo "$SCRAPER_CRON" ) | crontab -
 echo "    Cron installed — runs every night at 00:00 UTC (03:00 EAT)."

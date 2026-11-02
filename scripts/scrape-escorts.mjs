@@ -12,6 +12,7 @@
  *   node scrape-escorts.mjs --limit=20            — stop after N imports
  *   node scrape-escorts.mjs --source=nairobiraha  — one source only
  *   node scrape-escorts.mjs --source=hookup254
+ *   node scrape-escorts.mjs --concurrency=4       — NairobiRaha requests per batch (1-6)
  *   node scrape-escorts.mjs --update              — re-fetch existing escorts and update services/languages/rates
  *
  * Live server:
@@ -37,6 +38,8 @@ const FAST_MODE   = args.includes('--fast')
 const UPDATE_MODE = args.includes('--update')
 const LIMIT       = parseInt(args.find(a => a.startsWith('--limit='))?.split('=')[1] || '9999', 10)
 const SRC_FILTER  = args.find(a => a.startsWith('--source='))?.split('=')[1]?.toLowerCase() || null
+const concurrencyArg = Number.parseInt(args.find(a => a.startsWith('--concurrency='))?.split('=')[1] || '4', 10)
+const CONCURRENCY = Number.isFinite(concurrencyArg) ? Math.min(6, Math.max(1, concurrencyArg)) : 4
 const IS_MYSQL    = DATABASE_URL?.startsWith('mysql://')
 const DELAY_MS    = FAST_MODE ? 600 : 1200
 
@@ -109,6 +112,20 @@ async function ensureColumns(db) {
 
 // ── HTTP helpers ─────────────────────────────────────────────────────────────
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)) }
+
+async function mapConcurrent(items, concurrency, mapper) {
+  const results = new Array(items.length)
+  let nextIndex = 0
+  const worker = async () => {
+    while (true) {
+      const index = nextIndex++
+      if (index >= items.length) return
+      results[index] = await mapper(items[index], index)
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, worker))
+  return results
+}
 
 async function fetchPage(url, referer, extraHeaders = {}) {
   try {
@@ -823,28 +840,170 @@ async function updateEscortRates(db, escortId, { price_incall, price_outcall, pr
 }
 
 // ── Source definitions ────────────────────────────────────────────────────────
-function buildNairobirahaListingUrls() {
-  const urls = []
-  // Paginated main listing — nairobiraha has ~3 pages; cap at 10, break-on-empty handles the rest
-  for (let p = 1; p <= 10; p++) {
-    urls.push(`${NAIROBIRAHA_BASE}/escorts/page/${p}/`)
-  }
-  // CONFIRMED-WORKING category slugs only (verified from live scrape — all others 404)
-  const categories = [
+const NAIROBIRAHA_CATEGORY_SLUGS = [
     'call-girls',       // confirmed 200
     'nairobi-escorts',  // confirmed 200, pages 1-4
     'vip-escorts',      // confirmed 200, pages 1-5
     'massage',          // confirmed 200, pages 1-5
     'kenyan-escorts',   // confirmed 200, pages 1-5
     'african-escorts',  // likely valid
+]
+const MAX_NAIROBIRAHA_LISTING_PAGES = 500
+
+function buildNairobirahaListingUrls() {
+  return [
+    `${NAIROBIRAHA_BASE}/escorts/page/1/`,
+    ...NAIROBIRAHA_CATEGORY_SLUGS.map((category) => `${NAIROBIRAHA_BASE}/${category}/`),
   ]
-  for (const cat of categories) {
-    urls.push(`${NAIROBIRAHA_BASE}/${cat}/`)
-    for (let p = 2; p <= 4; p++) {
-      urls.push(`${NAIROBIRAHA_BASE}/${cat}/page/${p}/`)
+}
+
+function getNairobirahaPageUrl(rootUrl, page) {
+  const root = rootUrl.replace(/\/+$/, '')
+  if (/\/page\/\d+$/i.test(root)) {
+    return `${root.replace(/\/page\/\d+$/i, `/page/${page}`)}/`
+  }
+  return `${root}/page/${page}/`
+}
+
+function getNairobirahaPageCount(html) {
+  let maxPage = 1
+  const pageLinks = /(?:\/page\/|[?&]paged=)(\d+)(?:\/|[?#"'&\s]|$)/gi
+  for (const match of html.matchAll(pageLinks)) {
+    maxPage = Math.max(maxPage, Number.parseInt(match[1], 10))
+  }
+  const totalLabel = html.match(/\bpage\s+\d+\s+of\s+(\d+)\b/i)
+  if (totalLabel) maxPage = Math.max(maxPage, Number.parseInt(totalLabel[1], 10))
+  if (maxPage > MAX_NAIROBIRAHA_LISTING_PAGES) {
+    console.warn(`  [WARN] NairobiRaha pagination reported ${maxPage} pages; limiting this run to ${MAX_NAIROBIRAHA_LISTING_PAGES}`)
+  }
+  return Math.min(maxPage, MAX_NAIROBIRAHA_LISTING_PAGES)
+}
+
+function parseSitemapLocs(xml) {
+  return [...xml.matchAll(/<loc\b[^>]*>([\s\S]*?)<\/loc>/gi)]
+    .map((match) => decodeHtml(match[1].replace(/<!\[CDATA\[|\]\]>/g, '').trim()))
+    .filter(Boolean)
+}
+
+function normalizeNairobirahaUrl(rawUrl) {
+  try {
+    const url = new URL(rawUrl, NAIROBIRAHA_BASE)
+    if (!['nairobiraha.com', 'www.nairobiraha.com'].includes(url.hostname.toLowerCase())) return null
+    url.search = ''
+    url.hash = ''
+    return url.toString()
+  } catch {
+    return null
+  }
+}
+
+function profileListingFromSitemap(rawUrl) {
+  const url = normalizeNairobirahaUrl(rawUrl)
+  if (!url) return null
+  const parsed = new URL(url)
+  const parts = parsed.pathname.split('/').filter(Boolean)
+  if (parts.length !== 2 || parts[0].toLowerCase() !== 'escort') return null
+  let rawName = parts[1]
+  try { rawName = decodeURIComponent(rawName) } catch { /* keep encoded slug */ }
+  return {
+    url,
+    rawName: rawName.replace(/[-_]+/g, ' ').trim(),
+    location: null,
+    thumbnailUrl: null,
+    site: 'nairobiraha',
+  }
+}
+
+async function collectNairobirahaSitemapData() {
+  const index = await fetchPage(`${NAIROBIRAHA_BASE}/wp-sitemap.xml`, NAIROBIRAHA_BASE)
+  if (!index) return { profiles: [], archives: [] }
+
+  const childSitemaps = parseSitemapLocs(index)
+    .map(normalizeNairobirahaUrl)
+    .filter((url) => url && /\.xml$/i.test(new URL(url).pathname))
+  const profileSitemaps = childSitemaps.filter((url) => /\/escort-sitemap(?:\d+)?\.xml$/i.test(new URL(url).pathname))
+  const archiveSitemaps = childSitemaps.filter((url) => /\/(?:escorts-from|category)-sitemap(?:\d+)?\.xml$/i.test(new URL(url).pathname))
+  const selectedSitemaps = [...new Set([...profileSitemaps, ...archiveSitemaps])]
+  if (!selectedSitemaps.length) return { profiles: [], archives: [] }
+
+  const sitemapPages = await mapConcurrent(selectedSitemaps, CONCURRENCY, async (url) => {
+    const xml = await fetchPage(url, `${NAIROBIRAHA_BASE}/wp-sitemap.xml`)
+    await sleep(DELAY_MS)
+    return { url, xml }
+  })
+  const profiles = new Map()
+  const archives = new Set()
+
+  for (const { url, xml } of sitemapPages) {
+    if (!xml) continue
+    const sitemapPath = new URL(url).pathname.toLowerCase()
+    for (const loc of parseSitemapLocs(xml)) {
+      if (sitemapPath.includes('escort-sitemap') && !sitemapPath.includes('escorts-from')) {
+        const profile = profileListingFromSitemap(loc)
+        if (profile) profiles.set(profile.url, profile)
+      } else {
+        const archiveUrl = normalizeNairobirahaUrl(loc)
+        if (archiveUrl && !/\.xml$/i.test(new URL(archiveUrl).pathname)) archives.add(archiveUrl)
+      }
     }
   }
-  return urls
+
+  return { profiles: [...profiles.values()], archives: [...archives] }
+}
+
+async function collectNairobirahaListings() {
+  const sitemapData = await collectNairobirahaSitemapData()
+  const roots = [...new Set([...buildNairobirahaListingUrls(), ...sitemapData.archives])]
+  const seenUrls = new Set()
+  const profiles = []
+  const addProfile = (profile) => {
+    if (profiles.length >= LIMIT) return
+    if (seenUrls.has(profile.url)) return
+    seenUrls.add(profile.url)
+    profiles.push(profile)
+  }
+  const addListings = (html) => {
+    if (!html || profiles.length >= LIMIT) return
+    for (const profile of parseNairobirahaListing(html)) {
+      addProfile(profile)
+      if (profiles.length >= LIMIT) break
+    }
+  }
+
+  for (const profile of sitemapData.profiles) addProfile(profile)
+  console.log(`   Sitemap: ${sitemapData.profiles.length} profiles, ${sitemapData.archives.length} archive sections`)
+  if (profiles.length >= LIMIT) return profiles
+
+  console.log(`   Discovering ${roots.length} NairobiRaha listing sections (concurrency ${CONCURRENCY})...`)
+  const firstPages = await mapConcurrent(roots, CONCURRENCY, async (url) => {
+    const html = await fetchPage(url, NAIROBIRAHA_BASE)
+    await sleep(DELAY_MS)
+    return { url, html }
+  })
+
+  const additionalUrls = new Set()
+  for (const { url, html } of firstPages) {
+    if (!html) continue
+    addListings(html)
+    const pageCount = getNairobirahaPageCount(html)
+    for (let page = 2; page <= pageCount; page++) {
+      additionalUrls.add(getNairobirahaPageUrl(url, page))
+    }
+    console.log(`   ${url.replace(NAIROBIRAHA_BASE, '').padEnd(34)} ${pageCount} pages discovered`)
+  }
+
+  const pages = [...additionalUrls]
+  for (let offset = 0; offset < pages.length && profiles.length < LIMIT; offset += CONCURRENCY) {
+    const batch = pages.slice(offset, offset + CONCURRENCY)
+    const results = await mapConcurrent(batch, CONCURRENCY, async (url) => {
+      const html = await fetchPage(url, NAIROBIRAHA_BASE)
+      await sleep(DELAY_MS)
+      return { url, html }
+    })
+    for (const { html } of results) addListings(html)
+  }
+
+  return profiles
 }
 
 // ── --update mode: re-fetch existing escorts by source_url ────────────────────
@@ -901,6 +1060,7 @@ async function main() {
   console.log(`   DB:      ${DATABASE_URL ? (IS_MYSQL ? 'MySQL/MariaDB' : 'PostgreSQL') : 'NONE (dry run)'}`)
   console.log(`   Mode:    ${UPDATE_MODE ? 'UPDATE (re-fetch existing)' : DRY_RUN ? 'DRY RUN' : FAST_MODE ? 'FAST (remote URLs)' : 'FULL (download images)'}`)
   console.log(`   Source:  ${SRC_FILTER || 'ALL (nairobiraha + hookup254)'}`)
+  console.log(`   NairobiRaha request concurrency: ${CONCURRENCY} (max 6)`)
   console.log(`   Limit:   ${LIMIT}`)
   console.log()
 
@@ -926,25 +1086,11 @@ async function main() {
   // Source 1 — nairobiraha.com
   if (!SRC_FILTER || SRC_FILTER === 'nairobiraha') {
     console.log('📋 Collecting nairobiraha.com listings...')
-    const listingUrls = buildNairobirahaListingUrls()
-
-    for (const listingUrl of listingUrls) {
-      if (allProfiles.length >= LIMIT) break
-      process.stdout.write(`   ${listingUrl.replace(NAIROBIRAHA_BASE, '').slice(0,50).padEnd(52)} ... `)
-      const html = await fetchPage(listingUrl, NAIROBIRAHA_BASE)
-      if (!html) { console.log('skip'); await sleep(DELAY_MS); continue }
-
-      const listings = parseNairobirahaListing(html)
-      let added = 0
-      for (const p of listings) {
-        if (seenUrls.has(p.url)) continue
-        seenUrls.add(p.url)
-        allProfiles.push(p)
-        added++
-      }
-      console.log(`${added} new (total ${allProfiles.length})`)
-      if (added === 0 && listings.length === 0) break  // no more pages
-      await sleep(DELAY_MS)
+    const listings = await collectNairobirahaListings()
+    for (const profile of listings) {
+      if (seenUrls.has(profile.url)) continue
+      seenUrls.add(profile.url)
+      allProfiles.push(profile)
     }
     console.log(`  ↳ nairobiraha: ${allProfiles.filter(p=>p.site==='nairobiraha').length} profiles\n`)
   }
@@ -997,105 +1143,121 @@ async function main() {
   const seenPhones = new Set()
   const seenNames  = new Set()
 
-  for (let i = 0; i < total; i++) {
-    const listing = allProfiles[i]
-    const num     = `[${i+1}/${total}]`
-    process.stdout.write(`${num} [${listing.site}] ${(listing.rawName || '').slice(0, 28).padEnd(28)} ... `)
+  for (let offset = 0; offset < total;) {
+    const firstListing = allProfiles[offset]
+    // Keep the third-party source on its original one-at-a-time behavior.
+    // NairobiRaha is the owned source and uses bounded, configurable batches.
+    const batchSize = firstListing.site === 'nairobiraha' ? CONCURRENCY : 1
+    const batch = allProfiles.slice(offset, Math.min(total, offset + batchSize))
+    const htmlPages = await Promise.all(batch.map((listing) => {
+      const referer = listing.site === 'hookup254' ? HOOKUP254_BASE : NAIROBIRAHA_BASE
+      return fetchPage(listing.url, referer)
+    }))
 
-    const referer = listing.site === 'hookup254' ? HOOKUP254_BASE : NAIROBIRAHA_BASE
-    const html = await fetchPage(listing.url, referer)
-    if (!html) { console.log('❌ fetch failed'); errors++; await sleep(DELAY_MS); continue }
+    for (let batchIndex = 0; batchIndex < batch.length; batchIndex++) {
+      const listing = batch[batchIndex]
+      const i = offset + batchIndex
+      const num = `[${i+1}/${total}]`
+      process.stdout.write(`${num} [${listing.site}] ${(listing.rawName || '').slice(0, 28).padEnd(28)} ... `)
 
-    const profile = parseProfile(html, listing.site, listing.url)
-    if (!profile) { console.log('❌ parse failed'); errors++; await sleep(DELAY_MS); continue }
+      const html = htmlPages[batchIndex]
+      if (!html) { console.log('❌ fetch failed'); errors++; continue }
 
-    // Location fallback from listing
-    if ((!profile.area || profile.area === 'Nairobi') && listing.location) {
-      const loc = normalizeCity(listing.location)
-      profile.city = loc.city; profile.area = loc.area
-    }
+      const profile = parseProfile(html, listing.site, listing.url)
+      if (!profile) { console.log('❌ parse failed'); errors++; continue }
 
-    if (!profile.name || profile.name.length < 2) {
-      console.log('❌ no name'); errors++; await sleep(DELAY_MS); continue
-    }
+      // Location fallback from listing
+      if ((!profile.area || profile.area === 'Nairobi') && listing.location) {
+        const loc = normalizeCity(listing.location)
+        profile.city = loc.city; profile.area = loc.area
+      }
 
-    if (DRY_RUN) {
-      const svcCount = profile.services.length
-      const rate     = profile.price_incall ? `KES ${profile.price_incall}` : 'no rate'
-      console.log(`✓ ${profile.name} | ${profile.phone || 'no phone'} | ${profile.area} | ${rate} | ${svcCount} svcs`)
-      imported++; await sleep(300); continue
-    }
+      if (!profile.name || profile.name.length < 2) {
+        console.log('❌ no name'); errors++; continue
+      }
 
-    // In-memory dedup
-    if (profile.phone && seenPhones.has(profile.phone)) { console.log('⏭  dup(phone)'); skipped++; await sleep(300); continue }
-    if (seenNames.has(profile.name.toLowerCase()))       { console.log('⏭  dup(name)');  skipped++; await sleep(300); continue }
+      if (DRY_RUN) {
+        const svcCount = profile.services.length
+        const rate     = profile.price_incall ? `KES ${profile.price_incall}` : 'no rate'
+        console.log(`✓ ${profile.name} | ${profile.phone || 'no phone'} | ${profile.area} | ${rate} | ${svcCount} svcs`)
+        imported++
+        continue
+      }
 
-    // DB dedup
-    const existingId = await escortExists(db, profile.phone, profile.name)
-    if (existingId) {
-      // Already in DB — update source_url if missing, then update services/languages
-      try {
-        await db.run(
-          `UPDATE escorts SET source_url = $1 WHERE id = $2 AND (source_url IS NULL OR source_url = '')`,
-          [listing.url, existingId]
-        )
-        await upsertServices(db, existingId, profile.services)
-        await upsertLanguages(db, existingId, profile.languages)
-        await updateEscortRates(db, existingId, profile)
-      } catch { /* ignore */ }
-      console.log('⏭  in DB (updated)')
+      // In-memory dedup
+      if (profile.phone && seenPhones.has(profile.phone)) { console.log('⏭  dup(phone)'); skipped++; continue }
+      if (seenNames.has(profile.name.toLowerCase()))       { console.log('⏭  dup(name)');  skipped++; continue }
+
+      // DB dedup
+      const existingId = await escortExists(db, profile.phone, profile.name)
+      if (existingId) {
+        // Already in DB — update source_url if missing, then update services/languages
+        try {
+          await db.run(
+            `UPDATE escorts SET source_url = $1 WHERE id = $2 AND (source_url IS NULL OR source_url = '')`,
+            [listing.url, existingId]
+          )
+          await upsertServices(db, existingId, profile.services)
+          await upsertLanguages(db, existingId, profile.languages)
+          await updateEscortRates(db, existingId, profile)
+        } catch { /* ignore */ }
+        console.log('⏭  in DB (updated)')
+        if (profile.phone) seenPhones.add(profile.phone)
+        seenNames.add(profile.name.toLowerCase())
+        skipped++
+        continue
+      }
+
       if (profile.phone) seenPhones.add(profile.phone)
       seenNames.add(profile.name.toLowerCase())
-      skipped++; await sleep(300); continue
-    }
 
-    if (profile.phone) seenPhones.add(profile.phone)
-    seenNames.add(profile.name.toLowerCase())
+      // Images
+      const referer = listing.site === 'hookup254' ? HOOKUP254_BASE : NAIROBIRAHA_BASE
+      let avatarPath = null
+      const primaryImg = profile.galleryImgs[0] || listing.thumbnailUrl
+      if (primaryImg) {
+        if (FAST_MODE) {
+          avatarPath = primaryImg
+        } else {
+          const ext   = primaryImg.match(/\.(jpg|jpeg|png|webp)/i)?.[1] || 'jpg'
+          const fname = `scraped_${Date.now()}_${Math.random().toString(36).slice(2,7)}.${ext}`
+          avatarPath  = await downloadImage(primaryImg, fname, referer) || primaryImg
+        }
+      }
 
-    // Images
-    let avatarPath = null
-    const primaryImg = profile.galleryImgs[0] || listing.thumbnailUrl
-    if (primaryImg) {
-      if (FAST_MODE) {
-        avatarPath = primaryImg
-      } else {
-        const ext   = primaryImg.match(/\.(jpg|jpeg|png|webp)/i)?.[1] || 'jpg'
-        const fname = `scraped_${Date.now()}_${Math.random().toString(36).slice(2,7)}.${ext}`
-        avatarPath  = await downloadImage(primaryImg, fname, referer) || primaryImg
+      const galleryPaths = avatarPath ? [avatarPath] : []
+      const maxGallery   = FAST_MODE ? 6 : 5
+      for (let g = 1; g < Math.min(profile.galleryImgs.length, maxGallery); g++) {
+        if (FAST_MODE) {
+          galleryPaths.push(profile.galleryImgs[g])
+        } else {
+          const ext   = profile.galleryImgs[g].match(/\.(jpg|jpeg|png|webp)/i)?.[1] || 'jpg'
+          const fname = `scraped_${Date.now()}_${Math.random().toString(36).slice(2,7)}.${ext}`
+          const gp    = await downloadImage(profile.galleryImgs[g], fname, referer)
+          if (gp) galleryPaths.push(gp)
+          await sleep(300)
+        }
+      }
+
+      try {
+        const escortId = await insertEscort(db, profile, avatarPath)
+        await insertGallery(db, escortId, galleryPaths)
+        await upsertServices(db, escortId, profile.services)
+        await upsertLanguages(db, escortId, profile.languages)
+
+        const parts = []
+        if (profile.services.length)                       parts.push(`${profile.services.length} svcs`)
+        if (profile.languages.length)                      parts.push(`${profile.languages.length} langs`)
+        if (profile.price_incall || profile.price_outcall) parts.push(`KES ${profile.price_incall}/${profile.price_outcall}`)
+        console.log(`✅ id:${escortId} [${parts.join(', ') || 'no rates'}]`)
+        imported++
+      } catch (err) {
+        console.log(`❌ DB error: ${err.message}`)
+        errors++
       }
     }
 
-    const galleryPaths = avatarPath ? [avatarPath] : []
-    const maxGallery   = FAST_MODE ? 6 : 5
-    for (let g = 1; g < Math.min(profile.galleryImgs.length, maxGallery); g++) {
-      if (FAST_MODE) {
-        galleryPaths.push(profile.galleryImgs[g])
-      } else {
-        const ext   = profile.galleryImgs[g].match(/\.(jpg|jpeg|png|webp)/i)?.[1] || 'jpg'
-        const fname = `scraped_${Date.now()}_${Math.random().toString(36).slice(2,7)}.${ext}`
-        const gp    = await downloadImage(profile.galleryImgs[g], fname, referer)
-        if (gp) galleryPaths.push(gp)
-        await sleep(300)
-      }
-    }
-
-    try {
-      const escortId = await insertEscort(db, profile, avatarPath)
-      await insertGallery(db, escortId, galleryPaths)
-      await upsertServices(db, escortId, profile.services)
-      await upsertLanguages(db, escortId, profile.languages)
-
-      const parts = []
-      if (profile.services.length)                       parts.push(`${profile.services.length} svcs`)
-      if (profile.languages.length)                      parts.push(`${profile.languages.length} langs`)
-      if (profile.price_incall || profile.price_outcall) parts.push(`KES ${profile.price_incall}/${profile.price_outcall}`)
-      console.log(`✅ id:${escortId} [${parts.join(', ') || 'no rates'}]`)
-      imported++
-    } catch (err) {
-      console.log(`❌ DB error: ${err.message}`)
-      errors++
-    }
-
+    offset += batch.length
     await sleep(DELAY_MS)
   }
 
