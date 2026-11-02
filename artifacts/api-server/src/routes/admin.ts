@@ -567,7 +567,7 @@ router.patch('/admin/escorts/:id', requireAuth, requireAdmin, async (req: AuthRe
   }
 })
 
-router.delete('/admin/escorts/:id', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+const handleAdminEscortDelete = async (req: AuthRequest, res: any) => {
   try {
     const pool = getPool()
     if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
@@ -604,10 +604,14 @@ router.delete('/admin/escorts/:id', requireAuth, requireAdmin, async (req: AuthR
     }
     res.json({ success: true, deletedUserId: result.deleted?.userId ?? null, deletedEscortIds: result.deleted?.escortIds ?? [] })
   } catch (err: any) {
-    console.error('[DELETE /admin/escorts/:id]', err?.message ?? err)
+    console.error('[admin escort delete]', err?.message ?? err)
     res.status(500).json({ message: 'Failed to delete escort' })
   }
-})
+}
+
+router.delete('/admin/escorts/:id', requireAuth, requireAdmin, handleAdminEscortDelete)
+// Shared hosting Apache blocks DELETE methods with a 406 before they reach Express.
+router.post('/admin/escorts/:id/delete', requireAuth, requireAdmin, handleAdminEscortDelete)
 
 router.post('/admin/impersonate/:userId', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
   try {
@@ -1026,7 +1030,7 @@ router.delete('/admin/cleanup-seed-escorts', requireAuth, requireAdmin, async (r
   }
 })
 
-router.delete('/admin/users/:id/permanent', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+const handlePermanentAdminUserDelete = async (req: AuthRequest, res: any) => {
   try {
     const pool = getPool()
     if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
@@ -1059,12 +1063,16 @@ router.delete('/admin/users/:id/permanent', requireAuth, requireAdmin, async (re
       deletedEscortIds: result.deleted?.escortIds ?? [],
     })
   } catch (err: any) {
-    console.error('[DELETE /admin/users/:id/permanent]', err?.message ?? err)
+    console.error('[admin user permanent delete]', err?.message ?? err)
     res.status(500).json({ message: 'Account deletion failed; no changes were committed' })
   }
-})
+}
 
-router.delete('/admin/users/:id', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+router.delete('/admin/users/:id/permanent', requireAuth, requireAdmin, handlePermanentAdminUserDelete)
+// Use POST for production hosting that rejects DELETE requests at Apache.
+router.post('/admin/users/:id/permanent/delete', requireAuth, requireAdmin, handlePermanentAdminUserDelete)
+
+const handleAdminUserDeactivate = async (req: AuthRequest, res: any) => {
   try {
     const pool = getPool()
     if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
@@ -1073,7 +1081,10 @@ router.delete('/admin/users/:id', requireAuth, requireAdmin, async (req: AuthReq
   } catch {
     res.status(500).json({ message: 'Failed to deactivate user' })
   }
-})
+}
+
+router.delete('/admin/users/:id', requireAuth, requireAdmin, handleAdminUserDeactivate)
+router.post('/admin/users/:id/deactivate', requireAuth, requireAdmin, handleAdminUserDeactivate)
 
 router.post('/admin/seed-escorts', requireAuth, requireAdmin, async (_req: AuthRequest, res) => {
   const pool = getPool()

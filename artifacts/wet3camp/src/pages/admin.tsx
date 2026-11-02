@@ -506,7 +506,7 @@ function ClientsTab() {
     setActionError('')
     setActionLoading(`deactivate-${id}`)
     try {
-      await adminFetch(`/admin/users/${id}`, { method: 'DELETE' })
+      await adminFetch(`/admin/users/${id}/deactivate`, { method: 'POST' })
       setClients(p => p.filter(c => String(c.id) !== id))
     } catch (err: any) {
       setActionError(err?.message || 'Could not deactivate this account.')
@@ -522,7 +522,7 @@ function ClientsTab() {
     setActionError('')
     setActionLoading(`delete-${id}`)
     try {
-      await adminFetch(`/admin/users/${id}/permanent`, { method: 'DELETE' })
+      await adminFetch(`/admin/users/${id}/permanent/delete`, { method: 'POST' })
       setClients(p => p.filter(c => String(c.id) !== id))
     } catch (err: any) {
       setActionError(err?.message || 'Could not permanently delete this account.')
@@ -2227,7 +2227,7 @@ function EscortsTab() {
     setActionError('')
     setActionLoading(id + '_delete')
     try {
-      const result = await adminFetch(`/admin/escorts/${id}`, { method: 'DELETE' })
+      const result = await adminFetch(`/admin/escorts/${id}/delete`, { method: 'POST' })
       const deletedIds = new Set([id, ...(result.deletedEscortIds ?? []).map((deletedId: string | number) => String(deletedId))])
       setEscorts(prev => prev.filter(e => !deletedIds.has(String(e.id))))
     } catch (err: any) {

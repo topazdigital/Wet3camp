@@ -26,3 +26,4 @@
 - [Profile analytics privacy](profile-analytics.md) — Track only claimed active profiles; keep visitor identity anonymous and label contact actions as taps, not outcomes
 - [Dynamic location SEO](dynamic-location-seo.md) — Build location landing pages from active claimed profiles and keep indexing thresholds consistent across pages, crawler HTML, and sitemap
 - [Mobile profile tabs](mobile-profile-tabs.md) — User confirmed the phone profile-section navigation works; leave it alone unless asked
+- [Admin account controls](admin-account-controls.md) — User confirmed live view-as works; Apache rejects admin DELETE requests with 406, so use POST aliases for admin removals
