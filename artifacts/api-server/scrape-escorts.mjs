@@ -12,7 +12,7 @@
  *   node scrape-escorts.mjs --limit=20            — stop after N imports
  *   node scrape-escorts.mjs --source=nairobiraha  — one source only
  *   node scrape-escorts.mjs --source=hookup254
- *   node scrape-escorts.mjs --concurrency=4       — NairobiRaha requests per batch (1-6)
+ *   node scrape-escorts.mjs --concurrency=6       — NairobiRaha requests per batch (1-6; default 6)
  *   node scrape-escorts.mjs --update              — re-fetch existing escorts and update services/languages/rates
  *
  * Live server:
@@ -38,8 +38,8 @@ const FAST_MODE   = args.includes('--fast')
 const UPDATE_MODE = args.includes('--update')
 const LIMIT       = parseInt(args.find(a => a.startsWith('--limit='))?.split('=')[1] || '9999', 10)
 const SRC_FILTER  = args.find(a => a.startsWith('--source='))?.split('=')[1]?.toLowerCase() || null
-const concurrencyArg = Number.parseInt(args.find(a => a.startsWith('--concurrency='))?.split('=')[1] || '4', 10)
-const CONCURRENCY = Number.isFinite(concurrencyArg) ? Math.min(6, Math.max(1, concurrencyArg)) : 4
+const concurrencyArg = Number.parseInt(args.find(a => a.startsWith('--concurrency='))?.split('=')[1] || '6', 10)
+const CONCURRENCY = Number.isFinite(concurrencyArg) ? Math.min(6, Math.max(1, concurrencyArg)) : 6
 const IS_MYSQL    = DATABASE_URL?.startsWith('mysql://')
 const DELAY_MS    = FAST_MODE ? 600 : 1200
 
@@ -128,32 +128,50 @@ async function mapConcurrent(items, concurrency, mapper) {
 }
 
 async function fetchPage(url, referer, extraHeaders = {}) {
-  try {
-    const res = await fetch(url, {
-      headers: {
-        'User-Agent': USER_AGENT,
-        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9',
-        // Don't request compressed encoding — Node fetch's behaviour with
-        // content-encoding varies; simpler to request plain text
-        'Referer': referer || url,
-        ...extraHeaders,
-      },
-      redirect: 'follow',
-      signal: AbortSignal.timeout(25000),
-    })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    // Use .text() which handles encoding transparently; if that fails
-    // (binary / already compressed), fall back to manual decompress
+  let host = 'source'
+  try { host = new URL(url).hostname } catch { /* keep generic host */ }
+
+  for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      const text = await res.text()
-      if (text && text.length > 100) return text
-    } catch { /* fall through to manual decompress */ }
-    return null
-  } catch (err) {
-    console.warn(`  [WARN] fetch failed for ${url}: ${err.message}`)
-    return null
+      const res = await fetch(url, {
+        headers: {
+          'User-Agent': USER_AGENT,
+          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
+          // Don't request compressed encoding — Node fetch's behaviour with
+          // content-encoding varies; simpler to request plain text
+          'Referer': referer || url,
+          ...extraHeaders,
+        },
+        redirect: 'follow',
+        signal: AbortSignal.timeout(25000),
+      })
+      if (!res.ok) {
+        const retryable = res.status === 429 || res.status >= 500
+        if (retryable && attempt < 2) {
+          await sleep(350 * (2 ** attempt))
+          continue
+        }
+        console.warn(`  [WARN] fetch failed for ${host}: HTTP ${res.status}`)
+        return null
+      }
+      // Use .text() which handles encoding transparently; if that fails
+      // (binary / already compressed), fall back to manual decompress
+      try {
+        const text = await res.text()
+        if (text && text.length > 100) return text
+      } catch { /* fall through to manual decompress */ }
+      return null
+    } catch (err) {
+      if (attempt < 2) {
+        await sleep(350 * (2 ** attempt))
+        continue
+      }
+      console.warn(`  [WARN] fetch failed for ${host}: ${err.name || 'network error'}`)
+      return null
+    }
   }
+  return null
 }
 
 async function postPage(url, body, referer, extraHeaders = {}) {
@@ -288,19 +306,29 @@ const NAIROBIRAHA_BASE = 'https://nairobiraha.com'
 
 function parseNairobirahaListing(html) {
   const profiles = []
-  const blockRe  = /<a\s+href="(https:\/\/nairobiraha\.com\/escort\/[^"]+)"\s+class="girlimg"[^>]*>([\s\S]*?)<\/a>/g
-  let m
-  while ((m = blockRe.exec(html)) !== null) {
-    const url   = m[1]
-    const block = m[2]
-    const nameM = block.match(/<span[^>]*class="modelname"[^>]*>([\s\S]*?)<\/span>/i)
-    const locM  = block.match(/<span[^>]*class="modelinfo-location"[^>]*>([\s\S]*?)<\/span>/i)
-    const imgM  = block.match(/data-responsive-img-url="([^"]+)"/)
-    const rawName = nameM ? nameM[1].replace(/<[^>]+>/g, '').trim() : null
-    const location = locM ? locM[1].replace(/<[^>]+>/g, '').trim() : null
-    const thumbnailUrl = imgM ? imgM[1].trim() : null
-    if (!rawName || profiles.find(p => p.url === url)) continue
-    profiles.push({ url, rawName, location, thumbnailUrl, site: 'nairobiraha' })
+  const seen = new Set()
+  const getAttr = (source, name) => {
+    const match = source.match(new RegExp(`(?:^|\\s)${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)')`, 'i'))
+    return match ? (match[1] ?? match[2] ?? '').trim() : ''
+  }
+  const anchorRe = /<a\b([^>]*)>([\s\S]*?)<\/a>/gi
+  let match
+  while ((match = anchorRe.exec(html)) !== null) {
+    const href = getAttr(match[1], 'href')
+    const listing = profileListingFromSitemap(href)
+    if (!listing || seen.has(listing.url)) continue
+    seen.add(listing.url)
+
+    const block = match[2]
+    const nameM = block.match(/<span\b[^>]*class=["'][^"']*\bmodelname\b[^"']*["'][^>]*>([\s\S]*?)<\/span>/i)
+    const locM = block.match(/<span\b[^>]*class=["'][^"']*\bmodelinfo-location\b[^"']*["'][^>]*>([\s\S]*?)<\/span>/i)
+    const imgM = block.match(/<(?:img|source)\b([^>]*)>/i)
+    const rawName = nameM ? decodeHtml(nameM[1]) : listing.rawName
+    const location = locM ? decodeHtml(locM[1]) : null
+    const thumbnailUrl = imgM
+      ? getAttr(imgM[1], 'data-responsive-img-url') || getAttr(imgM[1], 'data-src') || getAttr(imgM[1], 'src') || null
+      : null
+    profiles.push({ ...listing, rawName, location, thumbnailUrl })
   }
   return profiles
 }
@@ -921,9 +949,8 @@ async function collectNairobirahaSitemapData() {
   const childSitemaps = parseSitemapLocs(index)
     .map(normalizeNairobirahaUrl)
     .filter((url) => url && /\.xml$/i.test(new URL(url).pathname))
-  const profileSitemaps = childSitemaps.filter((url) => /\/escort-sitemap(?:\d+)?\.xml$/i.test(new URL(url).pathname))
   const archiveSitemaps = childSitemaps.filter((url) => /\/(?:escorts-from|category)-sitemap(?:\d+)?\.xml$/i.test(new URL(url).pathname))
-  const selectedSitemaps = [...new Set([...profileSitemaps, ...archiveSitemaps])]
+  const selectedSitemaps = [...new Set(childSitemaps)]
   if (!selectedSitemaps.length) return { profiles: [], archives: [] }
 
   const sitemapPages = await mapConcurrent(selectedSitemaps, CONCURRENCY, async (url) => {
@@ -936,12 +963,11 @@ async function collectNairobirahaSitemapData() {
 
   for (const { url, xml } of sitemapPages) {
     if (!xml) continue
-    const sitemapPath = new URL(url).pathname.toLowerCase()
+    const isArchiveSitemap = archiveSitemaps.includes(url)
     for (const loc of parseSitemapLocs(xml)) {
-      if (sitemapPath.includes('escort-sitemap') && !sitemapPath.includes('escorts-from')) {
-        const profile = profileListingFromSitemap(loc)
-        if (profile) profiles.set(profile.url, profile)
-      } else {
+      const profile = profileListingFromSitemap(loc)
+      if (profile) profiles.set(profile.url, profile)
+      if (isArchiveSitemap) {
         const archiveUrl = normalizeNairobirahaUrl(loc)
         if (archiveUrl && !/\.xml$/i.test(new URL(archiveUrl).pathname)) archives.add(archiveUrl)
       }
@@ -1158,7 +1184,7 @@ async function main() {
       const listing = batch[batchIndex]
       const i = offset + batchIndex
       const num = `[${i+1}/${total}]`
-      process.stdout.write(`${num} [${listing.site}] ${(listing.rawName || '').slice(0, 28).padEnd(28)} ... `)
+      process.stdout.write(`${num} [${listing.site}] processing ... `)
 
       const html = htmlPages[batchIndex]
       if (!html) { console.log('❌ fetch failed'); errors++; continue }
@@ -1179,7 +1205,7 @@ async function main() {
       if (DRY_RUN) {
         const svcCount = profile.services.length
         const rate     = profile.price_incall ? `KES ${profile.price_incall}` : 'no rate'
-        console.log(`✓ ${profile.name} | ${profile.phone || 'no phone'} | ${profile.area} | ${rate} | ${svcCount} svcs`)
+        console.log(`✓ parsed | ${profile.area || 'location unknown'} | ${rate} | ${svcCount} svcs`)
         imported++
         continue
       }
