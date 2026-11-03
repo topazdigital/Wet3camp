@@ -5,6 +5,8 @@ API_ENV="${API_ENV:-/home/admin/api-server/env}"
 API_DIR="${API_DIR:-/home/admin/wet3camp-build/artifacts/api-server}"
 UPLOADS_DIR="${UPLOADS_DIR:-$API_DIR/uploads}"
 
+printf '=== NairobiRaha scraper started at %s ===\n' "$(date -Is)"
+
 if [[ ! -r "$API_ENV" ]]; then
   echo "ERROR: scraper environment file is not readable: $API_ENV" >&2
   exit 1

@@ -761,8 +761,14 @@ if ! touch "$SCRAPER_CRON_LOG" 2>/dev/null; then
 fi
 # The runner reads DATABASE_URL as data and ignores all other env-file lines.
 SCRAPER_CRON="0 0 * * * API_ENV=\"$API_ENV\" API_DIR=\"$API_DIR\" UPLOADS_DIR=\"$UPLOADS_REAL\" /usr/bin/env bash \"$SCRAPER_RUNNER\" >> \"$SCRAPER_CRON_LOG\" 2>&1"
-# Remove any old scraper cron lines, then append the fresh one
-( crontab -l 2>/dev/null | grep -v 'scrape-escorts' ; echo "$SCRAPER_CRON" ) | crontab -
+# Remove old scraper entries and the previous UTC setting, then install one
+# explicit UTC schedule. This keeps midnight UTC equal to 03:00 EAT regardless
+# of the server's local timezone.
+(
+  crontab -l 2>/dev/null |
+    grep -Ev 'scrape-escorts|run-nairobiraha-scraper|^CRON_TZ=UTC$' || true
+  printf 'CRON_TZ=UTC\n%s\n' "$SCRAPER_CRON"
+) | crontab -
 echo "    Cron installed — runs every night at 00:00 UTC (03:00 EAT)."
 echo "    View cron log: tail -f $SCRAPER_CRON_LOG"
 
