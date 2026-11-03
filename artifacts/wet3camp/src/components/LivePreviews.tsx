@@ -23,20 +23,20 @@ interface EscortVideoRow {
 }
 
 const FALLBACK_CLIPS: PreviewClip[] = [
-  { id: 'nr-serenity', name: 'Serenity Spa', title: 'A short profile preview', videoUrl: 'https://nairobiraha.com/wp-content/uploads/1741084499810/17424592838201.mp4', poster: 'https://nairobiraha.com/wp-content/uploads/1741084499810/17424592838201.mp4.jpg' },
-  { id: 'nr-clarabelle', name: 'Clarabelle Girls', title: 'A short profile preview', videoUrl: 'https://nairobiraha.com/wp-content/uploads/1741043003141/17410430633104.mp4', poster: 'https://nairobiraha.com/wp-content/uploads/1741043003141/17410430633104.mp4.jpg' },
-  { id: 'nr-zira', name: 'Zira', title: 'A short profile preview', videoUrl: 'https://nairobiraha.com/wp-content/uploads/1742024826895/17420249584415.mp4', poster: 'https://nairobiraha.com/wp-content/uploads/1742024826895/17420249584415.mp4.jpg' },
-  { id: 'nr-lexxie', name: 'Lexxie Spa', title: 'A short profile preview', videoUrl: 'https://nairobiraha.com/wp-content/uploads/174104570734/17424595029770.mp4', poster: 'https://nairobiraha.com/wp-content/uploads/174104570734/17424595029770.mp4.jpg' },
-  { id: 'nr-samba', name: 'Samba', title: 'A short profile preview', videoUrl: 'https://nairobiraha.com/wp-content/uploads/1741043522179/17410435862684.mp4', poster: 'https://nairobiraha.com/wp-content/uploads/1741043522179/17410435862684.mp4.jpg' },
-  { id: 'nr-soraya', name: 'Soraya', title: 'A short profile preview', videoUrl: 'https://nairobiraha.com/wp-content/uploads/1741082620970/17432585428423.mp4', poster: 'https://nairobiraha.com/wp-content/uploads/1741082620970/17432585428423.mp4.jpg' },
-  { id: 'nr-nikita', name: 'Nikita', title: 'A short profile preview', videoUrl: 'https://nairobiraha.com/wp-content/uploads/1742107473274/17421082737474.mp4', poster: 'https://nairobiraha.com/wp-content/uploads/1742107473274/17421082737474.mp4.jpg' },
-  { id: 'nr-shayana', name: 'Shayana', title: 'A short profile preview', videoUrl: 'https://nairobiraha.com/wp-content/uploads/1741079347470/17416846763399.mp4', poster: 'https://nairobiraha.com/wp-content/uploads/1741079347470/17416846763399.mp4.jpg' },
-  { id: 'nr-sherry', name: 'Sherry', title: 'A short profile preview', videoUrl: 'https://nairobiraha.com/wp-content/uploads/1781335767695/17813699942409.mp4', poster: 'https://nairobiraha.com/wp-content/uploads/1781335767695/17813699942409.mp4.jpg' },
-  { id: 'nr-milly', name: 'Milly', title: 'A short profile preview', videoUrl: 'https://nairobiraha.com/wp-content/uploads/1741269649363/17498927817844.mp4', poster: 'https://nairobiraha.com/wp-content/uploads/1741269649363/17498927817844.mp4.jpg' },
-  { id: 'nr-becky', name: 'Becky', title: 'A short profile preview', videoUrl: 'https://nairobiraha.com/wp-content/uploads/1741081313421/17410814477895.mp4', poster: 'https://nairobiraha.com/wp-content/uploads/1741081313421/17410814477895.mp4.jpg' },
-  { id: 'nr-mwende', name: 'Mwende', title: 'A short profile preview', videoUrl: 'https://nairobiraha.com/wp-content/uploads/1741077850950/17680960868928.mp4', poster: 'https://nairobiraha.com/wp-content/uploads/1741077850950/17680960868928.mp4.jpg' },
-  { id: 'nr-profile-preview', name: 'Profile Preview', title: 'A short profile preview', videoUrl: 'https://nairobiraha.com/wp-content/uploads/1741040819260/17415985638328.mp4', poster: 'https://nairobiraha.com/wp-content/uploads/1741040819260/17415985638328.mp4.jpg' },
-  { id: 'nr-akoth', name: 'Akoth', title: 'A short profile preview', videoUrl: 'https://nairobiraha.com/wp-content/uploads/1741040245930/17410404031948.mp4', poster: 'https://nairobiraha.com/wp-content/uploads/1741040245930/17410404031948.mp4.jpg' },
+  { id: 'nr-serenity', name: 'Serenity Spa', title: 'A short profile preview', videoUrl: 'https://nairobiraha.com/wp-content/uploads/1741084499810/17424592838201.mp4' },
+  { id: 'nr-clarabelle', name: 'Clarabelle Girls', title: 'A short profile preview', videoUrl: 'https://nairobiraha.com/wp-content/uploads/1741043003141/17410430633104.mp4' },
+  { id: 'nr-zira', name: 'Zira', title: 'A short profile preview', videoUrl: 'https://nairobiraha.com/wp-content/uploads/1742024826895/17420249584415.mp4' },
+  { id: 'nr-lexxie', name: 'Lexxie Spa', title: 'A short profile preview', videoUrl: 'https://nairobiraha.com/wp-content/uploads/174104570734/17424595029770.mp4' },
+  { id: 'nr-samba', name: 'Samba', title: 'A short profile preview', videoUrl: 'https://nairobiraha.com/wp-content/uploads/1741043522179/17410435862684.mp4' },
+  { id: 'nr-soraya', name: 'Soraya', title: 'A short profile preview', videoUrl: 'https://nairobiraha.com/wp-content/uploads/1741082620970/17432585428423.mp4' },
+  { id: 'nr-nikita', name: 'Nikita', title: 'A short profile preview', videoUrl: 'https://nairobiraha.com/wp-content/uploads/1742107473274/17421082737474.mp4' },
+  { id: 'nr-shayana', name: 'Shayana', title: 'A short profile preview', videoUrl: 'https://nairobiraha.com/wp-content/uploads/1741079347470/17416846763399.mp4' },
+  { id: 'nr-sherry', name: 'Sherry', title: 'A short profile preview', videoUrl: 'https://nairobiraha.com/wp-content/uploads/1781335767695/17813699942409.mp4' },
+  { id: 'nr-milly', name: 'Milly', title: 'A short profile preview', videoUrl: 'https://nairobiraha.com/wp-content/uploads/1741269649363/17498927817844.mp4' },
+  { id: 'nr-becky', name: 'Becky', title: 'A short profile preview', videoUrl: 'https://nairobiraha.com/wp-content/uploads/1741081313421/17410814477895.mp4' },
+  { id: 'nr-mwende', name: 'Mwende', title: 'A short profile preview', videoUrl: 'https://nairobiraha.com/wp-content/uploads/1741077850950/17680960868928.mp4' },
+  { id: 'nr-profile-preview', name: 'Profile Preview', title: 'A short profile preview', videoUrl: 'https://nairobiraha.com/wp-content/uploads/1741040819260/17415985638328.mp4' },
+  { id: 'nr-akoth', name: 'Akoth', title: 'A short profile preview', videoUrl: 'https://nairobiraha.com/wp-content/uploads/1741040245930/17410404031948.mp4' },
 ]
 
 function safeMediaUrl(value?: string): string | undefined {
@@ -104,6 +104,7 @@ export function useLivePreviewClips() {
 
 export function PreviewVideo({ clip, className, rounded = false }: { clip: PreviewClip; className: string; rounded?: boolean }) {
   const videoRef = useRef<HTMLVideoElement>(null)
+  const [isPlaying, setIsPlaying] = useState(false)
   const [reducedMotion, setReducedMotion] = useState(() =>
     typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
   )
@@ -135,19 +136,41 @@ export function PreviewVideo({ clip, className, rounded = false }: { clip: Previ
   }, [reducedMotion, clip.videoUrl])
 
   return (
-    <video
-      ref={videoRef}
-      src={clip.videoUrl}
-      poster={clip.poster}
-      muted
-      loop
-      playsInline
-      controls
-      preload="metadata"
-      aria-label={`${clip.name}: prerecorded preview clip. Not a live broadcast.`}
-      className={`${className}${rounded ? ' rounded-full' : ''}`}
-      data-testid={`video-preview-${clip.id}`}
-    />
+    <>
+      <video
+        ref={videoRef}
+        src={clip.videoUrl}
+        poster={clip.poster}
+        muted
+        loop
+        playsInline
+        controls
+        preload="metadata"
+        aria-label={`${clip.name}: prerecorded preview clip. Not a live broadcast.`}
+        onPlay={() => setIsPlaying(true)}
+        onPause={() => setIsPlaying(false)}
+        className={`${className}${rounded ? ' rounded-full' : ''}`}
+        data-testid={`video-preview-${clip.id}`}
+      />
+      {!isPlaying && (
+        <button
+          type="button"
+          onClick={() => {
+            const video = videoRef.current
+            if (video) {
+              video.muted = true
+              video.play().catch(() => setIsPlaying(false))
+            }
+          }}
+          aria-label={`Play ${clip.name} profile preview`}
+          className={`absolute inset-0 z-10 flex items-center justify-center ${rounded ? 'rounded-full' : ''}`}
+        >
+          <span className="flex h-9 w-9 items-center justify-center rounded-full border border-amber-100/50 bg-black/70 text-amber-100 shadow-lg">
+            <Play size={16} fill="currentColor" />
+          </span>
+        </button>
+      )}
+    </>
   )
 }
 
