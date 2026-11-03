@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
-import { useLocation } from 'wouter'
-import { UserCircle2, Sparkles, ArrowRight, Flame, CheckCircle2 } from 'lucide-react'
+import { Link, useLocation } from 'wouter'
+import { UserCircle2, Sparkles, ArrowRight, CheckCircle2 } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { setToken } from '@/lib/api'
 import { safeInternalRedirect } from '@/lib/redirect'
@@ -73,12 +73,14 @@ export default function ChooseRole() {
   return (
     <div className="min-h-screen bg-dark-bg flex flex-col items-center justify-center p-4 pb-24 lg:pb-4">
       {/* Brand mark */}
-      <div className="flex items-center gap-2 mb-8">
-        <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#8B0000] to-[#FFD700] flex items-center justify-center shadow-lg shadow-[#8B0000]/30">
-          <Flame size={20} className="text-white" />
-        </div>
-        <span className="text-lg font-black text-text-light tracking-wide">WET3<span className="text-[#FFD700]">CAMP</span></span>
-      </div>
+      <Link href="/" aria-label="Wet3Camp home" className="mb-8 inline-flex justify-center">
+        <img
+          src="/wet3camp-wordmark.png"
+          alt="Wet3Camp — Your time, your company, your way"
+          data-testid="img-brand-wordmark"
+          className="w-56 max-w-full h-auto object-contain"
+        />
+      </Link>
 
       {/* Heading */}
       <div className="text-center mb-8 max-w-sm">

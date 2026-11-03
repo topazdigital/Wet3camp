@@ -3,7 +3,6 @@ import { useLocation } from 'wouter'
 import { useAuth } from '@/lib/auth-context'
 import { setToken } from '@/lib/api'
 import { safeInternalRedirect } from '@/lib/redirect'
-import { Flame } from 'lucide-react'
 
 export default function AuthCallback() {
   const { login } = useAuth()
@@ -56,9 +55,12 @@ export default function AuthCallback() {
   return (
     <div className="min-h-screen bg-dark-bg flex items-center justify-center pb-24 lg:pb-0">
       <div className="flex flex-col items-center gap-4">
-        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#8B0000] to-[#FFD700] flex items-center justify-center shadow-lg">
-          <Flame size={22} className="text-white" />
-        </div>
+        <img
+          src="/wet3camp-wordmark.png"
+          alt="Wet3Camp — Your time, your company, your way"
+          data-testid="img-brand-wordmark"
+          className="w-56 max-w-[80vw] h-auto object-contain"
+        />
         <div className="w-7 h-7 border-2 border-[#8B0000]/30 border-t-[#8B0000] rounded-full animate-spin" />
         <p className="text-text-muted text-sm">Signing you in…</p>
       </div>

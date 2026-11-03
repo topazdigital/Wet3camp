@@ -2,7 +2,7 @@ import nodemailer from 'nodemailer'
 import { getPool } from './db.js'
 
 const SITE      = 'https://wet3.camp'
-const FROM_NAME = 'Wet3.camp'
+const FROM_NAME = 'Wet3 Camp'
 
 function isPlaceholder(v: string | undefined): boolean {
   return !v || v === 'CHANGE_ME' || v.startsWith('CHANGE_') || v === 'your_smtp_password'
@@ -70,28 +70,13 @@ function emailWrap(content: string): string {
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:580px;background:#0d0000;border:1px solid #2a0000;border-radius:16px;overflow:hidden;">
 
           <!-- ── HEADER ── -->
-          <tr>
-            <td style="background:linear-gradient(135deg,#1a0000 0%,#0d0000 100%);padding:28px 36px;border-bottom:2px solid #8B0000;">
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-                <tr>
-                  <td>
-                    <table role="presentation" cellpadding="0" cellspacing="0">
-                      <tr>
-                        <td style="width:44px;height:44px;background:linear-gradient(135deg,#8B0000,#1a0000);border-radius:10px;text-align:center;vertical-align:middle;border:1px solid #8B0000;">
-                          <span style="font-size:22px;line-height:44px;display:block;">👑</span>
-                        </td>
-                        <td style="padding-left:14px;vertical-align:middle;">
-                          <span style="font-size:22px;font-weight:900;color:#ffffff;letter-spacing:-0.5px;font-family:'Helvetica Neue',Arial,sans-serif;">Wet3<span style="color:#FFD700;">Camp</span></span>
-                          <div style="font-size:9px;color:#666666;letter-spacing:2px;text-transform:uppercase;margin-top:1px;">PREMIUM ESCORT PLATFORM</div>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                  <td align="right" style="vertical-align:middle;">
-                    <a href="${SITE}" style="font-size:11px;color:#8B0000;text-decoration:none;letter-spacing:1px;text-transform:uppercase;">wet3.camp</a>
-                  </td>
-                </tr>
-              </table>
+            <td align="center" style="background:linear-gradient(135deg,#1a0000 0%,#0d0000 100%);padding:28px 24px;border-bottom:2px solid #8B0000;">
+              <a href="${SITE}" style="display:inline-block;text-decoration:none;">
+                <img src="${SITE}/wet3camp-wordmark.png" alt="Wet3Camp — Your time, your company, your way" width="270" style="display:block;width:270px;max-width:100%;height:auto;border:0;outline:none;text-decoration:none;" />
+              </a>
+              <p style="margin:10px 0 0;font-size:11px;letter-spacing:1px;text-transform:uppercase;">
+                <a href="${SITE}" style="color:#8B0000;text-decoration:none;">wet3.camp</a>
+              </p>
             </td>
           </tr>
 

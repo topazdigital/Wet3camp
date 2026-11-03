@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react'
 import { Link, useLocation } from 'wouter'
-import { Flame, Clock, ShieldCheck, Bell, Mail, LogOut, CheckCircle } from 'lucide-react'
+import { Clock, ShieldCheck, Bell, Mail, LogOut, CheckCircle } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { api } from '@/lib/api'
 
@@ -35,11 +35,13 @@ export default function PendingApproval() {
     <div className="min-h-screen bg-dark-bg flex items-center justify-center px-4 py-12 pb-24 lg:pb-12">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <Link href="/" className="inline-flex items-center gap-2 mb-6">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg,#8B0000,#FF4500)' }}>
-              <Flame size={20} className="text-[#FFD700]" />
-            </div>
-            <span className="text-xl font-black text-text-light">Wet3<span className="text-[#8B0000]">Camp</span></span>
+          <Link href="/" aria-label="Wet3Camp home" className="inline-flex justify-center mb-6">
+            <img
+              src="/wet3camp-wordmark.png"
+              alt="Wet3Camp — Your time, your company, your way"
+              data-testid="img-brand-wordmark"
+              className="w-56 max-w-full h-auto object-contain"
+            />
           </Link>
         </div>
 

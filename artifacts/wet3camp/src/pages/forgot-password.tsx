@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { Link } from 'wouter'
-import { Flame, Mail, ArrowLeft, CheckCircle } from 'lucide-react'
+import { Mail, ArrowLeft, CheckCircle } from 'lucide-react'
 import { useSEO } from '@/lib/useSEO'
 
 export default function ForgotPassword() {
@@ -39,13 +39,13 @@ export default function ForgotPassword() {
     <div className="min-h-screen bg-dark-bg flex items-center justify-center px-4 py-12 pb-24 lg:pb-12">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <Link href="/" className="inline-flex items-center gap-2 mb-6 group">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg,#8B0000,#FF4500)' }}>
-              <Flame size={20} className="text-[#FFD700]" />
-            </div>
-            <span className="text-xl font-black text-text-light group-hover:text-[#FFD700] transition-colors">
-              Wet3<span className="text-[#8B0000]">Camp</span>
-            </span>
+          <Link href="/" aria-label="Wet3Camp home" className="inline-flex justify-center mb-6">
+            <img
+              src="/wet3camp-wordmark.png"
+              alt="Wet3Camp — Your time, your company, your way"
+              data-testid="img-brand-wordmark"
+              className="w-56 max-w-full h-auto object-contain"
+            />
           </Link>
           <h1 className="text-2xl font-bold text-text-light mb-2">Reset your password</h1>
           <p className="text-sm text-text-muted">
