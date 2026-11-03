@@ -3,6 +3,7 @@ import { Link, useLocation } from 'wouter'
 import { Mail, Lock, Eye, EyeOff, ShieldCheck, Star, AlertCircle } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { setToken } from '@/lib/api'
+import { safeInternalRedirect } from '@/lib/redirect'
 import { useSEO } from '@/lib/useSEO'
 
 declare global {
@@ -37,12 +38,21 @@ export default function LoginPage() {
   const { loginWithApi, login } = useAuth()
   const [, navigate]            = useLocation()
 
-  const redirectTo = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('redirect') ?? null
+  const queryParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '')
+  const redirectTo = safeInternalRedirect(queryParams.get('redirect'))
+  const isClaimIntent = !!redirectTo && /^\/claim\/\d+\/?$/.test(redirectTo)
+  const registrationParams = new URLSearchParams()
+  if (redirectTo) registrationParams.set('redirect', redirectTo)
+  if (isClaimIntent) {
+    registrationParams.set('intent', 'claim')
+    registrationParams.set('role', 'client')
+  }
+  const registerHref = registrationParams.size ? `/register?${registrationParams}` : '/register'
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const oauthError = params.get('oauthError')
-    if (oauthError) setError(decodeURIComponent(oauthError))
+    if (oauthError) setError(oauthError)
   }, [])
 
   useEffect(() => {
@@ -120,9 +130,12 @@ export default function LoginPage() {
   }
 
   const handleOAuth = (provider: 'google' | 'facebook' | 'apple') => {
-    if (provider === 'google')   { window.location.href = '/api/auth/google';   return }
-    if (provider === 'facebook') { window.location.href = '/api/auth/facebook'; return }
-    if (provider === 'apple')    { window.location.href = '/api/auth/apple';    return }
+    const query = new URLSearchParams()
+    if (redirectTo) query.set('redirect', redirectTo)
+    const suffix = query.size ? `?${query}` : ''
+    if (provider === 'google')   { window.location.href = `/api/auth/google${suffix}`;   return }
+    if (provider === 'facebook') { window.location.href = `/api/auth/facebook${suffix}`; return }
+    if (provider === 'apple')    { window.location.href = `/api/auth/apple${suffix}`;    return }
   }
 
   return (
@@ -190,14 +203,20 @@ export default function LoginPage() {
               className="h-9 w-[108px] object-contain object-left"
             />
           </Link>
-          <Link href="/register" className="text-xs text-[#FFD700] font-semibold">Sign up →</Link>
+          <Link href={registerHref} className="text-xs text-[#FFD700] font-semibold">Sign up →</Link>
         </div>
 
         <div className="flex-1 flex items-center justify-center px-5 py-10">
           <div className="w-full max-w-sm">
             <div className="mb-7">
-              <h2 className="text-2xl font-black text-text-light">Welcome back</h2>
-              <p className="text-text-muted text-sm mt-1">Sign in to your account to continue</p>
+              <h2 className="text-2xl font-black text-text-light">
+                {isClaimIntent ? 'Continue to claim this profile' : 'Welcome back'}
+              </h2>
+              <p className="text-text-muted text-sm mt-1">
+                {isClaimIntent
+                  ? 'Sign in or create a free account. We’ll bring you back here to verify your profile.'
+                  : 'Sign in to your account to continue'}
+              </p>
             </div>
 
             {/* Google One Tap anchor (GSI renders the prompt above this) */}
@@ -207,6 +226,7 @@ export default function LoginPage() {
               <div className="mb-4 flex items-start gap-2.5 p-3 bg-[#EF4444]/10 border border-[#EF4444]/20 rounded-xl">
                 <AlertCircle size={14} className="text-[#EF4444] mt-0.5 flex-shrink-0" />
                 <p className="text-xs text-[#EF4444]">{error}</p>
+                {isClaimIntent && <p className="text-[11px] text-text-muted mt-1">Your place in the claim flow is saved. Try Google again or use email below.</p>}
               </div>
             )}
 
@@ -280,7 +300,7 @@ export default function LoginPage() {
             </form>
 
             <div className="mt-6 pt-6 border-t border-color text-center space-y-2">
-              <p className="text-xs text-text-muted">Don't have an account? <Link href="/register" className="text-[#FFD700] font-semibold hover:underline">Create one free →</Link></p>
+              <p className="text-xs text-text-muted">Don't have an account? <Link href={registerHref} className="text-[#FFD700] font-semibold hover:underline">Create one free →</Link></p>
               <Link href="/" className="block text-xs text-text-muted hover:text-text-light transition-colors">← Back to browsing</Link>
             </div>
           </div>

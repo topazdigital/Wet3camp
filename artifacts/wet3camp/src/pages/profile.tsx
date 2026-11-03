@@ -195,7 +195,6 @@ export default function ProfilePage() {
   }
 
   const handleClaim = () => {
-    if (!isLoggedIn) { window.location.href = `/login?redirect=/claim/${escort?.id}`; return }
     window.location.href = `/claim/${escort?.id}`
   }
 

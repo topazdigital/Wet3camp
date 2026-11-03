@@ -3,6 +3,7 @@ import { useLocation } from 'wouter'
 import { UserCircle2, Sparkles, ArrowRight, Flame, CheckCircle2 } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { setToken } from '@/lib/api'
+import { safeInternalRedirect } from '@/lib/redirect'
 import { useSEO } from '@/lib/useSEO'
 
 export default function ChooseRole() {
@@ -17,6 +18,7 @@ export default function ChooseRole() {
   const token   = params.get('token') ?? ''
   const name    = decodeURIComponent(params.get('name') ?? 'there')
   const email   = params.get('email') ?? ''
+  const redirectTo = safeInternalRedirect(params.get('redirect'))
 
   const confirm = async () => {
     if (!selected) return
@@ -38,7 +40,7 @@ export default function ChooseRole() {
         email: data.email ?? email,
         role:  data.role === 'escort' ? 'escort' : 'client',
       })
-      navigate(data.role === 'escort' ? '/register?step=escort' : '/')
+      navigate(data.role === 'escort' ? '/register?step=escort' : redirectTo ?? '/')
     } catch (e: any) {
       setError(e?.message ?? 'Something went wrong. Please try again.')
       setLoading(false)

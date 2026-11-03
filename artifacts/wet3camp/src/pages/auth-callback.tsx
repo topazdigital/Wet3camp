@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useLocation } from 'wouter'
 import { useAuth } from '@/lib/auth-context'
 import { setToken } from '@/lib/api'
+import { safeInternalRedirect } from '@/lib/redirect'
 import { Flame } from 'lucide-react'
 
 export default function AuthCallback() {
@@ -12,6 +13,7 @@ export default function AuthCallback() {
     const params = new URLSearchParams(window.location.search)
     const token = params.get('token')
     const error = params.get('error')
+    const redirectTo = safeInternalRedirect(params.get('redirect'))
 
     if (error || !token) {
       const msg = error === 'google_not_configured'
@@ -21,14 +23,16 @@ export default function AuthCallback() {
         : error
         ? error.replace(/_/g, ' ')
         : 'Sign-in failed. Please try again.'
-      navigate(`/login?oauthError=${encodeURIComponent(msg)}`)
+      const loginParams = new URLSearchParams({ oauthError: msg })
+      if (redirectTo) loginParams.set('redirect', redirectTo)
+      navigate(`/login?${loginParams}`)
       return
     }
 
     try {
       const payloadB64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')
       const payload = JSON.parse(atob(payloadB64)) as { id?: number; role?: string; email?: string }
-      const name     = decodeURIComponent(params.get('name') ?? 'User')
+      const name     = params.get('name') ?? 'User'
       const email    = params.get('email') ?? payload.email ?? ''
       const role     = payload.role ?? params.get('role') ?? 'user'
       const approved = params.get('approved') !== 'false'
@@ -41,9 +45,11 @@ export default function AuthCallback() {
         role:     role === 'admin' ? 'admin' : role === 'escort' ? 'escort' : 'client',
         approved: role === 'escort' ? approved : true,
       })
-      navigate(role === 'admin' ? '/admin' : role === 'escort' ? '/my-profile' : '/')
+      navigate(redirectTo ?? (role === 'admin' ? '/admin' : role === 'escort' ? '/my-profile' : '/'))
     } catch {
-      navigate('/login?oauthError=Unexpected+error+during+sign-in.')
+      const loginParams = new URLSearchParams({ oauthError: 'Unexpected error during sign-in.' })
+      if (redirectTo) loginParams.set('redirect', redirectTo)
+      navigate(`/login?${loginParams}`)
     }
   }, [])
 
