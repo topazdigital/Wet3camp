@@ -9,7 +9,7 @@
 - [Live streaming system](live-streaming.md) — live video is an ephemeral native browser stream relayed by the API process; don't promise recording or continuity through API restarts.
 - [MySQL-only production rule](mysql-only.md) — Replit PostgreSQL is DEV-ONLY fallback; NEVER add pg-specific SQL, NEVER add RETURNING/::cast syntax to app code; CompatPool in db.ts handles translation; pool.query<T[]>() returns [rows, fields] style tuple for both backends
 - [Wouter v3 at-sign routing](wouter-at-routing.md) — Wouter v3 cannot match /@:slug patterns; use AtProfileRoute component + useLocation() regex instead
-- [Manual GitHub deployment](github-autodeploy.md) — run `bash push-to-github.sh` from Shell to push; server deployment is no longer triggered automatically
+- [Manual GitHub deployment](github-autodeploy.md) — use the push script; a disconnected Replit GitHub source-control connection must be reconnected in Git → Manage
 - [MySQL shop/rooms column names](mysql-shop-columns.md) — live MySQL shop_products uses price_kes + image_url (not price/image); frontend handles both via nullish coalescing; INSERT seed data uses price_kes/image_url; feed_likes+feed_comments added to migration SQL 2026-06-28
 - [Apache uploads symlink 403](apache-uploads-symlink.md) — shared hosting Apache 403s symlinks before mod_rewrite; use mod_proxy for /api/uploads/* instead; never ln -sfn into web root
 - [Blog admin architecture](blog-admin-architecture.md) — admin blog CRUD now hits real backend API/DB (not localStorage); inline `![]()`/`[video]()` tokens; publish auto-pings IndexNow

@@ -189,16 +189,16 @@ export function PreviewStories() {
   return (
     <section className="w-full px-3 sm:px-5 py-4 border-b border-color bg-dark-bg" aria-label="Profile video previews">
       <div className="mb-3 flex items-center gap-2">
-        <span className="rounded-full border border-amber-300/30 bg-amber-300/10 px-2 py-1 text-[9px] font-black tracking-[0.16em] text-amber-200">PRE-RECORDED</span>
-        <span className="text-xs font-bold text-text-light">Profile previews</span>
-        <span className="ml-auto text-[10px] text-text-muted">Not live broadcasts</span>
+        <span className="rounded-full border border-amber-300/30 bg-amber-300/10 px-2 py-1 text-[9px] font-black tracking-[0.16em] text-amber-200">PROFILE CLIPS</span>
+        <span className="text-xs font-bold text-text-light">Community videos</span>
+        <span className="ml-auto text-[10px] text-text-muted">Recorded profile clips</span>
       </div>
       <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-2">
         {clips.map(clip => (
           <div key={clip.id} className="flex w-[82px] flex-shrink-0 flex-col items-center gap-1.5">
             <div className="relative h-[76px] w-[76px] overflow-hidden rounded-full border border-amber-200/50 bg-card-bg p-[2px] shadow-[0_0_0_3px_rgba(255,255,255,0.04)]">
               <PreviewVideo clip={clip} className="h-full w-full object-cover" rounded />
-              <span className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-black/75 px-1.5 py-1 text-[7px] font-black tracking-wider text-amber-100">PREVIEW</span>
+              <span className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-black/75 px-1.5 py-1 text-[7px] font-black tracking-wider text-amber-100">CLIP</span>
             </div>
             <p className="max-w-[82px] truncate text-center text-[10px] font-semibold text-text-light" title={clip.name}>{clip.name}</p>
           </div>
@@ -226,11 +226,11 @@ export function PreviewClipGrid() {
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3 border-b border-color pb-3">
         <div>
           <div className="mb-1 flex items-center gap-2">
-            <span className="rounded-full border border-amber-300/30 bg-amber-300/10 px-2 py-1 text-[9px] font-black tracking-[0.16em] text-amber-200">PRE-RECORDED</span>
+            <span className="rounded-full border border-amber-300/30 bg-amber-300/10 px-2 py-1 text-[9px] font-black tracking-[0.16em] text-amber-200">PROFILE CLIPS</span>
             <span className="text-[10px] font-semibold uppercase tracking-widest text-text-muted">Community clips</span>
           </div>
-          <h2 className="text-lg font-black text-text-light">A first look, before the next live</h2>
-          <p className="mt-1 text-xs text-text-muted">These are recorded profile videos, not live broadcasts.</p>
+          <h2 className="text-lg font-black text-text-light">Community profile clips</h2>
+          <p className="mt-1 text-xs text-text-muted">Recorded profile videos shared by the community.</p>
         </div>
         <div className="flex items-center gap-1.5 text-[10px] text-text-muted"><Radio size={12} /> Live broadcasts will appear here</div>
       </div>
@@ -239,7 +239,7 @@ export function PreviewClipGrid() {
           <article key={clip.id} className="group overflow-hidden rounded-2xl border border-color bg-card-bg transition-colors hover:border-amber-200/40" data-testid={`card-preview-${clip.id}`}>
             <div className="relative aspect-[3/4] overflow-hidden bg-[#160f13]">
               <PreviewVideo clip={clip} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]" />
-              <span className="pointer-events-none absolute left-2 top-2 rounded-full border border-amber-100/25 bg-black/70 px-2 py-1 text-[9px] font-black tracking-[0.14em] text-amber-100">PREVIEW · NOT LIVE</span>
+              <span className="pointer-events-none absolute left-2 top-2 rounded-full border border-amber-100/25 bg-black/70 px-2 py-1 text-[9px] font-black tracking-[0.14em] text-amber-100">PROFILE CLIP</span>
               <span className="pointer-events-none absolute bottom-0 inset-x-0 h-24 bg-gradient-to-t from-black/75 to-transparent" />
               <p className="pointer-events-none absolute bottom-3 left-3 right-3 truncate text-sm font-bold text-white">{clip.name}</p>
             </div>
