@@ -187,18 +187,20 @@ export function PreviewStories() {
     )
   }
   return (
-    <section className="w-full px-3 sm:px-5 py-4 border-b border-color bg-dark-bg" aria-label="Profile video previews">
-      <div className="mb-3 flex items-center gap-2">
-        <span className="rounded-full border border-amber-300/30 bg-amber-300/10 px-2 py-1 text-[9px] font-black tracking-[0.16em] text-amber-200">PROFILE CLIPS</span>
-        <span className="text-xs font-bold text-text-light">Community videos</span>
-        <span className="ml-auto text-[10px] text-text-muted">Recorded profile clips</span>
+    <section className="w-full px-3 sm:px-5 py-4 border-b border-color bg-dark-bg" aria-label="Community profile videos">
+      <div className="mb-3 flex items-center gap-3">
+        <span className="h-7 w-1 rounded-full bg-gradient-to-b from-amber-200 via-amber-500 to-amber-900" aria-hidden="true" />
+        <div className="min-w-0">
+          <p className="text-xs font-bold text-text-light">Community videos</p>
+          <p className="text-[10px] text-text-muted">Recorded profile clips</p>
+        </div>
+        <span className="ml-auto h-px w-12 bg-gradient-to-r from-transparent to-amber-200/50 sm:w-24" aria-hidden="true" />
       </div>
       <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-2">
         {clips.map(clip => (
           <div key={clip.id} className="flex w-[82px] flex-shrink-0 flex-col items-center gap-1.5">
             <div className="relative h-[76px] w-[76px] overflow-hidden rounded-full border border-amber-200/50 bg-card-bg p-[2px] shadow-[0_0_0_3px_rgba(255,255,255,0.04)]">
               <PreviewVideo clip={clip} className="h-full w-full object-cover" rounded />
-              <span className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-black/75 px-1.5 py-1 text-[7px] font-black tracking-wider text-amber-100">CLIP</span>
             </div>
             <p className="max-w-[82px] truncate text-center text-[10px] font-semibold text-text-light" title={clip.name}>{clip.name}</p>
           </div>
@@ -222,13 +224,10 @@ export function PreviewClipGrid() {
     )
   }
   return (
-    <section className="px-3 py-5 sm:px-5" aria-label="Prerecorded video previews">
+    <section className="px-3 py-5 sm:px-5" aria-label="Community profile videos">
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3 border-b border-color pb-3">
         <div>
-          <div className="mb-1 flex items-center gap-2">
-            <span className="rounded-full border border-amber-300/30 bg-amber-300/10 px-2 py-1 text-[9px] font-black tracking-[0.16em] text-amber-200">PROFILE CLIPS</span>
-            <span className="text-[10px] font-semibold uppercase tracking-widest text-text-muted">Community clips</span>
-          </div>
+          <div className="mb-2 h-[2px] w-12 rounded-full bg-gradient-to-r from-amber-200 via-amber-500 to-transparent" aria-hidden="true" />
           <h2 className="text-lg font-black text-text-light">Community profile clips</h2>
           <p className="mt-1 text-xs text-text-muted">Recorded profile videos shared by the community.</p>
         </div>
@@ -236,10 +235,9 @@ export function PreviewClipGrid() {
       </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">
         {clips.map(clip => (
-          <article key={clip.id} className="group overflow-hidden rounded-2xl border border-color bg-card-bg transition-colors hover:border-amber-200/40" data-testid={`card-preview-${clip.id}`}>
+          <article key={clip.id} className="group overflow-hidden rounded-2xl border border-color bg-card-bg transition-all hover:border-amber-200/50 hover:shadow-[0_10px_36px_rgba(245,158,11,0.12)]" data-testid={`card-preview-${clip.id}`}>
             <div className="relative aspect-[3/4] overflow-hidden bg-[#160f13]">
               <PreviewVideo clip={clip} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]" />
-              <span className="pointer-events-none absolute left-2 top-2 rounded-full border border-amber-100/25 bg-black/70 px-2 py-1 text-[9px] font-black tracking-[0.14em] text-amber-100">PROFILE CLIP</span>
               <span className="pointer-events-none absolute bottom-0 inset-x-0 h-24 bg-gradient-to-t from-black/75 to-transparent" />
               <p className="pointer-events-none absolute bottom-3 left-3 right-3 truncate text-sm font-bold text-white">{clip.name}</p>
             </div>
