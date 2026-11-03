@@ -730,6 +730,7 @@ echo "    PM2 diagnostics written to: https://wet3.camp/pm2-status.txt"
 echo ""
 echo "==> [8/8] Scheduling escort scraper..."
 SCRAPER="$REPO_DIR/artifacts/api-server/scrape-escorts.mjs"
+SCRAPER_RUNNER="$REPO_DIR/scripts/run-nairobiraha-scraper.sh"
 if [ "${RUN_SCRAPER_NOW:-0}" = "1" ] && [ -f "$SCRAPER" ] && [ -n "$DATABASE_URL" ]; then
   # Avoid shared /tmp filenames: an older root-run deploy may have left the
   # conventional scraper log unwritable to the admin deploy user. Prefer the
@@ -758,7 +759,8 @@ SCRAPER_CRON_LOG="$API_DIR/wet3camp-scraper-cron.log"
 if ! touch "$SCRAPER_CRON_LOG" 2>/dev/null; then
   SCRAPER_CRON_LOG="/tmp/wet3camp-scraper-cron-${USER:-admin}.log"
 fi
-SCRAPER_CRON="0 0 * * * source /home/admin/api-server/env && cd /home/admin/wet3camp-build/artifacts/api-server && DATABASE_URL=\"\$DATABASE_URL\" UPLOADS_DIR=\"/home/admin/wet3camp-build/artifacts/api-server/uploads\" /usr/bin/env node scrape-escorts.mjs --fast --source=nairobiraha >> \"$SCRAPER_CRON_LOG\" 2>&1"
+# The runner reads DATABASE_URL as data and ignores all other env-file lines.
+SCRAPER_CRON="0 0 * * * API_ENV=\"$API_ENV\" API_DIR=\"$API_DIR\" UPLOADS_DIR=\"$UPLOADS_REAL\" /usr/bin/env bash \"$SCRAPER_RUNNER\" >> \"$SCRAPER_CRON_LOG\" 2>&1"
 # Remove any old scraper cron lines, then append the fresh one
 ( crontab -l 2>/dev/null | grep -v 'scrape-escorts' ; echo "$SCRAPER_CRON" ) | crontab -
 echo "    Cron installed — runs every night at 00:00 UTC (03:00 EAT)."
