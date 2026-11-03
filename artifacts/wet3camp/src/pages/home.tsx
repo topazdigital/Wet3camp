@@ -9,6 +9,7 @@ import { CITIES } from '@/data/escorts'
 import { useSEO } from '@/lib/useSEO'
 import { api } from '@/lib/api'
 import SeoFooter from '@/components/SeoFooter'
+import { PreviewStories } from '@/components/LivePreviews'
 
 const TIER_CATEGORIES = [
   { label: 'All',       value: 'all',       icon: '✨' },
@@ -60,7 +61,8 @@ function TrendingLive() {
     return () => clearInterval(id)
   }, [])
 
-  if (loading || sessions.length === 0) return null
+  if (loading) return null
+  if (sessions.length === 0) return <PreviewStories />
 
   return (
     <div className="w-full px-3 sm:px-5 py-4 border-b border-color bg-dark-bg">
@@ -282,11 +284,11 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Trending Live — only shown when escorts are streaming */}
-        <TrendingLive />
-
         {/* Featured Carousel */}
         <FeaturedCarousel />
+
+        {/* Live broadcasts or clearly marked prerecorded profile previews */}
+        <TrendingLive />
 
         {/* Browse Section */}
         <div className="w-full">

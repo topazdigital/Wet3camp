@@ -7,6 +7,7 @@ import { useSEO } from '@/lib/useSEO'
 import { useAuth } from '@/lib/auth-context'
 import { api } from '@/lib/api'
 import { setPendingLiveStream } from '@/lib/live-broadcaster'
+import { PreviewClipGrid } from '@/components/LivePreviews'
 
 const TIER_COLORS: Record<string, string> = { elite: '#8B0000', vip: '#FF4500', premium: '#B8860B' }
 
@@ -153,16 +154,16 @@ export default function LivePage() {
           <div className="px-3 sm:px-5 py-4 bg-gradient-to-r from-[#1a0000] via-[#8B0000]/20 to-[#1a0000] border-b border-[#8B0000]/30">
             <div className="flex items-center justify-between flex-wrap gap-3">
               <div className="flex items-center gap-3">
-                <div className="flex items-center gap-1.5 bg-[#E91E63] px-3 py-1.5 rounded-full">
-                  <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
-                  <span className="text-xs font-bold text-white">LIVE NOW</span>
+                <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full ${streams.length ? 'bg-[#E91E63]' : 'bg-card-bg border border-color'}`}>
+                  {streams.length > 0 && <div className="w-2 h-2 rounded-full bg-white animate-pulse" />}
+                  <span className={`text-xs font-bold ${streams.length ? 'text-white' : 'text-text-muted'}`}>{streams.length ? 'LIVE NOW' : 'LIVE DIRECTORY'}</span>
                 </div>
                 <div>
-                  <h1 className="text-lg font-black text-text-light">
+                  <h1 className="text-lg font-black text-text-light" data-testid="text-live-count">
                     {loading ? '…' : streams.length} Escorts Live
                   </h1>
                   <p className="text-xs text-text-muted">
-                    {loading ? 'Loading…' : `${totalViewers.toLocaleString()} viewers watching right now`}
+                    {loading ? 'Loading broadcasts…' : streams.length ? `${totalViewers.toLocaleString()} viewers watching right now` : 'Waiting for consenting adults to start broadcasting'}
                   </p>
                 </div>
               </div>
@@ -258,12 +259,15 @@ export default function LivePage() {
           )}
 
           {/* Empty state */}
-          {!loading && filtered.length === 0 && (
+          {!loading && streams.length === 0 && (
+            <PreviewClipGrid />
+          )}
+
+          {!loading && streams.length > 0 && filtered.length === 0 && (
             <div className="flex flex-col items-center justify-center py-24 text-center px-4">
-              <Radio size={48} className="text-[#8B0000]/30 mb-4" />
-              <h2 className="text-lg font-bold text-text-light mb-2">No Escorts Live Right Now</h2>
-              <p className="text-sm text-text-muted max-w-xs">Check back later — escorts go live throughout the day. Browse profiles to follow your favourites.</p>
-              <Link href="/" className="mt-5 px-5 py-2.5 bg-[#8B0000] text-white text-sm font-bold rounded-xl hover:bg-[#a00000] transition-colors">Browse Escorts</Link>
+              <Radio size={42} className="text-[#8B0000]/40 mb-4" />
+              <h2 className="text-lg font-bold text-text-light mb-2">No broadcasts match this filter</h2>
+              <p className="text-sm text-text-muted max-w-xs">There are active live broadcasts, but none in this category. Switch to All Live to see them.</p>
             </div>
           )}
 
