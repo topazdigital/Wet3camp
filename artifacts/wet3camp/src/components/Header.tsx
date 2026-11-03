@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { Link, useLocation } from 'wouter'
-import { Bell, Heart, Search, X, ShieldCheck, ChevronDown, LogOut, User, Settings, BookOpen, MapPin, Star } from 'lucide-react'
+import { Bell, Heart, Search, X, ShieldCheck, ChevronDown, LogOut, User, Settings, BookOpen, MapPin, Send, Star } from 'lucide-react'
 import { useSidebar } from '@/lib/sidebar-context'
 import { useAuth } from '@/lib/auth-context'
 import { useNotifications } from '@/lib/notifications-context'
@@ -214,6 +214,22 @@ export default function Header() {
           <button className="lg:hidden p-2 text-text-muted hover:text-secondary-color rounded-lg hover:bg-dark-bg transition-colors" onClick={() => setShowSearch(v => !v)}>
             <Search size={18} />
           </button>
+
+          {/* Telegram community */}
+          <a
+            href="https://t.me/wet3camp"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Join Wet3 Camp on Telegram"
+            title="Join Wet3 Camp on Telegram"
+            className="group inline-flex h-8 items-center gap-1.5 rounded-full border border-[#229ED9]/60 bg-gradient-to-r from-[#229ED9] to-[#168AC2] px-2 sm:px-3 text-[10px] sm:text-xs font-bold text-white shadow-md shadow-[#229ED9]/20 transition-all hover:-translate-y-0.5 hover:from-[#37B9F4] hover:to-[#229ED9] hover:shadow-lg hover:shadow-[#229ED9]/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#229ED9] focus-visible:ring-offset-2 focus-visible:ring-offset-card-bg"
+          >
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white/20">
+              <Send size={11} className="transition-transform group-hover:-rotate-12" />
+            </span>
+            <span className="sm:hidden">Telegram</span>
+            <span className="hidden sm:inline">Join Telegram</span>
+          </a>
 
           {/* Notifications (only when logged in) */}
           {isLoggedIn && (
