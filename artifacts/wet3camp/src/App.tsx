@@ -28,6 +28,7 @@ const Install         = lazy(() => import("@/pages/install"))
 const Live            = lazy(() => import("@/pages/live"))
 const Login           = lazy(() => import("@/pages/login"))
 const ForgotPassword  = lazy(() => import("@/pages/forgot-password"))
+const ResetPassword   = lazy(() => import("@/pages/reset-password"))
 const Messages        = lazy(() => import("@/pages/messages"))
 const Profile         = lazy(() => import("@/pages/profile"))
 const MyProfile       = lazy(() => import("@/pages/my-profile"))
@@ -112,6 +113,7 @@ function Router() {
         <Route path="/live" component={Live} />
         <Route path="/login" component={Login} />
         <Route path="/forgot-password" component={ForgotPassword} />
+        <Route path="/reset-password" component={ResetPassword} />
         <Route path="/messages">{() => <ProtectedRoute component={Messages} />}</Route>
         <Route path="/booking">{() => <Redirect to="/" />}</Route>
         <Route path="/bookings">{() => <Redirect to="/" />}</Route>

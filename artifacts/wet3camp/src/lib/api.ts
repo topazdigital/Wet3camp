@@ -141,6 +141,8 @@ export const api = {
       req<{ token: string; user: ApiUser; escortId?: string }>('/auth/register', { method: 'POST', body: JSON.stringify(d) }),
     forgotPassword: (email: string) =>
       req<{ message: string }>('/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email }) }),
+    resetPassword: (details: { email: string; token: string; password: string }) =>
+      req<{ message: string }>('/auth/reset-password', { method: 'POST', body: JSON.stringify(details) }),
     me: () => req<ApiUser>('/auth/me'),
   },
 

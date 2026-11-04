@@ -205,17 +205,80 @@ router.post('/auth/forgot-password', async (req, res) => {
 
     const pool = getPool()
     if (pool) {
-      const { randomBytes } = await import('crypto')
-      const token = randomBytes(32).toString('hex')
-      const expires = new Date(Date.now() + 3600_000)
       const normalEmail = email.toLowerCase().trim()
-      await pool.query('INSERT INTO password_resets (email, token, expires_at) VALUES (?,?,?)', [normalEmail, token, expires])
-      sendPasswordResetEmail(normalEmail, token).catch(() => {})
+      const [[user]] = await pool.query<any[]>('SELECT id FROM users WHERE email = ? LIMIT 1', [normalEmail])
+      if (user) {
+        const { randomBytes } = await import('crypto')
+        const token = randomBytes(32).toString('hex')
+        const expires = new Date(Date.now() + 3600_000)
+        await pool.query('DELETE FROM password_resets WHERE email = ?', [normalEmail])
+        await pool.query('INSERT INTO password_resets (email, token, expires_at) VALUES (?,?,?)', [normalEmail, token, expires])
+        sendPasswordResetEmail(normalEmail, token).catch(() => {})
+      }
     }
 
     res.json({ message: 'If that email exists, a reset link has been sent.' })
   } catch {
     res.json({ message: 'If that email exists, a reset link has been sent.' })
+  }
+})
+
+router.post('/auth/reset-password', async (req, res) => {
+  const { email, token, password } = req.body as {
+    email?: string
+    token?: string
+    password?: string
+  }
+  const normalEmail = typeof email === 'string' ? email.toLowerCase().trim() : ''
+
+  if (!normalEmail || typeof token !== 'string' || typeof password !== 'string' || !token || !password) {
+    res.status(400).json({ message: 'Email, reset token and new password are required.' }); return
+  }
+  if (password.length < 8) {
+    res.status(400).json({ message: 'Password must be at least 8 characters.' }); return
+  }
+  if (password.length > 256) {
+    res.status(400).json({ message: 'Password must be 256 characters or fewer.' }); return
+  }
+  if (!/^[a-f0-9]{64}$/i.test(token)) {
+    res.status(400).json({ message: 'This reset link is invalid or expired. Request a new one and try again.' }); return
+  }
+
+  const pool = getPool()
+  if (!pool) {
+    res.status(503).json({ message: 'Password reset is temporarily unavailable. Please try again later.', code: 'NO_DB' }); return
+  }
+
+  try {
+    const passwordHash = await hashPassword(password)
+    const updated = await pool.transaction(async query => {
+      const [resetRows] = await query(
+        'SELECT email FROM password_resets WHERE email = ? AND token = ? AND expires_at > CURRENT_TIMESTAMP FOR UPDATE',
+        [normalEmail, token]
+      )
+      if (!(resetRows as any[]).length) return false
+
+      const [userRows] = await query(
+        'SELECT id FROM users WHERE email = ? LIMIT 1 FOR UPDATE',
+        [normalEmail]
+      )
+      const user = (userRows as any[])[0]
+      if (!user) {
+        await query('DELETE FROM password_resets WHERE email = ?', [normalEmail])
+        return false
+      }
+
+      await query('UPDATE users SET password_hash = ? WHERE id = ?', [passwordHash, user.id])
+      await query('DELETE FROM password_resets WHERE email = ?', [normalEmail])
+      return true
+    })
+
+    if (!updated) {
+      res.status(400).json({ message: 'This reset link is invalid or expired. Request a new one and try again.' }); return
+    }
+    res.json({ message: 'Password updated successfully.' })
+  } catch {
+    res.status(500).json({ message: 'Could not reset your password. Please try again.' })
   }
 })
 
