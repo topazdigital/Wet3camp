@@ -508,9 +508,23 @@ function ClientsTab() {
     setActionLoading(`deactivate-${id}`)
     try {
       await adminFetch(`/admin/users/${id}/deactivate`, { method: 'POST' })
-      setClients(p => p.filter(c => String(c.id) !== id))
+      setClients(p => p.map(c => String(c.id) === id ? { ...c, is_active: 0 } : c))
     } catch (err: any) {
       setActionError(err?.message || 'Could not deactivate this account.')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const activate = async (client: any) => {
+    const id = String(client.id)
+    setActionError('')
+    setActionLoading(`activate-${id}`)
+    try {
+      await adminFetch(`/admin/users/${id}/activate`, { method: 'POST' })
+      setClients(p => p.map(c => String(c.id) === id ? { ...c, is_active: 1 } : c))
+    } catch (err: any) {
+      setActionError(err?.message || 'Could not activate this account.')
     } finally {
       setActionLoading(null)
     }
@@ -587,13 +601,25 @@ function ClientsTab() {
                       )}
                       {c.role !== 'admin' && (
                         <>
-                          <button
-                            onClick={() => deactivate(c)}
-                            disabled={actionLoading === `deactivate-${c.id}`}
-                            title="Deactivate"
-                            data-testid={`button-deactivate-user-${c.id}`}
-                            className="p-1.5 text-[#FF9800] rounded-lg hover:bg-dark-bg disabled:opacity-50"
-                          ><XCircle size={13}/></button>
+                          {Boolean(c.is_active) ? (
+                            <button
+                              onClick={() => deactivate(c)}
+                              disabled={actionLoading === `deactivate-${c.id}`}
+                              title="Deactivate account"
+                              aria-label={`Deactivate ${c.display_name || c.username || 'user'} account`}
+                              data-testid={`button-deactivate-user-${c.id}`}
+                              className="p-1.5 text-[#FF9800] rounded-lg hover:bg-dark-bg disabled:opacity-50"
+                            >{actionLoading === `deactivate-${c.id}` ? <div className="w-3 h-3 border border-current/40 border-t-current rounded-full animate-spin"/> : <XCircle size={13}/>}</button>
+                          ) : (
+                            <button
+                              onClick={() => activate(c)}
+                              disabled={actionLoading === `activate-${c.id}`}
+                              title="Activate account"
+                              aria-label={`Activate ${c.display_name || c.username || 'user'} account`}
+                              data-testid={`button-activate-user-${c.id}`}
+                              className="p-1.5 text-[#28a745] rounded-lg hover:bg-dark-bg disabled:opacity-50"
+                            >{actionLoading === `activate-${c.id}` ? <div className="w-3 h-3 border border-current/40 border-t-current rounded-full animate-spin"/> : <CheckCircle2 size={13}/>}</button>
+                          )}
                           <button
                             onClick={() => deletePermanently(c)}
                             disabled={actionLoading === `delete-${c.id}`}

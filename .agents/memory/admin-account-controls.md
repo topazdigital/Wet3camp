@@ -9,3 +9,10 @@ The linked-account admin view-as and permanent-delete flows are confirmed workin
 **Why:** The user confirmed both view-as and deletion work. A live request check returned Apache's HTML 406 response for admin DELETE paths, while POST paths reached Express and returned the API's authentication response.
 
 **How to apply:** Keep admin removal controls on POST endpoints rather than DELETE for this hosting path. After backend changes, push to GitHub and separately perform the server deployment; verify a production POST reaches the API before testing an authenticated admin action.
+
+## Reversible user status
+The Registered Users admin list must let administrators reactivate inactive accounts as well as deactivate active accounts. Deactivation should not remove the row from the current list, so it can be reactivated immediately.
+
+**Why:** The user asked how to restore an account after deactivating it and confirmed that active status is managed in the admin panel.
+
+**How to apply:** Keep both actions admin-only, use POST routes for Apache compatibility, and update the visible row only after the API confirms the status change.

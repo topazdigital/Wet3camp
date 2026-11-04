@@ -1086,6 +1086,17 @@ const handleAdminUserDeactivate = async (req: AuthRequest, res: any) => {
 router.delete('/admin/users/:id', requireAuth, requireAdmin, handleAdminUserDeactivate)
 router.post('/admin/users/:id/deactivate', requireAuth, requireAdmin, handleAdminUserDeactivate)
 
+router.post('/admin/users/:id/activate', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const pool = getPool()
+    if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
+    await pool.query('UPDATE users SET is_active = 1 WHERE id = ?', [req.params!.id])
+    res.json({ success: true })
+  } catch {
+    res.status(500).json({ message: 'Failed to activate user' })
+  }
+})
+
 router.post('/admin/seed-escorts', requireAuth, requireAdmin, async (_req: AuthRequest, res) => {
   const pool = getPool()
   if (!pool) { res.status(503).json({ message: 'Database not configured' }); return }
