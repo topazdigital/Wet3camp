@@ -8,3 +8,9 @@ A visitor's first successful social sign-in creates a regular account; they do n
 **Why:** The user wants social authentication to work for people without existing accounts and asked for a clearer logged-out claim flow.
 
 **How to apply:** Preserve claim intent through provider callbacks and registration, and avoid forcing unrelated role selection before claim verification.
+
+Password reset must also work for accounts created through Google, Facebook, or Apple. A user who resets their password should be able to sign in with that account's email and the new password while keeping social sign-in available.
+
+**Why:** The user explicitly expects social-login accounts to be able to set and use a password.
+
+**How to apply:** Keep provider-created accounts on the same `users` record and update the shared password hash used by email/password login during reset.
