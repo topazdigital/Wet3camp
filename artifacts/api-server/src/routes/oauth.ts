@@ -172,15 +172,30 @@ function redirectWithToken(
 // ─── Public config (client IDs only — no secrets) ────────────────────────────
 
 router.get('/auth/oauth-config', async (_req, res) => {
+  res.setHeader('Cache-Control', 'no-store')
   try {
     const pool = getPool()
-    const cfg  = await getSettings(pool, ['google_client_id', 'facebook_app_id'])
+    const cfg  = await getSettings(pool, [
+      'google_client_id', 'google_client_secret',
+      'facebook_app_id', 'facebook_app_secret',
+      'apple_service_id', 'apple_team_id', 'apple_key_id', 'apple_private_key',
+    ])
+    const isConfigured = (...values: Array<string | undefined>) =>
+      values.every(value => typeof value === 'string' && value.trim().length > 0)
+    const providers = {
+      google: isConfigured(cfg.google_client_id, cfg.google_client_secret),
+      facebook: isConfigured(cfg.facebook_app_id, cfg.facebook_app_secret),
+      apple: isConfigured(cfg.apple_service_id, cfg.apple_team_id, cfg.apple_key_id, cfg.apple_private_key),
+    }
     res.json({
-      googleClientId:  cfg.google_client_id  || null,
-      facebookAppId:   cfg.facebook_app_id   || null,
+      googleClientId: providers.google ? cfg.google_client_id.trim() : null,
+      providers,
     })
   } catch {
-    res.json({ googleClientId: null, facebookAppId: null })
+    res.json({
+      googleClientId: null,
+      providers: { google: false, facebook: false, apple: false },
+    })
   }
 })
 

@@ -5,6 +5,7 @@ import Sidebar from '@/components/Sidebar'
 import { Shield, Phone, Mail, Video, CheckCircle2, Clock, XCircle, ChevronRight, AlertTriangle, Camera } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { useSEO } from '@/lib/useSEO'
+import { useOAuthConfig } from '@/lib/oauth-config'
 
 async function apiFetch(path: string, opts?: RequestInit) {
   const token = localStorage.getItem('w3c_token') || localStorage.getItem('auth_token')
@@ -31,6 +32,7 @@ export default function ClaimProfile() {
   const escortId = params?.id
   const [, setLocation] = useLocation()
   const { user } = useAuth()
+  const oauthConfig = useOAuthConfig()
 
   const [escort, setEscort] = useState<any>(null)
   const [profileLoading, setProfileLoading] = useState(true)
@@ -115,7 +117,7 @@ export default function ClaimProfile() {
 
             <ol className="space-y-3 mb-7">
               {[
-                ['1', 'Sign in or create an account', 'Google creates your account automatically the first time.'],
+                ['1', 'Sign in or create an account', oauthConfig.providers.google ? 'Google creates your account automatically the first time.' : 'Use email to sign in or create your account.'],
                 ['2', 'Verify your connection', 'Choose SMS, email, or video verification.'],
                 ['3', 'Wait for review', 'Our team reviews your request and lets you know the result.'],
               ].map(([number, title, detail]) => (
@@ -143,7 +145,7 @@ export default function ClaimProfile() {
               </p>
             ) : (
               <div className="space-y-3">
-                <button
+                {oauthConfig.providers.google && <button
                   data-testid="button-claim-google"
                   onClick={() => window.location.assign(`/api/auth/google?redirect=${encodeURIComponent(claimPath)}`)}
                   className="w-full flex items-center justify-center gap-3 py-3.5 px-4 bg-white text-gray-800 font-bold text-sm rounded-xl hover:bg-gray-100 transition-colors"
@@ -155,7 +157,7 @@ export default function ClaimProfile() {
                     <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
                   </svg>
                   Continue with Google
-                </button>
+                </button>}
                 <button
                   data-testid="button-claim-email"
                   onClick={() => setLocation(`/login?redirect=${encodeURIComponent(claimPath)}&intent=claim`)}
@@ -164,7 +166,9 @@ export default function ClaimProfile() {
                   Continue with email
                 </button>
                 <p className="text-[11px] text-center text-text-muted">
-                  Google works for existing accounts and creates a free account for new users.
+                  {oauthConfig.providers.google
+                    ? 'Google works for existing accounts and creates a free account for new users.'
+                    : 'Email works for existing accounts and lets new users create a free account.'}
                 </p>
               </div>
             )}

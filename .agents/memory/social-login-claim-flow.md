@@ -14,3 +14,9 @@ Password reset must also work for accounts created through Google, Facebook, or 
 **Why:** The user explicitly expects social-login accounts to be able to set and use a password.
 
 **How to apply:** Keep provider-created accounts on the same `users` record and update the shared password hash used by email/password login during reset.
+
+Social sign-in buttons should appear only for providers whose complete credentials are saved in admin settings. Apply this to sign-in, registration, and claim flows; the public config endpoint may return readiness flags and a public client ID, never provider secrets.
+
+**Why:** The user wants Facebook and other social login choices hidden until their credentials have been configured in admin.
+
+**How to apply:** Derive readiness server-side from each provider's required settings, disable caching for the public config response, and hide each unavailable provider in every frontend entry point.
