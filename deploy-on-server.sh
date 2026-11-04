@@ -498,7 +498,7 @@ DirectoryIndex index.html
   RewriteBase /
 
   # Proxy social-media bots to Node.js for dynamic OG metadata.
-  RewriteCond %{HTTP_USER_AGENT} "(facebookexternalhit|facebot|WhatsApp|TelegramBot|LinkedInBot|Twitterbot|Slackbot|Discordbot|Applebot|Googlebot|Bingbot|YandexBot|DuckDuckBot|ia_archiver|SemrushBot|AhrefsBot)" [NC]
+  RewriteCond %{HTTP_USER_AGENT} "(facebookexternalhit|facebot|WhatsApp|TelegramBot|LinkedInBot|Twitterbot|Slackbot|Discordbot|Applebot|Googlebot|Google-InspectionTool|Bingbot|YandexBot|DuckDuckBot|ia_archiver|SemrushBot|AhrefsBot)" [NC]
   RewriteRule ^ http://localhost:__WET3_API_PORT__%{REQUEST_URI} [P,L,QSA]
 
   # Missing frontend assets must be handled by the API fallback, not by the

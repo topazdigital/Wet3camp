@@ -43,7 +43,7 @@ Options -Indexes
   # Step 1: Proxy social-media bots to Node.js FIRST (before static file check)
   # Must come first so / (a directory) is also proxied instead of serving index.html.
   # Node.js OG middleware handles bot requests and passes through for non-HTML paths.
-  RewriteCond %{HTTP_USER_AGENT} "(facebookexternalhit|facebot|WhatsApp|TelegramBot|LinkedInBot|Twitterbot|Slackbot|Discordbot|Applebot|Googlebot|Bingbot|YandexBot|DuckDuckBot|ia_archiver|SemrushBot|AhrefsBot)" [NC]
+  RewriteCond %{HTTP_USER_AGENT} "(facebookexternalhit|facebot|WhatsApp|TelegramBot|LinkedInBot|Twitterbot|Slackbot|Discordbot|Applebot|Googlebot|Google-InspectionTool|Bingbot|YandexBot|DuckDuckBot|ia_archiver|SemrushBot|AhrefsBot)" [NC]
   RewriteRule ^ http://localhost:8080%{REQUEST_URI} [P,L,QSA]
 
   # Step 2: Serve real static files/dirs directly for regular browser users
