@@ -3,11 +3,11 @@ name: Dynamic location SEO
 description: Product rule for future city and area landing pages built from escort-provided locations.
 ---
 
-**Rule:** Keep editorial location pages and add dynamic city/area pages from active, claimed profile locations. Only index a dynamic location once it has at least two eligible profiles; do not invent local details.
+**Rule:** Build city/area location pages from all active public profiles, including unclaimed profiles. Only index a location once it has at least two active profiles; keep inactive profiles out and do not invent local details.
 
-**Why:** The user wants locations added by profile owners to be discoverable, while avoiding thin or empty pages in search results.
+**Why:** The user explicitly wants all active profiles to count toward location coverage, including unclaimed listings; the two-profile threshold avoids thin or empty search pages.
 
-**How to apply:** Keep the frontend directory, crawler-rendered HTML, and sitemap on the same active/claimed profile data and indexability threshold.
+**How to apply:** Keep the frontend directory, crawler-rendered HTML, profile lists, and sitemap on the same all-active profile source and indexability threshold.
 
 ## Crawler metadata
 Both the API's bot renderer and Apache's rewrite allowlist must recognize `Google-InspectionTool` as well as `Googlebot`. An API-only change is insufficient: Apache can send the inspection user-agent to the generic SPA shell before the API sees it.

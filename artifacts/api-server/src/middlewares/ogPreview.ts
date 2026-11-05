@@ -617,6 +617,48 @@ export async function ogPreviewMiddleware(req: Request, res: Response, next: Nex
   const query   = req.query as Record<string, string>
   const fullUrl = `${SITE_URL}${path}${Object.keys(query).length ? '?' + new URLSearchParams(query).toString() : ''}`
 
+  if (path === '/locations') {
+    let locations: PublicLocationCity[] = []
+    try {
+      locations = await getPublicLocationDirectory()
+    } catch (err) {
+      console.error('[og-locations] location directory error:', err)
+    }
+
+    const activeProfileCount = locations.reduce((sum, city) => sum + city.profileCount, 0)
+    const locationSections = locations.map(city => {
+      const areaLinks = city.areas.map(area =>
+        `<li><a href="${SITE_URL}/escorts/${area.citySlug}/${area.slug}">${esc(area.name)} escorts</a> — ${area.profileCount} active profile${area.profileCount === 1 ? '' : 's'}</li>`
+      ).join('')
+      return `<section><h2><a href="${SITE_URL}/escorts/${city.slug}">${esc(city.name)}, Kenya</a></h2><p>${city.profileCount} active profile${city.profileCount === 1 ? '' : 's'} list this city.</p>${areaLinks ? `<h3>Areas with active profiles</h3><ul>${areaLinks}</ul>` : ''}</section>`
+    }).join('')
+    const hasIndexableLocation = locations.some(city =>
+      city.indexable || city.areas.some(area => area.indexable)
+    )
+    const locationsSchema = {
+      '@context': 'https://schema.org',
+      '@type': 'CollectionPage',
+      name: `Escort Profiles by Location in Kenya | ${SITE_NAME}`,
+      description: 'Browse active public profiles by city and area across Kenya.',
+      url: `${SITE_URL}/locations`,
+      about: { '@type': 'Country', name: 'Kenya' },
+      numberOfItems: activeProfileCount,
+    }
+
+    res.setHeader('Content-Type', 'text/html; charset=utf-8')
+    res.setHeader('Cache-Control', 'public, max-age=300, stale-while-revalidate=900')
+    res.status(200).send(buildHtml({
+      title: `Escort Profiles by Location in Kenya | ${SITE_NAME}`,
+      description: 'Browse active public profiles by city and area across Kenya. Review listing details and confirm availability directly.',
+      image: DEFAULT_IMAGE,
+      url: `${SITE_URL}/locations`,
+      schema: [...BASE_SCHEMAS, locationsSchema],
+      noIndex: !hasIndexableLocation,
+      body: `<main><nav aria-label="Breadcrumb"><a href="${SITE_URL}/">Home</a> / Locations</nav><h1>Escort Profiles by Location in Kenya</h1><p>Browse active public profiles grouped by their listed city and area. Review each listing and contact the provider to confirm current details and availability.</p><p>${activeProfileCount} active profiles across ${locations.length} locations.</p>${locationSections || '<p>No active public locations are available right now.</p>'}<p><a href="${SITE_URL}/">Browse all Kenya profiles</a></p></main>`,
+    }))
+    return
+  }
+
   // ── Area landing pages: /escorts/:city/:area ────────────────────────────────
   const areaMatch = path.match(/^\/escorts\/([^/?#]+)\/([^/?#]+)$/)
   if (areaMatch) {
@@ -700,7 +742,7 @@ export async function ogPreviewMiddleware(req: Request, res: Response, next: Nex
       ? `<h2>Profiles in ${esc(areaPage.name)}</h2><p>${areaProfileCount} active profile${areaProfileCount === 1 ? '' : 's'} currently list this area.</p><ul>${profileLinks}</ul>`
       : '<p>There are no active profiles listing this area yet. Browse the wider city directory for current availability.</p>'
     const areaBody = [
-      `<h1><a href="${areaUrl}">${dynamicArea ? 'Active' : 'Verified'} Escort Profiles in ${esc(areaPage.name)}, ${esc(areaPage.cityName)}</a></h1>`,
+      `<h1><a href="${areaUrl}">Active Escort Profiles in ${esc(areaPage.name)}, ${esc(areaPage.cityName)}</a></h1>`,
       `<p>${esc(areaPage.intro)}</p>`,
       profileSection,
       `<h2>Nearby areas</h2><ul>${nearbyLinks}</ul>`,
@@ -724,13 +766,13 @@ export async function ogPreviewMiddleware(req: Request, res: Response, next: Nex
     res.setHeader('Content-Type', 'text/html; charset=utf-8')
     res.setHeader('Cache-Control', 'public, max-age=3600, stale-while-revalidate=7200')
     res.status(200).send(buildHtml({
-      title: `${dynamicArea ? 'Active' : 'Verified'} Escort Profiles in ${areaPage.name}, ${areaPage.cityName} | ${SITE_NAME}`,
+      title: `Escort Profiles in ${areaPage.name}, ${areaPage.cityName} | ${SITE_NAME}`,
       description: areaPage.description,
       image: DEFAULT_IMAGE,
       url: areaUrl,
-      keywords: `${areaPage.name} escorts, escorts in ${areaPage.name}, verified escorts ${areaPage.name}, ${areaPage.cityName} escorts`,
+      keywords: `${areaPage.name} escorts, escorts in ${areaPage.name}, ${areaPage.cityName} escorts, active profiles in ${areaPage.name}`,
       schema: [...BASE_SCHEMAS, areaSchema],
-      noIndex: dynamicArea ? !dynamicArea.indexable : matchingProfiles.length === 0,
+      noIndex: dynamicArea ? !dynamicArea.indexable : matchingProfiles.length < 2,
       body: areaBody,
     }))
     return

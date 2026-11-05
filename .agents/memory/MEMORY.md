@@ -25,7 +25,7 @@
 - [Escort landing density](escort-landing-density.md) — Keep escort acquisition pages compact and responsive across phone, tablet, and desktop
 - [Admin-managed escort pricing](admin-managed-escort-pricing.md) — Keep featured placement display prices and M-Pesa charges aligned; account subscriptions are separate
 - [Profile analytics privacy](profile-analytics.md) — Track only claimed active profiles; keep visitor identity anonymous and label contact actions as taps, not outcomes
-- [Dynamic location SEO](dynamic-location-seo.md) — Build location landing pages from active claimed profiles and keep indexing thresholds consistent across pages, crawler HTML, and sitemap
+- [Dynamic location SEO](dynamic-location-seo.md) — Use all active profiles, claimed or not, for location pages; keep indexing thresholds aligned across UI, crawler HTML, and sitemap
 - [Mobile profile tabs](mobile-profile-tabs.md) — User confirmed the phone profile-section navigation works; leave it alone unless asked
 - [Admin account controls](admin-account-controls.md) — Apache can reject admin DELETE/PATCH; use authenticated POST aliases and update rows only after success
 - [NairobiRaha sourcing authorization](nairobiraha-authorization.md) — Keep authorized profiles synced continuously; the user wants thousands, subject to source availability

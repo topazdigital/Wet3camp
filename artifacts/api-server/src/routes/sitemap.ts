@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { getPool } from '../lib/db.js'
-import { AREA_LANDING_PAGES, isAreaRowMatch } from '../lib/location-data.js'
+import { AREA_LANDING_PAGES } from '../lib/location-data.js'
 import { getPublicLocationDirectory, MIN_INDEXABLE_LOCATION_PROFILES } from '../lib/public-locations.js'
 
 const router = Router()
@@ -16,6 +16,7 @@ const CITY_PAGES = [
 const STATIC_PAGES = [
   { loc: '/',              changefreq: 'hourly',  priority: '1.0' },
   { loc: '/search',        changefreq: 'hourly',  priority: '0.9' },
+  { loc: '/locations',     changefreq: 'daily',   priority: '0.85' },
   { loc: '/exclusive',     changefreq: 'daily',   priority: '0.9' },
   { loc: '/adverts',       changefreq: 'daily',   priority: '0.8' },
   { loc: '/for-escorts',   changefreq: 'weekly',  priority: '0.9' },
@@ -139,54 +140,43 @@ router.get('/sitemap-escorts.xml', async (_req, res) => {
 router.get('/sitemap-cities.xml', async (_req, res) => {
   const today = new Date().toISOString().split('T')[0]
   res.setHeader('Content-Type', 'application/xml; charset=utf-8')
-  res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=172800')
-  res.setHeader('Expires', new Date(Date.now() + 86400 * 1000).toUTCString())
+  res.setHeader('Cache-Control', 'public, max-age=300, stale-while-revalidate=900')
+  res.setHeader('Expires', new Date(Date.now() + 300 * 1000).toUTCString())
 
-  let activeRows: Array<{ city?: unknown; area?: unknown }> = []
-  const pool = getPool()
-  if (pool) {
-    try {
-      const [rows] = await pool.query<any[]>(
-        'SELECT city, area FROM escorts WHERE is_active = 1 LIMIT 10000'
-      )
-      activeRows = rows as Array<{ city?: unknown; area?: unknown }>
-    } catch (err) {
-      console.error('[sitemap-cities] DB error:', err)
-    }
+  let locations: Awaited<ReturnType<typeof getPublicLocationDirectory>> = []
+  try {
+    locations = await getPublicLocationDirectory()
+  } catch (err) {
+    console.error('[sitemap-cities] location directory error:', err)
   }
+  const locationsBySlug = new Map(locations.map(city => [city.slug, city]))
 
-  // Dedicated city landing pages — /escorts/:city (highest SEO priority)
+  // Static editorial routes and dynamic routes use the same active-profile
+  // threshold so no empty or thin location pages enter the sitemap.
   const lines: string[] = []
   for (const citySlug of CITY_PAGES) {
-    lines.push(url(`${BASE}/escorts/${citySlug}`, today, 'daily', '0.95'))
+    if (locationsBySlug.get(citySlug)?.indexable) {
+      lines.push(url(`${BASE}/escorts/${citySlug}`, today, 'daily', '0.95'))
+    }
   }
-  // Area pages are included only when at least one active profile matches the
-  // location. This keeps empty pages out of the index while inventory grows.
   for (const areaPage of AREA_LANDING_PAGES) {
-    if (activeRows.some(row => isAreaRowMatch(areaPage, row))) {
+    const area = locationsBySlug.get(areaPage.citySlug)?.areas.find(item => item.slug === areaPage.slug)
+    if (area?.indexable) {
       lines.push(url(`${BASE}/escorts/${areaPage.citySlug}/${areaPage.slug}`, today, 'daily', '0.85'))
     }
   }
   const knownCitySlugs = new Set(CITY_PAGES)
   const knownAreaPaths = new Set(AREA_LANDING_PAGES.map(page => `${page.citySlug}/${page.slug}`))
-  try {
-    const locations = await getPublicLocationDirectory()
-    for (const city of locations) {
-      if (!knownCitySlugs.has(city.slug) && city.profileCount >= MIN_INDEXABLE_LOCATION_PROFILES) {
-        lines.push(url(`${BASE}/escorts/${city.slug}`, today, 'daily', '0.90'))
-      }
-      for (const area of city.areas) {
-        const key = `${area.citySlug}/${area.slug}`
-        if (
-          !knownAreaPaths.has(key) &&
-          area.profileCount >= MIN_INDEXABLE_LOCATION_PROFILES
-        ) {
-          lines.push(url(`${BASE}/escorts/${area.citySlug}/${area.slug}`, today, 'daily', '0.80'))
-        }
+  for (const city of locations) {
+    if (!knownCitySlugs.has(city.slug) && city.indexable) {
+      lines.push(url(`${BASE}/escorts/${city.slug}`, today, 'daily', '0.90'))
+    }
+    for (const area of city.areas) {
+      const key = `${area.citySlug}/${area.slug}`
+      if (!knownAreaPaths.has(key) && area.indexable) {
+        lines.push(url(`${BASE}/escorts/${area.citySlug}/${area.slug}`, today, 'daily', '0.80'))
       }
     }
-  } catch (err) {
-    console.error('[sitemap-cities] dynamic location error:', err)
   }
 
   res.send([
@@ -244,6 +234,7 @@ function collectAllUrls(): string[] {
   const today = new Date().toISOString().split('T')[0]
   void today
   const urls: string[] = [`${BASE}/`]
+  urls.push(`${BASE}/locations`)
   for (const citySlug of CITY_PAGES) urls.push(`${BASE}/escorts/${citySlug}`)
   // Filter URLs are intentionally excluded; dedicated /escorts/:city pages
   // are the crawlable location surfaces.

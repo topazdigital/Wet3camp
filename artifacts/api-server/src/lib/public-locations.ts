@@ -65,9 +65,8 @@ function addSourcePair(target: LocationSourcePair[], pair: LocationSourcePair) {
 }
 
 /**
- * Builds crawlable location pages from active profiles managed by an account.
- * Profiles without an owner are excluded so imported/unclaimed records cannot
- * create new indexable location pages.
+ * Builds crawlable location pages from every active public profile.
+ * Indexability is still gated by the minimum inventory threshold below.
  */
 export async function getPublicLocationDirectory(): Promise<PublicLocationCity[]> {
   const pool = getPool()
@@ -79,7 +78,6 @@ export async function getPublicLocationDirectory(): Promise<PublicLocationCity[]
             COUNT(*) AS profile_count
      FROM escorts
      WHERE is_active = 1
-       AND user_id IS NOT NULL
        AND city IS NOT NULL
        AND TRIM(city) <> ''
      GROUP BY LOWER(TRIM(city)), LOWER(TRIM(COALESCE(area, '')))
@@ -189,7 +187,6 @@ export async function getPublicLocationProfiles(
     `SELECT e.id, e.name, e.city, e.area
      FROM escorts e
      WHERE e.is_active = 1
-       AND e.user_id IS NOT NULL
        AND (${conditions.join(' OR ')})
      ORDER BY e.featured DESC, e.rating DESC, e.id DESC
      LIMIT ?`,
