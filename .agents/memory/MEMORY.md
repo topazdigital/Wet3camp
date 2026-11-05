@@ -29,3 +29,4 @@
 - [Mobile profile tabs](mobile-profile-tabs.md) — User confirmed the phone profile-section navigation works; leave it alone unless asked
 - [Admin account controls](admin-account-controls.md) — User confirmed live view-as works; Apache rejects admin DELETE requests with 406, so use POST aliases for admin removals
 - [NairobiRaha sourcing authorization](nairobiraha-authorization.md) — Keep authorized profiles synced continuously; the user wants thousands, subject to source availability
+- [NairobiRaha scraper deployment](nairobiraha-scraper-deployment.md) — Keep the cron's DB env path separate from the scraper source checkout so it runs current code

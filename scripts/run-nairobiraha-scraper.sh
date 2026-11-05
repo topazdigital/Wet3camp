@@ -2,8 +2,10 @@
 set -euo pipefail
 
 API_ENV="${API_ENV:-/home/admin/api-server/env}"
-API_DIR="${API_DIR:-/home/admin/wet3camp-build/artifacts/api-server}"
-UPLOADS_DIR="${UPLOADS_DIR:-$API_DIR/uploads}"
+# The DB env file/API runtime directory may be separate from the checked-out
+# scraper source. Prefer SCRAPER_DIR; API_DIR remains as a legacy override.
+SCRAPER_DIR="${SCRAPER_DIR:-${API_DIR:-/home/admin/wet3camp-build/artifacts/api-server}}"
+UPLOADS_DIR="${UPLOADS_DIR:-$SCRAPER_DIR/uploads}"
 
 printf '=== NairobiRaha scraper started at %s ===\n' "$(date -Is)"
 
@@ -39,11 +41,11 @@ if [[ -z "$DATABASE_URL" ]]; then
   exit 1
 fi
 
-if [[ ! -f "$API_DIR/scrape-escorts.mjs" ]]; then
-  echo "ERROR: scraper not found in $API_DIR" >&2
+if [[ ! -f "$SCRAPER_DIR/scrape-escorts.mjs" ]]; then
+  echo "ERROR: scraper not found in $SCRAPER_DIR" >&2
   exit 1
 fi
 
 export DATABASE_URL UPLOADS_DIR
-cd "$API_DIR"
+cd "$SCRAPER_DIR"
 exec /usr/bin/env node scrape-escorts.mjs --fast --source=nairobiraha "$@"

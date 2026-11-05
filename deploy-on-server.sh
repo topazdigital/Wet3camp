@@ -760,7 +760,10 @@ if ! touch "$SCRAPER_CRON_LOG" 2>/dev/null; then
   SCRAPER_CRON_LOG="/tmp/wet3camp-scraper-cron-${USER:-admin}.log"
 fi
 # The runner reads DATABASE_URL as data and ignores all other env-file lines.
-SCRAPER_CRON="0 0 * * * API_ENV=\"$API_ENV\" API_DIR=\"$API_DIR\" UPLOADS_DIR=\"$UPLOADS_REAL\" /usr/bin/env bash \"$SCRAPER_RUNNER\" >> \"$SCRAPER_CRON_LOG\" 2>&1"
+# The database env file lives under API_DIR, but the current scraper source is
+# checked out inside REPO_DIR. Keep those paths separate so cron never runs a
+# stale scraper copy from the API environment directory.
+SCRAPER_CRON="0 0 * * * API_ENV=\"$API_ENV\" SCRAPER_DIR=\"$REPO_DIR/artifacts/api-server\" UPLOADS_DIR=\"$UPLOADS_REAL\" /usr/bin/env bash \"$SCRAPER_RUNNER\" >> \"$SCRAPER_CRON_LOG\" 2>&1"
 # Remove old scraper entries and the previous UTC setting, then install one
 # explicit UTC schedule. This keeps midnight UTC equal to 03:00 EAT regardless
 # of the server's local timezone.
