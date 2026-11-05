@@ -16,14 +16,12 @@ description: Push to GitHub from Replit Shell; server deployment is not triggere
 
 **How to apply:** Push with `bash push-to-github.sh` from Replit Shell. Use the manual GitHub Actions workflow only when explicitly choosing an automated server deployment.
 
-## Git safety and the Replit GitHub proxy
-Git write commands in the agent shell may be intercepted by Replit's safety gate. When the user explicitly authorizes a push, retry the intended command with `DANGEROUSLY_ALLOW_GIT=1`. The existing push script still handles the build, release assets, and credential prompt without printing the token.
+## Shell push preference
+The user wants to push from Replit Shell without reconnecting the Git source-control pane. Use the saved PAT through `bash push-to-github.sh`; its GitHub API fallback handles a disconnected proxy. Never ask for or print the token. If a Shell opened before the secret was added says it is missing, reopen the Shell.
 
-Even when the PAT secret is present, the secure GitHub proxy can reject pushes with HTTP 400 if the Replit Git source-control connection is disconnected. Attaching the GitHub API integration does not reconnect Git pane source control.
+**Why:** The user explicitly said they do not want to connect Git source control and prefer the Shell workflow they use with other agents. GitHub pushes are separate from the manually triggered production deployment.
 
-**Why:** The push script reaches GitHub through Replit's secure proxy, which requires an active source-control connection independent of the PAT secret.
-
-**How to apply:** Reconnect under Tools → Git → Manage, then retry `bash push-to-github.sh` once. Do not bypass the secure proxy.
+**How to apply:** Run the Shell push script and confirm it completed; do not trigger the production workflow unless asked.
 
 ## Credentials
 - `GITHUB_TOKEN` or `GITHUB_PERSONAL_ACCESS_TOKEN` — in Replit Secrets ✅ (never ask again)
