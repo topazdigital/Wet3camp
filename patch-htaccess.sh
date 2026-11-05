@@ -40,24 +40,28 @@ Options -Indexes
   RewriteEngine On
   RewriteBase /
 
-  # Step 1: Proxy social-media bots to Node.js FIRST (before static file check)
-  # Must come first so / (a directory) is also proxied instead of serving index.html.
-  # Node.js OG middleware handles bot requests and passes through for non-HTML paths.
+  # Step 1: Serve existing static files directly for every user agent.
+  # This keeps favicon, icons, robots.txt, and other public files out of the
+  # Node metadata proxy. Directories such as / remain eligible for bot rendering.
+  RewriteCond %{REQUEST_FILENAME} -f
+  RewriteRule ^ - [L]
+
+  # Step 2: Proxy crawler requests for dynamic HTML metadata.
   RewriteCond %{HTTP_USER_AGENT} "(facebookexternalhit|facebot|WhatsApp|TelegramBot|LinkedInBot|Twitterbot|Slackbot|Discordbot|Applebot|Googlebot|Google-InspectionTool|Bingbot|YandexBot|DuckDuckBot|ia_archiver|SemrushBot|AhrefsBot)" [NC]
   RewriteRule ^ http://localhost:8080%{REQUEST_URI} [P,L,QSA]
 
-  # Step 2: Serve real static files/dirs directly for regular browser users
+  # Step 3: Serve real static files/dirs directly for regular browser users.
   RewriteCond %{REQUEST_FILENAME} -f [OR]
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]
 
-  # Step 3: Proxy /api/* and known server routes to Node.js
+  # Step 4: Proxy /api/* and known server routes to Node.js.
   RewriteCond %{REQUEST_URI} ^/api [NC,OR]
   RewriteCond %{REQUEST_URI} ^/sitemap [NC,OR]
   RewriteCond %{REQUEST_URI} ^/google [NC]
   RewriteRule ^ http://localhost:8080%{REQUEST_URI} [P,L,QSA]
 
-  # Step 4: SPA fallback for regular browser users on non-file routes
+  # Step 5: SPA fallback for regular browser users on non-file routes.
   RewriteRule ^ index.html [L]
 </IfModule>
 HTACCESS

@@ -497,6 +497,12 @@ DirectoryIndex index.html
   RewriteEngine On
   RewriteBase /
 
+  # Serve existing public files directly for every user agent. In particular,
+  # Googlebot-Image must receive the real favicon and crawlers must receive
+  # robots.txt instead of having these paths proxied to the HTML metadata API.
+  RewriteCond %{REQUEST_FILENAME} -f
+  RewriteRule ^ - [L]
+
   # Proxy social-media bots to Node.js for dynamic OG metadata.
   RewriteCond %{HTTP_USER_AGENT} "(facebookexternalhit|facebot|WhatsApp|TelegramBot|LinkedInBot|Twitterbot|Slackbot|Discordbot|Applebot|Googlebot|Google-InspectionTool|Bingbot|YandexBot|DuckDuckBot|ia_archiver|SemrushBot|AhrefsBot)" [NC]
   RewriteRule ^ http://localhost:__WET3_API_PORT__%{REQUEST_URI} [P,L,QSA]
