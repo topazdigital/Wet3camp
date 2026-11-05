@@ -17,7 +17,7 @@ TOKEN="${GITHUB_TOKEN:-${GITHUB_PERSONAL_ACCESS_TOKEN:-}}"
 
 if [ -z "$TOKEN" ]; then
   echo "❌ GITHUB_TOKEN or GITHUB_PERSONAL_ACCESS_TOKEN not found in Replit Secrets."
-  echo "   Add one via the Secrets tab in Replit, then try again."
+  echo "   If already added, close and reopen the Shell tab to refresh its environment."
   exit 1
 fi
 
