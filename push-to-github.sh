@@ -44,8 +44,9 @@ echo "▶ Pushing to GitHub..."
 # Keep the token out of the remote URL and command arguments. Git asks this
 # short-lived helper for credentials only during this push.
 ASKPASS_SCRIPT="$(mktemp)"
+PUSH_LOG="$(mktemp)"
 cleanup() {
-  rm -f "$ASKPASS_SCRIPT"
+  rm -f "$ASKPASS_SCRIPT" "$PUSH_LOG"
 }
 trap cleanup EXIT
 
@@ -58,13 +59,30 @@ esac
 ASKPASS
 chmod 700 "$ASKPASS_SCRIPT"
 
-TOKEN="$TOKEN" \
-GIT_ASKPASS="$ASKPASS_SCRIPT" \
-GIT_TERMINAL_PROMPT=0 \
-git push "https://github.com/topazdigital/Wet3camp.git" main
+if TOKEN="$TOKEN" \
+  GIT_ASKPASS="$ASKPASS_SCRIPT" \
+  GIT_TERMINAL_PROMPT=0 \
+  git push "https://github.com/topazdigital/Wet3camp.git" main >"$PUSH_LOG" 2>&1; then
+  cat "$PUSH_LOG"
+  PUSH_METHOD="Git push"
+else
+  PUSH_EXIT=$?
+  cat "$PUSH_LOG"
+
+  # Replit can route git pushes through its source-control proxy, which
+  # requires a connected Git pane. When that specific proxy is unavailable,
+  # sync changed files through the existing GitHub REST API script instead.
+  if grep -q "github.replit.internal" "$PUSH_LOG"; then
+    echo "▶ Replit Git proxy is unavailable; syncing changed files through GitHub API..."
+    GITHUB_TOKEN="$TOKEN" bash scripts/auto-push.sh main
+    PUSH_METHOD="GitHub API fallback"
+  else
+    exit "$PUSH_EXIT"
+  fi
+fi
 
 echo ""
-echo "✅ Pushed to GitHub!"
+echo "✅ Pushed to GitHub via ${PUSH_METHOD}."
 echo ""
 echo "ℹ️  This push will not deploy to wet3.camp automatically."
 echo "   Deploy to the server manually when you are ready."
