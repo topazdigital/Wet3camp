@@ -2260,13 +2260,22 @@ function EscortsTab() {
     setActionLoading(null)
   }
 
-  const handleFeature = async (id: string) => {
+  const handleFeature = async (escort: AdminEscort) => {
+    const { id } = escort
+    const featured = !Boolean(escort.featured)
+    setActionError('')
     setActionLoading(id + '_feature')
     try {
-      const data = await adminFetch(`/admin/escorts/${id}/featured`, { method: 'PATCH' })
+      const data = await adminFetch(`/admin/escorts/${id}/featured`, {
+        method: 'POST',
+        body: JSON.stringify({ featured }),
+      })
       setEscorts(prev => prev.map(e => e.id === id ? { ...e, featured: data.featured ? 1 : 0 } : e))
-    } catch {}
-    setActionLoading(null)
+    } catch (err: any) {
+      setActionError(err?.message || 'Could not update featured placement.')
+    } finally {
+      setActionLoading(null)
+    }
   }
 
   const handleDeleteForever = async (id: string, name: string) => {
@@ -2353,8 +2362,11 @@ function EscortsTab() {
       </div>
 
       <div className="bg-card-bg border border-color rounded-2xl overflow-hidden">
-        <div className="px-4 py-3 border-b border-color flex items-center justify-between">
-          <h3 className="text-sm font-bold text-text-light">All Escorts {!loading && `(${filtered.length})`}</h3>
+        <div className="px-4 py-3 border-b border-color flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <div>
+            <h3 className="text-sm font-bold text-text-light">All Escorts {!loading && `(${filtered.length})`}</h3>
+            <p className="mt-1 text-[10px] text-text-muted">Boost individual profiles to feature them on the homepage and rank them ahead of non-featured listings. Inactive profiles remain hidden until activated.</p>
+          </div>
           <button onClick={() => setShowAddModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-[#8B0000] text-white text-xs font-bold rounded-xl"><Plus size={12}/>Add Escort</button>
         </div>
 
@@ -2422,9 +2434,10 @@ function EscortsTab() {
                     </td>
                     <td className="px-4 py-3">
                       <button
-                        onClick={() => handleFeature(e.id)}
+                        onClick={() => handleFeature(e)}
                         disabled={actionLoading === e.id + '_feature'}
-                        title={Boolean(e.featured) ? 'Remove boost' : 'Boost this escort to top'}
+                        aria-label={Boolean(e.featured) ? `Remove ${e.name} from featured placement` : `Feature ${e.name} and boost listing order`}
+                        title={Boolean(e.featured) ? 'Remove from homepage featured section and boost ordering' : 'Feature on homepage and boost search ordering'}
                         className={`px-2.5 py-1 text-[9px] font-bold rounded-lg border transition-all flex items-center gap-1 disabled:opacity-50 ${Boolean(e.featured) ? 'bg-[#FFD700]/20 text-[#FFD700] border-[#FFD700]/40 hover:bg-[#FFD700]/30' : 'bg-dark-bg text-text-muted border-color hover:border-[#FFD700]/50 hover:text-[#FFD700]'}`}
                       >
                         {actionLoading === e.id + '_feature' ? <div className="w-2.5 h-2.5 border border-current/40 border-t-current rounded-full animate-spin" /> : <Crown size={10}/>}

@@ -23,3 +23,10 @@ Production Apache can return HTTP 406 for the admin escort edit `PATCH` request.
 **Why:** The user received a 406 when saving changes in the escort editor, while the server-side update handler already existed.
 
 **How to apply:** Keep `requireAuth` and `requireAdmin` on the POST alias, send the same validated edit fields, and update the admin list only after the server returns the saved escort.
+
+## Manual featured placement
+Production Apache can reject admin PATCH requests for featured toggles too. Use an authenticated POST with the desired featured boolean; retain PATCH only for compatibility.
+
+**Why:** The existing admin Boost button used PATCH and silently swallowed errors, so the selection never persisted on the production host.
+
+**How to apply:** Update the row only from the POST response, surface failures in the admin UI, and remember inactive profiles are excluded from public escort listings until activated.
