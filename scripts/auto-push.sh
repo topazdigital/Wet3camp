@@ -15,7 +15,7 @@ if [ -z "$GITHUB_TOKEN" ] && [ -n "$GITHUB_PERSONAL_ACCESS_TOKEN" ]; then
 fi
 
 if [ -z "$GITHUB_TOKEN" ]; then
-  echo "[auto-push] ⚠️  No GitHub token found (set GITHUB_TOKEN in Replit Secrets)."
+  echo "[auto-push] ⚠️  No GitHub token found. If already added in Replit Secrets, reopen the Shell tab."
   exit 0
 fi
 
@@ -30,6 +30,12 @@ fi
 
 ERRORS=0
 PUSHED=0
+PAYLOAD_FILE="$(mktemp)"
+RESPONSE_FILE="$(mktemp)"
+cleanup() {
+  rm -f "$PAYLOAD_FILE" "$RESPONSE_FILE"
+}
+trap cleanup EXIT
 
 for FILE in $CHANGED; do
   if [ -f "$FILE" ]; then
@@ -44,11 +50,12 @@ for FILE in $CHANGED; do
     IS_DELETE=1
   fi
 
-  # Get current SHA on GitHub (empty if new file)
-  SHA=$(curl -s \
+  # Get current GitHub SHA (empty if new or missing file)
+  curl -s \
     -H "Authorization: token $GITHUB_TOKEN" \
     "https://api.github.com/repos/${REPO}/contents/${FILE}?ref=${BRANCH}" \
-    | node -e "let d=''; process.stdin.on('data',c=>d+=c); process.stdin.on('end',()=>{ try{const r=JSON.parse(d); console.log(r.sha||'')}catch(e){console.log('')} })" 2>/dev/null)
+    > "$RESPONSE_FILE"
+  SHA=$(node -e "let d=''; process.stdin.on('data',c=>d+=c); process.stdin.on('end',()=>{ try{const r=JSON.parse(d); console.log(r.sha||'')}catch(e){console.log('')} })" < "$RESPONSE_FILE" 2>/dev/null)
 
   if [ "$IS_DELETE" -eq 1 ]; then
     if [ -z "$SHA" ]; then
@@ -57,13 +64,19 @@ for FILE in $CHANGED; do
     fi
     MSG="chore: remove ${FILE} via Replit auto-push"
     PAYLOAD="{\"message\":\"$MSG\",\"sha\":\"$SHA\",\"branch\":\"$BRANCH\"}"
+    printf '%s' "$PAYLOAD" > "$PAYLOAD_FILE"
     RESULT=$(curl -s -X DELETE \
       -H "Authorization: token $GITHUB_TOKEN" \
       -H "Content-Type: application/json" \
       "https://api.github.com/repos/${REPO}/contents/${FILE}" \
-      -d "$PAYLOAD" \
+      --data-binary "@$PAYLOAD_FILE" \
       | node -e "let d=''; process.stdin.on('data',c=>d+=c); process.stdin.on('end',()=>{ try{const r=JSON.parse(d); console.log(r.commit?'ok:'+r.commit.sha.slice(0,8):'err:'+JSON.stringify(r.message))}catch(e){console.log('err:parse')} })" 2>/dev/null)
   else
+    LOCAL_SHA=$(git hash-object "$FILE")
+    if [ "$SHA" = "$LOCAL_SHA" ]; then
+      echo "[auto-push] Already current on GitHub: $FILE"
+      continue
+    fi
     # Build JSON payload
     MSG="chore: sync ${FILE} via Replit auto-push"
     if [ -n "$SHA" ]; then
@@ -71,11 +84,12 @@ for FILE in $CHANGED; do
     else
       PAYLOAD="{\"message\":\"$MSG\",\"content\":\"$CONTENT\",\"branch\":\"$BRANCH\"}"
     fi
+    printf '%s' "$PAYLOAD" > "$PAYLOAD_FILE"
     RESULT=$(curl -s -X PUT \
       -H "Authorization: token $GITHUB_TOKEN" \
       -H "Content-Type: application/json" \
       "https://api.github.com/repos/${REPO}/contents/${FILE}" \
-      -d "$PAYLOAD" \
+      --data-binary "@$PAYLOAD_FILE" \
       | node -e "let d=''; process.stdin.on('data',c=>d+=c); process.stdin.on('end',()=>{ try{const r=JSON.parse(d); console.log(r.commit?'ok:'+r.commit.sha.slice(0,8):'err:'+JSON.stringify(r.message))}catch(e){console.log('err:parse')} })" 2>/dev/null)
   fi
 
