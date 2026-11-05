@@ -28,4 +28,4 @@
 - [Dynamic location SEO](dynamic-location-seo.md) — Build location landing pages from active claimed profiles and keep indexing thresholds consistent across pages, crawler HTML, and sitemap
 - [Mobile profile tabs](mobile-profile-tabs.md) — User confirmed the phone profile-section navigation works; leave it alone unless asked
 - [Admin account controls](admin-account-controls.md) — User confirmed live view-as works; Apache rejects admin DELETE requests with 406, so use POST aliases for admin removals
-- [NairobiRaha sourcing authorization](nairobiraha-authorization.md) — User confirmed ownership of NairobiRaha and provider permission to republish its profiles on Wet3Camp
+- [NairobiRaha sourcing authorization](nairobiraha-authorization.md) — Keep authorized profiles synced continuously; the user wants thousands, subject to source availability
