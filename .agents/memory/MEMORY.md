@@ -30,3 +30,4 @@
 - [Admin account controls](admin-account-controls.md) — Apache can reject admin DELETE/PATCH; use authenticated POST aliases and update rows only after success
 - [NairobiRaha sourcing authorization](nairobiraha-authorization.md) — Keep authorized profiles synced continuously; the user wants thousands, subject to source availability
 - [NairobiRaha scraper deployment](nairobiraha-scraper-deployment.md) — Keep the cron's DB env path separate from the scraper source checkout so it runs current code
+- [Profile maps and live site](profile-map-privacy.md) — wet3.camp is live; keep public map locations approximate and treat Replit edits as unpublished until requested
