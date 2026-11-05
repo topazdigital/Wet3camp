@@ -12,6 +12,7 @@ import { api } from '@/lib/api'
 import type { ApiEscort } from '@/lib/api'
 import { getSlug } from '@/data/escorts'
 import { trackProfileEvent } from '@/lib/profile-analytics'
+import ProfileAreaMap from '@/components/ProfileAreaMap'
 
 const TIER_STYLE: Record<string, { bg: string; text: string; label: string }> = {
   Elite:    { bg: '#8B0000',  text: '#fff', label: '★ ELITE'   },
@@ -336,6 +337,16 @@ export default function ProfilePage() {
             </div>
           </div>
 
+          <div className="absolute right-4 top-1/2 z-10 hidden -translate-y-1/2 md:block">
+            <ProfileAreaMap
+              area={escort.area}
+              city={escort.city}
+              lat={escort.lat}
+              lng={escort.lng}
+              className="w-[min(250px,26vw)] min-w-[180px]"
+            />
+          </div>
+
           <div className="absolute bottom-4 left-4 flex items-center gap-2">
             <span className="px-3 py-1.5 rounded-full text-[11px] font-black text-white shadow-lg" style={{ backgroundColor: tier.bg }}>{tier.label}</span>
             {escort.verified && <span className="flex items-center gap-1 px-2.5 py-1.5 bg-[#28a745]/80 backdrop-blur-sm rounded-full text-[10px] font-bold text-white"><Shield size={9} /> Verified</span>}
@@ -416,6 +427,16 @@ export default function ProfilePage() {
                     </div>
                   ))}
                 </div>
+              </div>
+
+              <div className="md:hidden">
+                <ProfileAreaMap
+                  area={escort.area}
+                  city={escort.city}
+                  lat={escort.lat}
+                  lng={escort.lng}
+                  className="w-full"
+                />
               </div>
 
               {/* Mobile-only contact buttons — ALL contacts in one block above rates */}
