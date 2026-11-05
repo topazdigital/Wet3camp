@@ -531,7 +531,7 @@ async function setAdminGalleryProfilePhoto(req: AuthRequest, res: any) {
 router.patch('/admin/escorts/:id/gallery/:photoId/set-profile', requireAuth, requireAdmin, setAdminGalleryProfilePhoto)
 router.post('/admin/escorts/:id/gallery/:photoId/set-profile', requireAuth, requireAdmin, setAdminGalleryProfilePhoto)
 
-router.patch('/admin/escorts/:id', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+async function updateAdminEscort(req: AuthRequest, res: any) {
   try {
     const pool = getPool()
     if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
@@ -562,10 +562,15 @@ router.patch('/admin/escorts/:id', requireAuth, requireAdmin, async (req: AuthRe
     const [[escort]] = await pool.query<any[]>('SELECT * FROM escorts WHERE id = ?', [req.params!.id])
     res.json({ ...escort, id: String(escort.id) })
   } catch (err: any) {
-    console.error('[PATCH /admin/escorts/:id]', err?.message ?? err)
+    console.error('[admin escort update]', err?.message ?? err)
     res.status(500).json({ message: 'Failed to update escort', detail: err?.message ?? '' })
   }
-})
+}
+
+router.patch('/admin/escorts/:id', requireAuth, requireAdmin, updateAdminEscort)
+// Apache rejects PATCH requests on the production host, so the admin form uses
+// this authenticated POST alias while PATCH remains available to API clients.
+router.post('/admin/escorts/:id/update', requireAuth, requireAdmin, updateAdminEscort)
 
 const handleAdminEscortDelete = async (req: AuthRequest, res: any) => {
   try {

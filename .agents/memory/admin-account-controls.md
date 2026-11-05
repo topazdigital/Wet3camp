@@ -16,3 +16,10 @@ The Registered Users admin list must let administrators reactivate inactive acco
 **Why:** The user asked how to restore an account after deactivating it and confirmed that active status is managed in the admin panel.
 
 **How to apply:** Keep both actions admin-only, use POST routes for Apache compatibility, and update the visible row only after the API confirms the status change.
+
+## Escort profile editing
+Production Apache can return HTTP 406 for the admin escort edit `PATCH` request. The edit form should use an authenticated POST update alias; keep the `PATCH` route only for API compatibility if needed.
+
+**Why:** The user received a 406 when saving changes in the escort editor, while the server-side update handler already existed.
+
+**How to apply:** Keep `requireAuth` and `requireAdmin` on the POST alias, send the same validated edit fields, and update the admin list only after the server returns the saved escort.

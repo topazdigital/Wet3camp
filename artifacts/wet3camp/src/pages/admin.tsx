@@ -1399,45 +1399,64 @@ function EditEscortModal({ escort, onClose, onSaved }: { escort: AdminEscort; on
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!form.name.trim()) { setError('Name is required.'); return }
+    const nullableInt = (value: string) => {
+      if (!value.trim()) return null
+      const parsed = Number.parseInt(value, 10)
+      return Number.isFinite(parsed) ? parsed : null
+    }
     setSaving(true); setError('')
     try {
-      const data = await adminFetch(`/admin/escorts/${escort.id}`, {
-        method: 'PATCH',
+      const data = await adminFetch(`/admin/escorts/${escort.id}/update`, {
+        method: 'POST',
         body: JSON.stringify({
           ...form,
-          age: form.age ? parseInt(form.age) : undefined,
-          price_incall:            form.price_incall            ? parseInt(form.price_incall)            : undefined,
-          price_outcall:           form.price_outcall           ? parseInt(form.price_outcall)           : undefined,
-          price_incall_overnight:  form.price_incall_overnight  ? parseInt(form.price_incall_overnight)  : undefined,
-          price_outcall_overnight: form.price_outcall_overnight ? parseInt(form.price_outcall_overnight) : undefined,
-          price_video:             form.price_video             ? parseInt(form.price_video)             : undefined,
+          age: nullableInt(form.age),
+          price_incall: nullableInt(form.price_incall),
+          price_outcall: nullableInt(form.price_outcall),
+          price_incall_overnight: nullableInt(form.price_incall_overnight),
+          price_outcall_overnight: nullableInt(form.price_outcall_overnight),
+          price_video: nullableInt(form.price_video),
         }),
       })
       onSaved(data)
     } catch (err: any) {
       setError(err?.message ?? 'Failed to save changes.')
+    } finally {
+      setSaving(false)
     }
-    setSaving(false)
   }
 
-  const inputCls = 'w-full px-3 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted/50 focus:outline-none focus:border-[#8B0000] transition-all'
-  const priceCls = 'w-full px-3 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted/50 focus:outline-none focus:border-[#FFD700] transition-all'
+  const inputCls = 'w-full min-w-0 px-3 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted/50 focus:outline-none focus:border-[#8B0000] transition-all'
+  const priceCls = 'w-full min-w-0 px-3 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted/50 focus:outline-none focus:border-[#FFD700] transition-all'
 
   return (
-    <div className="fixed inset-0 bg-black/70 z-50 flex items-start justify-center p-4 overflow-y-auto" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="bg-card-bg border border-color rounded-2xl w-full max-w-lg my-4">
-        <div className="flex items-center justify-between p-5 border-b border-color">
-          <h3 className="text-sm font-bold text-text-light flex items-center gap-2"><Edit2 size={14} className="text-[#8B0000]"/>Edit — {escort.name}</h3>
-          <button onClick={onClose} className="p-1.5 text-text-muted hover:text-text-light rounded-lg"><XCircle size={16}/></button>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/70 p-2 sm:p-4"
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="admin-edit-escort-title"
+        data-testid="admin-edit-escort-dialog"
+        className="flex max-h-[calc(100dvh-1rem)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-color bg-card-bg sm:max-h-[calc(100dvh-2rem)]"
+      >
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-color p-3 sm:p-5">
+          <h3 id="admin-edit-escort-title" className="flex min-w-0 items-center gap-2 break-words text-sm font-bold text-text-light">
+            <Edit2 size={14} className="shrink-0 text-[#8B0000]"/>Edit — {escort.name}
+          </h3>
+          <button type="button" onClick={onClose} aria-label="Close edit escort dialog" data-testid="admin-edit-escort-close" className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg text-text-muted hover:text-text-light">
+            <XCircle size={16}/>
+          </button>
         </div>
         {loading ? (
-          <div className="flex items-center justify-center py-16 gap-2 text-text-muted">
+          <div className="flex min-h-0 flex-1 items-center justify-center gap-2 overflow-y-auto py-16 text-text-muted">
             <div className="w-5 h-5 border-2 border-text-muted/30 border-t-text-muted rounded-full animate-spin"/>
             <span className="text-sm">Loading…</span>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="p-5 space-y-4">
-            {error && <p className="text-xs text-[#EF4444] bg-[#EF4444]/10 px-3 py-2 rounded-lg">{error}</p>}
+          <form onSubmit={handleSubmit} data-testid="admin-edit-escort-form" className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-3 sm:p-5">
+            {error && <p role="alert" aria-live="polite" data-testid="admin-edit-escort-error" className="break-words rounded-lg bg-[#EF4444]/10 px-3 py-2 text-xs text-[#EF4444]">{error}</p>}
 
             {/* Profile Photo */}
             <div>
@@ -1446,7 +1465,7 @@ function EditEscortModal({ escort, onClose, onSaved }: { escort: AdminEscort; on
                 {form.image ? (
                   <div className="relative w-16 h-16 rounded-xl overflow-hidden border border-[#28a745]/40 flex-shrink-0">
                     <img src={form.image} alt="Preview" className="w-full h-full object-cover"/>
-                    <button type="button" onClick={() => setForm(f => ({ ...f, image: '' }))} className="absolute top-0.5 right-0.5 w-5 h-5 bg-black/70 rounded-full flex items-center justify-center text-white hover:bg-red-600 transition-colors"><XCircle size={10}/></button>
+                    <button type="button" onClick={() => setForm(f => ({ ...f, image: '' }))} aria-label="Remove profile photo" className="absolute right-0.5 top-0.5 flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-white transition-colors hover:bg-red-600"><XCircle size={13}/></button>
                   </div>
                 ) : (
                   <div className="w-16 h-16 rounded-xl border border-dashed border-color bg-dark-bg flex items-center justify-center text-text-muted flex-shrink-0"><Camera size={18}/></div>
@@ -1462,7 +1481,7 @@ function EditEscortModal({ escort, onClose, onSaved }: { escort: AdminEscort; on
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className="text-[10px] text-text-muted uppercase tracking-widest">Gallery Photos ({gallery.length})</label>
-                <label className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold cursor-pointer transition-all ${galleryUploading ? 'bg-dark-bg text-text-muted opacity-60' : 'bg-[#8B0000]/20 text-[#8B0000] hover:bg-[#8B0000]/30 border border-[#8B0000]/30'}`}>
+                <label className={`flex min-h-10 items-center gap-1.5 rounded-lg px-3 py-2 text-[10px] font-bold cursor-pointer transition-all ${galleryUploading ? 'bg-dark-bg text-text-muted opacity-60' : 'bg-[#8B0000]/20 text-[#8B0000] hover:bg-[#8B0000]/30 border border-[#8B0000]/30'}`}>
                   <input ref={galleryRef} type="file" accept="image/*" className="hidden" disabled={galleryUploading} onChange={handleGalleryUpload}/>
                   {galleryUploading ? <><div className="w-2.5 h-2.5 border-2 border-[#8B0000]/30 border-t-[#8B0000] rounded-full animate-spin"/>Adding…</> : <><Plus size={10}/>Add Photo</>}
                 </label>
@@ -1470,7 +1489,7 @@ function EditEscortModal({ escort, onClose, onSaved }: { escort: AdminEscort; on
               {gallery.length === 0 ? (
                 <div className="border border-dashed border-color rounded-xl py-6 flex items-center justify-center text-text-muted text-xs">No gallery photos yet</div>
               ) : (
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                   {gallery.map(p => {
                     const pid = String(p.id)
                     const isCurrentProfile = p.image_url === form.image
@@ -1478,16 +1497,16 @@ function EditEscortModal({ escort, onClose, onSaved }: { escort: AdminEscort; on
                       <div key={pid} className={`relative group rounded-xl overflow-hidden border aspect-square ${isCurrentProfile ? 'border-[#28a745]' : 'border-color'}`}>
                         <img src={p.image_url} alt="" className="w-full h-full object-cover"/>
                         {isCurrentProfile && (
-                          <div className="absolute top-1 left-1 bg-[#28a745] text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full">Profile</div>
+                          <div className="absolute left-1 top-1 z-10 rounded-full bg-[#28a745] px-1.5 py-0.5 text-[8px] font-bold text-white">Profile</div>
                         )}
-                        {/* Hover actions */}
-                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1.5 p-1">
+                        {/* Keep gallery actions available on touch devices; reveal on hover for desktop. */}
+                        <div className="absolute inset-0 flex flex-col items-center justify-end gap-1.5 bg-gradient-to-t from-black/90 via-black/35 to-transparent p-2 opacity-100 transition-opacity sm:justify-center sm:bg-black/60 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100">
                           {!isCurrentProfile && (
                             <button
                               type="button"
                               disabled={settingProfile === pid}
                               onClick={() => setAsProfilePhoto(pid)}
-                              className="w-full py-1 bg-[#28a745] text-white text-[9px] font-bold rounded-lg hover:bg-[#1e7e34] disabled:opacity-60 transition-colors"
+                              className="min-h-9 w-full rounded-lg bg-[#28a745] px-2 py-1 text-[10px] font-bold text-white transition-colors hover:bg-[#1e7e34] disabled:opacity-60"
                             >
                               {settingProfile === pid ? '…' : 'Set Profile'}
                             </button>
@@ -1496,7 +1515,7 @@ function EditEscortModal({ escort, onClose, onSaved }: { escort: AdminEscort; on
                             type="button"
                             disabled={deletingPhoto === pid}
                             onClick={() => deleteGalleryPhoto(pid)}
-                            className="w-full py-1 bg-[#EF4444] text-white text-[9px] font-bold rounded-lg hover:bg-[#c62828] disabled:opacity-60 transition-colors"
+                            className="min-h-9 w-full rounded-lg bg-[#EF4444] px-2 py-1 text-[10px] font-bold text-white transition-colors hover:bg-[#c62828] disabled:opacity-60"
                           >
                             {deletingPhoto === pid ? '…' : 'Delete'}
                           </button>
@@ -1508,30 +1527,30 @@ function EditEscortModal({ escort, onClose, onSaved }: { escort: AdminEscort; on
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="min-w-0">
                 <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Name *</label>
                 <input value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="e.g. Amara K." className={inputCls}/>
               </div>
-              <div>
+              <div className="min-w-0">
                 <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Gender</label>
                 <select value={form.gender} onChange={e=>setForm(f=>({...f,gender:e.target.value}))} className={inputCls}>
                   {['Female','Male','Trans Woman','Trans Man','Non-Binary'].map(g=><option key={g}>{g}</option>)}
                 </select>
               </div>
-              <div>
+              <div className="min-w-0">
                 <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">City</label>
                 <input value={form.city} onChange={e=>setForm(f=>({...f,city:e.target.value}))} placeholder="e.g. Nairobi" className={inputCls}/>
               </div>
-              <div>
+              <div className="min-w-0">
                 <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Area / Estate</label>
                 <input value={form.area} onChange={e=>setForm(f=>({...f,area:e.target.value}))} placeholder="e.g. Westlands" className={inputCls}/>
               </div>
-              <div>
+              <div className="min-w-0">
                 <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Age</label>
                 <input type="number" min="18" max="70" value={form.age} onChange={e=>setForm(f=>({...f,age:e.target.value}))} placeholder="e.g. 24" className={inputCls}/>
               </div>
-              <div>
+              <div className="min-w-0">
                 <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Tier</label>
                 <select value={form.tier} onChange={e=>setForm(f=>({...f,tier:e.target.value}))} className={inputCls}>
                   {['standard','premium','vip','elite'].map(t=><option key={t} value={t}>{t.charAt(0).toUpperCase()+t.slice(1)}</option>)}
@@ -1544,12 +1563,12 @@ function EditEscortModal({ escort, onClose, onSaved }: { escort: AdminEscort; on
               <textarea rows={3} value={form.bio} onChange={e=>setForm(f=>({...f,bio:e.target.value}))} placeholder="Short profile bio…" className={inputCls + ' resize-none'}/>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="min-w-0">
                 <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">WhatsApp</label>
                 <input value={form.whatsapp} onChange={e=>setForm(f=>({...f,whatsapp:e.target.value}))} placeholder="+254712345678" className={inputCls}/>
               </div>
-              <div>
+              <div className="min-w-0">
                 <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Telegram</label>
                 <input value={form.telegram} onChange={e=>setForm(f=>({...f,telegram:e.target.value}))} placeholder="@handle" className={inputCls}/>
               </div>
@@ -1557,7 +1576,7 @@ function EditEscortModal({ escort, onClose, onSaved }: { escort: AdminEscort; on
 
             <div>
               <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-2">Rates (KES)</label>
-              <div className="grid grid-cols-2 gap-2.5">
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                 {[
                   { label: 'Incall / hr', key: 'price_incall' as const },
                   { label: 'Outcall / hr', key: 'price_outcall' as const },
@@ -1573,9 +1592,9 @@ function EditEscortModal({ escort, onClose, onSaved }: { escort: AdminEscort; on
               </div>
             </div>
 
-            <div className="flex gap-3 pt-2">
-              <button type="button" onClick={onClose} className="flex-1 py-2.5 border border-color text-text-muted text-sm rounded-xl hover:border-text-muted/50 transition-all">Cancel</button>
-              <button type="submit" disabled={saving} className="flex-1 py-2.5 bg-[#8B0000] hover:bg-[#a00000] text-white text-sm font-bold rounded-xl disabled:opacity-60 flex items-center justify-center gap-2 transition-all">
+            <div className="sticky bottom-0 -mx-3 -mb-3 grid grid-cols-1 gap-2 border-t border-color bg-card-bg/95 px-3 py-3 backdrop-blur sm:-mx-5 sm:-mb-5 sm:grid-cols-2 sm:px-5 sm:py-4">
+              <button type="button" onClick={onClose} data-testid="admin-edit-escort-cancel" className="min-h-11 rounded-xl border border-color py-2.5 text-sm text-text-muted transition-all hover:border-text-muted/50">Cancel</button>
+              <button type="submit" disabled={saving} data-testid="admin-edit-escort-save" className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#8B0000] py-2.5 text-sm font-bold text-white transition-all hover:bg-[#a00000] disabled:opacity-60">
                 {saving ? <><div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"/>Saving…</> : <><Save size={13}/>Save Changes</>}
               </button>
             </div>
