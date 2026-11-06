@@ -57,6 +57,7 @@ CREATE TABLE IF NOT EXISTS `escorts` (
   `available`        tinyint(1)       NOT NULL DEFAULT 0,
   `verified`         tinyint(1)       NOT NULL DEFAULT 0,
   `online`           tinyint(1)       NOT NULL DEFAULT 0,
+  `map_visible`      tinyint(1)       NOT NULL DEFAULT 1,
   `is_active`        tinyint(1)       NOT NULL DEFAULT 1,
   `created_at`       datetime         NOT NULL DEFAULT current_timestamp(),
   `updated_at`       datetime         NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
@@ -70,6 +71,7 @@ CREATE TABLE IF NOT EXISTS `escorts` (
 ALTER TABLE escorts
   ADD COLUMN IF NOT EXISTS `is_active`       tinyint(1)       NOT NULL DEFAULT 1,
   ADD COLUMN IF NOT EXISTS `online`          tinyint(1)       NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS `map_visible`     tinyint(1)       NOT NULL DEFAULT 1,
   ADD COLUMN IF NOT EXISTS `lat`             decimal(9,6)     NOT NULL DEFAULT 0.000000,
   ADD COLUMN IF NOT EXISTS `lng`             decimal(9,6)     NOT NULL DEFAULT 0.000000,
   ADD COLUMN IF NOT EXISTS `height`          varchar(20)      DEFAULT NULL,
