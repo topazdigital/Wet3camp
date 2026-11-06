@@ -213,7 +213,7 @@ export const api = {
       rateIncall?: number; rateOutcall?: number
       rateIncallOvernight?: number; rateOutcallOvernight?: number
       rateVideo?: number
-      available?: boolean; languages?: string[]; services?: string[]
+      available?: boolean; mapVisible?: boolean; languages?: string[]; services?: string[]
     }) =>
       req<any>('/profile/escort', { method: 'PATCH', body: JSON.stringify(d) }),
     getEarnings: () => req<any>('/profile/escort/earnings'),
