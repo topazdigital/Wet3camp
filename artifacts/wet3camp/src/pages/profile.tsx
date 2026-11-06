@@ -59,17 +59,14 @@ export default function ProfilePage() {
   }, [escort?.city, escort?.id])
 
   const availableServices = escort?.services?.filter((s: any) => s.available).map((s: any) => s.name as string) ?? []
-  const servicesText = availableServices.length > 0
-    ? `Services: ${availableServices.slice(0, 5).join(', ')}.`
-    : ''
 
   const escortSeoSchema = escort ? [
     {
       "@context": "https://schema.org",
       "@type": "Person",
       "name": escort.name,
-      "jobTitle": `${escort.tier ?? 'Premium'} Escort in ${escort.city}, Kenya`,
-      "description": escort.bio?.slice(0, 200),
+      "jobTitle": `Escort in ${escort.city}, Kenya`,
+      "description": escort.seoDescription ?? escort.bio?.slice(0, 200),
       "image": escort.image,
       "url": `https://wet3.camp/@${getSlug(escort.name)}`,
       "address": {
@@ -106,16 +103,12 @@ export default function ProfilePage() {
     }
   ] : undefined
 
-  const profileAge   = escort?.age   ? `, ${escort.age}` : ''
-  const profileGender = escort?.gender ?? 'Female'
-  const profileArea   = escort?.area  ? `${escort.area}, ` : ''
-
   useSEO({
     title: escort
-      ? `${escort.name}${profileAge} — ${profileGender} Escort in ${profileArea}${escort.city}`
+      ? escort.seoTitle ?? `${escort.name} — Escort in ${escort.city}`
       : 'Verified Escort Profile Kenya',
     description: escort
-      ? `Book ${escort.name}${profileAge}, verified ${escort.tier ?? 'premium'} ${profileGender.toLowerCase()} escort in ${escort.area}, ${escort.city}, Kenya. ${servicesText} ${escort.bio?.slice(0, 80) ?? ''} Incall from KES ${(escort.pricing?.incall || 0).toLocaleString()}/hr. Available now on Wet3Camp.`.trim()
+      ? escort.seoDescription ?? `Escort profile for ${escort.name} in ${escort.city}, Kenya. Contact directly to confirm current availability.`
       : "Verified escort profiles on Wet3Camp — Kenya's #1 escort directory.",
     escort: escort ? {
       name: escort.name,
@@ -338,13 +331,15 @@ export default function ProfilePage() {
           </div>
 
           <div className="absolute right-4 top-1/2 z-10 hidden -translate-y-1/2 md:block">
-            <ProfileAreaMap
-              area={escort.area}
-              city={escort.city}
-              lat={escort.lat}
-              lng={escort.lng}
-              className="w-[min(250px,26vw)] min-w-[180px]"
-            />
+            {escort.map_visible !== false && (
+              <ProfileAreaMap
+                area={escort.area}
+                city={escort.city}
+                lat={escort.lat}
+                lng={escort.lng}
+                className="w-[min(250px,26vw)] min-w-[180px]"
+              />
+            )}
           </div>
 
           <div className="absolute bottom-4 left-4 flex items-center gap-2">
@@ -429,7 +424,7 @@ export default function ProfilePage() {
                 </div>
               </div>
 
-              <div className="md:hidden">
+              {escort.map_visible !== false && <div className="md:hidden">
                 <ProfileAreaMap
                   area={escort.area}
                   city={escort.city}
@@ -437,7 +432,7 @@ export default function ProfilePage() {
                   lng={escort.lng}
                   className="w-full"
                 />
-              </div>
+              </div>}
 
               {/* Mobile-only contact buttons — ALL contacts in one block above rates */}
               <div className="lg:hidden bg-card-bg border border-[#8B0000]/30 rounded-2xl p-4 space-y-2.5">
