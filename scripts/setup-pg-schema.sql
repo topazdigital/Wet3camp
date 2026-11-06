@@ -47,6 +47,7 @@ CREATE TABLE IF NOT EXISTS escorts (
   available        SMALLINT         NOT NULL DEFAULT 0,
   verified         SMALLINT         NOT NULL DEFAULT 0,
   online           SMALLINT         NOT NULL DEFAULT 0,
+  map_visible      SMALLINT         NOT NULL DEFAULT 1,
   featured         SMALLINT         NOT NULL DEFAULT 0,
   price_incall_overnight INTEGER     NOT NULL DEFAULT 0,
   price_outcall_overnight INTEGER    NOT NULL DEFAULT 0,
@@ -56,6 +57,7 @@ CREATE TABLE IF NOT EXISTS escorts (
   created_at       TIMESTAMP        NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at       TIMESTAMP        NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+ALTER TABLE escorts ADD COLUMN IF NOT EXISTS map_visible SMALLINT NOT NULL DEFAULT 1;
 CREATE INDEX IF NOT EXISTS idx_escorts_user_id ON escorts (user_id);
 CREATE INDEX IF NOT EXISTS idx_escorts_city    ON escorts (city);
 CREATE INDEX IF NOT EXISTS idx_escorts_tier    ON escorts (tier);
