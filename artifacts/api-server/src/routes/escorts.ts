@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { getPool } from '../lib/db.js'
 import { CITY_AREA_VALUES } from '../lib/location-data.js'
 import { getPublicLocationDirectory, MIN_INDEXABLE_LOCATION_PROFILES } from '../lib/public-locations.js'
+import { buildProfileSeo } from '../lib/profile-seo.js'
 
 const router = Router()
 
@@ -19,6 +20,9 @@ function mapEscort(row: any) {
     verified:  !!row.verified,
     online:    !!row.online,
     featured:  !!row.featured,
+    map_visible: row.map_visible === undefined || row.map_visible === null
+      ? true
+      : Number(row.map_visible) === 1,
     gender:    row.gender ?? 'Female',
     instagram: row.instagram ?? null,
     facebook:  row.facebook ?? null,
@@ -258,9 +262,13 @@ router.get('/escorts/:id', async (req, res) => {
       row = (allEscorts as any[]).find(r => slugOf(r.name) === id.toLowerCase()) ?? null
     }
 
-    if (!row) return res.status(404).json({ message: 'Escort not found' })
+    if (!row) {
+      res.status(404).json({ message: 'Escort not found' })
+      return
+    }
 
     const escortId = String(row.id)
+    const profileSeo = buildProfileSeo(row)
     const [gallery]   = await pool.query<any[]>('SELECT image_url FROM escort_gallery WHERE escort_id = ? ORDER BY sort_order', [escortId])
     const [services]  = await pool.query<any[]>('SELECT name, MAX(available) AS available FROM escort_services WHERE escort_id = ? GROUP BY name ORDER BY name', [escortId])
     const [languages] = await pool.query<any[]>('SELECT DISTINCT language FROM escort_languages WHERE escort_id = ?', [escortId])
@@ -291,6 +299,8 @@ router.get('/escorts/:id', async (req, res) => {
         effective_image: row.image || ((gallery as any[])[0]?.image_url ?? null),
         languages_csv: languages.map((l: any) => l.language).join(','),
       }),
+      seoTitle: profileSeo.title,
+      seoDescription: profileSeo.description,
       follower_count: Number((followerRow as any)?.cnt ?? 0),
       reviews_count:  Number((reviewRow as any)?.cnt ?? row.reviews_count ?? 0),
       rating:         Number((reviewRow as any)?.avg ?? row.rating ?? 0) || Number(row.rating ?? 0),
