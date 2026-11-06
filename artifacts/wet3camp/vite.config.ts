@@ -69,7 +69,10 @@ export default defineConfig(async ({ mode }) => {
             if (id.includes('lucide-react')) return 'vendor-icons'
             // Router
             if (id.includes('wouter')) return 'vendor-router'
-            // Everything else (zod, date-fns, framer-motion, etc.)
+            // Route-specific libraries should not inflate the shared initial vendor bundle
+            if (id.includes('/node_modules/recharts/')) return 'vendor-charts'
+            if (id.includes('/node_modules/leaflet/')) return 'vendor-map'
+            // Shared remaining dependencies (zod, date-fns, framer-motion, etc.)
             return 'vendor-misc'
           },
         },
