@@ -8,6 +8,14 @@ import { sendWelcomeEmail, sendEscortWelcomeEmail, sendPasswordResetEmail } from
 const router = Router()
 
 const otpStore = new Map<string, { code: string; expires: number }>()
+const verifiedRegistrationEmails = new Map<string, number>()
+const REGISTRATION_PROOF_TTL_MS = 2 * 60 * 60 * 1000
+
+function pruneExpiredRegistrationProofs(now = Date.now()) {
+  for (const [email, expires] of verifiedRegistrationEmails) {
+    if (expires <= now) verifiedRegistrationEmails.delete(email)
+  }
+}
 
 router.post('/auth/login', async (req, res) => {
   try {
@@ -80,12 +88,20 @@ router.post('/auth/register', async (req, res) => {
       rateVideo,
       languages, services,
     } = req.body as Record<string, any>
+    const normalizedEmail = typeof email === 'string' ? email.toLowerCase().trim() : ''
 
-    if (!name || !email || !password) {
+    if (!name || !normalizedEmail || !password) {
       res.status(400).json({ message: 'Name, email and password are required' }); return
     }
     if (password.length < 8) {
       res.status(400).json({ message: 'Password must be at least 8 characters' }); return
+    }
+
+    pruneExpiredRegistrationProofs()
+    const proofExpiresAt = verifiedRegistrationEmails.get(normalizedEmail)
+    if (!proofExpiresAt || proofExpiresAt <= Date.now()) {
+      verifiedRegistrationEmails.delete(normalizedEmail)
+      res.status(403).json({ message: 'Please verify your email address before registering.' }); return
     }
 
     const dbRole = rawRole === 'escort' ? 'escort' : 'user'
@@ -95,16 +111,16 @@ router.post('/auth/register', async (req, res) => {
       res.status(503).json({ message: 'Database not configured. Please contact support.', code: 'NO_DB' }); return
     }
 
-    const [[existing]] = await pool.query<any[]>('SELECT id FROM users WHERE email = ? LIMIT 1', [email.toLowerCase().trim()])
+    const [[existing]] = await pool.query<any[]>('SELECT id FROM users WHERE email = ? LIMIT 1', [normalizedEmail])
     if (existing) {
       res.status(409).json({ message: 'An account with this email already exists' }); return
     }
 
     const hash     = await hashPassword(password)
-    const username = email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '') + Math.floor(Math.random() * 999)
+    const username = normalizedEmail.split('@')[0].replace(/[^a-z0-9]/g, '') + Math.floor(Math.random() * 999)
     const [result] = await pool.query<any>(
       'INSERT INTO users (username, email, password_hash, display_name, phone, role) VALUES (?,?,?,?,?,?)',
-      [username, email.toLowerCase().trim(), hash, name, phone ?? null, dbRole]
+      [username, normalizedEmail, hash, name, phone ?? null, dbRole]
     )
     const userId = (result as any).insertId
 
@@ -163,12 +179,13 @@ router.post('/auth/register', async (req, res) => {
       }
     }
 
-    const token = await signToken({ id: userId, role: dbRole, email })
+    const token = await signToken({ id: userId, role: dbRole, email: normalizedEmail })
+    verifiedRegistrationEmails.delete(normalizedEmail)
 
     if (dbRole === 'escort') {
-      sendEscortWelcomeEmail(name, email.toLowerCase().trim()).catch(() => {})
+      sendEscortWelcomeEmail(name, normalizedEmail).catch(() => {})
     } else {
-      sendWelcomeEmail(name, email.toLowerCase().trim()).catch(() => {})
+      sendWelcomeEmail(name, normalizedEmail).catch(() => {})
     }
 
     // approved = true when not an escort, or when require_approval is off
@@ -186,7 +203,7 @@ router.post('/auth/register', async (req, res) => {
       token,
       user: {
         id: String(userId), name,
-        email: email.toLowerCase().trim(),
+        email: normalizedEmail,
         role: dbRole, avatar: null, phone: phone ?? null,
         approved,
       },
@@ -360,6 +377,8 @@ router.post('/auth/send-otp', async (req, res) => {
     res.status(400).json({ message: 'Valid email is required' }); return
   }
   const emailKey = email.toLowerCase().trim()
+  verifiedRegistrationEmails.delete(emailKey)
+  pruneExpiredRegistrationProofs()
   const code = Math.floor(100000 + Math.random() * 900000).toString()
   const expires = Date.now() + 10 * 60 * 1000
   otpStore.set(emailKey, { code, expires })
@@ -404,11 +423,12 @@ router.post('/auth/send-otp', async (req, res) => {
       })
       console.log(`[OTP] Code sent to ${emailKey} via ${cfg.host}`)
     } catch (err: any) {
+      otpStore.delete(emailKey)
       console.error('[send-otp] Email send failed:', err?.message ?? err)
       res.status(500).json({ message: 'Failed to send verification email. Please try again or contact support.' }); return
     }
   } else {
-    console.log(`[OTP] SMTP not configured — code for ${emailKey}: ${code}`)
+    otpStore.delete(emailKey)
     res.status(503).json({ message: 'Email verification is not configured. Please contact support.' }); return
   }
   res.json({ message: 'Verification code sent to your email.' })
@@ -432,6 +452,7 @@ router.post('/auth/verify-otp', (req, res) => {
     res.status(400).json({ message: 'Incorrect code. Please try again.' }); return
   }
   otpStore.delete(emailKey)
+  verifiedRegistrationEmails.set(emailKey, Date.now() + REGISTRATION_PROOF_TTL_MS)
   res.json({ verified: true, message: 'Email verified successfully.' })
 })
 
