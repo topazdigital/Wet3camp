@@ -33,9 +33,9 @@ export default function Featured() {
             <div className="w-12 h-12 bg-secondary-color/20 rounded-lg flex items-center justify-center mb-4">
               <Award className="text-secondary-color" size={24} />
             </div>
-            <h3 className="text-lg font-bold text-text-light mb-2">Verified Professionals</h3>
+            <h3 className="text-lg font-bold text-text-light mb-2">Reviewed Profiles</h3>
             <p className="text-text-muted text-sm">
-              All professionals are thoroughly vetted and verified to ensure authenticity and quality
+              New profiles are reviewed by an admin before publication. Review is not proof of legal identity or age.
             </p>
           </div>
 
