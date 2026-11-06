@@ -48,6 +48,7 @@ CREATE TABLE IF NOT EXISTS escorts (
   available        SMALLINT         NOT NULL DEFAULT 0,
   verified         SMALLINT         NOT NULL DEFAULT 0,
   online           SMALLINT         NOT NULL DEFAULT 0,
+  map_visible      SMALLINT         NOT NULL DEFAULT 1,
   featured         SMALLINT         NOT NULL DEFAULT 0,
   instagram        VARCHAR(100)     DEFAULT NULL,
   facebook         VARCHAR(100)     DEFAULT NULL,
@@ -376,6 +377,7 @@ ALTER TABLE escorts ADD COLUMN IF NOT EXISTS price_incall_overnight  INTEGER  DE
 ALTER TABLE escorts ADD COLUMN IF NOT EXISTS price_outcall_overnight INTEGER  DEFAULT 0;
 ALTER TABLE escorts ADD COLUMN IF NOT EXISTS source_site             VARCHAR(100) DEFAULT NULL;
 ALTER TABLE escorts ADD COLUMN IF NOT EXISTS source_url              VARCHAR(500) DEFAULT NULL;
+ALTER TABLE escorts ADD COLUMN IF NOT EXISTS map_visible             SMALLINT NOT NULL DEFAULT 1;
 
 CREATE TABLE IF NOT EXISTS events (
   id          SERIAL PRIMARY KEY,
