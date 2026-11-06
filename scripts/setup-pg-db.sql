@@ -18,7 +18,6 @@ CREATE TABLE IF NOT EXISTS users (
   created_at    TIMESTAMP     NOT NULL DEFAULT current_timestamp,
   updated_at    TIMESTAMP     NOT NULL DEFAULT current_timestamp
 );
-
 -- 2. escorts
 CREATE TABLE IF NOT EXISTS escorts (
   id               SERIAL PRIMARY KEY,
@@ -50,6 +49,7 @@ CREATE TABLE IF NOT EXISTS escorts (
   available        SMALLINT      NOT NULL DEFAULT 0,
   verified         SMALLINT      NOT NULL DEFAULT 0,
   online           SMALLINT      NOT NULL DEFAULT 0,
+  map_visible      SMALLINT      NOT NULL DEFAULT 1,
   is_active        SMALLINT      NOT NULL DEFAULT 1,
   featured                SMALLINT      NOT NULL DEFAULT 0,
   instagram               VARCHAR(100)  DEFAULT NULL,
@@ -60,6 +60,7 @@ CREATE TABLE IF NOT EXISTS escorts (
   updated_at              TIMESTAMP     NOT NULL DEFAULT current_timestamp
 );
 
+ALTER TABLE escorts ADD COLUMN IF NOT EXISTS map_visible SMALLINT NOT NULL DEFAULT 1;
 CREATE INDEX IF NOT EXISTS idx_escorts_user_id ON escorts(user_id);
 CREATE INDEX IF NOT EXISTS idx_escorts_city    ON escorts(city);
 CREATE INDEX IF NOT EXISTS idx_escorts_tier    ON escorts(tier);
