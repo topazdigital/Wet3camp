@@ -58,7 +58,7 @@ export default function PendingApproval() {
 
           <div className="space-y-3 mb-7 text-left">
             {[
-              { icon: ShieldCheck, text: 'Admin will verify your profile and selfie',           color: '#28a745' },
+              { icon: ShieldCheck, text: 'Admin will review your profile before it goes live', color: '#28a745' },
               { icon: Bell,        text: "You'll be notified by email when approved",            color: '#2196F3' },
               { icon: Clock,       text: 'Review typically takes up to 24 hours',               color: '#FFD700' },
               { icon: Mail,        text: `Confirmation sent to ${user?.email ?? 'your email'}`, color: '#8B0000' },
