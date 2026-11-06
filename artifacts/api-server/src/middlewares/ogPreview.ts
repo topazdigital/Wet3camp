@@ -14,6 +14,7 @@
 
 import type { Request, Response, NextFunction } from 'express'
 import { getPool } from '../lib/db.js'
+import { buildProfileSeo } from '../lib/profile-seo.js'
 import { AREA_LANDING_PAGES, CITY_AREA_VALUES, getAreaLandingPage, isAreaRowMatch } from '../lib/location-data.js'
 import {
   getPublicLocationDirectory,
@@ -300,7 +301,7 @@ async function findEscortBySlug(slug: string): Promise<any | null> {
     let rows: any[]
     if (/^\d+$/.test(slug)) {
       const [r] = await pool.query<any[]>(
-        `SELECT e.id, e.name, e.age, e.city, e.area, e.tier, e.bio,
+        `SELECT e.id, e.name, e.age, e.city, e.area, e.tier, e.bio, e.verified,
                 e.incall, e.outcall, e.price_incall, e.price_hourly, e.rating,
                 COALESCE(NULLIF(e.image,''), eg.image_url) AS image
          FROM escorts e
@@ -312,7 +313,7 @@ async function findEscortBySlug(slug: string): Promise<any | null> {
       rows = Array.isArray(r) ? r : []
     } else {
       const [r] = await pool.query<any[]>(
-        `SELECT e.id, e.name, e.age, e.city, e.area, e.tier, e.bio,
+        `SELECT e.id, e.name, e.age, e.city, e.area, e.tier, e.bio, e.verified,
                 e.incall, e.outcall, e.price_incall, e.price_hourly, e.rating,
                 COALESCE(NULLIF(e.image,''), eg.image_url) AS image
          FROM escorts e
@@ -574,9 +575,8 @@ const BLOG_OG: Record<string, { title: string; description: string; image: strin
   },
 }
 
-// These posts are bundled in the frontend and therefore remain available even
-// when the optional blog database is empty. Keep their crawler metadata in sync
-// so sitemap URLs do not fall back to a generic or missing page.
+// Optional SEO metadata for known guide slugs can supplement a published DB row;
+// it must never make an unpublished or missing article appear indexable.
 const LOCAL_BLOG_TITLES: Record<string, string> = {
   'mombasa-escort-guide-2025': 'Mombasa Escort Guide — Nyali, Diani & More',
   'escort-safety-tips-kenya': 'Escort Safety Tips in Kenya',
@@ -1021,37 +1021,10 @@ export async function ogPreviewMiddleware(req: Request, res: Response, next: Nex
           return
         }
 
-        const tier       = (escort.tier ?? 'premium') as string
-        const tierLabel  = tier.charAt(0).toUpperCase() + tier.slice(1)
-        const area       = escort.area ? `${escort.area}, ` : ''
-        const age        = escort.age  ? `, ${escort.age}`  : ''
-        const bio        = ((escort.bio as string) ?? '').replace(/\n/g, ' ').trim()
-        const price      = escort.price_incall || escort.price_hourly
-
-        // Availability hint
-        const avail: string[] = []
-        if (escort.incall  === 1 || escort.incall  === '1') avail.push('incall')
-        if (escort.outcall === 1 || escort.outcall === '1') avail.push('outcall')
-        const availStr = avail.length ? ` Available for ${avail.join(' & ')}.` : ''
-
-        const title = `${escort.name}${age} — ${tierLabel} Escort in ${area}${escort.city} | ${SITE_NAME}`
-
-        let description: string
-        if (bio && bio.length > 30) {
-          const bioSnip = bio.slice(0, 140)
-          description = `${bioSnip}${bio.length > 140 ? '…' : ''}${availStr} Book ${escort.name} on Wet3Camp.`
-        } else {
-          description = `Verified ${tierLabel.toLowerCase()} escort in ${area}${escort.city}, Kenya.${
-            price ? ` From KES ${Number(price).toLocaleString()}.` : ''
-          }${availStr} Book ${escort.name} on Wet3Camp.`
-        }
-
-        const escortKw = [
-          escort.name, `${escort.name} escort`, `${escort.name} ${escort.city}`,
-          `${escort.name} wet3camp`, `escort ${escort.city}`, `${tierLabel.toLowerCase()} escort ${escort.city}`,
-          area ? `escort ${escort.area}` : '', `call girl ${escort.city}`,
-          `verified escort ${escort.city}`, BASE_KW,
-        ].filter(Boolean).join(', ')
+        const profileSeo = buildProfileSeo(escort)
+        const title = profileSeo.title
+        const description = profileSeo.description
+        const escortKw = [profileSeo.keywords, BASE_KW].filter(Boolean).join(', ')
 
         const image = ogImage((escort.image as string) || '')
 
@@ -1065,11 +1038,11 @@ export async function ogPreviewMiddleware(req: Request, res: Response, next: Nex
           url: escortUrl,
           image: image !== DEFAULT_IMAGE ? { '@type': 'ImageObject', url: image } : undefined,
           description: description,
-          jobTitle: `${tierLabel} Escort`,
+          jobTitle: 'Escort',
           address: {
             '@type': 'PostalAddress',
-            addressLocality: area.replace(', ', '') || escort.city,
-            addressRegion: escort.city,
+            addressLocality: profileSeo.area || profileSeo.city,
+            addressRegion: profileSeo.city,
             addressCountry: 'KE',
           },
         }
@@ -1093,28 +1066,7 @@ export async function ogPreviewMiddleware(req: Request, res: Response, next: Nex
     const bslug = blogMatch[1]
     const staticBlog = BLOG_OG[bslug]
 
-    if (staticBlog) {
-      const articleSchema = {
-        '@context': 'https://schema.org',
-        '@type': 'Article',
-        headline: staticBlog.title,
-        description: staticBlog.description,
-        image: staticBlog.image,
-        url: fullUrl,
-        author: { '@type': 'Organization', name: SITE_NAME },
-        publisher: { '@type': 'Organization', name: SITE_NAME, logo: { '@type': 'ImageObject', url: `${SITE_URL}/icon-512.png` } },
-        mainEntityOfPage: fullUrl,
-      }
-      res.setHeader('Content-Type', 'text/html; charset=utf-8')
-      res.setHeader('Cache-Control', 'public, max-age=3600')
-      res.send(buildHtml({
-        ...staticBlog, url: fullUrl, type: 'article',
-        schema: [...BASE_SCHEMAS, articleSchema],
-      }))
-      return
-    }
-
-    // DB fallback for dynamic blog posts
+    // Only published database posts should receive indexable crawler metadata.
     const pool = getPool()
     const blogFallback = () => {
       res.setHeader('Content-Type', 'text/html; charset=utf-8')
@@ -1128,21 +1080,42 @@ export async function ogPreviewMiddleware(req: Request, res: Response, next: Nex
     }
     if (!pool) { blogFallback(); return }
     pool.query<any[]>(
-      'SELECT title, excerpt, image_url, image FROM blog_posts WHERE slug = ? AND published = 1 LIMIT 1',
+      `SELECT title, excerpt, image_url, image, seo_title, seo_description,
+              author, published_at, updated_at
+       FROM blog_posts WHERE slug = ? AND published = 1 LIMIT 1`,
       [bslug]
     )
       .then(([rows]) => {
         const post = Array.isArray(rows) && rows.length > 0 ? rows[0] : null
         if (post) {
+          const rawTitle = post.seo_title || post.title || staticBlog?.title || 'Wet3 Camp article'
+          const title = /(?:\||—)\s*Wet3\s?Camp$/i.test(rawTitle)
+            ? rawTitle
+            : `${rawTitle} | ${SITE_NAME}`
+          const description = post.seo_description || post.excerpt || staticBlog?.description || 'Read this article on Wet3 Camp.'
+          const image = ogImage(post.image_url || post.image || staticBlog?.image)
+          const articleSchema = {
+            '@context': 'https://schema.org',
+            '@type': 'Article',
+            headline: rawTitle,
+            description,
+            image,
+            url: fullUrl,
+            datePublished: post.published_at || undefined,
+            dateModified: post.updated_at || undefined,
+            author: { '@type': 'Person', name: post.author || SITE_NAME },
+            publisher: { '@type': 'Organization', name: SITE_NAME, logo: { '@type': 'ImageObject', url: `${SITE_URL}/icon-512.png` } },
+            mainEntityOfPage: fullUrl,
+          }
           res.setHeader('Content-Type', 'text/html; charset=utf-8')
           res.setHeader('Cache-Control', 'public, max-age=600')
           res.send(buildHtml({
-            title: `${post.title} | ${SITE_NAME}`,
-            description: post.excerpt ?? 'Read more on Wet3Camp.',
-            image: ogImage(post.image_url || post.image),
+            title,
+            description,
+            image,
             url: fullUrl, type: 'article',
-            keywords: PAGE_OG['/blog']?.keywords,
-            schema: BASE_SCHEMAS,
+            keywords: staticBlog?.keywords || PAGE_OG['/blog']?.keywords,
+            schema: [...BASE_SCHEMAS, articleSchema],
           }))
         } else { blogFallback() }
       })
