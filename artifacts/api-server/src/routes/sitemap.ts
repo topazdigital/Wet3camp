@@ -34,30 +34,25 @@ const STATIC_PAGES = [
   { loc: '/testimonials',  changefreq: 'weekly',  priority: '0.5' },
 ]
 
-const BLOG_SLUGS = [
-  'how-to-find-verified-escorts-nairobi',
-  'mombasa-escort-guide-2025',
-  'escort-safety-tips-kenya',
-  'nairobi-escort-rates-2025',
-  'westlands-escorts-nairobi-guide',
-  'gfe-girlfriend-experience-nairobi',
-  'incall-outcall-escorts-kenya',
-  'kisumu-escorts-guide-2025',
-  'elite-vip-escorts-nairobi-difference',
-  'massage-escorts-nairobi-guide',
-  'overnight-escorts-nairobi-guide',
-  'nakuru-eldoret-escorts-guide',
-  'how-to-spot-fake-escorts-kenya',
-  'nairobi-nightlife-escort-companion-guide',
-  'kenya-travel-escort-safari-companion',
-]
-
 function xmlEscape(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
-function url(loc: string, lastmod: string, changefreq: string, priority: string): string {
-  return `  <url><loc>${xmlEscape(loc)}</loc><lastmod>${lastmod}</lastmod><changefreq>${changefreq}</changefreq><priority>${priority}</priority></url>`
+function url(loc: string, lastmod: string | null, changefreq: string, priority: string): string {
+  const lastmodTag = lastmod ? `<lastmod>${xmlEscape(lastmod)}</lastmod>` : ''
+  return `  <url><loc>${xmlEscape(loc)}</loc>${lastmodTag}<changefreq>${changefreq}</changefreq><priority>${priority}</priority></url>`
+}
+
+function sitemapDate(value: unknown): string | null {
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value.toISOString().slice(0, 10)
+  }
+  const match = String(value ?? '').trim().match(/^(\d{4}-\d{2}-\d{2})/)
+  if (!match) return null
+  const parsed = new Date(`${match[1]}T00:00:00Z`)
+  return Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== match[1]
+    ? null
+    : match[1]
 }
 
 // ── Sitemap index ─────────────────────────────────────────────────────────────
@@ -189,33 +184,32 @@ router.get('/sitemap-cities.xml', async (_req, res) => {
 
 // ── Blog sitemap ──────────────────────────────────────────────────────────────
 router.get('/sitemap-blog.xml', async (_req, res) => {
-  const today = new Date().toISOString().split('T')[0]
   res.setHeader('Content-Type', 'application/xml; charset=utf-8')
   res.setHeader('Cache-Control', 'public, max-age=3600, stale-while-revalidate=7200')
 
-  // Merge static slugs + all published DB posts
-  const allSlugs: { slug: string; date: string }[] = BLOG_SLUGS.map(s => ({ slug: s, date: today }))
-  const seenSlugs = new Set(BLOG_SLUGS)
+  // Only published database posts belong in the sitemap. Static legacy slugs
+  // can outlive their articles and otherwise create soft-404 entries.
+  const allSlugs = new Map<string, { slug: string; date: string | null }>()
 
   const pool = getPool()
   if (pool) {
     try {
       const [rows] = await pool.query<any[]>(
-        'SELECT slug, published_at FROM blog_posts WHERE published = 1 ORDER BY published_at DESC LIMIT 1000'
+        'SELECT slug, updated_at, published_at FROM blog_posts WHERE published = 1 ORDER BY COALESCE(updated_at, published_at) DESC LIMIT 1000'
       )
       for (const row of rows as any[]) {
-        if (!seenSlugs.has(row.slug)) {
-          allSlugs.push({
-            slug: row.slug,
-            date: row.published_at ? new Date(row.published_at).toISOString().split('T')[0] : today,
+        const slug = String(row.slug ?? '').trim()
+        if (slug) {
+          allSlugs.set(slug, {
+            slug,
+            date: sitemapDate(row.updated_at) ?? sitemapDate(row.published_at),
           })
-          seenSlugs.add(row.slug)
         }
       }
     } catch { /* ignore DB errors */ }
   }
 
-  const lines = allSlugs.map(({ slug, date }) =>
+  const lines = [...allSlugs.values()].map(({ slug, date }) =>
     url(`${BASE}/blog/${slug}`, date, 'weekly', '0.7')
   )
 
@@ -231,14 +225,11 @@ router.get('/sitemap-blog.xml', async (_req, res) => {
 const INDEXNOW_KEY = '26208b24b3042bb431992ba1c7bd5c74'
 
 function collectAllUrls(): string[] {
-  const today = new Date().toISOString().split('T')[0]
-  void today
   const urls: string[] = [`${BASE}/`]
   urls.push(`${BASE}/locations`)
   for (const citySlug of CITY_PAGES) urls.push(`${BASE}/escorts/${citySlug}`)
   // Filter URLs are intentionally excluded; dedicated /escorts/:city pages
   // are the crawlable location surfaces.
-  for (const slug of BLOG_SLUGS) urls.push(`${BASE}/blog/${slug}`)
   urls.push(`${BASE}/blog`, `${BASE}/search`, `${BASE}/faqs`, `${BASE}/reviews`)
   return urls
 }
