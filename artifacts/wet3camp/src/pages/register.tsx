@@ -3,7 +3,7 @@ import { Link, useLocation } from 'wouter'
 import {
   User, Mail, Phone, Lock, Eye, EyeOff, MapPin, Camera,
   CheckCircle2, ChevronRight, AlertCircle, Navigation, Calendar,
-  MessageCircle, Globe, DollarSign, ShieldCheck, Loader2, RefreshCw,
+  MessageCircle, Globe, DollarSign, Loader2, RefreshCw,
   Instagram, Facebook, Sparkles
 } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
@@ -216,12 +216,9 @@ export default function RegisterPage() {
   const [rateOutcallOvernight, setRateOutcallOvernight] = useState('25000')
   const [rateVideo, setRateVideo]                 = useState('1500')
 
-  // Photos & pose (escort)
+  // Photos (escort)
   const [photos, setPhotos]         = useState<string[]>([])
-  const [poseSelfie, setPoseSelfie] = useState<string|null>(null)
-  const [poseGuideUrl, setPoseGuideUrl] = useState('/pose-guide.png')
   const photosRef = useRef<HTMLInputElement>(null)
-  const poseRef   = useRef<HTMLInputElement>(null)
 
   // AI bio
   const [bioLoading, setBioLoading] = useState(false)
@@ -235,7 +232,7 @@ export default function RegisterPage() {
   const STEPS: string[] = (() => {
     if (isOAuthEscortSetup) {
       // OAuth escort: skip role/method/details/otp — go straight to profile setup
-      return ['physical', 'contact', 'services', 'rates', 'photos', 'pose', 'confirm']
+      return ['physical', 'contact', 'services', 'rates', 'photos', 'confirm']
     }
     const base = ['role', 'method']
     if (!role || !authMethod) return base
@@ -243,7 +240,7 @@ export default function RegisterPage() {
     if (role === 'client') {
       return manual ? [...base, 'details', 'otp', 'confirm'] : [...base, 'confirm']
     }
-    const escortExtra = ['physical', 'contact', 'services', 'rates', 'photos', 'pose', 'confirm']
+    const escortExtra = ['physical', 'contact', 'services', 'rates', 'photos', 'confirm']
     return manual ? [...base, 'details', 'otp', ...escortExtra] : [...base, ...escortExtra]
   })()
 
@@ -251,15 +248,6 @@ export default function RegisterPage() {
   const isLastStep  = stepIdx === STEPS.length - 1
   const progress    = STEPS.length > 1 ? Math.round((stepIdx / (STEPS.length - 1)) * 100) : 0
   const age = calcAge(dob)
-
-  useEffect(() => {
-    fetch('/api/verification-pose')
-      .then(r => r.ok ? r.json() : null)
-      .then(data => {
-        if (data?.url) setPoseGuideUrl(data.url)
-      })
-      .catch(() => {})
-  }, [])
 
   // OTP timer
   useEffect(() => {
@@ -331,6 +319,9 @@ export default function RegisterPage() {
   const sendOtp = async () => {
     if (!email) { setError('Enter your email address first.'); return }
     if (!email.includes('@')) { setError('Enter a valid email address.'); return }
+    setOtpVerified(false)
+    setOtpSent(false)
+    setOtpDigits(['','','','','',''])
     try {
       const res = await fetch('/api/auth/send-otp', {
         method: 'POST',
@@ -405,13 +396,6 @@ export default function RegisterPage() {
     e.target.value = ''
   }
 
-  const handlePoseSelfie = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]; if (!file) return
-    const reader = new FileReader()
-    reader.onload = ev => setPoseSelfie(ev.target?.result as string)
-    reader.readAsDataURL(file)
-  }
-
   const toggleLang    = (l: string) => setSelLangs(p => p.includes(l) ? p.filter(x => x !== l) : [...p, l])
   const toggleService = (s: string) => setSelServices(p => p.includes(s) ? p.filter(x => x !== s) : [...p, s])
 
@@ -462,9 +446,6 @@ export default function RegisterPage() {
     }
     if (currentStep === 'photos') {
       if (photos.length < 3) { setError('Upload at least 3 photos.'); return false }
-    }
-    if (currentStep === 'pose') {
-      if (!poseSelfie) { setError('Upload your verification selfie in the required pose.'); return false }
     }
     return true
   }
@@ -765,7 +746,7 @@ export default function RegisterPage() {
                 <label className={labelCls}>Email *</label>
                 <div className="relative">
                   <Mail size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none z-10" />
-                  <input type="email" value={email} onChange={e=>{setEmail(e.target.value);setEmailAvail(null)}} placeholder="you@example.com" className={inputCls + (emailAvail===true?' border-[#28a745]':emailAvail===false?' border-[#EF4444]':'')} style={{paddingLeft:'2.25rem',paddingRight:'5.5rem'}}/>
+                  <input type="email" value={email} onChange={e=>{setEmail(e.target.value);setEmailAvail(null);setOtpSent(false);setOtpVerified(false);setOtpDigits(['','','','','',''])}} placeholder="you@example.com" className={inputCls + (emailAvail===true?' border-[#28a745]':emailAvail===false?' border-[#EF4444]':'')} style={{paddingLeft:'2.25rem',paddingRight:'5.5rem'}}/>
                   {emailAvail!==null && <span className={`absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold ${emailAvail?'text-[#28a745]':'text-[#EF4444]'}`}>{emailAvail?'✓ Free':'✗ Taken'}</span>}
                 </div>
               </div>
@@ -1125,49 +1106,6 @@ export default function RegisterPage() {
               {['Clear, well-lit photos only','Face must be visible in at least one photo','No watermarks or other identities','First photo becomes your cover photo'].map(g => (
                 <p key={g} className="text-[10px] text-text-muted flex items-start gap-1.5 mt-1"><CheckCircle2 size={9} className="text-[#28a745] mt-0.5 flex-shrink-0" />{g}</p>
               ))}
-            </div>
-          </div>
-        )}
-
-        {/* ── STEP: POSE (escort) ── */}
-        {currentStep === 'pose' && (
-          <div>
-            <h2 className="text-xl font-black text-text-light mb-1">Verification Selfie</h2>
-            <p className="text-sm text-text-muted mb-5">Take a selfie in the exact pose shown — admin will compare it to your photos</p>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
-              <div>
-                <p className="text-[10px] text-text-muted uppercase tracking-widest mb-2 font-semibold">Required Pose</p>
-                <div className="rounded-2xl overflow-hidden border-2 border-[#FFD700]/40 bg-card-bg">
-                  <img src={poseGuideUrl} alt="Pose guide" className="w-full object-cover" />
-                </div>
-                <p className="text-[10px] text-[#FFD700] mt-1.5 text-center">Reference pose — match this exactly</p>
-              </div>
-              <div>
-                <p className="text-[10px] text-text-muted uppercase tracking-widest mb-2 font-semibold">Your Selfie *</p>
-                <label className={`block rounded-2xl overflow-hidden border-2 cursor-pointer transition-all ${poseSelfie ? 'border-[#28a745]' : 'border-dashed border-color hover:border-[#8B0000]'} bg-card-bg`}>
-                  {poseSelfie ? (
-                    <img src={poseSelfie} alt="Pose selfie" className="w-full object-cover" />
-                  ) : (
-                    <div className="aspect-[3/4] flex flex-col items-center justify-center gap-2 text-text-muted">
-                      <Camera size={28} />
-                      <span className="text-[11px] text-center px-4">Take a selfie<br />matching the pose</span>
-                    </div>
-                  )}
-                  <input ref={poseRef} type="file" accept="image/*" onChange={handlePoseSelfie} className="hidden" />
-                </label>
-                {poseSelfie && <p className="text-[10px] text-[#28a745] mt-1.5 text-center flex items-center justify-center gap-1"><CheckCircle2 size={9}/>Selfie uploaded!</p>}
-              </div>
-            </div>
-
-            <div className="p-4 bg-[#8B0000]/10 border border-[#8B0000]/20 rounded-xl">
-              <p className="text-xs font-bold text-text-light mb-2">Why we need this</p>
-              {[
-                'Confirms you are the person in your photos',
-                'Protects clients from fake profiles',
-                'Your profile goes live once admin approves (within 24h)',
-                'Selfie is never shown publicly — admin review only',
-              ].map(t => <p key={t} className="text-[11px] text-text-muted flex items-start gap-1.5 mt-1"><ShieldCheck size={9} className="text-[#8B0000] mt-0.5 flex-shrink-0" />{t}</p>)}
             </div>
           </div>
         )}
