@@ -25,20 +25,17 @@ export const INITIAL_POSTS: BlogPost[] = [
   {
     id: '1',
     slug: 'how-to-find-verified-escorts-nairobi',
-    title: 'How to Find Verified Escorts in Nairobi — Complete 2025 Guide',
-    excerpt: 'Finding a verified, safe escort in Nairobi can be overwhelming. This complete guide walks you through everything you need to know — from choosing the right tier to booking safely.',
-    content: `## Finding Verified Escorts in Nairobi
+    title: 'How to Find Reviewed Escort Profiles in Nairobi — Complete 2025 Guide',
+    excerpt: 'Finding an escort profile in Nairobi can be overwhelming. This guide covers profile review, safety questions, and how to contact providers.',
+    content: `## Finding Reviewed Escort Profiles in Nairobi
 
-Nairobi is Kenya's capital and home to the largest concentration of verified, professional escorts in East Africa. Whether you're a local or a visiting professional, this guide will help you navigate the scene safely and discreetly.
+Nairobi is Kenya's capital and home to many escort profiles. Whether you're a local or a visitor, use the profile details and reviews to decide whether to make contact.
 
-### Why Verification Matters
+### What Profile Review Means
 
-At Wet3Camp, all escorts go through a multi-step verification process:
-- **ID Verification** — Government-issued ID confirmed
-- **Photo Verification** — Live selfie matched to profile photos
-- **Phone Verification** — Confirmed active Kenyan number
+New escort profiles are reviewed by an admin before publication. Manual sign-up uses an email code to confirm access to the inbox. Email confirmation and profile review do not prove legal identity or age, and registration does not require a selfie. Do not upload identity documents to public profile photos.
 
-Only verified profiles earn the ✓ Verified badge. Always look for this before booking.
+The profile badge indicates admin approval of the listing; it is not a government identity or age-verification certificate. Ask questions and use your own safety judgment before meeting.
 
 ### Understanding the Tier System
 
@@ -59,25 +56,25 @@ Budget-friendly options without compromising on safety.
 - **Westlands** — Most popular area, central and safe
 - **Karen** — Upscale, exclusive, ideal for Elite bookings
 - **Kilimani** — Vibrant scene, great for VIP bookings
-- **Parklands** — Growing hub with many verified profiles
+- **Parklands** — Growing hub with many listed profiles
 - **Nairobi CBD** — Central access, good for hotel meetups
 
 ### How to Book Safely
 
 1. Browse profiles on Wet3Camp — filter by area, tier and availability
-2. Check the ✓ Verified badge and read reviews
+2. Review the profile details and read reviews
 3. Contact via WhatsApp (button on profile) — message is pre-filled with your interest
 4. Agree on location, duration and rate before meeting
 5. Always meet in a safe, public location first
 
 ### Red Flags to Avoid
 
-- No verified badge
+- Missing profile details or inconsistent information
 - Asking for payment upfront before meeting
 - Profile with no reviews
 - Pressure to move off-platform immediately
 
-Stay safe. Browse verified. Book with confidence on Wet3Camp.`,
+Stay safe. Review profiles carefully and make your own decisions before meeting.`,
     author: 'Wet3Camp Editorial',
     category: 'Kenya Escorts Guide',
     tags: ['Nairobi escorts', 'verified escorts', 'escort guide Kenya', 'how to book escort'],
@@ -86,8 +83,8 @@ Stay safe. Browse verified. Book with confidence on Wet3Camp.`,
     imageUrl: 'https://images.unsplash.com/photo-1611348586804-61bf6c080437?w=800&h=450&fit=crop',
     readTime: 6,
     published: true,
-    seoTitle: 'How to Find Verified Escorts in Nairobi 2025 — Safe Booking Guide',
-    seoDescription: 'Complete guide to finding verified escorts in Nairobi, Kenya. Learn about tiers, safety tips, top areas and how to book safely on Wet3Camp.',
+    seoTitle: 'How to Find Reviewed Escort Profiles in Nairobi — Safety Guide',
+    seoDescription: 'Learn what Wet3Camp profile review means, how to assess listings, and practical safety tips for contacting escorts in Nairobi.',
   },
   {
     id: '2',
