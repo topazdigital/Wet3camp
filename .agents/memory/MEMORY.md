@@ -14,6 +14,7 @@
 - [MySQL shop/rooms column names](mysql-shop-columns.md) — live MySQL shop_products uses price_kes + image_url (not price/image); frontend handles both via nullish coalescing; INSERT seed data uses price_kes/image_url; feed_likes+feed_comments added to migration SQL 2026-06-28
 - [Apache uploads symlink 403](apache-uploads-symlink.md) — shared hosting Apache 403s symlinks before mod_rewrite; use mod_proxy for /api/uploads/* instead; never ln -sfn into web root
 - [Blog admin architecture](blog-admin-architecture.md) — admin blog CRUD now hits real backend API/DB (not localStorage); inline `![]()`/`[video]()` tokens; publish auto-pings IndexNow
+- [Published blog indexing](blog-published-indexing.md) — Build blog sitemaps and crawler metadata only from published DB posts; legacy hard-coded slugs can become soft 404s
 - [Shell secret refresh](shell-secret-refresh.md) — after adding a Replit Secret, reopen the Shell so the new environment variable is inherited
 - [Workflow port collision](workflow-port-collision.md) — generated per-artifact API and combined workflows can both claim port 8080; keep one API process active during preview checks
 - [Static asset deploy validation](static-asset-deploy.md) — Apache SPA fallback can mask missing hashed bundles; deployments must validate every asset referenced by index.html
