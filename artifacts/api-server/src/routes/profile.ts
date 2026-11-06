@@ -73,6 +73,9 @@ router.get('/profile/escort', requireAuth, async (req: AuthRequest, res) => {
       available: !!escort.available,
       verified: !!escort.verified,
       is_active: !!escort.is_active,
+      map_visible: escort.map_visible === undefined || escort.map_visible === null
+        ? true
+        : Number(escort.map_visible) === 1,
       languages: escort.languages_csv ? escort.languages_csv.split(',') : [],
       services: escort.services_csv ? escort.services_csv.split(',').map((n: string) => ({ name: n, available: true })) : [],
       gallery,
@@ -138,6 +141,7 @@ router.patch('/profile/escort', requireAuth, async (req: AuthRequest, res) => {
       rateIncallOvernight, rateOutcallOvernight,
       rateVideo,
       available, languages, services,
+      mapVisible,
     } = req.body as Record<string, any>
 
     const [[escort]] = await pool.query<any[]>('SELECT id FROM escorts WHERE user_id = ?', [req.userId])
@@ -162,6 +166,10 @@ router.patch('/profile/escort', requireAuth, async (req: AuthRequest, res) => {
     if (rateOutcallOvernight !== undefined){ updates.push('price_outcall_overnight = ?');params.push(parseInt(rateOutcallOvernight)) }
     if (rateVideo !== undefined)           { updates.push('price_video = ?');           params.push(parseInt(rateVideo)) }
     if (available !== undefined)     { updates.push('available = ?');       params.push(available ? 1 : 0) }
+    if (typeof mapVisible === 'boolean') {
+      updates.push('map_visible = ?')
+      params.push(mapVisible ? 1 : 0)
+    }
 
     if (updates.length) {
       params.push(escortId)
@@ -185,7 +193,12 @@ router.patch('/profile/escort', requireAuth, async (req: AuthRequest, res) => {
     if (available !== undefined) setEscortOnline(escortId, !!available)
 
     const [[row]] = await pool.query<any[]>('SELECT * FROM escorts WHERE id = ?', [escortId])
-    res.json({ ...row, id: String(row.id), available: !!row.available })
+    res.json({
+      ...row,
+      id: String(row.id),
+      available: !!row.available,
+      map_visible: Number(row.map_visible) === 1,
+    })
   } catch {
     res.status(500).json({ message: 'Failed to update escort profile' })
   }
