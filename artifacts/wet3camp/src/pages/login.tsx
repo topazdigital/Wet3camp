@@ -162,12 +162,12 @@ export default function LoginPage() {
               Kenya's #1<br /><span className="text-[#FFD700]">Premium</span><br />Escort Platform
             </h1>
             <p className="mt-4 text-text-muted text-sm leading-relaxed">
-              Verified escorts, discreet connections, and an unmatched experience. Join thousands across Nairobi, Mombasa, and beyond.
+              Admin-reviewed escort profiles, discreet connections, and an unmatched experience. Join thousands across Nairobi, Mombasa, and beyond.
             </p>
           </div>
 
           <div className="grid grid-cols-3 gap-4">
-            {[['1,200+', 'Verified Escorts'], ['50K+', 'Happy Clients'], ['4.9★', 'Avg Rating']].map(([v, l]) => (
+            {[['1,200+', 'Reviewed Profiles'], ['50K+', 'Happy Clients'], ['4.9★', 'Avg Rating']].map(([v, l]) => (
               <div key={l} className="bg-white/5 border border-white/10 rounded-xl p-3 text-center">
                 <p className="text-[#FFD700] font-bold text-lg leading-none">{v}</p>
                 <p className="text-text-muted text-[10px] mt-1 leading-tight">{l}</p>
@@ -177,7 +177,7 @@ export default function LoginPage() {
 
           <div className="space-y-3">
             {[
-              [ShieldCheck, 'All profiles manually verified by our team'],
+              [ShieldCheck, 'Escort profiles reviewed before publication'],
               [Lock, 'End-to-end encrypted messages'],
               [Star, 'Reviewed & rated by real clients only'],
             ].map(([Icon, text]) => (
