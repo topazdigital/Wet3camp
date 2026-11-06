@@ -48,6 +48,7 @@ export default function MyProfile() {
         setEditBio(data.bio || '')
         setEditCity(data.city || '')
         setEditArea(data.area || '')
+        setEditMapVisible(data.map_visible === undefined ? true : Number(data.map_visible) === 1)
         setEditHeight(data.height || '')
         setEditIncall(data.price_incall ? String(data.price_incall) : '')
         setEditOutcall(data.price_outcall ? String(data.price_outcall) : '')
@@ -95,6 +96,7 @@ export default function MyProfile() {
   const [editBio, setEditBio] = useState('')
   const [editCity, setEditCity] = useState('')
   const [editArea, setEditArea] = useState('')
+  const [editMapVisible, setEditMapVisible] = useState(true)
   const [editHeight, setEditHeight] = useState('')
   const [editIncall, setEditIncall] = useState('')
   const [editOutcall, setEditOutcall] = useState('')
@@ -309,6 +311,7 @@ export default function MyProfile() {
         bio:          editBio,
         city:         editCity,
         area:         editArea,
+        mapVisible:   editMapVisible,
         whatsapp:     editWhatsapp,
         telegram:     editTelegram,
         bodyType:     editBodyType,
@@ -322,6 +325,7 @@ export default function MyProfile() {
         rateOutcallOvernight:editOutcallOvernight? parseInt(editOutcallOvernight): undefined,
         rateVideo:           editVideo           ? parseInt(editVideo)           : undefined,
       })
+      setEscortProfile((profile: any) => profile ? { ...profile, map_visible: editMapVisible } : profile)
       setEditSaved(true); setTimeout(() => setEditSaved(false), 3000)
     } catch (err: any) {
       setEditSaveError(err.message ?? 'Failed to save. Please try again.')
@@ -795,6 +799,21 @@ export default function MyProfile() {
                     <div>
                       <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Area</label>
                       <input value={editArea} onChange={e => setEditArea(e.target.value)} className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#8B0000] transition-all"/>
+                    </div>
+                    <div className="col-span-2 rounded-xl border border-color bg-dark-bg/60 p-3">
+                      <label className="flex cursor-pointer items-start gap-3">
+                        <input
+                          type="checkbox"
+                          checked={editMapVisible}
+                          onChange={e => setEditMapVisible(e.target.checked)}
+                          data-testid="profile-map-visibility-toggle"
+                          className="mt-1 accent-[#8B0000]"
+                        />
+                        <span>
+                          <span className="block text-xs font-semibold text-text-light">Show approximate map on my public profile</span>
+                          <span className="mt-1 block text-[11px] leading-relaxed text-text-muted">The map shows only a general area, never an exact address or live location. Your city and area labels remain visible; edit them above if they need updating.</span>
+                        </span>
+                      </label>
                     </div>
                     <div>
                       <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5 flex items-center gap-1" style={{color:'#25D366'}}>📱 WhatsApp</label>
