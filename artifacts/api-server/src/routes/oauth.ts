@@ -9,6 +9,12 @@ const router = Router()
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
+type OAuthSignupRole = 'client' | 'escort'
+
+function getOAuthSignupRole(value: unknown): OAuthSignupRole | undefined {
+  return value === 'client' || value === 'escort' ? value : undefined
+}
+
 async function getSettings(pool: any, keys: string[]): Promise<Record<string, string>> {
   if (!pool) return {}
   const [rows] = await pool.query(
@@ -51,11 +57,12 @@ function safeReturnPath(value: unknown): string | undefined {
   }
 }
 
-async function createOAuthState(returnTo?: string): Promise<string> {
+async function createOAuthState(returnTo?: string, signupRole?: OAuthSignupRole): Promise<string> {
   return signToken({
     purpose: 'oauth-state',
     nonce: randomUUID(),
     returnTo: returnTo ?? null,
+    signupRole: signupRole ?? null,
   }, '10m')
 }
 
@@ -77,7 +84,9 @@ function readCookie(req: any, name: string): string | undefined {
   return item ? decodeURIComponent(item.slice(prefix.length)) : undefined
 }
 
-async function readOAuthState(req: any, res: any, value: unknown, origin: string, provider: string): Promise<string | undefined> {
+async function readOAuthState(
+  req: any, res: any, value: unknown, origin: string, provider: string,
+): Promise<{ returnTo?: string; signupRole?: OAuthSignupRole }> {
   const cookieState = readCookie(req, 'w3c_oauth_state')
   res.clearCookie('w3c_oauth_state', {
     httpOnly: true,
@@ -93,7 +102,10 @@ async function readOAuthState(req: any, res: any, value: unknown, origin: string
   if (payload.purpose !== 'oauth-state' || typeof payload.nonce !== 'string') {
     throw new Error('Invalid OAuth state')
   }
-  return safeReturnPath(payload.returnTo)
+  return {
+    returnTo: safeReturnPath(payload.returnTo),
+    signupRole: getOAuthSignupRole(payload.signupRole),
+  }
 }
 
 function loginErrorUrl(origin: string, message: string, returnTo?: string): string {
@@ -112,6 +124,7 @@ async function findOrCreateUser(
   email: string,
   name: string,
   picture: string | null,
+  signupRole?: OAuthSignupRole,
 ): Promise<{ userId: number; userRole: string; displayName: string; isNew: boolean }> {
   const [[existing]] = await pool.query(
     'SELECT * FROM users WHERE email = ? LIMIT 1',
@@ -131,13 +144,14 @@ async function findOrCreateUser(
   const base     = email.split('@')[0].replace(/[^a-z0-9]/gi, '_').toLowerCase().slice(0, 32) || 'user'
   const username = `${base}_${randomUUID().replace(/-/g, '').slice(0, 8)}`
   const passwordHash = await hashPassword(randomUUID())
+  const role = signupRole === 'escort' ? 'escort' : 'user'
   const [ins]    = await pool.query(
     'INSERT INTO users (username, email, password_hash, display_name, avatar, role, is_active, created_at) VALUES (?,?,?,?,?,?,1,NOW())',
-    [username, email.toLowerCase(), passwordHash, name ?? username, picture ?? null, 'user']
+    [username, email.toLowerCase(), passwordHash, name ?? username, picture ?? null, role]
   )
   return {
     userId:      ins.insertId ?? ins[0]?.id,
-    userRole:    'user',
+    userRole:    role,
     displayName: name ?? username,
     isNew:       true,
   }
@@ -157,11 +171,16 @@ function safeRedirect(res: any, url: string) {
 function redirectWithToken(
   res: any, origin: string, token: string,
   displayName: string, email: string, role: string,
-  isNew = false, returnTo?: string,
+  isNew = false, returnTo?: string, signupRole?: OAuthSignupRole,
 ) {
   const qs = new URLSearchParams({ token, name: displayName, email })
   if (returnTo) qs.set('redirect', returnTo)
-  if (isNew && !isClaimReturnPath(returnTo)) {
+  if (isNew && signupRole && !isClaimReturnPath(returnTo)) {
+    qs.set('role', role)
+    qs.set('signupRole', signupRole)
+    if (signupRole === 'escort') qs.set('approved', 'false')
+    safeRedirect(res, `${origin}/auth/callback?${qs}`)
+  } else if (isNew && !isClaimReturnPath(returnTo)) {
     safeRedirect(res, `${origin}/auth/choose-role?${qs}`)
   } else {
     qs.set('role', role)
@@ -203,11 +222,12 @@ router.get('/auth/oauth-config', async (_req, res) => {
 
 router.get('/auth/google', async (req, res) => {
   const returnTo = safeReturnPath(req.query.redirect)
+  const signupRole = getOAuthSignupRole(req.query.role)
   try {
     const pool = getPool()
     const cfg  = await getSettings(pool, ['google_client_id'])
     if (!cfg.google_client_id) { safeRedirect(res, loginErrorUrl(getOrigin(req), 'Google login is not configured yet.', returnTo)); return }
-    const state = await createOAuthState(returnTo)
+    const state = await createOAuthState(returnTo, signupRole)
     setOAuthStateCookie(res, state, getOrigin(req), 'google')
     const params = new URLSearchParams({
       client_id:     cfg.google_client_id,
@@ -228,8 +248,11 @@ router.get('/auth/google', async (req, res) => {
 router.get('/auth/google/callback', async (req, res) => {
   const origin = getOrigin(req)
   let returnTo: string | undefined
+  let signupRole: OAuthSignupRole | undefined
   try {
-    returnTo = await readOAuthState(req, res, req.query.state, origin, 'google')
+    const oauthState = await readOAuthState(req, res, req.query.state, origin, 'google')
+    returnTo = oauthState.returnTo
+    signupRole = oauthState.signupRole
   } catch (err: any) {
     console.warn('[oauth/google/callback] state validation failed:', err?.message ?? err)
     safeRedirect(res, loginErrorUrl(origin, 'Your sign-in session expired. Please try again.'))
@@ -275,10 +298,10 @@ router.get('/auth/google/callback', async (req, res) => {
     const { email, name, picture } = await profileRes.json() as any
     if (!email) { safeRedirect(res, loginErrorUrl(origin, 'No email was shared by your Google account.', returnTo)); return }
     stage = 'find or create account'
-    const { userId, userRole, displayName, isNew } = await findOrCreateUser(pool, email, name, picture)
+    const { userId, userRole, displayName, isNew } = await findOrCreateUser(pool, email, name, picture, signupRole)
     stage = 'create session'
     const token = await signToken({ id: userId, role: userRole, email: email.toLowerCase() })
-    redirectWithToken(res, origin, token, displayName, email.toLowerCase(), userRole, isNew, returnTo)
+    redirectWithToken(res, origin, token, displayName, email.toLowerCase(), userRole, isNew, returnTo, signupRole)
   } catch (err: any) {
     console.error(`[oauth/google/callback] stage=${stage}:`, err?.message ?? err)
     safeRedirect(res, loginErrorUrl(origin, 'Google sign-in could not be completed. Please try again or use email.', returnTo))
@@ -314,11 +337,12 @@ router.post('/auth/google/one-tap', async (req, res) => {
 
 router.get('/auth/facebook', async (req, res) => {
   const returnTo = safeReturnPath(req.query.redirect)
+  const signupRole = getOAuthSignupRole(req.query.role)
   try {
     const pool = getPool()
     const cfg  = await getSettings(pool, ['facebook_app_id'])
     if (!cfg.facebook_app_id) { safeRedirect(res, loginErrorUrl(getOrigin(req), 'Facebook login is not configured yet.', returnTo)); return }
-    const state = await createOAuthState(returnTo)
+    const state = await createOAuthState(returnTo, signupRole)
     setOAuthStateCookie(res, state, getOrigin(req), 'facebook')
     const params = new URLSearchParams({
       client_id:     cfg.facebook_app_id,
@@ -337,8 +361,11 @@ router.get('/auth/facebook', async (req, res) => {
 router.get('/auth/facebook/callback', async (req, res) => {
   const origin = getOrigin(req)
   let returnTo: string | undefined
+  let signupRole: OAuthSignupRole | undefined
   try {
-    returnTo = await readOAuthState(req, res, req.query.state, origin, 'facebook')
+    const oauthState = await readOAuthState(req, res, req.query.state, origin, 'facebook')
+    returnTo = oauthState.returnTo
+    signupRole = oauthState.signupRole
   } catch (err: any) {
     console.warn('[oauth/facebook/callback] state validation failed:', err?.message ?? err)
     safeRedirect(res, loginErrorUrl(origin, 'Your sign-in session expired. Please try again.'))
@@ -386,10 +413,12 @@ router.get('/auth/facebook/callback', async (req, res) => {
     }
     const picture = fb.picture?.data?.url ?? null
     stage = 'find or create account'
-    const { userId, userRole, displayName, isNew } = await findOrCreateUser(pool, email, fb.name ?? email.split('@')[0], picture)
+    const { userId, userRole, displayName, isNew } = await findOrCreateUser(
+      pool, email, fb.name ?? email.split('@')[0], picture, signupRole
+    )
     stage = 'create session'
     const token = await signToken({ id: userId, role: userRole, email: email.toLowerCase() })
-    redirectWithToken(res, origin, token, displayName, email.toLowerCase(), userRole, isNew, returnTo)
+    redirectWithToken(res, origin, token, displayName, email.toLowerCase(), userRole, isNew, returnTo, signupRole)
   } catch (err: any) {
     console.error(`[oauth/facebook/callback] stage=${stage}:`, err?.message ?? err)
     safeRedirect(res, loginErrorUrl(origin, 'Facebook sign-in could not be completed. Please try again.', returnTo))
@@ -413,6 +442,7 @@ async function buildAppleClientSecret(cfg: Record<string, string>): Promise<stri
 
 router.get('/auth/apple', async (req, res) => {
   const returnTo = safeReturnPath(req.query.redirect)
+  const signupRole = getOAuthSignupRole(req.query.role)
   try {
     const pool = getPool()
     const cfg  = await getSettings(pool, ['apple_service_id'])
@@ -421,7 +451,7 @@ router.get('/auth/apple', async (req, res) => {
       return
     }
     const origin = getOrigin(req)
-    const state = await createOAuthState(returnTo)
+    const state = await createOAuthState(returnTo, signupRole)
     setOAuthStateCookie(res, state, origin, 'apple')
     const params = new URLSearchParams({
       client_id:     cfg.apple_service_id,
@@ -442,8 +472,11 @@ router.get('/auth/apple', async (req, res) => {
 router.post('/auth/apple/callback', async (req, res) => {
   const origin = getOrigin(req)
   let returnTo: string | undefined
+  let signupRole: OAuthSignupRole | undefined
   try {
-    returnTo = await readOAuthState(req, res, req.body?.state, origin, 'apple')
+    const oauthState = await readOAuthState(req, res, req.body?.state, origin, 'apple')
+    returnTo = oauthState.returnTo
+    signupRole = oauthState.signupRole
   } catch (err: any) {
     console.warn('[oauth/apple/callback] state validation failed:', err?.message ?? err)
     safeRedirect(res, loginErrorUrl(origin, 'Your sign-in session expired. Please try again.'))
@@ -523,11 +556,11 @@ router.post('/auth/apple/callback', async (req, res) => {
 
     stage = 'find or create account'
     const { userId, userRole, displayName, isNew } = await findOrCreateUser(
-      pool, email, name || email.split('@')[0], null
+      pool, email, name || email.split('@')[0], null, signupRole
     )
     stage = 'create session'
     const token = await signToken({ id: userId, role: userRole, email: email.toLowerCase() })
-    redirectWithToken(res, origin, token, displayName, email.toLowerCase(), userRole, isNew, returnTo)
+    redirectWithToken(res, origin, token, displayName, email.toLowerCase(), userRole, isNew, returnTo, signupRole)
   } catch (err: any) {
     console.error(`[oauth/apple/callback] stage=${stage}:`, err?.message ?? err)
     safeRedirect(res, loginErrorUrl(origin, 'Apple sign-in could not be completed. Please try again.', returnTo))

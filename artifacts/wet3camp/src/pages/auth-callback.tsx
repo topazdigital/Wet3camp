@@ -34,6 +34,7 @@ export default function AuthCallback() {
       const name     = params.get('name') ?? 'User'
       const email    = params.get('email') ?? payload.email ?? ''
       const role     = payload.role ?? params.get('role') ?? 'user'
+      const signupRole = params.get('signupRole')
       const approved = params.get('approved') !== 'false'
 
       setToken(token)
@@ -44,7 +45,11 @@ export default function AuthCallback() {
         role:     role === 'admin' ? 'admin' : role === 'escort' ? 'escort' : 'client',
         approved: role === 'escort' ? approved : true,
       })
-      navigate(redirectTo ?? (role === 'admin' ? '/admin' : role === 'escort' ? '/my-profile' : '/'))
+      navigate(
+        signupRole === 'escort' && role === 'escort'
+          ? '/register?step=escort'
+          : redirectTo ?? (role === 'admin' ? '/admin' : role === 'escort' ? '/my-profile' : '/')
+      )
     } catch {
       const loginParams = new URLSearchParams({ oauthError: 'Unexpected error during sign-in.' })
       if (redirectTo) loginParams.set('redirect', redirectTo)

@@ -9,6 +9,12 @@ A visitor's first successful social sign-in creates a regular account; they do n
 
 **How to apply:** Preserve claim intent through provider callbacks and registration, and avoid forcing unrelated role selection before claim verification.
 
+When someone selects Client or Escort in registration before choosing a social provider, carry that choice through the signed OAuth state. Apply it only to a newly created account; an existing account's saved role remains authoritative. New Escort accounts continue to profile setup after the callback. Social sign-in started without a selected role can still use the role chooser.
+
+**Why:** The user expects registration to remember the account type already selected, without silently changing existing accounts.
+
+**How to apply:** Validate the selected role before adding it to OAuth state for Google, Facebook, or Apple, then use it only when creating the account.
+
 Password reset must also work for accounts created through Google, Facebook, or Apple. A user who resets their password should be able to sign in with that account's email and the new password while keeping social sign-in available.
 
 **Why:** The user explicitly expects social-login accounts to be able to set and use a password.

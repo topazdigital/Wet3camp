@@ -467,6 +467,7 @@ export default function RegisterPage() {
   const handleOAuthClick = (provider: string) => {
     const query = new URLSearchParams()
     if (redirectTo) query.set('redirect', redirectTo)
+    if (role === 'client' || role === 'escort') query.set('role', role)
     const suffix = query.size ? `?${query}` : ''
     if (provider === 'google')   { window.location.href = `/api/auth/google${suffix}`;   return }
     if (provider === 'facebook') { window.location.href = `/api/auth/facebook${suffix}`; return }
