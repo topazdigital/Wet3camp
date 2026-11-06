@@ -322,7 +322,7 @@ function FeedPost({ escort }: { escort: any }) {
 export default function FeedsPage() {
   useSEO({
     title: 'Escort Feeds — Latest Updates',
-    description: 'Follow your favourite escorts and see their latest updates and photos. Real-time social feed from verified escorts in Kenya.',
+    description: 'Follow your favourite escorts and see their latest updates and photos. A social feed from admin-reviewed escort profiles in Kenya.',
     keywords: 'escort feeds Kenya, escort social media, escort updates Nairobi',
     canonicalPath: '/feeds',
   })
@@ -464,7 +464,7 @@ export default function FeedsPage() {
               </div>
 
               <p className="text-[9px] text-text-muted text-center leading-relaxed">
-                © 2026 Wet3 Camp · Adults 18+ only · All profiles manually verified
+                © 2026 Wet3 Camp · Adults 18+ only · Escort profiles reviewed before publication
               </p>
             </div>
           </div>
