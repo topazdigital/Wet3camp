@@ -6,10 +6,10 @@ import { useSEO } from '@/lib/useSEO'
 
 const FAQS = [
   { cat:'Getting Started', icon: Star, faqs:[
-    { q:'What is Wet3 Camp?', a:'Wet3 Camp is Kenya\'s #1 premium escort booking platform. We connect verified, professional escorts with discerning clients across Nairobi, Mombasa, Kisumu, Nakuru, Eldoret and beyond.' },
+    { q:'What is Wet3 Camp?', a:'Wet3 Camp is an escort directory for Nairobi, Mombasa, Kisumu, Nakuru, Eldoret and beyond. New escort profiles are reviewed by an admin before publication.' },
     { q:'How do I create an account?', a:'Click "Join Free" at the top of the page. Choose whether you\'re a client or escort, fill in your details including your location, and confirm your account via email. It takes under 2 minutes.' },
     { q:'Is Wet3 Camp free to join?', a:'Creating a client account is completely free. Escorts have a free basic tier and can upgrade to Premium or Elite packages for more visibility and bookings.' },
-    { q:'What age do I need to be to use the platform?', a:'You must be 18 years of age or older to use Wet3 Camp. We enforce this strictly and require age verification for all accounts.' },
+    { q:'What age do I need to be to use the platform?', a:'You must be 18 or older. Registration asks you to confirm this requirement. Email verification confirms access to an inbox; it does not verify legal identity or age.' },
   ]},
   { cat:'Booking & Payments', icon: CreditCard, faqs:[
     { q:'How do I book an escort?', a:'Browse profiles, select one you like, and click "Book Now". Choose your date, time and duration. Send a message to confirm details, then complete payment. The escort will confirm your booking.' },
@@ -19,7 +19,7 @@ const FAQS = [
     { q:'Are prices negotiable?', a:'Escorts set their own rates and pricing is transparent on their profiles. You may message an escort to discuss custom arrangements, but always respect their listed rates.' },
   ]},
   { cat:'Safety & Privacy', icon: Shield, faqs:[
-    { q:'How are escorts verified?', a:'Every escort goes through a manual verification process: ID check, face verification against profile photo, and a phone interview. Verified escorts display a ✓ badge. Unverified profiles cannot accept bookings.' },
+    { q:'How are escort profiles reviewed?', a:'New escort profiles are held for admin review before publication. Manual sign-up requires an email code, which confirms access to the email account—not identity or age. Registration does not require a selfie. A ✓ badge reflects profile approval and is not proof of government identity or age.' },
     { q:'Is my personal information safe?', a:'Absolutely. We use end-to-end encryption for all messages. Your personal details are never shared with escorts or third parties. We are GDPR-compliant and delete data on request.' },
     { q:'Can I remain anonymous as a client?', a:'Yes. You can use a username instead of your real name. Messages are anonymous and your contact details are only shared after a confirmed booking, with your consent.' },
     { q:'What is the blacklist for?', a:'The blacklist is a community safety tool where verified users can report bad actors — clients who don\'t pay, escorts who are fraudulent, or anyone who behaves dangerously. All reports are investigated.' },
