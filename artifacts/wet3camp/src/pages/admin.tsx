@@ -2103,7 +2103,7 @@ function RevenueDashboard() {
   if (!data) return <div className="text-center py-10 text-text-muted text-sm">Failed to load revenue data.</div>
 
   const { summary, daily, topEscorts, byCity } = data
-  const tierColor: Record<string, string> = { elite: '#FFD700', vip: '#E91E63', premium: '#FF9800', standard: '#607D8B' }
+  const tierColor: Record<string, string> = { elite: '#8B0000', vip: '#B8860B', premium: '#FFD700', standard: '#6c757d' }
   const cityColors = ['#8B0000','#E91E63','#FF9800','#2196F3','#28a745','#9C27B0','#00BCD4']
 
   const statCards = [
@@ -2448,7 +2448,7 @@ function EscortsTab() {
                     <td data-label="Name" className="px-4 py-3 font-semibold text-text-light">{e.name}</td>
                     <td data-label="City" className="px-4 py-3 text-text-muted">{e.city || '—'}</td>
                     <td data-label="Tier" className="px-4 py-3">
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{background:e.tier==='Elite'?'#8B000020':e.tier==='VIP'?'#FF450020':'#55555520',color:e.tier==='Elite'?'#8B0000':e.tier==='VIP'?'#FF4500':'#aaa'}}>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{background:e.tier==='Elite'?'#8B000020':e.tier==='VIP'?'#B8860B20':e.tier==='Premium'?'#FFD70020':'#55555520',color:e.tier==='Elite'?'#8B0000':e.tier==='VIP'?'#B8860B':e.tier==='Premium'?'#FFD700':'#aaa'}}>
                         {e.tier || 'Standard'}
                       </span>
                     </td>
@@ -3245,9 +3245,7 @@ function AdminBlog() {
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Category</label>
-            <select value={form.category} onChange={e => set('category', e.target.value)} className="w-full px-3 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#8B0000] transition-all">
-              {['Safety Tips','Kenya Escorts Guide','Nairobi Nightlife','Mombasa Escorts','Booking Tips','Platform News','Escort Reviews','Travel Companions'].map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
+            <input value={form.category} onChange={e => set('category', e.target.value)} placeholder="Enter a category" required className="w-full px-3 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#8B0000] transition-all" />
           </div>
           <div>
             <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Tags (comma-separated)</label>
