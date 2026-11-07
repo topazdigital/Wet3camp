@@ -210,8 +210,16 @@
       grid-template-columns: minmax(0, 1fr);
     }
 
+    .admin-dashboard-shell .admin-two-up-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
     .admin-dashboard-shell .grid-cols-2.sm\:grid-cols-4 {
       grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .admin-dashboard-shell .rounded-2xl.p-5 {
+      padding: 1rem !important;
     }
 
     .admin-dashboard-shell > .flex-1 > header + div {
@@ -221,6 +229,136 @@
     .admin-dashboard-shell .fixed > div {
       max-height: calc(100dvh - 1rem);
       margin-block: 0.5rem;
+    }
+  }
+
+  .admin-responsive-table {
+    max-width: 100%;
+  }
+
+  .admin-responsive-table table {
+    width: 100%;
+    table-layout: fixed;
+  }
+
+  .admin-responsive-table td {
+    overflow-wrap: anywhere;
+  }
+
+  @media (max-width: 1279px) {
+    .admin-responsive-table {
+      overflow: visible !important;
+    }
+
+    .admin-responsive-table table,
+    .admin-responsive-table tbody {
+      display: block;
+      width: 100%;
+      min-width: 0 !important;
+    }
+
+    .admin-responsive-table thead {
+      position: absolute !important;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .admin-responsive-table tbody {
+      display: grid;
+      gap: 0.55rem;
+    }
+
+    .admin-responsive-table tbody tr {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      align-items: start;
+      gap: 0.2rem 0.5rem;
+      min-width: 0;
+      padding: 0.55rem;
+      border: 1px solid var(--border-color);
+      border-radius: 0.85rem;
+      background: var(--card-bg);
+    }
+
+    .admin-responsive-table tbody td {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      min-width: 0;
+      padding: 0.35rem 0.4rem !important;
+      border: 0 !important;
+      overflow-wrap: anywhere;
+      white-space: normal !important;
+    }
+
+    .admin-responsive-table tbody td::before {
+      content: attr(data-label);
+      display: block;
+      margin-bottom: 0.18rem;
+      color: var(--text-muted);
+      font-size: 0.58rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      line-height: 1.2;
+      text-transform: uppercase;
+    }
+
+    .admin-responsive-table tbody td[data-label="Name"],
+    .admin-responsive-table tbody td[data-label="Email"],
+    .admin-responsive-table tbody td[data-label="Details"],
+    .admin-responsive-table tbody td[data-label="Actions"] {
+      grid-column: 1 / -1;
+    }
+
+    .admin-responsive-table tbody td[data-label="Actions"] {
+      margin-top: 0.15rem;
+      padding-top: 0.6rem !important;
+      border-top: 1px solid var(--border-color) !important;
+    }
+
+    .admin-responsive-table tbody td[data-label="Actions"] > div {
+      flex-wrap: wrap;
+    }
+
+    .admin-responsive-table tbody td[data-label="Actions"] button {
+      min-width: 2.25rem;
+      min-height: 2.25rem;
+    }
+
+    .admin-responsive-table tbody td[colspan] {
+      display: block;
+      grid-column: 1 / -1;
+      text-align: center;
+    }
+
+    .admin-responsive-table tbody td[colspan]::before {
+      content: none;
+    }
+
+    .admin-responsive-table tbody td[data-label="Profile"] > div {
+      flex-wrap: wrap;
+    }
+
+    .admin-responsive-table tbody td[data-label="Details"] .truncate {
+      overflow: visible;
+      text-overflow: clip;
+      white-space: normal;
+    }
+
+    .admin-responsive-table-escorts tbody td[data-label="Photo"] {
+      grid-column: 1;
+      grid-row: span 2;
+      align-items: center;
+    }
+
+    .admin-responsive-table-escorts tbody td[data-label="Name"] {
+      grid-column: 2;
     }
   }
 
