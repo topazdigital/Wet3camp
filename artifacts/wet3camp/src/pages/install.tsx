@@ -47,7 +47,7 @@ const INSTRUCTIONS: Record<Platform, { title: string; steps: { icon: React.React
 const FEATURES = [
   { icon: <Zap size={18} className="text-[#FFD700]" />, title: 'Lightning Fast', desc: 'Loads instantly, even on slow connections' },
   { icon: <Wifi size={18} className="text-[#28a745]" />, title: 'Works Offline', desc: 'Browse previously loaded profiles offline' },
-  { icon: <Bell size={18} className="text-[#FF4500]" />, title: 'Push Notifications', desc: 'Get notified when escorts come online' },
+  { icon: <Bell size={18} className="text-[#FFD700]" />, title: 'Push Notifications', desc: 'Get notified when escorts come online' },
   { icon: <Lock size={18} className="text-[#229ED9]" />, title: 'Private & Secure', desc: 'No Play Store — direct, private installation' },
 ]
 
