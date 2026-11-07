@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import { getPool } from '../lib/db.js'
+import { getEscortGalleryRows } from '../lib/escort-gallery.js'
 import { CITY_AREA_VALUES } from '../lib/location-data.js'
 import { getPublicLocationDirectory, MIN_INDEXABLE_LOCATION_PROFILES } from '../lib/public-locations.js'
 import { buildProfileSeo } from '../lib/profile-seo.js'
@@ -153,7 +154,7 @@ router.get('/escorts', async (req, res) => {
               COALESCE(e.image, (
                 SELECT eg.image_url FROM escort_gallery eg
                 WHERE eg.escort_id = e.id
-                ORDER BY COALESCE(eg.sort_order, 9999) ASC, eg.id ASC
+                ORDER BY eg.id ASC
                 LIMIT 1
               )) AS effective_image,
               GROUP_CONCAT(DISTINCT el.language ORDER BY el.language SEPARATOR ',') AS languages_csv
@@ -269,7 +270,7 @@ router.get('/escorts/:id', async (req, res) => {
 
     const escortId = String(row.id)
     const profileSeo = buildProfileSeo(row)
-    const [gallery]   = await pool.query<any[]>('SELECT image_url FROM escort_gallery WHERE escort_id = ? ORDER BY sort_order', [escortId])
+    const gallery     = await getEscortGalleryRows(pool, escortId)
     const [services]  = await pool.query<any[]>('SELECT name, MAX(available) AS available FROM escort_services WHERE escort_id = ? GROUP BY name ORDER BY name', [escortId])
     const [languages] = await pool.query<any[]>('SELECT DISTINCT language FROM escort_languages WHERE escort_id = ?', [escortId])
 
@@ -296,7 +297,7 @@ router.get('/escorts/:id', async (req, res) => {
       ...mapEscort({
         ...row,
         // Use first gallery image as fallback when image column is NULL
-        effective_image: row.image || ((gallery as any[])[0]?.image_url ?? null),
+        effective_image: row.image || gallery[0]?.image_url || null,
         languages_csv: languages.map((l: any) => l.language).join(','),
       }),
       seoTitle: profileSeo.title,
@@ -304,7 +305,7 @@ router.get('/escorts/:id', async (req, res) => {
       follower_count: Number((followerRow as any)?.cnt ?? 0),
       reviews_count:  Number((reviewRow as any)?.cnt ?? row.reviews_count ?? 0),
       rating:         Number((reviewRow as any)?.avg ?? row.rating ?? 0) || Number(row.rating ?? 0),
-      gallery:        (gallery as any[]).map((g: any) => g.image_url),
+      gallery:        gallery.map((g: any) => g.image_url),
       services:       (services as any[]).map((s: any) => ({ name: s.name, available: !!s.available })),
       reviews:        (recentReviews as any[]).map((r: any) => ({
         id: r.id, rating: r.rating, content: r.content,
