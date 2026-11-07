@@ -3,7 +3,7 @@ import { Link, useRoute } from 'wouter'
 import Sidebar from '@/components/Sidebar'
 import Header from '@/components/Header'
 import { useSEO } from '@/lib/useSEO'
-import { getPostBySlug, getPublishedPosts, type BlogPost } from '@/data/blog'
+import type { BlogPost } from '@/data/blog'
 import { Clock, Tag, ChevronLeft, ChevronRight } from 'lucide-react'
 
 function renderMarkdown(md: string): string {
@@ -23,17 +23,24 @@ export default function BlogPost() {
   const [, params] = useRoute('/blog/:slug')
   const [post, setPost] = useState<BlogPost | undefined>()
   const [related, setRelated] = useState<BlogPost[]>([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (!params?.slug) return
+    let active = true
     const slug = params.slug
+    setLoading(true)
+    setPost(undefined)
+    setRelated([])
 
-    // Try API first, then fall back to static data
     fetch(`/api/blog/${encodeURIComponent(slug)}`)
       .then(r => r.ok ? r.json() : null)
       .then(data => {
-        if (data?.slug) {
-          const p: BlogPost = {
+        if (!data?.slug) {
+          if (active) setPost(undefined)
+          return
+        }
+        const p: BlogPost = {
             id:             String(data.id),
             slug:           data.slug,
             title:          data.title,
@@ -44,42 +51,40 @@ export default function BlogPost() {
             tags:           Array.isArray(data.tags) ? data.tags : [],
             publishedAt:    data.publishedAt ? new Date(data.publishedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '',
             updatedAt:      data.updatedAt ?? data.publishedAt ?? '',
-            imageUrl:       data.imageUrl ?? data.image_url ?? 'https://images.unsplash.com/photo-1611348586804-61bf6c080437?w=1200&h=630&fit=crop',
+            imageUrl:       data.imageUrl ?? data.image_url ?? '',
             readTime:       Number(data.read_time ?? data.readTime ?? 3),
             published:      true,
             seoTitle:       data.seo_title ?? data.seoTitle,
             seoDescription: data.seo_description ?? data.seoDescription,
-          }
-          setPost(p)
-          // Fetch related posts
-          fetch(`/api/blog?category=${encodeURIComponent(p.category)}&limit=10`)
-            .then(r => r.ok ? r.json() : null)
-            .then(rel => {
-              const relPosts: BlogPost[] = (rel?.posts ?? [])
-                .filter((r: any) => r.slug !== slug)
-                .slice(0, 2)
-                .map((r: any) => ({
-                  id: String(r.id), slug: r.slug, title: r.title, excerpt: r.excerpt ?? '',
-                  content: '', author: r.author ?? 'Wet3Camp Editorial',
-                  category: r.category ?? '', tags: Array.isArray(r.tags) ? r.tags : [],
-                  publishedAt: '', updatedAt: '',
-                  imageUrl: r.imageUrl ?? r.image_url ?? 'https://images.unsplash.com/photo-1611348586804-61bf6c080437?w=400&h=300&fit=crop',
-                  readTime: Number(r.read_time ?? r.readTime ?? 3), published: true,
-                }))
-              setRelated(relPosts.length > 0 ? relPosts : getPublishedPosts().filter(x => x.category === p.category && x.slug !== slug).slice(0, 2))
-            })
-            .catch(() => setRelated(getPublishedPosts().filter(x => x.category === p.category && x.slug !== slug).slice(0, 2)))
-        } else {
-          throw new Error('not found')
-        }
+        if (active) setPost(p)
+        fetch(`/api/blog?category=${encodeURIComponent(p.category)}&limit=10`)
+          .then(r => r.ok ? r.json() : null)
+          .then(rel => {
+            if (!active) return
+            const relPosts: BlogPost[] = (rel?.posts ?? [])
+              .filter((r: any) => r.slug !== slug)
+              .slice(0, 2)
+              .map((r: any) => ({
+                id: String(r.id), slug: r.slug, title: r.title, excerpt: r.excerpt ?? '',
+                content: '', author: r.author ?? 'Wet3Camp Editorial',
+                category: r.category ?? '', tags: Array.isArray(r.tags) ? r.tags : [],
+                publishedAt: '', updatedAt: '',
+                imageUrl: r.imageUrl ?? r.image_url ?? '',
+                readTime: Number(r.read_time ?? r.readTime ?? 3), published: true,
+              }))
+            setRelated(relPosts)
+          })
+          .catch(() => { if (active) setRelated([]) })
       })
       .catch(() => {
-        const found = getPostBySlug(slug)
-        setPost(found)
-        if (found) {
-          setRelated(getPublishedPosts().filter(p => p.id !== found.id && p.category === found.category).slice(0, 2))
+        if (active) {
+          setPost(undefined)
+          setRelated([])
         }
       })
+      .finally(() => { if (active) setLoading(false) })
+
+    return () => { active = false }
   }, [params?.slug])
 
   useSEO({
@@ -98,7 +103,9 @@ export default function BlogPost() {
         <Sidebar />
         <div className="flex-1 min-w-0 mobile-bottom-safe lg:pb-0">
           <Header />
-          <div className="flex items-center justify-center h-64 text-text-muted">Article not found.</div>
+          <div className="flex items-center justify-center h-64 text-text-muted" role="status">
+            {loading ? 'Loading article…' : 'Article not found.'}
+          </div>
         </div>
       </div>
     )
@@ -118,7 +125,9 @@ export default function BlogPost() {
 
           {/* Hero image */}
           <div className="rounded-2xl overflow-hidden mb-6 h-56">
-            <img src={post.imageUrl} alt={post.title} width="1200" height="630" className="w-full h-full object-cover" />
+            {post.imageUrl
+              ? <img src={post.imageUrl} alt={post.title} width="1200" height="630" className="w-full h-full object-cover" />
+              : <div className="flex h-full items-center justify-center bg-card-bg text-sm font-bold uppercase tracking-widest text-text-muted">{post.category}</div>}
           </div>
 
           {/* Meta */}
@@ -192,7 +201,9 @@ export default function BlogPost() {
                 {related.map(r => (
                   <Link key={r.id} href={`/blog/${r.slug}`} className="block group">
                     <div className="bg-card-bg border border-color rounded-xl overflow-hidden hover:border-[#8B0000]/40 transition-all flex gap-3 p-3">
-                      <img src={r.imageUrl} alt={r.title} className="w-16 h-16 object-cover rounded-lg flex-shrink-0" />
+                      {r.imageUrl
+                        ? <img src={r.imageUrl} alt={r.title} className="w-16 h-16 object-cover rounded-lg flex-shrink-0" />
+                        : <div className="w-16 h-16 rounded-lg flex-shrink-0 bg-dark-bg" aria-hidden="true" />}
                       <div>
                         <p className="text-xs font-bold text-text-light group-hover:text-[#FFD700] transition-colors line-clamp-2 leading-snug">{r.title}</p>
                         <p className="text-[10px] text-text-muted mt-1 flex items-center gap-1"><Clock size={9} />{r.readTime} min</p>
