@@ -545,8 +545,13 @@ router.post('/auth/setup-escort', requireAuth, async (req: AuthRequest, res) => 
       languages, services,
     } = req.body as Record<string, any>
 
-    if (!city || !bio || !bodyType) {
-      res.status(400).json({ message: 'City, bio, and physical details are required' }); return
+    const missingProfileFields = [
+      !String(city ?? '').trim() && 'city',
+      !String(bio ?? '').trim() && 'bio',
+      !String(bodyType ?? '').trim() && 'body type',
+    ].filter(Boolean)
+    if (missingProfileFields.length) {
+      res.status(400).json({ message: `Missing required profile details: ${missingProfileFields.join(', ')}.` }); return
     }
 
     // Ensure user role is escort
