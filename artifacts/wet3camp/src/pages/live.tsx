@@ -9,7 +9,7 @@ import { api } from '@/lib/api'
 import { setPendingLiveStream } from '@/lib/live-broadcaster'
 import { PreviewClipGrid } from '@/components/LivePreviews'
 
-const TIER_COLORS: Record<string, string> = { elite: '#8B0000', vip: '#FF4500', premium: '#B8860B' }
+const TIER_COLORS: Record<string, string> = { elite: '#8B0000', vip: '#B8860B', premium: '#FFD700' }
 
 export default function LivePage() {
   useSEO({
@@ -293,7 +293,7 @@ export default function LivePage() {
                       </div>
 
                       {isHot && (
-                        <div className="absolute top-2 right-2 bg-[#FF4500] px-1.5 py-0.5 rounded-full">
+                        <div className="absolute top-2 right-2 bg-[#B8860B] px-1.5 py-0.5 rounded-full">
                           <span className="text-[8px] font-bold text-white">🔥 HOT</span>
                         </div>
                       )}
