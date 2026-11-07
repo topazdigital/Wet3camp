@@ -120,6 +120,10 @@ CREATE TABLE IF NOT EXISTS `escort_gallery` (
   KEY `idx_escort_id` (`escort_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Ensure existing gallery tables have the ordering column used by profile APIs
+ALTER TABLE `escort_gallery`
+  ADD COLUMN IF NOT EXISTS `sort_order` int(11) NOT NULL DEFAULT 0;
+
 -- =============================================================================
 -- 5. Create escort_languages table
 -- =============================================================================
