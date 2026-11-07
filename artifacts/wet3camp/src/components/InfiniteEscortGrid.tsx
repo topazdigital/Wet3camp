@@ -10,8 +10,8 @@ import { useOnlineStatus } from '@/lib/use-online-status'
 
 const TIER_STYLE: Record<string, { bg: string; label: string }> = {
   Elite:   { bg: '#8B0000', label: 'Elite'   },
-  VIP:     { bg: '#FF4500', label: 'VIP'     },
-  Premium: { bg: '#B8860B', label: 'Premium' },
+  VIP:     { bg: '#B8860B', label: 'VIP'     },
+  Premium: { bg: '#FFD700', label: 'Premium' },
 }
 
 const TIER_RANK: Record<string, number> = {
