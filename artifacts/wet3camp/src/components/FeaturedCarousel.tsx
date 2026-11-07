@@ -10,8 +10,8 @@ const SPEED  = 0.6
 
 const TIER_BADGE: Record<string, { bg: string; text: string }> = {
   elite:   { bg: '#8B000060', text: '#FF6B6B' },
-  vip:     { bg: '#FF450060', text: '#FF8C00' },
-  premium: { bg: '#B8860B60', text: '#FFD700' },
+  vip:     { bg: '#B8860B60', text: '#B8860B' },
+  premium: { bg: '#FFD70020', text: '#FFD700' },
 }
 
 export default function FeaturedCarousel() {
