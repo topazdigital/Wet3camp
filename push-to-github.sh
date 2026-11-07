@@ -14,6 +14,7 @@
 set -e
 
 TOKEN="${GITHUB_TOKEN:-${GITHUB_PERSONAL_ACCESS_TOKEN:-}}"
+REPO="topazdigital/Wet3camp"
 
 if [ -z "$TOKEN" ]; then
   echo "❌ GITHUB_TOKEN or GITHUB_PERSONAL_ACCESS_TOKEN not found in Replit Secrets."
@@ -45,8 +46,12 @@ echo "▶ Pushing to GitHub..."
 # short-lived helper for credentials only during this push.
 ASKPASS_SCRIPT="$(mktemp)"
 PUSH_LOG="$(mktemp)"
+CURL_AUTH_CONFIG="$(mktemp)"
+COMPARE_FILE="$(mktemp)"
+chmod 600 "$CURL_AUTH_CONFIG"
+printf 'header = "Authorization: token %s"\n' "$TOKEN" > "$CURL_AUTH_CONFIG"
 cleanup() {
-  rm -f "$ASKPASS_SCRIPT" "$PUSH_LOG"
+  rm -f "$ASKPASS_SCRIPT" "$PUSH_LOG" "$CURL_AUTH_CONFIG" "$COMPARE_FILE"
 }
 trap cleanup EXIT
 
@@ -69,11 +74,48 @@ else
   PUSH_EXIT=$?
   cat "$PUSH_LOG"
 
-  # Replit can route git pushes through its source-control proxy, which
-  # requires a connected Git pane. When that specific proxy is unavailable,
-  # sync changed files through the existing GitHub REST API script instead.
-  if grep -q "github.replit.internal" "$PUSH_LOG"; then
-    echo "▶ Replit Git proxy is unavailable; syncing changed files through GitHub API..."
+    # Replit can route Git pushes through its source-control proxy, and GitHub
+    # may also contain prior API-sync commits. Use file-level sync only after
+    # confirming every remote-only commit is one of those generated syncs.
+  if grep -q "github.replit.internal" "$PUSH_LOG" || grep -Eqi "fetch first|non-fast-forward|remote contains work that you do not have|failed to push some refs" "$PUSH_LOG"; then
+    echo "▶ Checking that GitHub only has prior Replit file-sync commits..."
+    BASE_SHA="$(git rev-parse origin/main 2>/dev/null || true)"
+    if [ -z "$BASE_SHA" ] || ! curl --config "$CURL_AUTH_CONFIG" -fsSL --max-time 30 \
+      "https://api.github.com/repos/${REPO}/compare/${BASE_SHA}...main" \
+      > "$COMPARE_FILE"; then
+      echo "❌ Could not verify GitHub history safely; no API sync was attempted."
+      exit "$PUSH_EXIT"
+    fi
+
+    if ! node - "$COMPARE_FILE" <<'NODE'
+const fs = require("fs");
+let comparison;
+try {
+  comparison = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+} catch {
+  console.error("❌ GitHub returned an unreadable history comparison.");
+  process.exit(1);
+}
+
+const ahead = Number(comparison.ahead_by);
+const behind = Number(comparison.behind_by);
+const commits = comparison.commits;
+const isExpectedSync = /^chore: (sync|remove) .+ via Replit auto-push$/;
+
+if (!Number.isInteger(ahead) || !Number.isInteger(behind) || behind !== 0 ||
+    !Array.isArray(commits) || commits.length !== ahead ||
+    commits.some((commit) => !isExpectedSync.test((commit.commit?.message || "").split("\n")[0]))) {
+  console.error("❌ GitHub has commits that need manual reconciliation; no API sync was attempted.");
+  process.exit(1);
+}
+
+console.log(`   Verified ${ahead} remote commit(s); all are prior Replit file-sync commits.`);
+NODE
+    then
+      exit "$PUSH_EXIT"
+    fi
+
+    echo "▶ Syncing changed files through the GitHub API..."
     GITHUB_TOKEN="$TOKEN" bash scripts/auto-push.sh main
     PUSH_METHOD="GitHub API fallback"
   else
