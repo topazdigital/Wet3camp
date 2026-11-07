@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { Eye, X } from 'lucide-react'
+import { useAuth } from '@/lib/auth-context'
 
 const TOKEN_KEY = 'w3c_token'
 const SS_KEY = 'w3c_ss_user'
@@ -98,18 +99,22 @@ export default function ViewAs() {
 }
 
 export function ImpersonationBanner() {
-  const [info, setInfo] = useState<{ name: string; role: string } | null>(null)
+  const { user } = useAuth()
+  const [active, setActive] = useState(false)
 
   useEffect(() => {
     try {
       const raw = sessionStorage.getItem(SS_KEY)
-      if (!raw) return
-      const user = JSON.parse(raw)
-      setInfo({ name: user.name ?? 'Unknown', role: user.role ?? 'user' })
+      const token = sessionStorage.getItem(TOKEN_KEY)
+      if (raw && token) {
+        setActive(true)
+      } else if (raw) {
+        sessionStorage.removeItem(SS_KEY)
+      }
     } catch {}
   }, [])
 
-  if (!info) return null
+  if (!active || !user) return null
 
   const exitImpersonation = () => {
     try {
@@ -126,7 +131,7 @@ export function ImpersonationBanner() {
     <div className="fixed top-0 left-0 right-0 z-[9999] bg-[#8B0000] text-white text-xs font-bold flex items-center justify-between px-4 py-2 shadow-lg">
       <div className="flex items-center gap-2">
         <Eye size={13} />
-        <span>Admin View — Viewing as <span className="underline">{info.name}</span> ({info.role})</span>
+        <span>Admin View — Viewing as <span className="underline">{user.name}</span> ({user.role})</span>
       </div>
       <button
         onClick={exitImpersonation}
