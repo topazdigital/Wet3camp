@@ -32,7 +32,7 @@ interface Props {
 }
 
 const TIER_COLOR: Record<string, string> = {
-  Elite: '#8B0000', VIP: '#FF4500', Premium: '#B8860B',
+  Elite: '#8B0000', VIP: '#B8860B', Premium: '#FFD700',
 }
 
 export default function BookingModal({ open, onClose, escort }: Props) {
