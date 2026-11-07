@@ -23,6 +23,13 @@ The user wants to push from Replit Shell without reconnecting the Git source-con
 
 **How to apply:** Run the Shell push script and confirm it completed; do not trigger the production workflow unless asked.
 
+## Non-fast-forward after API sync
+The GitHub Contents API fallback creates one remote commit per changed file but does not advance the workspace's local `origin/main`. A later `git push` can therefore report "fetch first" even when the remote commits are prior Replit auto-syncs. Do not force-push. If the remote commits are all `chore: sync/remove ... via Replit auto-push`, use `bash scripts/auto-push.sh main`, which compares current GitHub file SHAs before writing. If there are other remote commits, stop and reconcile them before syncing.
+
+**Why:** GitHub's file-by-file fallback can successfully update the remote tree while leaving local Git history stale; forcing a push would risk deleting those remote commits.
+
+**How to apply:** When a push is rejected as non-fast-forward, inspect the remote history first. Use the API file-sync only when the remote-only commits are from this project's previous auto-sync.
+
 ## Credentials
 - `GITHUB_TOKEN` or `GITHUB_PERSONAL_ACCESS_TOKEN` — in Replit Secrets ✅ (never ask again)
 - `DEPLOY_SSH_KEY` — required in GitHub repo Secrets only when manually running the GitHub Actions deployment
