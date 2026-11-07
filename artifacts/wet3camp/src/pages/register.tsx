@@ -1104,7 +1104,7 @@ export default function RegisterPage() {
             </div>
             <div className="p-3.5 bg-card-bg border border-color rounded-xl">
               <p className="text-[11px] font-bold text-text-light mb-1">Photo Guidelines</p>
-              {['Clear, well-lit photos only','Face must be visible in at least one photo','No watermarks or other identities','First photo becomes your cover photo'].map(g => (
+              {['Clear, well-lit photos only','Face visibility is optional — share only photos you’re comfortable publishing','No watermarks or other identities','First photo becomes your cover photo'].map(g => (
                 <p key={g} className="text-[10px] text-text-muted flex items-start gap-1.5 mt-1"><CheckCircle2 size={9} className="text-[#28a745] mt-0.5 flex-shrink-0" />{g}</p>
               ))}
             </div>
