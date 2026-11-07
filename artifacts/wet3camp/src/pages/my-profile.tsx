@@ -189,6 +189,16 @@ export default function MyProfile() {
     if (escortProfile?.gallery) setGallery(escortProfile.gallery)
   }, [escortProfile?.gallery])
 
+  useEffect(() => {
+    const failedUploads = Number(sessionStorage.getItem('wet3_registration_photo_upload_failures') ?? 0)
+    if (!Number.isInteger(failedUploads) || failedUploads <= 0) return
+    sessionStorage.removeItem('wet3_registration_photo_upload_failures')
+    setGalleryError(
+      `${failedUploads} photo${failedUploads === 1 ? '' : 's'} could not be saved. Please add them again in Gallery.`
+    )
+    setActiveTab('Gallery')
+  }, [])
+
   // Compress + resize image client-side before upload (reduces payload from 5-15MB to <2MB)
   const compressImage = (file: File, maxDim = 1500, quality = 0.82): Promise<string> =>
     new Promise((resolve, reject) => {
