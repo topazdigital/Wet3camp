@@ -1,10 +1,11 @@
 import { Router } from 'express'
 import { requireAuth, type AuthRequest } from '../middlewares/requireAuth.js'
-import { writeFile, mkdir } from 'fs/promises'
+import { writeFile, mkdir, unlink } from 'fs/promises'
 import { existsSync } from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { getPool } from '../lib/db.js'
+import { getEscortGalleryRows, isMissingGallerySortOrderColumn } from '../lib/escort-gallery.js'
 
 const router = Router()
 
@@ -47,17 +48,32 @@ async function persistUpload(
   }
 
   if (type === 'gallery') {
-    const pool = getPool()
-    if (pool) {
+    try {
+      const pool = getPool()
+      if (!pool) throw new Error('Database not configured')
+
       const [[escort]] = await pool.query<any[]>('SELECT id FROM escorts WHERE user_id = ? LIMIT 1', [userId])
-      if (escort) {
+      if (!escort) throw new Error('Escort profile not found')
+
+      try {
+        const [[sortRow]] = await pool.query<any[]>(
+          'SELECT COALESCE(MAX(sort_order), 0) + 1 AS next_sort_order FROM escort_gallery WHERE escort_id = ?',
+          [escort.id],
+        )
         await pool.query(
-          'INSERT INTO escort_gallery (escort_id, image_url, sort_order) VALUES (?,?, (SELECT COALESCE(MAX(sort_order),0)+1 FROM escort_gallery eg WHERE eg.escort_id = ?))',
-          [escort.id, escort.id]
-        ).catch(() => {
-          pool.query('INSERT INTO escort_gallery (escort_id, image_url) VALUES (?,?)', [escort.id, url]).catch(() => {})
-        })
+          'INSERT INTO escort_gallery (escort_id, image_url, sort_order) VALUES (?, ?, ?)',
+          [escort.id, url, Number(sortRow?.next_sort_order ?? 1)],
+        )
+      } catch (error) {
+        if (!isMissingGallerySortOrderColumn(error)) throw error
+        await pool.query(
+          'INSERT INTO escort_gallery (escort_id, image_url) VALUES (?, ?)',
+          [escort.id, url],
+        )
       }
+    } catch (error) {
+      await unlink(filePath).catch(() => {})
+      throw error
     }
   }
 
@@ -66,11 +82,7 @@ async function persistUpload(
 
 async function getEscortGallery(pool: ReturnType<typeof getPool>, escortId: string | number) {
   if (!pool) return []
-  const [rows] = await pool.query<any[]>(
-    'SELECT id, image_url, sort_order FROM escort_gallery WHERE escort_id = ? ORDER BY sort_order ASC, id ASC',
-    [escortId]
-  )
-  return Array.isArray(rows) ? rows : []
+  return getEscortGalleryRows(pool, escortId)
 }
 
 // POST /api/upload
@@ -132,6 +144,10 @@ router.post('/upload', requireAuth, async (req: AuthRequest, res) => {
     const maxSize = isVideo ? 80 * 1024 * 1024 : 8 * 1024 * 1024
     if (buffer.length > maxSize) {
       res.status(413).json({ message: `File too large. Maximum size is ${isVideo ? '80MB' : '8MB'}.` }); return
+    }
+
+    if (req.userId == null) {
+      res.status(401).json({ message: 'Authentication required' }); return
     }
 
     const url = await persistUpload(buffer, filename, type, req.userId, ext)
