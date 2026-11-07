@@ -9,8 +9,8 @@ import { useSEO } from '@/lib/useSEO'
 const CATS = ['All', 'Free', 'Premium', 'VIP', 'Elite']
 const tierStyle: Record<string, { bg: string; label: string }> = {
   elite:   { bg: '#8B0000', label: 'ELITE' },
-  vip:     { bg: '#FF4500', label: 'VIP' },
-  premium: { bg: '#B8860B', label: 'PREMIUM' },
+  vip:     { bg: '#B8860B', label: 'VIP' },
+  premium: { bg: '#FFD700', label: 'PREMIUM' },
   free:    { bg: '#28a745', label: 'FREE' },
 }
 
