@@ -530,6 +530,23 @@ function ClientsTab() {
     }
   }
 
+  const approveEscortProfile = async (client: any) => {
+    const escortId = client.escort_profile_id
+    if (!escortId) return
+    setActionError('')
+    setActionLoading(`approve-profile-${escortId}`)
+    try {
+      await adminFetch(`/admin/escorts/${escortId}/verify`, { method: 'POST' })
+      setClients(p => p.map(c => String(c.id) === String(client.id)
+        ? { ...c, escort_profile_active: 1, escort_profile_verified: 1 }
+        : c))
+    } catch (err: any) {
+      setActionError(err?.message || 'Could not approve this escort profile.')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
   const deletePermanently = async (client: any) => {
     const id = String(client.id)
     const name = client.display_name || client.username || client.email || `User ${id}`
@@ -572,10 +589,10 @@ function ClientsTab() {
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead className="bg-dark-bg border-b border-color">
-              <tr>{['Name','Email','Role','Phone','Joined','Status','Actions'].map(h=><th key={h} className="px-4 py-3 text-left font-semibold text-text-muted">{h}</th>)}</tr>
+              <tr>{['Name','Email','Role','Phone','Joined','Account','Profile','Actions'].map(h=><th key={h} className="px-4 py-3 text-left font-semibold text-text-muted">{h}</th>)}</tr>
             </thead>
             <tbody>
-              {clients.length === 0 && <tr><td colSpan={7} className="px-4 py-10 text-center text-text-muted">No users yet.</td></tr>}
+              {clients.length === 0 && <tr><td colSpan={8} className="px-4 py-10 text-center text-text-muted">No users yet.</td></tr>}
               {clients.map(c=>(
                 <tr key={c.id} className="border-b border-color/40 hover:bg-dark-bg transition-colors">
                   <td className="px-4 py-3 font-semibold text-text-light">{c.display_name || c.username}</td>
@@ -586,7 +603,34 @@ function ClientsTab() {
                   <td className="px-4 py-3 text-text-muted">{c.phone || '—'}</td>
                   <td className="px-4 py-3 text-text-muted">{c.created_at ? new Date(c.created_at).toLocaleDateString() : '—'}</td>
                   <td className="px-4 py-3">
-                    <span className={`text-[10px] font-bold ${c.is_active?'text-[#28a745]':'text-[#EF4444]'}`}>{c.is_active?'Active':'Inactive'}</span>
+                    <span title="Login account status" className={`text-[10px] font-bold ${c.is_active?'text-[#28a745]':'text-[#EF4444]'}`}>{c.is_active?'Active':'Inactive'}</span>
+                  </td>
+                  <td className="px-4 py-3">
+                    {c.role !== 'escort' ? (
+                      <span className="text-text-muted">—</span>
+                    ) : !c.escort_profile_id ? (
+                      <span className="text-[10px] font-semibold text-text-muted">No profile yet</span>
+                    ) : Boolean(c.escort_profile_active) ? (
+                      <span className="text-[10px] font-semibold text-[#28a745]">
+                        {Boolean(c.escort_profile_verified) ? 'Approved' : 'Profile active'}
+                      </span>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[10px] font-semibold ${Boolean(c.escort_profile_verified) ? 'text-[#FF9800]' : 'text-[#FFD700]'}`}>
+                          {Boolean(c.escort_profile_verified) ? 'Inactive profile' : 'Pending review'}
+                        </span>
+                        <button
+                          onClick={() => approveEscortProfile(c)}
+                          disabled={actionLoading === `approve-profile-${c.escort_profile_id}`}
+                          className="px-2 py-1 bg-[#28a745]/15 text-[#28a745] text-[9px] font-bold rounded-lg border border-[#28a745]/30 hover:bg-[#28a745]/25 disabled:opacity-50"
+                          aria-label={`${Boolean(c.escort_profile_verified) ? 'Activate' : 'Approve'} ${c.display_name || c.username || 'escort'} profile`}
+                        >
+                          {actionLoading === `approve-profile-${c.escort_profile_id}`
+                            ? 'Saving…'
+                            : Boolean(c.escort_profile_verified) ? 'Activate' : 'Approve'}
+                        </button>
+                      </div>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1">
@@ -807,17 +851,17 @@ function PendingApprovals() {
   const [reviewLoading, setReviewLoading] = useState(false)
 
   useEffect(() => {
-    adminFetch('/admin/escorts?limit=200')
+    adminFetch('/admin/escorts?status=pending&limit=200')
       .then((data: any[]) => setEscorts(data.filter(e => !Boolean(e.is_active) && !Boolean(e.verified))))
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [])
 
   const approve = async (id: string) => {
-    try { await adminFetch(`/admin/escorts/${id}/verify`, { method: 'PATCH' }); setEscorts(p => p.filter(e => e.id !== id)); if (reviewingEscort?.id === id) setReviewingEscort(null) } catch {}
+    try { await adminFetch(`/admin/escorts/${id}/verify`, { method: 'POST' }); setEscorts(p => p.filter(e => e.id !== id)); if (reviewingEscort?.id === id) setReviewingEscort(null) } catch {}
   }
   const reject = async (id: string) => {
-    try { await adminFetch(`/admin/escorts/${id}/reject`, { method: 'PATCH' }); setEscorts(p => p.filter(e => e.id !== id)); if (reviewingEscort?.id === id) setReviewingEscort(null) } catch {}
+    try { await adminFetch(`/admin/escorts/${id}/reject`, { method: 'POST' }); setEscorts(p => p.filter(e => e.id !== id)); if (reviewingEscort?.id === id) setReviewingEscort(null) } catch {}
   }
 
   const openReview = async (e: any) => {
@@ -2245,7 +2289,7 @@ function EscortsTab() {
   const handleApprove = async (id: string) => {
     setActionLoading(id + '_approve')
     try {
-      await adminFetch(`/admin/escorts/${id}/verify`, { method: 'PATCH' })
+      await adminFetch(`/admin/escorts/${id}/verify`, { method: 'POST' })
       setEscorts(prev => prev.map(e => e.id === id ? { ...e, is_active: true, verified: true } : e))
     } catch {}
     setActionLoading(null)
@@ -2254,7 +2298,7 @@ function EscortsTab() {
   const handleReject = async (id: string) => {
     setActionLoading(id + '_reject')
     try {
-      await adminFetch(`/admin/escorts/${id}/reject`, { method: 'PATCH' })
+      await adminFetch(`/admin/escorts/${id}/reject`, { method: 'POST' })
       setEscorts(prev => prev.map(e => e.id === id ? { ...e, is_active: false, verified: false } : e))
     } catch {}
     setActionLoading(null)

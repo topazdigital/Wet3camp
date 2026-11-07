@@ -87,10 +87,29 @@ router.get('/admin/users', requireAuth, requireAdmin, async (req: AuthRequest, r
     if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
     const limit = Math.min(parseInt((req.query as any).limit ?? '200', 10), 500)
     const [rows] = await pool.query<any[]>(
-      'SELECT id, username, email, role, display_name, phone, is_active, created_at FROM users ORDER BY id DESC LIMIT ?',
+      `SELECT u.id, u.username, u.email, u.role, u.display_name, u.phone, u.is_active, u.created_at,
+        e.escort_profile_id, e.escort_profile_active, e.escort_profile_verified
+       FROM users u
+       LEFT JOIN (
+         SELECT profile.user_id, profile.id AS escort_profile_id,
+           profile.is_active AS escort_profile_active,
+           profile.verified AS escort_profile_verified
+         FROM escorts profile
+         INNER JOIN (
+           SELECT user_id, MAX(id) AS id
+           FROM escorts
+           WHERE user_id IS NOT NULL
+           GROUP BY user_id
+         ) latest ON latest.user_id = profile.user_id AND latest.id = profile.id
+       ) e ON e.user_id = u.id
+       ORDER BY u.id DESC LIMIT ?`,
       [limit]
     )
-    res.json(rows.map(u => ({ ...u, id: String(u.id) })))
+    res.json(rows.map(u => ({
+      ...u,
+      id: String(u.id),
+      escort_profile_id: u.escort_profile_id == null ? null : String(u.escort_profile_id),
+    })))
   } catch {
     res.status(500).json({ message: 'Failed to fetch users' })
   }
@@ -316,7 +335,7 @@ router.post('/admin/escorts/:id/featured', requireAuth, requireAdmin, async (req
   await updateAdminEscortFeatured(req, res, requestedFeatured)
 })
 
-router.patch('/admin/escorts/:id/verify', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+async function approveAdminEscort(req: AuthRequest, res: any) {
   try {
     const pool = getPool()
     if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
@@ -344,7 +363,12 @@ router.patch('/admin/escorts/:id/verify', requireAuth, requireAdmin, async (req:
   } catch {
     res.status(500).json({ message: 'Failed to verify escort' })
   }
-})
+}
+
+router.patch('/admin/escorts/:id/verify', requireAuth, requireAdmin, approveAdminEscort)
+// The production Apache proxy rejects PATCH; keep an authenticated POST alias
+// so administrators can approve a profile from the live site.
+router.post('/admin/escorts/:id/verify', requireAuth, requireAdmin, approveAdminEscort)
 
 router.post('/admin/escorts/bulk-approve', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
   try {
@@ -417,7 +441,7 @@ router.patch('/admin/escorts/:id/online', requireAuth, requireAdmin, async (req:
   }
 })
 
-router.patch('/admin/escorts/:id/reject', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+async function rejectAdminEscort(req: AuthRequest, res: any) {
   try {
     const pool = getPool()
     if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
@@ -431,7 +455,10 @@ router.patch('/admin/escorts/:id/reject', requireAuth, requireAdmin, async (req:
   } catch {
     res.status(500).json({ message: 'Failed to reject escort' })
   }
-})
+}
+
+router.patch('/admin/escorts/:id/reject', requireAuth, requireAdmin, rejectAdminEscort)
+router.post('/admin/escorts/:id/reject', requireAuth, requireAdmin, rejectAdminEscort)
 
 router.get('/admin/escorts/:id', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
   try {
