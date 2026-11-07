@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import Header from '@/components/Header'
 import Sidebar from '@/components/Sidebar'
 import { useSEO } from '@/lib/useSEO'
@@ -6,10 +6,27 @@ import { Crown, Star, Diamond, Check, X, Zap, Eye, BarChart2, Shield, ArrowRight
 import { Link } from 'wouter'
 import { useAuth } from '@/lib/auth-context'
 import { formatKes, usePublicPricing, type PublicPricing } from '@/lib/pricing'
+import { getToken } from '@/lib/api'
 
 // ─── Tier data ────────────────────────────────────────────────────────────────
 
-const TIERS = [
+type TierBenefit = { text: string; highlight?: boolean }
+type TierDefinition = {
+  id: 'elite' | 'vip' | 'premium' | 'standard'
+  name: string
+  emoji: string
+  tagline: string
+  color: string
+  darkColor: string
+  glowColor: string
+  priceKey: 'elite' | 'vip' | 'premium' | null
+  price: string | null
+  popular: boolean
+  icon: React.ComponentType<any>
+  benefits: TierBenefit[]
+}
+
+const TIERS: TierDefinition[] = [
   {
     id: 'elite',
     name: 'Elite',
@@ -164,13 +181,21 @@ function TierCard({
           {tier.priceKey && <span className="text-sm text-text-muted">/ month</span>}
         </div>
 
-        {isCurrentTier ? (
+        {tier.id === 'standard' ? (
           <div className="w-full py-2.5 rounded-xl text-sm font-bold text-center mt-4" style={{ background: tier.color + '20', color: tier.color, border: `1px solid ${tier.color}40` }}>
-            ✓ Your Current Tier
+            {isCurrentTier ? '✓ Your Current Tier' : 'Free to start'}
           </div>
+        ) : isCurrentTier ? (
+          <Link
+            href={`/tier-upgrade?tier=${tier.id}`}
+            className="w-full py-2.5 rounded-xl text-sm font-black text-center mt-4 block hover:opacity-90 transition-opacity"
+            style={{ background: tier.color, color: tier.id === 'elite' ? '#000' : '#fff' }}
+          >
+            Renew {tier.name} <ArrowRight size={13} className="inline ml-1" />
+          </Link>
         ) : (
           <Link
-            href="/featured-upgrade"
+            href={`/tier-upgrade?tier=${tier.id}`}
             className="w-full py-2.5 rounded-xl text-sm font-black text-center mt-4 block hover:opacity-90 transition-opacity"
             style={{ background: tier.color, color: tier.id === 'elite' ? '#000' : '#fff' }}
           >
@@ -205,8 +230,37 @@ export default function TierBenefitsPage() {
   const { user } = useAuth()
   const { pricing, loading: pricingLoading, error: pricingError } = usePublicPricing()
   const [showComparison, setShowComparison] = useState(false)
+  const [currentTier, setCurrentTier] = useState('standard')
+  const [currentTierExpiry, setCurrentTierExpiry] = useState<string | null>(null)
 
-  const currentTier = 'standard'
+  useEffect(() => {
+    if (user?.role !== 'escort') {
+      setCurrentTier('standard')
+      setCurrentTierExpiry(null)
+      return
+    }
+    let active = true
+    const token = getToken()
+    fetch('/api/payments/profile-tier', {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      cache: 'no-store',
+    })
+      .then(async response => {
+        const data = await response.json().catch(() => ({}))
+        if (!response.ok) throw new Error(data.message || 'Could not load your current tier.')
+        if (active) {
+          setCurrentTier(String(data.tier ?? 'standard').toLowerCase())
+          setCurrentTierExpiry(data.expiresAt ?? null)
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setCurrentTier('standard')
+          setCurrentTierExpiry(null)
+        }
+      })
+    return () => { active = false }
+  }, [user?.id, user?.role])
 
   return (
     <div className="flex min-h-screen bg-dark-bg flex-col lg:flex-row">
@@ -226,14 +280,20 @@ export default function TierBenefitsPage() {
               <span className="text-[#8B0000]">Wet3</span><span className="text-[#FFD700]">Camp</span>
             </h1>
             <p className="text-text-muted max-w-xl mx-auto text-sm leading-relaxed">
-              Higher tiers mean more visibility, more clients, and more earnings. Elite escorts earn on average <span className="text-[#FFD700] font-semibold">3–5× more</span> than standard profiles.
+              Higher tiers add profile placement and visibility features. They do not guarantee views, enquiries, bookings, or earnings.
             </p>
+            {user?.role === 'escort' && currentTier !== 'standard' && (
+              <p className="mt-3 text-xs text-text-muted">
+                Your current tier is <span className="font-bold capitalize text-text-light">{currentTier}</span>
+                {currentTierExpiry && ` · active until ${new Date(currentTierExpiry).toLocaleDateString('en-KE')}`}
+              </p>
+            )}
           </div>
 
           {/* Tier cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
             {TIERS.map(tier => (
-              <TierCard key={tier.id} tier={tier} isCurrentTier={tier.id === currentTier} pricing={pricing} pricingLoading={pricingLoading} />
+              <TierCard key={tier.id} tier={tier} isCurrentTier={user?.role === 'escort' && tier.id === currentTier} pricing={pricing} pricingLoading={pricingLoading} />
             ))}
           </div>
           {pricingError && <p className="mb-8 text-center text-xs text-[#EF4444]" role="status">{pricingError}</p>}
@@ -241,10 +301,10 @@ export default function TierBenefitsPage() {
           {/* Key stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
             {[
-              { emoji: '👁️', value: '10×',      label: 'More profile views for Elite vs Free' },
-              { emoji: '💬', value: '5×',       label: 'More messages for VIP vs Standard'   },
-              { emoji: '📅', value: '3–5×',     label: 'More bookings for premium tiers'     },
-              { emoji: '💰', value: 'KES 8,500+', label: 'Average Elite monthly earnings gain' },
+                { emoji: '🖼️', value: '30',       label: 'Maximum Elite gallery photos' },
+                { emoji: '⭐', value: 'Top 3',    label: 'Advertised VIP search placement' },
+                { emoji: '👑', value: '3 tiers',  label: 'Optional monthly profile upgrades' },
+                { emoji: '🔄', value: 'Manual',   label: 'Renew monthly with M-Pesa' },
             ].map(stat => (
               <div key={stat.label} className="bg-card-bg border border-color rounded-xl p-4 text-center">
                 <p className="text-2xl mb-1">{stat.emoji}</p>
@@ -312,10 +372,10 @@ export default function TierBenefitsPage() {
             </h2>
             <div className="space-y-4">
               {[
-                { q: 'Can I change my tier at any time?', a: 'Yes. Upgrade or downgrade anytime. Changes take effect immediately.' },
+                { q: 'How long does a monthly tier last?', a: 'Each confirmed payment activates the selected tier for 30 days. M-Pesa does not auto-renew; pay again to renew. Renewing the same active tier early extends its expiry. Switching to another tier starts a new 30-day period and does not credit unused time.' },
                 { q: 'How are payments handled with clients?', a: 'Wet3Camp does not process booking payments. You arrange payment directly with each client — cash, M-Pesa, or whatever you prefer. Standard profiles are free; optional visibility services are separate.' },
                 { q: 'What if I stop using a paid tier?', a: 'Your profile can remain visible on the free Standard tier. It will no longer have the extra placement and badges described for paid tiers.' },
-                { q: 'Is the Elite tier really worth it?', a: "Elite escorts get daily carousel features, homepage placement, and the client 'Elite filter' — making you the first escort clients see when browsing. Most Elite escorts see a significant increase in enquiries within the first week." },
+                { q: 'Does a higher tier guarantee more bookings?', a: 'No. Tiers provide the listed profile placement and visibility features, but do not guarantee views, enquiries, bookings, or earnings.' },
               ].map(item => (
                 <div key={item.q} className="border-b border-color/40 pb-4 last:border-0 last:pb-0">
                   <p className="text-sm font-bold text-text-light mb-1">{item.q}</p>
@@ -328,12 +388,12 @@ export default function TierBenefitsPage() {
           {/* CTA */}
           <div className="text-center">
             <Link
-              href="/featured-upgrade"
+              href="/tier-upgrade"
               className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-[#8B0000] to-[#FF4500] text-white font-black text-lg rounded-2xl hover:from-[#a00000] hover:to-[#e03c00] transition-all shadow-xl shadow-[#8B0000]/30"
             >
-              <Crown size={20} /> Upgrade My Tier Now
+              <Crown size={20} /> Choose a Monthly Tier
             </Link>
-            <p className="text-xs text-text-muted mt-3">No long-term contracts. Cancel anytime.</p>
+            <p className="text-xs text-text-muted mt-3">Each payment covers 30 days. Renew manually; there is no automatic renewal.</p>
           </div>
         </div>
       </div>
