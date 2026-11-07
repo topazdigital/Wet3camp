@@ -7,11 +7,11 @@ import { useSEO } from '@/lib/useSEO'
 import { getSlug } from '@/data/escorts'
 
 const CITIES = ['All', 'Nairobi', 'Mombasa', 'Kisumu', 'Nakuru', 'Diani']
-const TIER_COLORS: Record<string, string> = { elite: '#8B0000', vip: '#FF4500', premium: '#B8860B' }
+const TIER_COLORS: Record<string, string> = { elite: '#8B0000', vip: '#B8860B', premium: '#FFD700' }
 const TIER_BADGE: Record<string, { bg: string; text: string }> = {
   elite:   { bg: '#8B000060', text: '#FF6B6B' },
-  vip:     { bg: '#FF450060', text: '#FF8C00' },
-  premium: { bg: '#B8860B60', text: '#FFD700' },
+  vip:     { bg: '#B8860B60', text: '#B8860B' },
+  premium: { bg: '#FFD70020', text: '#FFD700' },
 }
 
 export default function ToursPage() {
