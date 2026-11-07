@@ -49,7 +49,7 @@ export default function LiveProfiles() {
                 <Link key={s.id} href={`/live/${s.escortId}`} className="flex-shrink-0 flex flex-col items-center gap-1.5 group cursor-pointer">
                   {/* Gradient ring — no spin so photo stays upright */}
                   <div className="relative">
-                    <div className="w-[76px] h-[76px] rounded-full p-[3px] bg-gradient-to-br from-[#E91E63] via-[#FF4500] to-[#8B0000] shadow-[0_0_14px_#E91E6360] group-hover:shadow-[0_0_20px_#E91E6380] transition-shadow">
+                    <div className="w-[76px] h-[76px] rounded-full p-[3px] bg-gradient-to-br from-[#FFD700] via-[#B8860B] to-[#8B0000] shadow-[0_0_14px_#FFD70060] group-hover:shadow-[0_0_20px_#FFD70080] transition-shadow">
                       <div className="w-full h-full rounded-full p-[2px] bg-dark-bg">
                         <div className="w-full h-full rounded-full overflow-hidden group-hover:scale-105 transition-transform duration-300">
                           {photo
