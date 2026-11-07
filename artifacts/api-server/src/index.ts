@@ -18,6 +18,24 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
+async function expirePaidProfileTiers() {
+  const pool = getPool()
+  if (!pool) return
+  try {
+    const [result] = await pool.query(
+      `UPDATE escorts
+          SET tier = 'standard', tier_expires_at = NULL, updated_at = NOW()
+        WHERE tier IN ('premium', 'vip', 'elite')
+          AND tier_expires_at IS NOT NULL
+          AND tier_expires_at <= NOW()`,
+    )
+    const affectedRows = Number((result as any)?.affectedRows ?? (result as any)?.rowCount ?? 0)
+    if (affectedRows > 0) logger.info({ affectedRows }, 'Expired paid escort tiers returned to Standard')
+  } catch (err) {
+    logger.warn({ err }, 'Could not expire paid escort tiers')
+  }
+}
+
 app.listen(port, (err) => {
   if (err) {
     logger.error({ err }, "Error listening on port");
@@ -27,7 +45,13 @@ app.listen(port, (err) => {
   logger.info({ port }, "Server listening");
 
   // Run DB migrations automatically (MySQL/production only)
-  runMigrations().catch(e => logger.warn({ err: e }, "Migration error (non-fatal)"));
+  runMigrations()
+    .then(() => {
+      void expirePaidProfileTiers()
+      const expirySweep = setInterval(() => void expirePaidProfileTiers(), 5 * 60 * 1000)
+      expirySweep.unref()
+    })
+    .catch(e => logger.warn({ err: e }, "Migration error (non-fatal)"))
 
   const pool = getPool();
   if (pool) {
