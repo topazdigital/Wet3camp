@@ -10,7 +10,7 @@ import { useAllEscorts } from '@/hooks/useEscorts'
 import { useSEO } from '@/lib/useSEO'
 import { getSlug } from '@/data/escorts'
 
-const TIER_COLOR: Record<string, string> = { elite:'#8B0000', vip:'#FF4500', premium:'#B8860B', standard:'#3a6da8' }
+const TIER_COLOR: Record<string, string> = { elite:'#8B0000', vip:'#B8860B', premium:'#FFD700', standard:'#6c757d' }
 
 function getGuestKey(): string {
   const k = 'wc_gk'
@@ -448,7 +448,7 @@ export default function FeedsPage() {
 
               <div className="bg-card-bg border border-color rounded-2xl p-4">
                 <h3 className="text-sm font-bold text-text-light mb-3 flex items-center gap-2">
-                  <TrendingUp size={14} className="text-[#FF4500]" /> Trending
+                  <TrendingUp size={14} className="text-[#FFD700]" /> Trending
                 </h3>
                 <div className="space-y-2.5">
                   {['#NairobiBabes', '#MombasaEscorts', '#EliteCompanion', '#KisumuLadies', '#Wet3Camp'].map((tag, i) => (
@@ -457,7 +457,7 @@ export default function FeedsPage() {
                         <p className="text-xs font-bold text-text-light">{tag}</p>
                         <p className="text-[9px] text-text-muted">{[892, 674, 523, 341, 289][i]} profiles</p>
                       </div>
-                      <span className="text-[9px] text-[#FF4500] font-bold">#{i + 1}</span>
+                      <span className="text-[9px] text-[#FFD700] font-bold">#{i + 1}</span>
                     </div>
                   ))}
                 </div>
