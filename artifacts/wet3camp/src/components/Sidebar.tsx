@@ -18,7 +18,7 @@ const NAV_SECTIONS = [
   {
     title: 'Discover',
     items: [
-      { icon: Star,          label: 'Exclusive',       href: '/exclusive', badge: 'VIP', badgeColor: '#FF4500' },
+      { icon: Star,          label: 'Exclusive',       href: '/exclusive', badge: 'VIP', badgeColor: '#B8860B' },
       { icon: ShoppingBag,   label: 'Premium Shop',    href: '/shop' },
       { icon: Megaphone,     label: 'Adverts',         href: '/adverts' },
       { icon: Calendar,      label: 'Events',          href: '/events' },
