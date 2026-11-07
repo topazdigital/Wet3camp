@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { createHash } from 'crypto'
 import { getPool } from '../lib/db.js'
+import { getEscortGalleryRows } from '../lib/escort-gallery.js'
 import { requireAuth, type AuthRequest } from '../middlewares/requireAuth.js'
 import { setEscortOnline } from '../lib/online-store.js'
 
@@ -62,11 +63,8 @@ router.get('/profile/escort', requireAuth, async (req: AuthRequest, res) => {
       [req.userId]
     )
     if (!escort) { res.status(404).json({ message: 'Escort profile not found' }); return }
-    const [galleryRows] = await pool.query<any[]>(
-      'SELECT image_url FROM escort_gallery WHERE escort_id = ? ORDER BY sort_order ASC, id ASC',
-      [escort.id]
-    ).catch(() => [[]])
-    const gallery = Array.isArray(galleryRows) ? galleryRows.map((g: any) => g.image_url) : []
+    const galleryRows = await getEscortGalleryRows(pool, escort.id)
+    const gallery = galleryRows.map((g: any) => g.image_url)
     res.json({
       ...escort,
       id: String(escort.id),
