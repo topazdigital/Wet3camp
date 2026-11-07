@@ -609,10 +609,10 @@ function ClientsTab() {
                     {c.role !== 'escort' ? (
                       <span className="text-text-muted">—</span>
                     ) : !c.escort_profile_id ? (
-                      <span className="text-[10px] font-semibold text-text-muted">No profile yet</span>
-                    ) : Boolean(c.escort_profile_active) ? (
+                      <span className="text-[10px] font-semibold text-text-muted">Setup incomplete</span>
+                    ) : Boolean(c.escort_profile_active) && Boolean(c.escort_profile_verified) ? (
                       <span className="text-[10px] font-semibold text-[#28a745]">
-                        {Boolean(c.escort_profile_verified) ? 'Approved' : 'Profile active'}
+                        Approved
                       </span>
                     ) : (
                       <div className="flex items-center gap-2">
@@ -638,7 +638,7 @@ function ClientsTab() {
                         <button
                           onClick={() => viewAs(c)}
                           disabled={actionLoading === `view-${c.id}`}
-                          title="View As User"
+                          title={c.role === 'escort' && !c.escort_profile_id ? 'View profile setup' : 'View As User'}
                           data-testid={`button-view-as-user-${c.id}`}
                           className="p-1.5 text-[#2196F3] rounded-lg hover:bg-dark-bg disabled:opacity-50"
                         >{actionLoading === `view-${c.id}` ? <div className="w-3 h-3 border border-current/40 border-t-current rounded-full animate-spin"/> : <Eye size={13}/>}</button>
