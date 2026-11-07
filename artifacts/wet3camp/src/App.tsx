@@ -78,12 +78,18 @@ function PageLoader() {
   )
 }
 
-function ProtectedRoute({ component: Component, adminOnly = false, escortOnly = false }: { component: React.ComponentType; adminOnly?: boolean; escortOnly?: boolean }) {
-  const { isLoggedIn, isAdmin, isEscort, isPendingEscort } = useAuth();
+function ProtectedRoute({ component: Component, adminOnly = false, escortOnly = false, clientOnly = false }: { component: React.ComponentType; adminOnly?: boolean; escortOnly?: boolean; clientOnly?: boolean }) {
+  const { isLoggedIn, isAdmin, isEscort, isClient, isPendingEscort, isAuthReady } = useAuth();
+  if (!isAuthReady) return <PageLoader />;
   if (!isLoggedIn) return <Redirect to="/login" />;
   if (adminOnly && !isAdmin) return <Redirect to="/" />;
-  if (escortOnly && !isEscort) return <Redirect to="/account" />;
   if (isPendingEscort) return <Redirect to="/pending-approval" />;
+  if (escortOnly && !isEscort) return <Redirect to={isAdmin ? "/admin" : "/account"} />;
+  if (clientOnly && !isClient) {
+    if (isAdmin) return <Redirect to="/admin" />;
+    if (isEscort) return <Redirect to="/my-profile" />;
+    return <Redirect to="/" />;
+  }
   return <Component />;
 }
 
@@ -130,7 +136,7 @@ function Router() {
         <Route path="/blog" component={Blog} />
         <Route path="/blog/:slug" component={BlogPost} />
         <Route path="/pending-approval" component={PendingApproval} />
-        <Route path="/account">{() => <ProtectedRoute component={Account} />}</Route>
+        <Route path="/account">{() => <ProtectedRoute component={Account} clientOnly />}</Route>
         <Route path="/auth/choose-role" component={ChooseRole} />
         <Route path="/auth/callback" component={AuthCallback} />
         <Route path="/search" component={SearchPage} />
