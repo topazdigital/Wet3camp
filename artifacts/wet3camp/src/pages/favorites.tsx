@@ -9,8 +9,8 @@ import { getSlug } from '@/data/escorts'
 
 const tierStyle: Record<string,{bg:string,text:string,label:string}> = {
   elite:    { bg:'#8B000020', text:'#FF6B6B',  label:'ELITE'    },
-  vip:      { bg:'#FF450020', text:'#FF8C00',  label:'VIP'      },
-  premium:  { bg:'#B8860B20', text:'#B8860B',  label:'PREMIUM'  },
+  vip:      { bg:'#B8860B20', text:'#B8860B',  label:'VIP'      },
+  premium:  { bg:'#FFD70020', text:'#FFD700',  label:'PREMIUM'  },
   standard: { bg:'#55555520', text:'#888',     label:'STANDARD' },
 }
 
