@@ -17,23 +17,45 @@ interface AuthCtx {
   login:  (user: AuthUser) => void
   logout: () => void
   loginWithApi: (email: string, password: string) => Promise<{ success: boolean; user?: AuthUser; error?: string }>
-  isLoggedIn: boolean; isAdmin: boolean; isEscort: boolean; isClient: boolean
+  isLoggedIn: boolean; isAdmin: boolean; isEscort: boolean; isClient: boolean; isAuthReady: boolean
   isPendingEscort: boolean
 }
 
 const AuthContext = createContext<AuthCtx>({
   user: null, login: () => {}, logout: () => {},
   loginWithApi: async () => ({ success: false, user: undefined }),
-  isLoggedIn: false, isAdmin: false, isEscort: false, isClient: false, isPendingEscort: false,
+  isLoggedIn: false, isAdmin: false, isEscort: false, isClient: false, isAuthReady: true, isPendingEscort: false,
 })
 
 const KEY = 'w3c_user'
 const SS_KEY = 'w3c_ss_user'
+const TOKEN_KEY = 'w3c_token'
 
 setAuthTokenGetter(getToken)
 
 function hasImpersonationSession() {
-  try { return !!sessionStorage.getItem(SS_KEY) } catch { return false }
+  try { return !!sessionStorage.getItem(SS_KEY) && !!sessionStorage.getItem(TOKEN_KEY) } catch { return false }
+}
+
+function readInitialUser(): AuthUser | null {
+  try {
+    const impersonatedUser = sessionStorage.getItem(SS_KEY)
+    if (impersonatedUser && sessionStorage.getItem(TOKEN_KEY)) {
+      try {
+        return JSON.parse(impersonatedUser)
+      } catch {
+        sessionStorage.removeItem(SS_KEY)
+        sessionStorage.removeItem(TOKEN_KEY)
+      }
+    } else if (impersonatedUser) {
+      // Do not pair an old view-as label with a normal localStorage token.
+      sessionStorage.removeItem(SS_KEY)
+    }
+    const savedUser = localStorage.getItem(KEY)
+    return savedUser ? JSON.parse(savedUser) : null
+  } catch {
+    return null
+  }
 }
 
 function apiUserToAuthUser(u: ApiUser): AuthUser {
@@ -50,19 +72,14 @@ function apiUserToAuthUser(u: ApiUser): AuthUser {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(() => {
-    try {
-      const ss = sessionStorage.getItem(SS_KEY)
-      if (ss) return JSON.parse(ss)
-      const s = localStorage.getItem(KEY)
-      return s ? JSON.parse(s) : null
-    } catch { return null }
-  })
+  const [user, setUser] = useState<AuthUser | null>(readInitialUser)
+  const [isAuthReady, setIsAuthReady] = useState(() => !getToken())
 
   const isImpersonating = hasImpersonationSession()
 
   const login = useCallback((u: AuthUser) => {
     setUser(u)
+    setIsAuthReady(true)
     if (isImpersonating) {
       try { sessionStorage.setItem(SS_KEY, JSON.stringify(u)) } catch {}
     } else {
@@ -73,6 +90,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = useCallback(() => {
     const impersonating = hasImpersonationSession()
     setUser(null)
+    setIsAuthReady(true)
     clearToken()
     if (impersonating) {
       try { sessionStorage.removeItem(SS_KEY) } catch {}
@@ -91,6 +109,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!impersonating) localStorage.removeItem(KEY)
     } catch {}
     setUser(null)
+    setIsAuthReady(true)
     window.location.replace(impersonating ? '/admin' : '/login')
   }, [])
 
@@ -111,7 +130,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // don't stay stuck on the pending-approval page after admin approves them
   useEffect(() => {
     const token = getToken()
-    if (!token || !user) return
+    if (!token) {
+      setIsAuthReady(true)
+      return
+    }
     fetch('/api/auth/me', { headers: { Authorization: `Bearer ${token}` } })
       .then(async r => {
         if ([401, 403, 404].includes(r.status)) {
@@ -122,20 +144,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       })
       .then(data => {
         if (!data) return
-        const updated: AuthUser = {
-          ...user,
-          approved: data.approved,
-          hasEscortProfile: data.hasEscortProfile,
-          name: data.name ?? user.name,
-          avatar: data.avatar ?? user.avatar,
-        }
+        if (getToken() !== token) return
+        const serverUser = apiUserToAuthUser(data)
+        const cachedDetails = user && String(user.id) === serverUser.id ? user : {}
+        const updated: AuthUser = { ...cachedDetails, ...serverUser }
         setUser(updated)
         try {
-          if (sessionStorage.getItem(SS_KEY)) sessionStorage.setItem(SS_KEY, JSON.stringify(updated))
+          if (hasImpersonationSession()) sessionStorage.setItem(SS_KEY, JSON.stringify(updated))
           else localStorage.setItem(KEY, JSON.stringify(updated))
         } catch {}
       })
       .catch(() => {})
+      .finally(() => {
+        if (getToken() === token) setIsAuthReady(true)
+      })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clearInvalidSession])
 
@@ -158,6 +180,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     <AuthContext.Provider value={{
       user, login, logout, loginWithApi,
       isLoggedIn: !!user,
+      isAuthReady,
       isAdmin:  user?.role === 'admin',
       isEscort: user?.role === 'escort',
       isClient: user?.role === 'client',
