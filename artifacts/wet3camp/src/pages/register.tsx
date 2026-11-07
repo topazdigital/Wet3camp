@@ -51,7 +51,7 @@ const SERVICE_CATEGORIES: Record<string, string[]> = {
 const SERVICES = Object.values(SERVICE_CATEGORIES).flat()
 
 const STEP_LABELS: Record<string, string> = {
-  role: 'Role', method: 'Sign Up', details: 'Details', otp: 'Verify',
+  role: 'Role', method: 'Sign Up', details: 'Details', otp: 'Verify', location: 'Location',
   physical: 'Physique', contact: 'Contact', services: 'Services',
   rates: 'Rates', photos: 'Photos', pose: 'Pose', confirm: 'Confirm',
 }
@@ -147,7 +147,7 @@ export default function RegisterPage() {
     keywords: 'register escort Kenya, join escort platform Kenya, escort account Nairobi, escort sign up',
     canonicalPath: '/register',
   })
-  const { login } = useAuth()
+  const { login, user } = useAuth()
   const oauthConfig = useOAuthConfig()
   const hasOAuthProviders = Object.values(oauthConfig.providers).some(Boolean)
   const [, navigate] = useLocation()
@@ -169,10 +169,10 @@ export default function RegisterPage() {
   const [stepIdx, setStepIdx]       = useState(isEscortRegistration && !isOAuthEscortSetup || isClaimSignup ? 1 : 0)
 
   // Basic details
-  const [name, setName]             = useState('')
+  const [name, setName]             = useState(isOAuthEscortSetup ? user?.name ?? '' : '')
   const [username, setUsername]     = useState('')
-  const [email, setEmail]           = useState('')
-  const [phone, setPhone]           = useState('')
+  const [email, setEmail]           = useState(isOAuthEscortSetup ? user?.email ?? '' : '')
+  const [phone, setPhone]           = useState(isOAuthEscortSetup ? user?.phone ?? '' : '')
   const [dob, setDob]               = useState('')
   const [city, setCity]             = useState('')
   const [area, setArea]             = useState('')
@@ -186,6 +186,13 @@ export default function RegisterPage() {
   const [areaSuggestions, setAreaSuggestions] = useState<string[]>([])
   const [showAreaSuggestions, setShowAreaSuggestions] = useState(false)
   const areaPickedRef = useRef(false)
+
+  useEffect(() => {
+    if (!isOAuthEscortSetup || !user) return
+    setName(value => value || user.name || '')
+    setEmail(value => value || user.email || '')
+    setPhone(value => value || user.phone || '')
+  }, [isOAuthEscortSetup, user?.id, user?.name, user?.email, user?.phone])
 
   // OTP
   const [otpDigits, setOtpDigits]   = useState(['','','','','',''])
@@ -231,8 +238,8 @@ export default function RegisterPage() {
   // Compute steps
   const STEPS: string[] = (() => {
     if (isOAuthEscortSetup) {
-      // OAuth escort: skip role/method/details/otp — go straight to profile setup
-      return ['physical', 'contact', 'services', 'rates', 'photos', 'confirm']
+      // OAuth escort: collect profile details omitted from provider sign-up.
+      return ['location', 'physical', 'contact', 'services', 'rates', 'photos', 'confirm']
     }
     const base = ['role', 'method']
     if (!role || !authMethod) return base
@@ -433,6 +440,10 @@ export default function RegisterPage() {
       if (!otpSent) { setError('Send the verification code to your email first.'); return false }
       if (otpDigits.join('').length < 6) { setError('Enter the 6-digit code sent to your email.'); return false }
       if (!otpVerified) { setError('Please verify your email by entering the code.'); return false }
+    }
+    if (currentStep === 'location') {
+      if (!city.trim()) { setError('Enter the city where your profile is based.'); return false }
+      if (!area.trim()) { setError('Enter your area or neighborhood.'); return false }
     }
     if (currentStep === 'physical') {
       if (!bodyType || !ethnicity || !height || !hairColor || !gender) { setError('Fill in all physical attributes including gender.'); return false }
@@ -903,6 +914,90 @@ export default function RegisterPage() {
                 )}
               </div>
             )}
+          </div>
+        )}
+
+        {/* ── STEP: LOCATION (OAuth escort setup) ── */}
+        {currentStep === 'location' && (
+          <div>
+            <h2 className="text-xl font-black text-text-light mb-1">Your Profile Location</h2>
+            <p className="text-sm text-text-muted mb-5">Add the location clients should see on your profile.</p>
+            <div className="mb-5 rounded-xl border border-[#FFD700]/20 bg-[#FFD700]/10 p-3.5">
+              <p className="text-xs font-semibold text-[#FFD700] mb-1">Your account details</p>
+              <p className="text-xs text-text-muted">
+                {email ? <>Signed in as <span className="text-text-light">{email}</span>. </> : null}
+                Your sign-in provider shares basic account details, but not your profile location or escort details.
+              </p>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className={labelCls}>Display Name *</label>
+                <div className="relative">
+                  <User size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
+                  <input value={name} onChange={e => setName(e.target.value)} placeholder="Your profile name" className={inputCls} style={{ paddingLeft: '2.25rem' }} />
+                </div>
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className={labelCls} style={{ margin: 0 }}>City and Area *</label>
+                  <button type="button" onClick={detectLocation} disabled={geoLoading} className="flex items-center gap-1 text-[10px] text-[#2196F3] hover:underline disabled:opacity-50">
+                    {geoLoading ? <div className="w-2.5 h-2.5 border border-[#2196F3]/40 border-t-[#2196F3] rounded-full animate-spin" /> : <Navigation size={10} />}
+                    {geoLoading ? 'Detecting…' : 'Detect my location'}
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="relative">
+                    <MapPin size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none z-10" />
+                    <input
+                      value={city}
+                      onChange={e => { cityPickedRef.current = false; setCity(e.target.value); setShowCitySuggestions(true) }}
+                      onFocus={() => { if (city.length >= 2) setShowCitySuggestions(true) }}
+                      onBlur={() => setTimeout(() => setShowCitySuggestions(false), 150)}
+                      placeholder="Type city…"
+                      className={selectCls}
+                      style={{ paddingLeft: '2.25rem' }}
+                      autoComplete="off"
+                    />
+                    {showCitySuggestions && citySuggestions.length > 0 && (
+                      <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-card-bg border border-color rounded-xl shadow-xl overflow-hidden">
+                        {citySuggestions.map(s => (
+                          <button key={s} type="button" onMouseDown={() => { setCity(s); cityPickedRef.current = true; setShowCitySuggestions(false); setCitySuggestions([]) }} className="w-full text-left px-3 py-2.5 text-xs text-text-light hover:bg-dark-bg flex items-center gap-2 border-b border-color/30 last:border-0">
+                            <MapPin size={9} className="text-text-muted flex-shrink-0" /> {s}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <input
+                      value={area}
+                      onChange={e => { areaPickedRef.current = false; setArea(e.target.value); setShowAreaSuggestions(true) }}
+                      onFocus={() => { if (area.length >= 2) setShowAreaSuggestions(true) }}
+                      onBlur={() => setTimeout(() => setShowAreaSuggestions(false), 150)}
+                      placeholder="Type area…"
+                      className={selectCls}
+                      autoComplete="off"
+                    />
+                    {showAreaSuggestions && areaSuggestions.length > 0 && (
+                      <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-card-bg border border-color rounded-xl shadow-xl overflow-hidden">
+                        {areaSuggestions.map(s => (
+                          <button key={s} type="button" onMouseDown={() => { setArea(s); areaPickedRef.current = true; setShowAreaSuggestions(false); setAreaSuggestions([]) }} className="w-full text-left px-3 py-2.5 text-xs text-text-light hover:bg-dark-bg flex items-center gap-2 border-b border-color/30 last:border-0">
+                            <MapPin size={9} className="text-text-muted flex-shrink-0" /> {s}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div>
+                <label className={labelCls}>Phone Number <span className="text-[9px] text-text-muted">(optional)</span></label>
+                <div className="relative">
+                  <Phone size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
+                  <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="+254 700 000 000" className={inputCls} style={{ paddingLeft: '2.25rem' }} />
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
