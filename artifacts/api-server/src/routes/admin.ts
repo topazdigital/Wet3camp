@@ -679,16 +679,22 @@ router.post('/admin/impersonate/:userId', requireAuth, requireAdmin, async (req:
         COALESCE(u.display_name, u.username, u.email) AS name,
         e.id AS escort_id, e.is_active AS escort_is_active
        FROM users u
-       LEFT JOIN escorts e ON e.user_id = u.id
+       LEFT JOIN (
+         SELECT profile.user_id, profile.id, profile.is_active
+         FROM escorts profile
+         INNER JOIN (
+           SELECT user_id, MAX(id) AS id
+           FROM escorts
+           WHERE user_id IS NOT NULL
+           GROUP BY user_id
+         ) latest ON latest.user_id = profile.user_id AND latest.id = profile.id
+       ) e ON e.user_id = u.id
        WHERE u.id = ? LIMIT 1`,
       [userId]
     )
     if (!user) { res.status(404).json({ message: 'User not found' }); return }
     if (user.role === 'admin') { res.status(403).json({ message: 'Admin accounts cannot be impersonated' }); return }
     if (!Number(user.is_active)) { res.status(403).json({ message: 'This account is inactive. Reactivate it before viewing as the user.' }); return }
-    if (user.role === 'escort' && !user.escort_id) {
-      res.status(409).json({ message: 'This escort account has no linked profile yet' }); return
-    }
     const token = await signToken(
       { id: user.id, role: user.role, email: user.email, impersonating: true, impersonatedBy: req.userId ?? 'admin' },
       '15m'
@@ -701,6 +707,7 @@ router.post('/admin/impersonate/:userId', requireAuth, requireAdmin, async (req:
         email: user.email,
         role: user.role,
         approved: user.role === 'escort' ? !!Number(user.escort_is_active) : true,
+        hasEscortProfile: user.role === 'escort' ? !!user.escort_id : undefined,
       },
     })
   } catch (err: any) {
