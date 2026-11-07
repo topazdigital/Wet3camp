@@ -92,7 +92,7 @@ function TrendingLive() {
             {/* Story ring — gradient border + gap ring, no spin so photo stays upright */}
             <div className="relative">
               {/* Gradient ring */}
-              <div className="w-[76px] h-[76px] sm:w-[84px] sm:h-[84px] rounded-full p-[3px] bg-gradient-to-br from-[#E91E63] via-[#FF4500] to-[#8B0000] shadow-[0_0_14px_#E91E6360] group-hover:shadow-[0_0_20px_#E91E6380] transition-shadow">
+              <div className="w-[76px] h-[76px] sm:w-[84px] sm:h-[84px] rounded-full p-[3px] bg-gradient-to-br from-[#FFD700] via-[#B8860B] to-[#8B0000] shadow-[0_0_14px_#FFD70060] group-hover:shadow-[0_0_20px_#FFD70080] transition-shadow">
                 {/* Gap ring */}
                 <div className="w-full h-full rounded-full p-[2px] bg-dark-bg">
                   {/* Avatar */}
