@@ -4,7 +4,7 @@ import Sidebar from '@/components/Sidebar'
 import Header from '@/components/Header'
 import SeoFooter from '@/components/SeoFooter'
 import { useSEO } from '@/lib/useSEO'
-import type { BlogPost } from '@/data/blog'
+import type { BlogPost } from '@/types/blog'
 import { Clock, Tag, ChevronRight, Search, Rss } from 'lucide-react'
 
 export default function Blog() {
