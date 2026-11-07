@@ -125,7 +125,14 @@ async function findOrCreateUser(
   name: string,
   picture: string | null,
   signupRole?: OAuthSignupRole,
-): Promise<{ userId: number; userRole: string; displayName: string; isNew: boolean }> {
+): Promise<{
+  userId: number
+  userRole: string
+  displayName: string
+  isNew: boolean
+  requiresEscortSetup: boolean
+  escortApproved: boolean
+}> {
   const [[existing]] = await pool.query(
     'SELECT * FROM users WHERE email = ? LIMIT 1',
     [email.toLowerCase()]
@@ -134,11 +141,21 @@ async function findOrCreateUser(
     if (picture && !existing.avatar) {
       await pool.query('UPDATE users SET avatar = ? WHERE id = ?', [picture, existing.id]).catch(() => {})
     }
+    let escortProfile: any = null
+    if (existing.role === 'escort') {
+      const [[profile]] = await pool.query(
+        'SELECT id, is_active FROM escorts WHERE user_id = ? LIMIT 1',
+        [existing.id]
+      )
+      escortProfile = profile
+    }
     return {
       userId:      existing.id,
       userRole:    existing.role,
       displayName: existing.display_name ?? existing.username ?? name,
       isNew:       false,
+      requiresEscortSetup: existing.role === 'escort' && !escortProfile,
+      escortApproved: existing.role !== 'escort' || !!Number(escortProfile?.is_active),
     }
   }
   const base     = email.split('@')[0].replace(/[^a-z0-9]/gi, '_').toLowerCase().slice(0, 32) || 'user'
@@ -154,6 +171,8 @@ async function findOrCreateUser(
     userRole:    role,
     displayName: name ?? username,
     isNew:       true,
+    requiresEscortSetup: role === 'escort',
+    escortApproved: role !== 'escort',
   }
 }
 
@@ -172,9 +191,18 @@ function redirectWithToken(
   res: any, origin: string, token: string,
   displayName: string, email: string, role: string,
   isNew = false, returnTo?: string, signupRole?: OAuthSignupRole,
+  requiresEscortSetup = false, escortApproved = true,
 ) {
   const qs = new URLSearchParams({ token, name: displayName, email })
   if (returnTo) qs.set('redirect', returnTo)
+  if (role === 'escort' && requiresEscortSetup && !isClaimReturnPath(returnTo)) {
+    qs.set('role', 'escort')
+    qs.set('signupRole', 'escort')
+    qs.set('approved', 'false')
+    safeRedirect(res, `${origin}/auth/callback?${qs}`)
+    return
+  }
+  if (role === 'escort' && !escortApproved) qs.set('approved', 'false')
   if (isNew && signupRole && !isClaimReturnPath(returnTo)) {
     qs.set('role', role)
     qs.set('signupRole', signupRole)
@@ -298,10 +326,14 @@ router.get('/auth/google/callback', async (req, res) => {
     const { email, name, picture } = await profileRes.json() as any
     if (!email) { safeRedirect(res, loginErrorUrl(origin, 'No email was shared by your Google account.', returnTo)); return }
     stage = 'find or create account'
-    const { userId, userRole, displayName, isNew } = await findOrCreateUser(pool, email, name, picture, signupRole)
+    const { userId, userRole, displayName, isNew, requiresEscortSetup, escortApproved } =
+      await findOrCreateUser(pool, email, name, picture, signupRole)
     stage = 'create session'
     const token = await signToken({ id: userId, role: userRole, email: email.toLowerCase() })
-    redirectWithToken(res, origin, token, displayName, email.toLowerCase(), userRole, isNew, returnTo, signupRole)
+    redirectWithToken(
+      res, origin, token, displayName, email.toLowerCase(), userRole, isNew, returnTo, signupRole,
+      requiresEscortSetup, escortApproved
+    )
   } catch (err: any) {
     console.error(`[oauth/google/callback] stage=${stage}:`, err?.message ?? err)
     safeRedirect(res, loginErrorUrl(origin, 'Google sign-in could not be completed. Please try again or use email.', returnTo))
@@ -324,9 +356,20 @@ router.post('/auth/google/one-tap', async (req, res) => {
     if (info.aud !== cfg.google_client_id) { res.status(401).json({ message: 'Token audience mismatch' }); return }
     const { email, name, picture } = info
     if (!email) { res.status(400).json({ message: 'No email on Google account' }); return }
-    const { userId, userRole, displayName } = await findOrCreateUser(pool, email, name ?? email.split('@')[0], picture ?? null)
+    const { userId, userRole, displayName, requiresEscortSetup, escortApproved } =
+      await findOrCreateUser(pool, email, name ?? email.split('@')[0], picture ?? null)
     const token = await signToken({ id: userId, role: userRole, email: email.toLowerCase() })
-    res.json({ token, user: { id: String(userId), name: displayName, email: email.toLowerCase(), role: userRole } })
+    res.json({
+      token,
+      requiresEscortSetup,
+      user: {
+        id: String(userId),
+        name: displayName,
+        email: email.toLowerCase(),
+        role: userRole,
+        approved: escortApproved,
+      },
+    })
   } catch (err: any) {
     console.error('[oauth/google/one-tap]', err?.message ?? err)
     res.status(500).json({ message: 'Sign-in failed' })
@@ -413,12 +456,15 @@ router.get('/auth/facebook/callback', async (req, res) => {
     }
     const picture = fb.picture?.data?.url ?? null
     stage = 'find or create account'
-    const { userId, userRole, displayName, isNew } = await findOrCreateUser(
+    const { userId, userRole, displayName, isNew, requiresEscortSetup, escortApproved } = await findOrCreateUser(
       pool, email, fb.name ?? email.split('@')[0], picture, signupRole
     )
     stage = 'create session'
     const token = await signToken({ id: userId, role: userRole, email: email.toLowerCase() })
-    redirectWithToken(res, origin, token, displayName, email.toLowerCase(), userRole, isNew, returnTo, signupRole)
+    redirectWithToken(
+      res, origin, token, displayName, email.toLowerCase(), userRole, isNew, returnTo, signupRole,
+      requiresEscortSetup, escortApproved
+    )
   } catch (err: any) {
     console.error(`[oauth/facebook/callback] stage=${stage}:`, err?.message ?? err)
     safeRedirect(res, loginErrorUrl(origin, 'Facebook sign-in could not be completed. Please try again.', returnTo))
@@ -546,8 +592,20 @@ router.post('/auth/apple/callback', async (req, res) => {
         [`apple_${appleUserId}%`]
       ).catch(() => [[undefined]])
       if (byApple) {
+        let escortProfile: any = null
+        if (byApple.role === 'escort') {
+          const [[profile]] = await pool.query<any[]>(
+            'SELECT id, is_active FROM escorts WHERE user_id = ? LIMIT 1',
+            [byApple.id]
+          )
+          escortProfile = profile
+        }
         const token = await signToken({ id: byApple.id, role: byApple.role, email: byApple.email })
-        redirectWithToken(res, origin, token, byApple.display_name ?? byApple.username, byApple.email, byApple.role, false, returnTo)
+        redirectWithToken(
+          res, origin, token, byApple.display_name ?? byApple.username, byApple.email, byApple.role,
+          false, returnTo, undefined, byApple.role === 'escort' && !escortProfile,
+          byApple.role !== 'escort' || !!Number(escortProfile?.is_active)
+        )
         return
       }
       safeRedirect(res, loginErrorUrl(origin, 'Your Apple account has no visible email. Enable email sharing in your Apple ID settings.', returnTo))
@@ -555,12 +613,15 @@ router.post('/auth/apple/callback', async (req, res) => {
     }
 
     stage = 'find or create account'
-    const { userId, userRole, displayName, isNew } = await findOrCreateUser(
+    const { userId, userRole, displayName, isNew, requiresEscortSetup, escortApproved } = await findOrCreateUser(
       pool, email, name || email.split('@')[0], null, signupRole
     )
     stage = 'create session'
     const token = await signToken({ id: userId, role: userRole, email: email.toLowerCase() })
-    redirectWithToken(res, origin, token, displayName, email.toLowerCase(), userRole, isNew, returnTo, signupRole)
+    redirectWithToken(
+      res, origin, token, displayName, email.toLowerCase(), userRole, isNew, returnTo, signupRole,
+      requiresEscortSetup, escortApproved
+    )
   } catch (err: any) {
     console.error(`[oauth/apple/callback] stage=${stage}:`, err?.message ?? err)
     safeRedirect(res, loginErrorUrl(origin, 'Apple sign-in could not be completed. Please try again.', returnTo))
