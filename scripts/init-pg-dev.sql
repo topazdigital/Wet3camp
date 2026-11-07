@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS escorts (
   lat              DECIMAL(9,6)     NOT NULL DEFAULT 0,
   lng              DECIMAL(9,6)     NOT NULL DEFAULT 0,
   tier             VARCHAR(20)      NOT NULL DEFAULT 'standard',
+  tier_expires_at  TIMESTAMP        DEFAULT NULL,
   rating           DECIMAL(2,1)     NOT NULL DEFAULT 0.0,
   reviews_count    SMALLINT         NOT NULL DEFAULT 0,
   bio              TEXT             DEFAULT NULL,
@@ -271,11 +272,14 @@ CREATE TABLE IF NOT EXISTS subscriptions (
   amount     INTEGER      NOT NULL DEFAULT 0,
   phone      VARCHAR(30)  DEFAULT NULL,
   tx_ref     VARCHAR(100) DEFAULT NULL,
+  provider_ref VARCHAR(100) DEFAULT NULL,
   status     VARCHAR(20)  NOT NULL DEFAULT 'pending',
   expires_at TIMESTAMP    DEFAULT NULL,
   created_at TIMESTAMP    NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMP    NOT NULL DEFAULT NOW()
 );
+ALTER TABLE escorts ADD COLUMN IF NOT EXISTS tier_expires_at TIMESTAMP DEFAULT NULL;
+ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS provider_ref VARCHAR(100) DEFAULT NULL;
 CREATE INDEX IF NOT EXISTS idx_subscriptions_user_id ON subscriptions (user_id);
 CREATE INDEX IF NOT EXISTS idx_subscriptions_status ON subscriptions (status);
 
