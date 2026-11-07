@@ -278,6 +278,23 @@ export default function ForEscortsPage() {
                     </div>
                   )}
                 </div>
+                <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                  <Link
+                    href="/tier-benefits"
+                    data-testid="link-compare-monthly-tiers"
+                    className="inline-flex min-h-10 flex-1 items-center justify-center border border-[#70404a] px-3 text-xs font-semibold text-[#e8ded2] transition-colors hover:border-[#d5b66b] hover:text-[#f6efe4]"
+                  >
+                    Compare monthly tier benefits
+                  </Link>
+                  <Link
+                    href="/tier-upgrade"
+                    data-testid="link-subscribe-monthly-tier"
+                    className="inline-flex min-h-10 flex-1 items-center justify-center gap-2 bg-[#8e2635] px-3 text-xs font-bold text-white transition-colors hover:bg-[#a43142]"
+                  >
+                    Choose a monthly tier
+                    <ArrowRight size={14} />
+                  </Link>
+                </div>
                 <div className="mt-4 border border-[#493136] bg-[#171113] p-3.5 sm:p-4">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="max-w-xs">
