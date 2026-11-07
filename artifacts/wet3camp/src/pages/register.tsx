@@ -522,6 +522,9 @@ export default function RegisterPage() {
       console.error('[registration avatar upload]', err)
     }
     if (failedUploads > 0) {
+      try {
+        sessionStorage.setItem('wet3_registration_photo_upload_failures', String(failedUploads))
+      } catch {}
       console.error(`[registration] ${failedUploads} photo upload(s) failed after account creation`)
     }
   }
