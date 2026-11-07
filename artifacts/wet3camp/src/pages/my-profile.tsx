@@ -11,7 +11,7 @@ import { useSEO } from '@/lib/useSEO'
 import { formatKes, usePublicPricing } from '@/lib/pricing'
 import EscortAnalyticsPanel from '@/components/EscortAnalyticsPanel'
 
-const TABS = ['Overview', 'Analytics', 'My Bookings', 'My Rooms', 'Edit Profile', 'Gallery', 'Followers', 'Get Featured', 'Instagram Import', 'Earnings']
+const TABS = ['Overview', 'Analytics', 'My Bookings', 'My Rooms', 'Edit Profile', 'Gallery', 'Followers', 'Monthly Tier', 'Get Featured', 'Instagram Import', 'Earnings']
 
 const PLACEHOLDER_IMG = 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=600&h=800&fit=crop&crop=face'
 
@@ -22,7 +22,7 @@ export default function MyProfile() {
   const [activeTab, setActiveTab] = useState('Overview')
   const [editSaved, setEditSaved] = useState(false)
   const visibleTabs = TABS.filter(tab => {
-    const escortOnly = ['Analytics', 'My Bookings', 'Gallery', 'Followers', 'Get Featured', 'Instagram Import', 'Earnings']
+    const escortOnly = ['Analytics', 'My Bookings', 'Gallery', 'Followers', 'Monthly Tier', 'Get Featured', 'Instagram Import', 'Earnings']
     return user?.role === 'escort' || !escortOnly.includes(tab)
   })
 
@@ -510,6 +510,7 @@ export default function MyProfile() {
                     {[
                       { icon: Edit3,     label: 'Edit Bio',         tab: 'Edit Profile',     color: '#8B0000' },
                       { icon: Camera,    label: 'Add Photos',       tab: 'Gallery',          color: '#9C27B0' },
+                      { icon: Crown,     label: 'Monthly Tier',     tab: 'Monthly Tier',    color: '#B8860B' },
                       { icon: Crown,     label: 'Get Featured',     tab: 'Get Featured',     color: '#FFD700' },
                       { icon: Instagram, label: 'Import Instagram', tab: 'Instagram Import', color: '#E91E63' },
                       { icon: BarChart2, label: 'See Earnings',     tab: 'Earnings',         color: '#28a745' },
@@ -1002,6 +1003,43 @@ export default function MyProfile() {
               <Link href="/featured-upgrade" className="w-full flex items-center justify-center gap-2 py-3.5 bg-gradient-to-r from-[#8B0000] to-[#a00000] text-white font-black text-sm rounded-xl hover:from-[#a00000] hover:to-[#8B0000] transition-all shadow-lg shadow-[#8B0000]/30">
                 <Smartphone size={15} /> Choose a Plan & Pay with M-Pesa
               </Link>
+            </div>
+          )}
+
+          {activeTab === 'Monthly Tier' && (
+            <div className="max-w-2xl">
+              <div className="mb-6 text-center">
+                <Crown size={34} className="mx-auto mb-2 text-[#B8860B]" />
+                <h2 className="text-lg font-black text-text-light">Monthly Profile Tiers</h2>
+                <p className="mt-1 text-sm text-text-muted">
+                  Choose a profile tier for 30 days. This is separate from Featured Placement; M-Pesa renewals are manual.
+                </p>
+              </div>
+              <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                {pricing ? ([
+                  { id: 'premium', label: 'Premium', price: pricing.profileTiers.premium },
+                  { id: 'vip', label: 'VIP', price: pricing.profileTiers.vip },
+                  { id: 'elite', label: 'Elite', price: pricing.profileTiers.elite },
+                ]).map(plan => (
+                  <div key={plan.id} className="rounded-xl border border-color bg-card-bg p-4">
+                    <p className="text-xs font-bold uppercase tracking-wider text-text-muted">{plan.label}</p>
+                    <p className="mt-1 text-lg font-black text-[#d5b66b]">{formatKes(plan.price)}</p>
+                    <p className="text-[10px] text-text-muted">per 30-day term</p>
+                  </div>
+                )) : (
+                  <div className="sm:col-span-3 rounded-xl border border-color bg-card-bg p-4 text-center text-xs text-text-muted" role="status">
+                    {pricingLoading ? 'Loading current prices…' : pricingError || 'Current prices are temporarily unavailable.'}
+                  </div>
+                )}
+              </div>
+              <div className="flex flex-col justify-center gap-3 sm:flex-row">
+                <Link href="/tier-benefits" className="inline-flex items-center justify-center rounded-xl border border-color px-5 py-3 text-sm font-bold text-text-light hover:border-[#B8860B]/60">
+                  Compare Tier Benefits
+                </Link>
+                <Link href="/tier-upgrade" className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#8B0000] px-5 py-3 text-sm font-bold text-white hover:bg-[#a00000]">
+                  <Smartphone size={15} /> Choose a Monthly Tier
+                </Link>
+              </div>
             </div>
           )}
 
