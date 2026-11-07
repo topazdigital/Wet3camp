@@ -16,8 +16,8 @@ import ProfileAreaMap from '@/components/ProfileAreaMap'
 
 const TIER_STYLE: Record<string, { bg: string; text: string; label: string }> = {
   Elite:    { bg: '#8B0000',  text: '#fff', label: '★ ELITE'   },
-  VIP:      { bg: '#FF4500',  text: '#fff', label: '◆ VIP'     },
-  Premium:  { bg: '#B8860B',  text: '#fff', label: '◈ PREMIUM' },
+  VIP:      { bg: '#B8860B',  text: '#fff', label: '◆ VIP'     },
+  Premium:  { bg: '#FFD700',  text: '#111', label: '◈ PREMIUM' },
   Standard: { bg: '#3a6da8',  text: '#fff', label: 'STANDARD'  },
 }
 
