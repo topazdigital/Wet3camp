@@ -11,6 +11,21 @@ export interface PlatformPricing {
   }
 }
 
+export type ProfileTier = 'premium' | 'vip' | 'elite'
+
+export function profileTierForPaymentType(type: string): ProfileTier | null {
+  switch (type.trim().toLowerCase()) {
+    case 'tier_premium': return 'premium'
+    case 'tier_vip': return 'vip'
+    case 'tier_elite': return 'elite'
+    default: return null
+  }
+}
+
+export function profileTierPrice(tier: ProfileTier, pricing: PlatformPricing): number {
+  return pricing.profileTiers[tier]
+}
+
 export const DEFAULT_PLATFORM_PRICING: PlatformPricing = {
   profileTiers: {
     premium: 2200,
@@ -43,11 +58,11 @@ export function isValidPlatformPricing(value: unknown): value is PlatformPricing
 }
 
 export async function readPlatformPricing(pool: any): Promise<PlatformPricing> {
-  const [rows] = await pool.query<any[]>(
+  const [rows] = await pool.query(
     'SELECT `value` FROM platform_settings WHERE `key` = ?',
     [PLATFORM_PRICING_SETTING_KEY],
   )
-  const row = Array.isArray(rows) ? rows[0] : undefined
+  const row = Array.isArray(rows) ? (rows as any[])[0] : undefined
   if (!row) return DEFAULT_PLATFORM_PRICING
 
   let saved: unknown
