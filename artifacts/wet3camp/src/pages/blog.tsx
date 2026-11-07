@@ -4,7 +4,7 @@ import Sidebar from '@/components/Sidebar'
 import Header from '@/components/Header'
 import SeoFooter from '@/components/SeoFooter'
 import { useSEO } from '@/lib/useSEO'
-import { getPublishedPosts, BLOG_CATEGORIES, type BlogPost } from '@/data/blog'
+import type { BlogPost } from '@/data/blog'
 import { Clock, Tag, ChevronRight, Search, Rss } from 'lucide-react'
 
 export default function Blog() {
@@ -16,13 +16,18 @@ export default function Blog() {
   })
 
   const [posts, setPosts] = useState<BlogPost[]>([])
+  const [categories, setCategories] = useState<string[]>([])
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
   const [selected, setSelected] = useState<string>('All')
   const [query, setQuery] = useState('')
 
   useEffect(() => {
-    // Try API first, fall back to static data
     fetch('/api/blog?limit=50')
-      .then(r => r.ok ? r.json() : null)
+      .then(r => {
+        if (!r.ok) throw new Error('Could not load articles')
+        return r.json()
+      })
       .then(data => {
         const apiPosts: BlogPost[] = (data?.posts ?? []).map((p: any) => ({
           id:             String(p.id),
@@ -35,24 +40,22 @@ export default function Blog() {
           tags:           Array.isArray(p.tags) ? p.tags : [],
           publishedAt:    p.publishedAt ? new Date(p.publishedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '',
           updatedAt:      p.updatedAt ?? p.publishedAt ?? '',
-          imageUrl:       p.imageUrl ?? p.image_url ?? 'https://images.unsplash.com/photo-1611348586804-61bf6c080437?w=800&h=450&fit=crop',
+          imageUrl:       p.imageUrl ?? p.image_url ?? '',
           readTime:       Number(p.read_time ?? p.readTime ?? 3),
           published:      true,
           seoTitle:       p.seo_title ?? p.seoTitle,
           seoDescription: p.seo_description ?? p.seoDescription,
         }))
-        // Merge: API posts + static posts not already covered, then sort newest-first
-        const staticPosts = getPublishedPosts()
-        const apiSlugs = new Set(apiPosts.map((p: any) => p.slug))
-        const uniqueStatic = staticPosts.filter(p => !apiSlugs.has(p.slug))
-        const merged = [...apiPosts, ...uniqueStatic].sort((a, b) => {
-          const da = new Date(a.publishedAt || 0).getTime()
-          const db = new Date(b.publishedAt || 0).getTime()
-          return db - da
-        })
-        setPosts(merged)
+        setPosts(apiPosts)
+        setCategories([...new Set(apiPosts.map(post => post.category.trim()).filter(Boolean))].sort())
+        setLoadError('')
       })
-      .catch(() => setPosts(getPublishedPosts()))
+      .catch(() => {
+        setPosts([])
+        setCategories([])
+        setLoadError('Articles could not be loaded. Please try again later.')
+      })
+      .finally(() => setLoading(false))
   }, [])
 
   const filtered = posts.filter(p => {
@@ -96,7 +99,7 @@ export default function Blog() {
 
           {/* Category filters */}
           <div className="flex gap-2 flex-wrap mb-8">
-            {['All', ...BLOG_CATEGORIES].map(cat => (
+            {['All', ...categories].map(cat => (
               <button
                 key={cat}
                 onClick={() => setSelected(cat)}
@@ -107,7 +110,9 @@ export default function Blog() {
             ))}
           </div>
 
-          {filtered.length === 0 && (
+          {loading && <p className="py-12 text-center text-sm text-text-muted" role="status">Loading articles…</p>}
+          {loadError && <p className="py-12 text-center text-sm text-text-muted" role="alert">{loadError}</p>}
+          {!loading && !loadError && filtered.length === 0 && (
             <div className="text-center py-16 text-text-muted">No articles found.</div>
           )}
 
@@ -116,7 +121,9 @@ export default function Blog() {
             <Link href={`/blog/${featured.slug}`} className="block mb-8 group">
               <div className="bg-card-bg border border-color rounded-2xl overflow-hidden hover:border-[#8B0000]/40 transition-all">
                 <div className="h-52 overflow-hidden">
-                  <img src={featured.imageUrl} alt={featured.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                  {featured.imageUrl
+                    ? <img src={featured.imageUrl} alt={featured.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    : <div className="flex h-full items-center justify-center bg-dark-bg text-xs font-bold uppercase tracking-widest text-text-muted">{featured.category}</div>}
                 </div>
                 <div className="p-5">
                   <div className="flex items-center gap-3 mb-3">
@@ -141,7 +148,9 @@ export default function Blog() {
                 <Link key={post.id} href={`/blog/${post.slug}`} className="block group">
                   <div className="bg-card-bg border border-color rounded-2xl overflow-hidden hover:border-[#8B0000]/40 transition-all h-full flex flex-col">
                     <div className="h-36 overflow-hidden">
-                      <img src={post.imageUrl} alt={post.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                      {post.imageUrl
+                        ? <img src={post.imageUrl} alt={post.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                        : <div className="flex h-full items-center justify-center bg-dark-bg text-[10px] font-bold uppercase tracking-widest text-text-muted">{post.category}</div>}
                     </div>
                     <div className="p-4 flex flex-col flex-1">
                       <div className="flex items-center gap-2 mb-2">
