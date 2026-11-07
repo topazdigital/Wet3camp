@@ -9,6 +9,7 @@ export interface AuthUser {
   city?: string; area?: string; lat?: number; lng?: number
   avatar?: string; profileId?: string; phone?: string
   approved?: boolean
+  hasEscortProfile?: boolean
 }
 
 interface AuthCtx {
@@ -44,6 +45,7 @@ function apiUserToAuthUser(u: ApiUser): AuthUser {
     avatar:   u.avatar   ?? undefined,
     phone:    u.phone    ?? undefined,
     approved: u.approved,
+    hasEscortProfile: u.hasEscortProfile,
   }
 }
 
@@ -123,6 +125,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const updated: AuthUser = {
           ...user,
           approved: data.approved,
+          hasEscortProfile: data.hasEscortProfile,
           name: data.name ?? user.name,
           avatar: data.avatar ?? user.avatar,
         }
