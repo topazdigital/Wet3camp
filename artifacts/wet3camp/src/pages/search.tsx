@@ -19,8 +19,8 @@ const SERVICES_LIST = ['GFE', 'BDSM', 'Massage', 'Outcall', 'Incall', 'Overnight
 
 const TIER_META: Record<string, { label: string; color: string; bg: string; order: number; badge?: string }> = {
   elite:    { label: 'Elite',    color: '#FFD700', bg: '#FFD700',   order: 0, badge: '👑 Elite'   },
-  vip:      { label: 'VIP',      color: '#FF4500', bg: '#FF4500',   order: 1, badge: '⭐ VIP'     },
-  premium:  { label: 'Premium',  color: '#B8860B', bg: '#B8860B',   order: 2, badge: '💎 Premium' },
+  vip:      { label: 'VIP',      color: '#B8860B', bg: '#B8860B',   order: 1, badge: '⭐ VIP'     },
+  premium:  { label: 'Premium',  color: '#FFD700', bg: '#FFD700',   order: 2, badge: '💎 Premium' },
   standard: { label: 'Standard', color: '#888',    bg: '#888',      order: 3 },
   free:     { label: 'Free',     color: '#555',    bg: '#555',      order: 4 },
 }
@@ -112,7 +112,7 @@ function VIPCard({ escort, isFav, onFav }: { escort: ApiEscort; isFav: boolean; 
   return (
     <Link
       href={`/@${getSlug(escort.name)}`}
-      className="relative rounded-xl overflow-hidden border border-[#FF4500]/30 shadow-lg group hover:border-[#FF4500]/60 transition-all block cursor-pointer"
+      className="relative rounded-xl overflow-hidden border border-[#B8860B]/30 shadow-lg group hover:border-[#B8860B]/60 transition-all block cursor-pointer"
     >
       <div className="aspect-[3/4] relative">
         {escort.image ? (
@@ -495,10 +495,10 @@ export default function SearchPage() {
           {vips.length > 0 && (
             <div className="mb-8">
               <div className="flex items-center gap-2 mb-4">
-                <Star size={15} className="text-[#FF4500] fill-[#FF4500]" />
-                <h2 className="text-sm font-black text-[#FF4500] uppercase tracking-widest">VIP Escorts</h2>
-                <div className="flex-1 h-px bg-[#FF4500]/20" />
-                <span className="text-[10px] text-[#FF4500]/60">{vips.length} VIP escorts</span>
+                <Star size={15} className="text-[#B8860B] fill-[#B8860B]" />
+                <h2 className="text-sm font-black text-[#B8860B] uppercase tracking-widest">VIP Escorts</h2>
+                <div className="flex-1 h-px bg-[#B8860B]/20" />
+                <span className="text-[10px] text-[#B8860B]/60">{vips.length} VIP escorts</span>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
                 {vips.map(e => (
