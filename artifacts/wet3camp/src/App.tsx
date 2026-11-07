@@ -48,6 +48,7 @@ const Account         = lazy(() => import("@/pages/account"))
 const ChooseRole      = lazy(() => import("@/pages/choose-role"))
 const SearchPage      = lazy(() => import("@/pages/search"))
 const TierBenefits    = lazy(() => import("@/pages/tier-benefits"))
+const TierUpgrade     = lazy(() => import("@/pages/tier-upgrade"))
 const ClaimProfile    = lazy(() => import("@/pages/claim-profile"))
 const LiveStream      = lazy(() => import("@/pages/live-stream"))
 const PaymentHistory  = lazy(() => import("@/pages/payment-history"))
@@ -141,6 +142,7 @@ function Router() {
         <Route path="/auth/callback" component={AuthCallback} />
         <Route path="/search" component={SearchPage} />
         <Route path="/tier-benefits" component={TierBenefits} />
+        <Route path="/tier-upgrade">{() => <ProtectedRoute component={TierUpgrade} escortOnly />}</Route>
         <Route path="/claim/:id" component={ClaimProfile} />
         <Route path="/live/:escortId" component={LiveStream} />
         <Route path="/escorts/:city/:area" component={AreaEscorts} />
