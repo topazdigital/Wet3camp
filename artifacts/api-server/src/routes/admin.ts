@@ -592,7 +592,10 @@ async function updateAdminEscort(req: AuthRequest, res: any) {
     if (city     !== undefined) { fields.push('city = ?');                    vals.push(city || null) }
     if (area     !== undefined) { fields.push('area = ?');                    vals.push(area || null) }
     if (age      !== undefined) { fields.push('age = ?');                     vals.push(age ? parseInt(age) : null) }
-    if (tier     !== undefined) { fields.push('tier = ?');                    vals.push(tier || null) }
+    if (tier     !== undefined) {
+      fields.push('tier = ?'); vals.push(tier || null)
+      fields.push('tier_expires_at = NULL')
+    }
     if (bio      !== undefined) { fields.push('bio = ?');                     vals.push(bio || null) }
     if (whatsapp !== undefined) { fields.push('whatsapp = ?');                vals.push(whatsapp || null) }
     if (telegram !== undefined) { fields.push('telegram = ?');                vals.push(telegram || null) }
