@@ -32,8 +32,11 @@ ERRORS=0
 PUSHED=0
 PAYLOAD_FILE="$(mktemp)"
 RESPONSE_FILE="$(mktemp)"
+AUTH_CONFIG="$(mktemp)"
+chmod 600 "$AUTH_CONFIG"
+printf 'header = "Authorization: token %s"\n' "$GITHUB_TOKEN" > "$AUTH_CONFIG"
 cleanup() {
-  rm -f "$PAYLOAD_FILE" "$RESPONSE_FILE"
+  rm -f "$PAYLOAD_FILE" "$RESPONSE_FILE" "$AUTH_CONFIG"
 }
 trap cleanup EXIT
 
@@ -51,8 +54,7 @@ for FILE in $CHANGED; do
   fi
 
   # Get current GitHub SHA (empty if new or missing file)
-  curl -s \
-    -H "Authorization: token $GITHUB_TOKEN" \
+  curl --config "$AUTH_CONFIG" -s \
     "https://api.github.com/repos/${REPO}/contents/${FILE}?ref=${BRANCH}" \
     > "$RESPONSE_FILE"
   SHA=$(node -e "let d=''; process.stdin.on('data',c=>d+=c); process.stdin.on('end',()=>{ try{const r=JSON.parse(d); console.log(r.sha||'')}catch(e){console.log('')} })" < "$RESPONSE_FILE" 2>/dev/null)
@@ -65,8 +67,7 @@ for FILE in $CHANGED; do
     MSG="chore: remove ${FILE} via Replit auto-push"
     PAYLOAD="{\"message\":\"$MSG\",\"sha\":\"$SHA\",\"branch\":\"$BRANCH\"}"
     printf '%s' "$PAYLOAD" > "$PAYLOAD_FILE"
-    RESULT=$(curl -s -X DELETE \
-      -H "Authorization: token $GITHUB_TOKEN" \
+    RESULT=$(curl --config "$AUTH_CONFIG" -s -X DELETE \
       -H "Content-Type: application/json" \
       "https://api.github.com/repos/${REPO}/contents/${FILE}" \
       --data-binary "@$PAYLOAD_FILE" \
@@ -85,8 +86,7 @@ for FILE in $CHANGED; do
       PAYLOAD="{\"message\":\"$MSG\",\"content\":\"$CONTENT\",\"branch\":\"$BRANCH\"}"
     fi
     printf '%s' "$PAYLOAD" > "$PAYLOAD_FILE"
-    RESULT=$(curl -s -X PUT \
-      -H "Authorization: token $GITHUB_TOKEN" \
+    RESULT=$(curl --config "$AUTH_CONFIG" -s -X PUT \
       -H "Content-Type: application/json" \
       "https://api.github.com/repos/${REPO}/contents/${FILE}" \
       --data-binary "@$PAYLOAD_FILE" \
