@@ -32,9 +32,9 @@ const TIERS: TierDefinition[] = [
     name: 'Elite',
     emoji: '👑',
     tagline: 'The highest tier — maximum exposure',
-    color: '#FFD700',
+    color: '#8B0000',
     darkColor: '#B8860B',
-    glowColor: '#FFD700',
+    glowColor: '#8B0000',
     priceKey: 'elite' as const,
     price: null,
     popular: true,
@@ -81,9 +81,9 @@ const TIERS: TierDefinition[] = [
     name: 'Premium',
     emoji: '💎',
     tagline: 'Stand out above standard escorts',
-    color: '#B8860B',
-    darkColor: '#8B6914',
-    glowColor: '#B8860B',
+    color: '#FFD700',
+    darkColor: '#B8860B',
+    glowColor: '#FFD700',
     priceKey: 'premium' as const,
     price: null,
     popular: false,
@@ -189,7 +189,7 @@ function TierCard({
           <Link
             href={`/tier-upgrade?tier=${tier.id}`}
             className="w-full py-2.5 rounded-xl text-sm font-black text-center mt-4 block hover:opacity-90 transition-opacity"
-            style={{ background: tier.color, color: tier.id === 'elite' ? '#000' : '#fff' }}
+            style={{ background: tier.color, color: tier.id === 'elite' ? '#fff' : '#000' }}
           >
             Renew {tier.name} <ArrowRight size={13} className="inline ml-1" />
           </Link>
@@ -197,7 +197,7 @@ function TierCard({
           <Link
             href={`/tier-upgrade?tier=${tier.id}`}
             className="w-full py-2.5 rounded-xl text-sm font-black text-center mt-4 block hover:opacity-90 transition-opacity"
-            style={{ background: tier.color, color: tier.id === 'elite' ? '#000' : '#fff' }}
+            style={{ background: tier.color, color: tier.id === 'elite' ? '#fff' : '#000' }}
           >
             Upgrade to {tier.name} <ArrowRight size={13} className="inline ml-1" />
           </Link>
@@ -389,7 +389,7 @@ export default function TierBenefitsPage() {
           <div className="text-center">
             <Link
               href="/tier-upgrade"
-              className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-[#8B0000] to-[#FF4500] text-white font-black text-lg rounded-2xl hover:from-[#a00000] hover:to-[#e03c00] transition-all shadow-xl shadow-[#8B0000]/30"
+              className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-[#8B0000] to-[#a00000] text-white font-black text-lg rounded-2xl hover:from-[#a00000] hover:to-[#8B0000] transition-all shadow-xl shadow-[#8B0000]/30"
             >
               <Crown size={20} /> Choose a Monthly Tier
             </Link>
