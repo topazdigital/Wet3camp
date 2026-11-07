@@ -7,7 +7,7 @@ import {
   Shield, Users, Calendar, BarChart2, Settings, Plus, Trash2, Edit2, CheckCircle2, XCircle,
   AlertTriangle, Lock, Mail, Eye, EyeOff, TrendingUp, Crown, Key, Instagram,
   Smartphone, Globe, MessageCircle, MessageSquare, Bell, Star, Save, RefreshCw, Camera, Radio, WifiOff,
-  DollarSign, MapPin, Award
+  DollarSign, MapPin, Award, ChevronDown
 } from 'lucide-react'
 import { useSEO } from '@/lib/useSEO'
 import {
@@ -586,26 +586,26 @@ function ClientsTab() {
       {loading && <div className="flex items-center justify-center py-16 gap-2 text-text-muted"><div className="w-4 h-4 border-2 border-text-muted/30 border-t-text-muted rounded-full animate-spin"/><span className="text-sm">Loading…</span></div>}
       {!loading && error && <div className="m-4 p-3 bg-[#EF4444]/10 border border-[#EF4444]/20 rounded-xl"><p className="text-xs text-[#EF4444]">{error}</p></div>}
       {!loading && !error && (
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto admin-responsive-table">
           <table className="w-full text-xs">
             <thead className="bg-dark-bg border-b border-color">
-              <tr>{['Name','Email','Role','Phone','Joined','Account','Profile','Actions'].map(h=><th key={h} className="px-4 py-3 text-left font-semibold text-text-muted">{h}</th>)}</tr>
+              <tr>{['Name','Email','Role','Phone','Joined','Account','Profile','Actions'].map(h=><th key={h} scope="col" className="px-4 py-3 text-left font-semibold text-text-muted">{h}</th>)}</tr>
             </thead>
             <tbody>
               {clients.length === 0 && <tr><td colSpan={8} className="px-4 py-10 text-center text-text-muted">No users yet.</td></tr>}
               {clients.map(c=>(
                 <tr key={c.id} className="border-b border-color/40 hover:bg-dark-bg transition-colors">
-                  <td className="px-4 py-3 font-semibold text-text-light">{c.display_name || c.username}</td>
-                  <td className="px-4 py-3 text-text-muted">{c.email}</td>
-                  <td className="px-4 py-3">
+                  <td data-label="Name" className="px-4 py-3 font-semibold text-text-light">{c.display_name || c.username}</td>
+                  <td data-label="Email" className="px-4 py-3 text-text-muted">{c.email}</td>
+                  <td data-label="Role" className="px-4 py-3">
                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${c.role==='admin'?'bg-[#8B0000]/20 text-[#8B0000]':c.role==='escort'?'bg-[#FF9800]/20 text-[#FF9800]':'bg-[#2196F3]/20 text-[#2196F3]'}`}>{c.role}</span>
                   </td>
-                  <td className="px-4 py-3 text-text-muted">{c.phone || '—'}</td>
-                  <td className="px-4 py-3 text-text-muted">{c.created_at ? new Date(c.created_at).toLocaleDateString() : '—'}</td>
-                  <td className="px-4 py-3">
+                  <td data-label="Phone" className="px-4 py-3 text-text-muted">{c.phone || '—'}</td>
+                  <td data-label="Joined" className="px-4 py-3 text-text-muted">{c.created_at ? new Date(c.created_at).toLocaleDateString() : '—'}</td>
+                  <td data-label="Account" className="px-4 py-3">
                     <span title="Login account status" className={`text-[10px] font-bold ${c.is_active?'text-[#28a745]':'text-[#EF4444]'}`}>{c.is_active?'Active':'Inactive'}</span>
                   </td>
-                  <td className="px-4 py-3">
+                  <td data-label="Profile" className="px-4 py-3">
                     {c.role !== 'escort' ? (
                       <span className="text-text-muted">—</span>
                     ) : !c.escort_profile_id ? (
@@ -632,7 +632,7 @@ function ClientsTab() {
                       </div>
                     )}
                   </td>
-                  <td className="px-4 py-3">
+                  <td data-label="Actions" className="px-4 py-3">
                     <div className="flex items-center gap-1">
                       {c.role !== 'admin' && (
                         <button
@@ -711,14 +711,14 @@ function BookingsTab() {
         <div className="divide-y divide-color/40">
           {bookings.length === 0 && <p className="text-center text-text-muted text-sm py-10">No bookings yet.</p>}
           {bookings.map(b=>(
-            <div key={b.id} className="flex items-center gap-4 px-4 py-3.5 hover:bg-dark-bg transition-colors">
-              <div className="flex-1">
-                <p className="text-xs font-semibold text-text-light">{b.clientName} → {b.escortName}</p>
-                <p className="text-[10px] text-text-muted">{b.date} {b.time} · {b.duration}hr{b.duration>1?'s':''} · {b.type}</p>
-                {b.location && <p className="text-[10px] text-text-muted">{b.location}</p>}
+            <div key={b.id} className="flex items-start sm:items-center gap-3 sm:gap-4 px-3 sm:px-4 py-3 hover:bg-dark-bg transition-colors">
+              <div className="min-w-0 flex-1">
+                <p className="break-words text-xs font-semibold text-text-light">{b.clientName} → {b.escortName}</p>
+                <p className="break-words text-[10px] text-text-muted">{b.date} {b.time} · {b.duration}hr{b.duration>1?'s':''} · {b.type}</p>
+                {b.location && <p className="break-words text-[10px] text-text-muted">{b.location}</p>}
               </div>
-              <div className="text-right">
-                <p className="text-xs font-bold text-[#FFD700]">KES {Number(b.amount).toLocaleString()}</p>
+              <div className="shrink-0 text-right">
+                <p className="whitespace-nowrap text-xs font-bold text-[#FFD700]">KES {Number(b.amount).toLocaleString()}</p>
                 <span className="text-[9px] font-semibold capitalize px-2 py-0.5 rounded-full" style={{color:statusColor[b.status]??'#aaa',backgroundColor:(statusColor[b.status]??'#aaa')+'20'}}>{b.status}</span>
               </div>
             </div>
@@ -1908,9 +1908,9 @@ function ReportsTab() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-xs text-text-muted">Profile reports submitted by users. Review and take action as needed.</p>
-        <span className="px-3 py-1 bg-[#EF4444]/10 border border-[#EF4444]/20 text-[#EF4444] text-xs font-bold rounded-xl">
+        <span className="shrink-0 self-start px-3 py-1 bg-[#EF4444]/10 border border-[#EF4444]/20 text-[#EF4444] text-xs font-bold rounded-xl">
           {reports.filter(r => r.status === 'pending').length} pending
         </span>
       </div>
@@ -1920,7 +1920,7 @@ function ReportsTab() {
         <div className="text-center py-10 text-xs text-text-muted">No reports yet.</div>
       ) : (
         <div className="bg-card-bg border border-color rounded-2xl overflow-hidden">
-          <div className="admin-table-scroll">
+          <div className="admin-table-scroll admin-responsive-table">
           <table className="w-full text-xs">
             <thead>
               <tr className="border-b border-color bg-dark-bg">
@@ -1932,28 +1932,28 @@ function ReportsTab() {
             <tbody>
               {reports.map((r, i) => (
                 <tr key={r.id} className={`border-b border-color hover:bg-dark-bg/50 transition-colors ${i % 2 === 0 ? '' : 'bg-dark-bg/20'}`}>
-                  <td className="px-3 py-2.5">
+                  <td data-label="Escort" className="px-3 py-2.5">
                     <p className="font-semibold text-text-light">{r.escort_name ?? `#${r.escort_id}`}</p>
                     {r.escort_city && <p className="text-[10px] text-text-muted">{r.escort_city}</p>}
                   </td>
-                  <td className="px-3 py-2.5 text-text-muted">
+                  <td data-label="Reporter" className="px-3 py-2.5 text-text-muted">
                     {r.reporter_name ? <><p>{r.reporter_name}</p><p className="text-[10px]">{r.reporter_email}</p></> : <span className="italic">Anonymous</span>}
                   </td>
-                  <td className="px-3 py-2.5">
+                  <td data-label="Reason" className="px-3 py-2.5">
                     <span className="px-2 py-0.5 bg-[#EF4444]/10 text-[#EF4444] border border-[#EF4444]/20 rounded-lg text-[10px] font-bold whitespace-nowrap">{r.reason}</span>
                   </td>
-                  <td className="px-3 py-2.5 text-text-muted max-w-[150px]">
+                  <td data-label="Details" className="px-3 py-2.5 text-text-muted max-w-[150px]">
                     <p className="truncate" title={r.details ?? ''}>{r.details || <span className="italic text-[10px]">—</span>}</p>
                   </td>
-                  <td className="px-3 py-2.5">
+                  <td data-label="Status" className="px-3 py-2.5">
                     <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold border" style={{ color: statusColor[r.status] ?? '#fff', borderColor: (statusColor[r.status] ?? '#fff') + '44', background: (statusColor[r.status] ?? '#fff') + '11' }}>
                       {r.status}
                     </span>
                   </td>
-                  <td className="px-3 py-2.5 text-text-muted text-[10px] whitespace-nowrap">
+                  <td data-label="Date" className="px-3 py-2.5 text-text-muted text-[10px] whitespace-nowrap">
                     {r.created_at ? new Date(r.created_at).toLocaleDateString() : '—'}
                   </td>
-                  <td className="px-3 py-2.5">
+                  <td data-label="Actions" className="px-3 py-2.5">
                     {r.status === 'pending' && (
                       <div className="flex gap-1">
                         <button disabled={updating === r.id} onClick={() => updateStatus(r.id, 'reviewed')} className="px-2 py-1 bg-[#2196F3]/10 border border-[#2196F3]/30 text-[#2196F3] text-[10px] font-bold rounded-lg hover:bg-[#2196F3]/20 transition-colors disabled:opacity-50">Review</button>
@@ -2018,7 +2018,7 @@ function ClaimsTab() {
           <p className="text-xs font-semibold">{feedback.msg}</p>
         </div>
       )}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="admin-two-up-grid grid grid-cols-2 gap-3">
         <div className="bg-card-bg border border-[#FFD700]/20 rounded-2xl p-4">
           <p className="text-[10px] text-text-muted uppercase tracking-widest mb-1">Pending</p>
           <p className="text-2xl font-black text-[#FFD700]">{pending.length}</p>
@@ -2043,11 +2043,11 @@ function ClaimsTab() {
         ) : (
           <div className="divide-y divide-color/40">
             {[...pending, ...resolved].map(c => (
-              <div key={c.id} className="flex items-start gap-4 px-4 py-4 hover:bg-dark-bg transition-colors">
+              <div key={c.id} className="flex flex-col gap-3 px-3 py-3 sm:flex-row sm:items-start sm:gap-4 sm:px-4 sm:py-4 hover:bg-dark-bg transition-colors">
                 <div className="w-8 h-8 rounded-full bg-[#8B0000]/20 flex items-center justify-center text-xs font-bold text-[#8B0000] flex-shrink-0">
                   {(c.user_name || c.user_email || 'U').charAt(0).toUpperCase()}
                 </div>
-                <div className="flex-1 min-w-0">
+                <div className="min-w-0 flex-1">
                   <p className="text-xs font-bold text-text-light">{c.user_name || c.user_email}</p>
                   <p className="text-[10px] text-text-muted">
                     claiming <span className="text-text-light font-semibold">{c.escort_name}</span>
@@ -2056,7 +2056,7 @@ function ClaimsTab() {
                   {c.message && <p className="text-[10px] text-text-muted italic mt-0.5">"{c.message}"</p>}
                   <p className="text-[9px] text-text-muted mt-0.5">{new Date(c.created_at).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
                 </div>
-                <div className="flex-shrink-0">
+                <div className="flex w-full justify-end sm:w-auto sm:flex-shrink-0">
                   {c.status === 'pending' ? (
                     <div className="flex gap-1.5">
                       <button
@@ -2116,20 +2116,20 @@ function RevenueDashboard() {
   return (
     <div className="space-y-5">
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {statCards.map(c => (
-          <div key={c.label} className="bg-card-bg border border-color rounded-2xl p-4">
+          <div key={c.label} className="min-w-0 bg-card-bg border border-color rounded-2xl p-3 sm:p-4">
             <div className="flex items-center gap-2 mb-2">
               <c.icon size={14} style={{ color: c.color }} />
               <span className="text-[10px] text-text-muted uppercase tracking-widest">{c.label}</span>
             </div>
-            <p className="text-xl font-black text-text-light">{c.value}</p>
+            <p className="break-words text-lg font-black text-text-light sm:text-xl">{c.value}</p>
           </div>
         ))}
       </div>
 
       {/* 30-day daily revenue chart */}
-      <div className="bg-card-bg border border-color rounded-2xl p-5">
+      <div className="bg-card-bg border border-color rounded-2xl p-4 sm:p-5">
         <h3 className="text-sm font-bold text-text-light mb-4 flex items-center gap-2">
           <TrendingUp size={14} className="text-[#28a745]"/>Daily Revenue — Last 30 Days
         </h3>
@@ -2154,7 +2154,7 @@ function RevenueDashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Top escorts */}
-        <div className="bg-card-bg border border-color rounded-2xl p-5">
+        <div className="bg-card-bg border border-color rounded-2xl p-4 sm:p-5">
           <h3 className="text-sm font-bold text-text-light mb-4 flex items-center gap-2">
             <Award size={14} className="text-[#FFD700]"/>Top Escorts by Revenue
           </h3>
@@ -2181,7 +2181,7 @@ function RevenueDashboard() {
         </div>
 
         {/* Revenue by city */}
-        <div className="bg-card-bg border border-color rounded-2xl p-5">
+        <div className="bg-card-bg border border-color rounded-2xl p-4 sm:p-5">
           <h3 className="text-sm font-bold text-text-light mb-4 flex items-center gap-2">
             <MapPin size={14} className="text-[#E91E63]"/>Revenue by City
           </h3>
@@ -2352,26 +2352,26 @@ function EscortsTab() {
     <div className="space-y-4">
       {actionError && <div role="alert" data-testid="admin-escort-action-error" className="p-3 bg-[#EF4444]/10 border border-[#EF4444]/20 rounded-xl text-xs text-[#EF4444]">{actionError}</div>}
       <BulkOnlinePanel escorts={escorts} onBulkToggle={handleBulkToggle} />
-      <div className="flex items-center gap-3 p-3.5 bg-[#EF4444]/10 border border-[#EF4444]/30 rounded-2xl">
+      <div className="flex flex-col items-start gap-2.5 p-3.5 bg-[#EF4444]/10 border border-[#EF4444]/30 rounded-2xl sm:flex-row sm:items-center sm:gap-3">
         <Trash2 size={14} className="text-[#EF4444] flex-shrink-0" />
-        <div className="flex-1">
+        <div className="min-w-0 flex-1">
           <p className="text-xs text-[#EF4444] font-semibold">Remove Fake / Seed Escorts</p>
           <p className="text-[10px] text-text-muted">Deletes all escort profiles that have no real user account (demo/seeded data). Run this before going live.</p>
           {cleanupMsg && <p className="text-[10px] text-[#28a745] mt-0.5 font-bold">{cleanupMsg}</p>}
         </div>
-        <button onClick={handleCleanupFake} disabled={cleanupLoading} className="px-3 py-1.5 bg-[#EF4444] hover:bg-red-700 text-white text-[10px] font-bold rounded-lg disabled:opacity-60 flex items-center gap-1.5 transition-all whitespace-nowrap">
+        <button onClick={handleCleanupFake} disabled={cleanupLoading} className="w-full justify-center px-3 py-1.5 bg-[#EF4444] hover:bg-red-700 text-white text-[10px] font-bold rounded-lg disabled:opacity-60 flex items-center gap-1.5 transition-all whitespace-nowrap sm:w-auto">
           {cleanupLoading ? <><div className="w-3 h-3 border border-white/30 border-t-white rounded-full animate-spin"/>Deleting…</> : <><Trash2 size={10}/>Delete Fakes</>}
         </button>
       </div>
       {pendingCount > 0 && (
-        <div className="flex items-center gap-3 p-3.5 bg-[#FFD700]/10 border border-[#FFD700]/30 rounded-2xl">
+        <div className="flex flex-wrap items-center gap-2.5 p-3.5 bg-[#FFD700]/10 border border-[#FFD700]/30 rounded-2xl">
           <AlertTriangle size={14} className="text-[#FFD700] flex-shrink-0" />
-          <div className="flex-1">
+          <div className="min-w-0 flex-1 basis-full sm:basis-auto">
             <p className="text-xs text-[#FFD700] font-semibold">{pendingCount} escort{pendingCount !== 1 ? 's' : ''} waiting for approval</p>
             {bulkApproveMsg && <p className="text-[10px] text-[#28a745] mt-0.5 font-bold">{bulkApproveMsg}</p>}
           </div>
-          <button onClick={() => setStatusFilter('pending')} className="px-3 py-1 bg-[#FFD700]/20 text-[#FFD700] text-[10px] font-bold rounded-lg border border-[#FFD700]/30">Review</button>
-          <button onClick={handleBulkApprove} disabled={bulkApproveLoading} className="px-3 py-1 bg-[#28a745] text-white text-[10px] font-bold rounded-lg disabled:opacity-60 flex items-center gap-1">
+          <button onClick={() => setStatusFilter('pending')} className="flex-1 justify-center px-3 py-1 bg-[#FFD700]/20 text-[#FFD700] text-[10px] font-bold rounded-lg border border-[#FFD700]/30 sm:flex-none">Review</button>
+          <button onClick={handleBulkApprove} disabled={bulkApproveLoading} className="flex-1 justify-center px-3 py-1 bg-[#28a745] text-white text-[10px] font-bold rounded-lg disabled:opacity-60 flex items-center gap-1 sm:flex-none">
             {bulkApproveLoading ? <div className="w-3 h-3 border border-white/30 border-t-white rounded-full animate-spin"/> : <CheckCircle2 size={10}/>}
             Approve All
           </button>
@@ -2426,10 +2426,10 @@ function EscortsTab() {
           </div>
         )}
         {!loading && !error && (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto admin-responsive-table admin-responsive-table-escorts">
             <table className="w-full text-xs">
               <thead className="bg-dark-bg border-b border-color">
-                <tr>{['Photo','Name','City','Tier','Active','Online Now','Verified','Featured','Actions'].map(h=><th key={h} className="px-4 py-3 text-left font-semibold text-text-muted">{h}</th>)}</tr>
+                <tr>{['Photo','Name','City','Tier','Active','Online Now','Verified','Featured','Actions'].map(h=><th key={h} scope="col" className="px-4 py-3 text-left font-semibold text-text-muted">{h}</th>)}</tr>
               </thead>
               <tbody>
                 {filtered.length === 0 && (
@@ -2437,7 +2437,7 @@ function EscortsTab() {
                 )}
                 {filtered.map(e => (
                   <tr key={e.id} className="border-b border-color/40 hover:bg-dark-bg transition-colors">
-                    <td className="px-2 py-2">
+                    <td data-label="Photo" className="px-2 py-2">
                       {e.image
                         ? <img src={e.image} alt={e.name} className="w-10 h-10 rounded-lg object-cover border border-color" onError={ev => { ev.currentTarget.style.display = 'none'; const fb = ev.currentTarget.parentElement?.querySelector<HTMLElement>('.img-fb'); if (fb) fb.style.display = 'flex' }} />
                         : null}
@@ -2445,19 +2445,19 @@ function EscortsTab() {
                         {(e.name || '?').charAt(0).toUpperCase()}
                       </div>
                     </td>
-                    <td className="px-4 py-3 font-semibold text-text-light">{e.name}</td>
-                    <td className="px-4 py-3 text-text-muted">{e.city || '—'}</td>
-                    <td className="px-4 py-3">
+                    <td data-label="Name" className="px-4 py-3 font-semibold text-text-light">{e.name}</td>
+                    <td data-label="City" className="px-4 py-3 text-text-muted">{e.city || '—'}</td>
+                    <td data-label="Tier" className="px-4 py-3">
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{background:e.tier==='Elite'?'#8B000020':e.tier==='VIP'?'#FF450020':'#55555520',color:e.tier==='Elite'?'#8B0000':e.tier==='VIP'?'#FF4500':'#aaa'}}>
                         {e.tier || 'Standard'}
                       </span>
                     </td>
-                    <td className="px-4 py-3">
+                    <td data-label="Active" className="px-4 py-3">
                       {Boolean(e.is_active)
                         ? <span className="flex items-center gap-1 text-[#28a745]"><CheckCircle2 size={11}/>Active</span>
                         : <span className="flex items-center gap-1 text-text-muted"><XCircle size={11}/>Inactive</span>}
                     </td>
-                    <td className="px-4 py-3">
+                    <td data-label="Online Now" className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <OnlineToggle id={e.id} online={Boolean(e.online)} onToggle={handleToggle} />
                         <span className={`text-[10px] font-semibold ${Boolean(e.online) ? 'text-[#28a745]' : 'text-text-muted'}`}>
@@ -2465,7 +2465,7 @@ function EscortsTab() {
                         </span>
                       </div>
                     </td>
-                    <td className="px-4 py-3">
+                    <td data-label="Verified" className="px-4 py-3">
                       <button
                         onClick={() => handleToggleVerified(e.id, Boolean(e.verified))}
                         disabled={actionLoading === e.id + '_verified'}
@@ -2476,7 +2476,7 @@ function EscortsTab() {
                         {Boolean(e.verified) ? 'Verified' : 'Unverified'}
                       </button>
                     </td>
-                    <td className="px-4 py-3">
+                    <td data-label="Featured" className="px-4 py-3">
                       <button
                         onClick={() => handleFeature(e)}
                         disabled={actionLoading === e.id + '_feature'}
@@ -2488,7 +2488,7 @@ function EscortsTab() {
                         {Boolean(e.featured) ? 'Boosted' : 'Boost'}
                       </button>
                     </td>
-                    <td className="px-4 py-3">
+                    <td data-label="Actions" className="px-4 py-3">
                       <div className="flex gap-1.5 flex-wrap">
                         {!Boolean(e.is_active) && !Boolean(e.verified) ? (
                           <>
@@ -2666,15 +2666,34 @@ function AdminDashboard() {
         </div>
 
         {/* Tabs */}
-        <div className="px-4 sm:px-6 border-b border-color">
-          <div className="flex gap-1 overflow-x-auto scrollbar-hide">
+        <div className="px-3 sm:px-6 border-b border-color">
+          <div className="py-3 xl:hidden">
+            <label htmlFor="admin-section-select" className="mb-1.5 flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-text-muted">
+              <span>Admin section</span>
+              <span className="flex items-center gap-1 normal-case tracking-normal">Tap to switch <ChevronDown size={13} /></span>
+            </label>
+            <div className="relative">
+              <select
+                id="admin-section-select"
+                data-testid="admin-section-select"
+                aria-label="Choose an admin section"
+                value={activeTab}
+                onChange={event => setActiveTab(event.target.value)}
+                className="w-full appearance-none rounded-xl border border-color bg-card-bg px-4 py-3 pr-11 text-base font-semibold text-text-light focus:border-[#FFD700] focus:outline-none focus:ring-1 focus:ring-[#FFD700]"
+              >
+                {TABS.map(tab => <option key={tab} value={tab}>{tab}</option>)}
+              </select>
+              <ChevronDown size={17} aria-hidden="true" className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[#FFD700]" />
+            </div>
+          </div>
+          <div className="hidden xl:flex flex-wrap gap-x-1">
             {TABS.map(tab => (
-              <button key={tab} onClick={() => setActiveTab(tab)} className={`flex-shrink-0 px-4 py-3 text-xs font-semibold border-b-2 transition-all ${activeTab===tab?'text-[#FFD700] border-[#FFD700]':'text-text-muted border-transparent hover:text-text-light'}`}>{tab}</button>
+              <button key={tab} onClick={() => setActiveTab(tab)} data-testid={`tab-admin-${tab.toLowerCase().replace(/\s+/g, '-')}`} aria-pressed={activeTab === tab} className={`shrink-0 whitespace-nowrap px-3 py-3 text-[11px] font-semibold border-b-2 transition-all ${activeTab===tab?'text-[#FFD700] border-[#FFD700]':'text-text-muted border-transparent hover:text-text-light'}`}>{tab}</button>
             ))}
           </div>
         </div>
 
-        <div className="px-4 sm:px-6 py-5">
+        <div className="px-3 py-4 sm:px-6 sm:py-5">
 
           {/* ── OVERVIEW ── */}
           {activeTab === 'Overview' && (
@@ -2697,13 +2716,13 @@ function AdminDashboard() {
               </div>
               {/* Pending featured */}
               <div className="bg-card-bg border border-[#FFD700]/20 rounded-2xl p-4">
-                <div className="flex items-center justify-between mb-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
                   <h3 className="text-sm font-bold text-text-light flex items-center gap-2"><Crown size={14} className="text-[#FFD700]"/>Featured Requests Pending</h3>
                   <button onClick={() => setActiveTab('Featured')} className="text-xs text-[#FFD700] hover:underline">View all →</button>
                 </div>
-                <div className="flex gap-3">
+                <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
                   {featuredReqs.filter(r=>r.status==='pending').slice(0,3).map(r=>(
-                    <div key={r.id} className="flex-1 bg-dark-bg border border-color rounded-xl p-3">
+                    <div key={r.id} className="w-full min-w-0 sm:flex-1 bg-dark-bg border border-color rounded-xl p-3">
                       <p className="text-xs font-bold text-text-light">{r.name}</p>
                       <p className="text-[10px] text-text-muted mb-2">{r.plan} · KES {r.amount.toLocaleString()}</p>
                       <div className="flex gap-1.5">
@@ -2741,9 +2760,9 @@ function AdminDashboard() {
           {/* ── MODERATORS ── */}
           {activeTab === 'Moderators' && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-xs text-text-muted">Admin and moderator accounts with platform access.</p>
-                <button onClick={()=>{setShowAddMod(true);setAddModErr('')}} className="flex items-center gap-1.5 px-4 py-2 bg-[#8B0000] text-white text-xs font-bold rounded-xl"><Plus size={13}/>Add Moderator</button>
+                <button onClick={()=>{setShowAddMod(true);setAddModErr('')}} className="flex w-full items-center justify-center gap-1.5 px-4 py-2 bg-[#8B0000] text-white text-xs font-bold rounded-xl sm:w-auto"><Plus size={13}/>Add Moderator</button>
               </div>
               {showAddMod && (
                 <div className="bg-card-bg border border-color rounded-2xl p-4 space-y-3">
@@ -2774,22 +2793,22 @@ function AdminDashboard() {
                     <h3 className="text-sm font-bold text-text-light">Staff Accounts</h3>
                     <span className="text-[10px] text-text-muted">{mods.length} account{mods.length!==1?'s':''}</span>
                   </div>
-                  <div className="admin-table-scroll">
+                  <div className="admin-table-scroll admin-responsive-table">
                   <table className="w-full text-xs">
-                    <thead className="bg-dark-bg border-b border-color"><tr>{['Name','Email','Role','Status','Joined','Actions'].map(h=><th key={h} className="px-4 py-3 text-left font-semibold text-text-muted">{h}</th>)}</tr></thead>
+                    <thead className="bg-dark-bg border-b border-color"><tr>{['Name','Email','Role','Status','Joined','Actions'].map(h=><th key={h} scope="col" className="px-4 py-3 text-left font-semibold text-text-muted">{h}</th>)}</tr></thead>
                     <tbody>
                       {mods.length === 0 && <tr><td colSpan={6} className="px-4 py-10 text-center text-text-muted text-xs">No staff accounts yet. Add a moderator above.</td></tr>}
                       {mods.map(m=>(
                         <tr key={m.id} className="border-b border-color/40 hover:bg-dark-bg transition-colors">
-                          <td className="px-4 py-3">
+                          <td data-label="Name" className="px-4 py-3">
                             <div className="flex items-center gap-2">
                               <div className="w-6 h-6 rounded-full bg-[#8B0000]/20 flex items-center justify-center text-[10px] font-bold text-[#8B0000]">{(m.name||'?').charAt(0).toUpperCase()}</div>
                               <span className="font-semibold text-text-light">{m.name}</span>
                             </div>
                           </td>
-                          <td className="px-4 py-3 text-text-muted">{m.email}</td>
-                          <td className="px-4 py-3"><span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${m.role==='admin'?'bg-[#8B0000]/20 text-[#8B0000]':'bg-[#2196F3]/20 text-[#2196F3]'}`}>{m.role}</span></td>
-                          <td className="px-4 py-3">
+                          <td data-label="Email" className="px-4 py-3 text-text-muted">{m.email}</td>
+                          <td data-label="Role" className="px-4 py-3"><span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${m.role==='admin'?'bg-[#8B0000]/20 text-[#8B0000]':'bg-[#2196F3]/20 text-[#2196F3]'}`}>{m.role}</span></td>
+                          <td data-label="Status" className="px-4 py-3">
                             <button
                               onClick={async ()=>{
                                 try {
@@ -2800,8 +2819,8 @@ function AdminDashboard() {
                               className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${m.status==='active'?'bg-[#28a745]/20 text-[#28a745] hover:bg-[#28a745]/30':'bg-[#EF4444]/20 text-[#EF4444] hover:bg-[#EF4444]/30'}`}
                             >{m.status}</button>
                           </td>
-                          <td className="px-4 py-3 text-text-muted">{m.createdAt}</td>
-                          <td className="px-4 py-3">
+                          <td data-label="Joined" className="px-4 py-3 text-text-muted">{m.createdAt}</td>
+                          <td data-label="Actions" className="px-4 py-3">
                             {m.role !== 'admin' && (
                               <button
                                 onClick={async ()=>{
@@ -2854,14 +2873,14 @@ function AdminDashboard() {
                 </div>
                 <div className="divide-y divide-color/40">
                   {featuredReqs.map(r => (
-                    <div key={r.id} className="flex items-center gap-4 px-4 py-3.5">
+                    <div key={r.id} className="flex flex-col gap-3 px-3 py-3 sm:flex-row sm:items-center sm:gap-4 sm:px-4 sm:py-3.5">
                       <div className="w-8 h-8 rounded-full bg-[#FFD700]/20 flex items-center justify-center text-sm font-bold text-[#FFD700] flex-shrink-0">{r.name.charAt(0)}</div>
-                      <div className="flex-1 min-w-0">
+                      <div className="min-w-0 flex-1">
                         <p className="text-xs font-semibold text-text-light">{r.name}</p>
                         <p className="text-[10px] text-text-muted">{r.city} · {r.plan} · {r.date}</p>
                         <p className="text-[10px] text-text-muted font-mono">ref: {r.txRef} · {r.phone}</p>
                       </div>
-                      <div className="text-right flex-shrink-0">
+                      <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:flex-shrink-0 sm:flex-col sm:items-end sm:text-right">
                         <p className="text-xs font-bold text-[#FFD700]">KES {r.amount.toLocaleString()}</p>
                         {r.status === 'pending' ? (
                           <div className="flex gap-1.5 mt-1">
@@ -3081,7 +3100,7 @@ function BlogMediaToolbar({ onInsert }: { onInsert: (snippet: string) => void })
   }
 
   return (
-    <div className="flex items-center gap-2 mb-1.5">
+    <div className="flex flex-wrap items-center gap-2 mb-1.5">
       <input ref={imgInputRef} type="file" accept="image/*" className="hidden"
         onChange={e => { const f = e.target.files?.[0]; if (f) upload(f, 'image'); e.target.value = '' }} />
       <input ref={vidInputRef} type="file" accept="video/mp4,video/webm,video/quicktime" className="hidden"
@@ -3236,7 +3255,7 @@ function AdminBlog() {
           </div>
         </div>
         {loadError && <p className="text-[11px] text-[#EF4444]">{loadError}</p>}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <button onClick={() => set('published', !form.published)} className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold border transition-all ${form.published ? 'bg-[#28a745]/20 border-[#28a745]/40 text-[#28a745]' : 'bg-dark-bg border-color text-text-muted'}`}>
             {form.published ? '● Published' : '○ Draft'}
           </button>
@@ -3251,7 +3270,7 @@ function AdminBlog() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h3 className="text-sm font-black text-text-light">Blog Management</h3>
           <p className="text-[10px] text-text-muted mt-0.5">{posts.length} articles total · {posts.filter(p=>p.published).length} published</p>
@@ -3263,7 +3282,7 @@ function AdminBlog() {
       {loadError && <p className="text-[11px] text-[#EF4444]">{loadError}</p>}
       <div className="space-y-2">
         {posts.map(post => (
-          <div key={post.id} className="flex items-center gap-3 p-3 bg-card-bg border border-color rounded-xl">
+          <div key={post.id} className="flex flex-col gap-2 p-3 bg-card-bg border border-color rounded-xl sm:flex-row sm:items-center sm:gap-3">
             <div className="flex-1 min-w-0">
               <p className="text-xs font-semibold text-text-light truncate">{post.title}</p>
               <p className="text-[10px] text-text-muted mt-0.5">{post.category}{post.published_at ? ` · ${new Date(post.published_at).toLocaleDateString()}` : ''}</p>
@@ -3271,7 +3290,7 @@ function AdminBlog() {
             <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${post.published ? 'bg-[#28a745]/20 text-[#28a745]' : 'bg-[#6B7280]/20 text-[#6B7280]'}`}>
               {post.published ? 'Published' : 'Draft'}
             </span>
-            <div className="flex items-center gap-1.5 flex-shrink-0">
+            <div className="flex w-full items-center justify-end gap-1.5 flex-wrap sm:w-auto sm:flex-shrink-0">
               <button onClick={() => togglePublish(post.id, post.published)} className="px-2 py-1 bg-dark-bg border border-color text-[9px] text-text-muted rounded-lg hover:border-[#8B0000]/50 transition-all">
                 {post.published ? 'Unpublish' : 'Publish'}
               </button>
