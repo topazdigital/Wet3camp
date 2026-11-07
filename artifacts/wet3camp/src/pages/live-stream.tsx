@@ -502,7 +502,7 @@ export default function LiveStreamPage() {
     if (type === 'join')   return 'text-[#28a745]/80'
     if (type === 'leave')  return 'text-text-muted/60'
     if (type === 'gift')   return 'text-[#E91E63]'
-    if (type === 'reaction') return 'text-[#FF4500]'
+    if (type === 'reaction') return 'text-[#FFD700]'
     return 'text-text-light'
   }
 
