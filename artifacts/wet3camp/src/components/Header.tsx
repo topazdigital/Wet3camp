@@ -11,7 +11,7 @@ interface SearchResult {
 }
 
 const TIER_COLOR: Record<string, string> = {
-  elite: '#8B0000', vip: '#FF4500', premium: '#B8860B', standard: '#666', free: '#555'
+  elite: '#8B0000', vip: '#B8860B', premium: '#FFD700', standard: '#666', free: '#555'
 }
 
 function SearchDropdown({ results, loading, query, onClose }: {
