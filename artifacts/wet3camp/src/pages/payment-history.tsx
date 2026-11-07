@@ -46,6 +46,8 @@ function formatDate(str: string) {
 }
 
 function planLabel(plan: string) {
+  const tierMatch = /^tier_(premium|vip|elite)$/i.exec(plan ?? '')
+  if (tierMatch) return `${tierMatch[1][0].toUpperCase()}${tierMatch[1].slice(1).toLowerCase()} Profile Tier`
   const labels: Record<string, string> = {
     standard: 'Standard Listing',
     premium: 'Premium Listing',
