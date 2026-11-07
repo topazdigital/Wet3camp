@@ -39,7 +39,7 @@ const EMOJIS = [
   '😅','😜','🧡','💛','💚','💙','💜','🖤','🔮','🌺',
 ]
 
-const TIER_COLOR: Record<string, string> = { Elite: '#8B0000', VIP: '#FF4500', Premium: '#B8860B' }
+const TIER_COLOR: Record<string, string> = { Elite: '#8B0000', VIP: '#B8860B', Premium: '#FFD700' }
 
 const STATIC_CONVERSATIONS: Conv[] = [
   { id: 1, name: 'Amara K.',  avatar: 'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=80&h=80&fit=crop', last: 'Available tonight?',       time: '2m',        unread: 2, online: true,  tier: 'Elite'   },
