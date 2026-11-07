@@ -9,7 +9,7 @@ import { AlertCircle, ArrowLeft, CheckCircle2, Crown, Loader2, RefreshCw, Smartp
 import { Link } from 'wouter'
 
 const TIERS = [
-  { id: 'premium', name: 'Premium', color: '#B8860B', summary: 'Higher placement, Premium badge, and more gallery space.' },
+  { id: 'premium', name: 'Premium', color: '#FFD700', summary: 'Higher placement, Premium badge, and more gallery space.' },
   { id: 'vip', name: 'VIP', color: '#FF4500', summary: 'Top-tier placement, VIP badge, and expanded profile visibility.' },
   { id: 'elite', name: 'Elite', color: '#8B0000', summary: 'The highest profile tier with Elite placement and benefits.' },
 ] as const
@@ -132,7 +132,7 @@ export default function TierUpgradePage() {
         <Header />
 
         <div className="border-b border-color px-5 py-8 text-center sm:px-10"
-          style={{ background: 'linear-gradient(135deg,#B8860B18,#8B000020)' }}>
+          style={{ background: 'linear-gradient(135deg,#FFD70018,#8B000020)' }}>
           <div className="mb-2 flex items-center justify-center gap-2">
             <Crown size={16} className="text-[#FFD700]" />
             <span className="text-xs font-bold uppercase tracking-widest text-[#FFD700]">Monthly Profile Tiers</span>
@@ -211,7 +211,7 @@ export default function TierUpgradePage() {
                     onClick={() => { setSelectedId(tier.id); setNotice('') }}
                     aria-pressed={selectedId === tier.id}
                     className={`rounded-2xl border-2 bg-card-bg p-5 text-left transition-all hover:-translate-y-0.5 ${
-                      selectedId === tier.id ? 'border-[#B8860B] ring-1 ring-[#B8860B]/30' : 'border-color hover:border-text-muted'
+                      selectedId === tier.id ? 'border-[#FFD700] ring-1 ring-[#FFD700]/30' : 'border-color hover:border-text-muted'
                     }`}
                   >
                     <p className="text-xs font-bold uppercase tracking-widest" style={{ color: tier.color }}>{tier.name}</p>
@@ -219,7 +219,7 @@ export default function TierUpgradePage() {
                     <p className="text-[11px] text-text-muted">per 30-day term</p>
                     <p className="mt-4 text-xs leading-5 text-text-muted">{tier.summary}</p>
                     {tierStatus.tier === tier.id && (
-                      <p className="mt-3 text-[10px] font-bold uppercase tracking-wide text-[#d5b66b]">
+                      <p className="mt-3 text-[10px] font-bold uppercase tracking-wide text-[#FFD700]">
                         Current tier — renew or keep it
                       </p>
                     )}
@@ -231,7 +231,7 @@ export default function TierUpgradePage() {
                 )}
               </div>
 
-              {notice && <p className="mb-4 text-center text-xs text-[#d5b66b]" role="status">{notice}</p>}
+              {notice && <p className="mb-4 text-center text-xs text-[#FFD700]" role="status">{notice}</p>}
               {pricing && (
                 <>
                   <div className="mb-5 rounded-xl border border-color bg-card-bg p-4 text-xs leading-5 text-text-muted">
