@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS `escorts` (
   `lat`              decimal(9,6)     NOT NULL DEFAULT 0.000000,
   `lng`              decimal(9,6)     NOT NULL DEFAULT 0.000000,
   `tier`             enum('elite','vip','premium','standard','free') NOT NULL DEFAULT 'standard',
+  `tier_expires_at`  datetime         DEFAULT NULL,
   `rating`           decimal(2,1)     NOT NULL DEFAULT 0.0,
   `reviews_count`    smallint(5) UNSIGNED NOT NULL DEFAULT 0,
   `bio`              text             DEFAULT NULL,
@@ -69,6 +70,7 @@ CREATE TABLE IF NOT EXISTS `escorts` (
 
 -- Safe column additions for existing installs
 ALTER TABLE escorts
+  ADD COLUMN IF NOT EXISTS `tier_expires_at`  datetime         DEFAULT NULL,
   ADD COLUMN IF NOT EXISTS `is_active`       tinyint(1)       NOT NULL DEFAULT 1,
   ADD COLUMN IF NOT EXISTS `online`          tinyint(1)       NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS `map_visible`     tinyint(1)       NOT NULL DEFAULT 1,
@@ -379,6 +381,7 @@ CREATE TABLE IF NOT EXISTS `subscriptions` (
   `amount`     int(10) UNSIGNED NOT NULL DEFAULT 0,
   `phone`      varchar(30)      DEFAULT NULL,
   `tx_ref`     varchar(100)     DEFAULT NULL,
+  `provider_ref` varchar(100)   DEFAULT NULL,
   `status`     varchar(20)      NOT NULL DEFAULT 'pending',
   `expires_at` datetime         DEFAULT NULL,
   `created_at` datetime         NOT NULL DEFAULT current_timestamp(),
@@ -388,6 +391,9 @@ CREATE TABLE IF NOT EXISTS `subscriptions` (
   KEY `idx_subscriptions_status`   (`status`),
   KEY `idx_subscriptions_expires`  (`expires_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+ALTER TABLE subscriptions
+  ADD COLUMN IF NOT EXISTS `provider_ref` varchar(100) DEFAULT NULL;
 
 -- =============================================================================
 -- 19. Default tier subscription prices in platform_settings
