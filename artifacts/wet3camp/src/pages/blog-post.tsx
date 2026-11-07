@@ -3,7 +3,7 @@ import { Link, useRoute } from 'wouter'
 import Sidebar from '@/components/Sidebar'
 import Header from '@/components/Header'
 import { useSEO } from '@/lib/useSEO'
-import type { BlogPost } from '@/data/blog'
+import type { BlogPost } from '@/types/blog'
 import { Clock, Tag, ChevronLeft, ChevronRight } from 'lucide-react'
 
 function renderMarkdown(md: string): string {
@@ -56,6 +56,7 @@ export default function BlogPost() {
             published:      true,
             seoTitle:       data.seo_title ?? data.seoTitle,
             seoDescription: data.seo_description ?? data.seoDescription,
+          }
         if (active) setPost(p)
         fetch(`/api/blog?category=${encodeURIComponent(p.category)}&limit=10`)
           .then(r => r.ok ? r.json() : null)
