@@ -10,6 +10,7 @@ type ViewAsUser = {
   email?: string
   role: string
   approved?: boolean
+  hasEscortProfile?: boolean
 }
 
 export default function ViewAs() {
@@ -53,6 +54,7 @@ export default function ViewAs() {
           email: user.email ?? '',
           role,
           approved: user.approved === true,
+          hasEscortProfile: user.hasEscortProfile,
         }))
         finished = true
         window.clearTimeout(timeoutId)
