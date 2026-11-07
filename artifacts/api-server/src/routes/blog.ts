@@ -514,7 +514,7 @@ router.delete('/admin/blog/:id', requireAuth, requireAdmin, async (req: AuthRequ
 })
 
 // ── POST /api/admin/blog/generate — manually trigger AI post generation ───────
-router.post('/admin/blog/generate', async (req, res) => {
+router.post('/admin/blog/generate', requireAuth, requireAdmin, async (req, res) => {
   const pool = getPool()
   if (!pool) { res.status(503).json({ message: 'No DB' }); return }
 
@@ -530,7 +530,7 @@ router.post('/admin/blog/generate', async (req, res) => {
 })
 
 // ── POST /api/admin/blog/scrape — scrape + rewrite a URL ─────────────────────
-router.post('/admin/blog/scrape', async (req, res) => {
+router.post('/admin/blog/scrape', requireAuth, requireAdmin, async (req, res) => {
   const { url } = req.body as { url?: string }
   if (!url) { res.status(400).json({ message: 'url required' }); return }
 
@@ -542,7 +542,7 @@ router.post('/admin/blog/scrape', async (req, res) => {
 })
 
 // ── POST /api/admin/blog/bulk-generate — generate multiple posts ──────────────
-router.post('/admin/blog/bulk-generate', async (req, res) => {
+router.post('/admin/blog/bulk-generate', requireAuth, requireAdmin, async (req, res) => {
   const { count = 5 } = req.body as { count?: number }
   const n = Math.min(Number(count) || 5, 25)
 
