@@ -14,7 +14,7 @@ const STATUS_STYLE: Record<string, { bg: string; text: string; label: string; ic
 }
 
 const TIER_COLOR: Record<string, string> = {
-  Elite: '#8B0000', VIP: '#FF4500', Premium: '#B8860B',
+  Elite: '#8B0000', VIP: '#B8860B', Premium: '#FFD700',
 }
 
 interface ReviewModalProps {
