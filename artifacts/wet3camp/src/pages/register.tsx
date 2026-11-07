@@ -7,7 +7,7 @@ import {
   Instagram, Facebook, Sparkles
 } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
-import { api, setToken } from '@/lib/api'
+import { api, getToken, setToken } from '@/lib/api'
 import { safeInternalRedirect } from '@/lib/redirect'
 import { useSEO } from '@/lib/useSEO'
 import { useOAuthConfig } from '@/lib/oauth-config'
@@ -522,7 +522,7 @@ export default function RegisterPage() {
     try {
       if (isOAuthEscortSetup) {
         // OAuth user already has an account — just fill in escort profile details
-        const token = localStorage.getItem('auth_token')
+        const token = getToken()
         if (!token) { navigate('/login'); return }
         const res = await fetch('/api/auth/setup-escort', {
           method: 'POST',
