@@ -4,7 +4,7 @@ import Sidebar from '@/components/Sidebar'
 import { useAuth } from '@/lib/auth-context'
 import { api } from '@/lib/api'
 import { getSlug } from '@/data/escorts'
-import { Eye, Calendar, Star, Edit3, Camera, CheckCircle2, XCircle, MapPin, DollarSign, Users, Heart, MessageCircle, BarChart2, Zap, Crown, Smartphone, Instagram, Loader2, AlertCircle, UserCheck, Globe, Radio, RefreshCw, X } from 'lucide-react'
+import { Eye, Calendar, Star, Edit3, Camera, CheckCircle2, XCircle, MapPin, DollarSign, Users, Heart, MessageCircle, BarChart2, Zap, Crown, Smartphone, Instagram, Loader2, AlertCircle, UserCheck, Globe, Radio, RefreshCw, X, ChevronDown } from 'lucide-react'
 import { Link } from 'wouter'
 import { useFollow } from '@/lib/follow-context'
 import { useSEO } from '@/lib/useSEO'
@@ -418,21 +418,30 @@ export default function MyProfile() {
           })}
         </div>
 
-        {/* Profile section navigation — picker on smaller screens, tabs on desktop */}
+        {/* Profile section navigation — clear picker on smaller screens, wrapping tabs on desktop */}
         <div className="px-4 sm:px-6 border-b border-color">
-          <label htmlFor="profile-section-select" className="sr-only">Profile section</label>
-          <select
-            id="profile-section-select"
-            data-testid="profile-section-select"
-            value={activeTab}
-            onChange={event => setActiveTab(event.target.value)}
-            className="lg:hidden my-3 w-full appearance-none rounded-xl border border-color bg-card-bg px-4 py-3 text-base font-semibold text-text-light focus:border-[#FFD700] focus:outline-none focus:ring-1 focus:ring-[#FFD700]"
-          >
-            {visibleTabs.map(tab => <option key={tab} value={tab}>{tab}</option>)}
-          </select>
-          <div className="hidden lg:flex gap-1 overflow-x-auto scrollbar-hide">
+          <div className="lg:hidden py-3">
+            <label htmlFor="profile-section-select" className="mb-1.5 flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-text-muted">
+              <span>Profile section</span>
+              <span className="flex items-center gap-1 normal-case tracking-normal">Tap to switch <ChevronDown size={13} /></span>
+            </label>
+            <div className="relative">
+              <select
+                id="profile-section-select"
+                data-testid="profile-section-select"
+                aria-label="Choose a profile section"
+                value={activeTab}
+                onChange={event => setActiveTab(event.target.value)}
+                className="w-full appearance-none rounded-xl border border-color bg-card-bg px-4 py-3 pr-11 text-base font-semibold text-text-light focus:border-[#FFD700] focus:outline-none focus:ring-1 focus:ring-[#FFD700]"
+              >
+                {visibleTabs.map(tab => <option key={tab} value={tab}>{tab}</option>)}
+              </select>
+              <ChevronDown size={17} aria-hidden="true" className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[#FFD700]" />
+            </div>
+          </div>
+          <div className="hidden lg:flex flex-wrap gap-x-1">
             {visibleTabs.map(tab => (
-              <button key={tab} onClick={() => setActiveTab(tab)} data-testid={`tab-profile-${tab.toLowerCase().replace(/\s+/g, '-')}`} aria-pressed={activeTab === tab} className={`flex-shrink-0 px-4 py-3 text-xs font-semibold transition-all border-b-2 ${activeTab === tab ? 'text-[#FFD700] border-[#FFD700]' : 'text-text-muted border-transparent hover:text-text-light'}`}>{tab}</button>
+              <button key={tab} onClick={() => setActiveTab(tab)} data-testid={`tab-profile-${tab.toLowerCase().replace(/\s+/g, '-')}`} aria-pressed={activeTab === tab} className={`shrink-0 whitespace-nowrap px-3 py-3 text-[11px] font-semibold transition-all border-b-2 ${activeTab === tab ? 'text-[#FFD700] border-[#FFD700]' : 'text-text-muted border-transparent hover:text-text-light'}`}>{tab}</button>
             ))}
           </div>
         </div>
