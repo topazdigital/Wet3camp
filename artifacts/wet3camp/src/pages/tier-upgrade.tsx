@@ -10,7 +10,7 @@ import { Link } from 'wouter'
 
 const TIERS = [
   { id: 'premium', name: 'Premium', color: '#FFD700', summary: 'Higher placement, Premium badge, and more gallery space.' },
-  { id: 'vip', name: 'VIP', color: '#FF4500', summary: 'Top-tier placement, VIP badge, and expanded profile visibility.' },
+  { id: 'vip', name: 'VIP', color: '#B8860B', summary: 'Top-tier placement, VIP badge, and expanded profile visibility.' },
   { id: 'elite', name: 'Elite', color: '#8B0000', summary: 'The highest profile tier with Elite placement and benefits.' },
 ] as const
 
