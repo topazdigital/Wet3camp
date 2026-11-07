@@ -481,130 +481,6 @@ const PAGE_OG: Record<string, PageOg> = {
   },
 }
 
-// ── Blog posts — all 15 slugs with rich data ───────────────────────────────────
-const BLOG_OG: Record<string, { title: string; description: string; image: string; keywords: string }> = {
-  'how-to-find-verified-escorts-nairobi': {
-    title: 'How to Find Verified Escorts in Nairobi | Wet3Camp',
-    description: 'A practical guide to finding verified, safe escorts in Nairobi. Check profiles, read reviews, and make arrangements carefully on Wet3 Camp.',
-    image: 'https://images.unsplash.com/photo-1611348586804-61bf6c080437?w=1200&h=630&fit=crop',
-    keywords: `how to find escort Nairobi, verified escorts Nairobi, escort guide Nairobi, safe escort booking Nairobi, ${BASE_KW}`,
-  },
-  'top-escort-areas-nairobi-guide-2025': {
-    title: 'Top Escort Areas in Nairobi — Westlands, Karen, CBD & More | Wet3Camp',
-    description: 'A guide to Nairobi escort areas including Westlands, Karen, Kilimani, CBD, Lavington and Parklands.',
-    image: 'https://images.unsplash.com/photo-1611348586804-61bf6c080437?w=1200&h=630&fit=crop',
-    keywords: `Nairobi escort areas, Westlands escort, Karen escort Nairobi, Kilimani escort, CBD escort Nairobi, Lavington escort, escort near me Nairobi, ${BASE_KW}`,
-  },
-  'mombasa-escort-guide-complete': {
-    title: 'Mombasa Escort Guide — Nyali, Bamburi, Diani | Wet3Camp',
-    description: 'A guide to finding escort profiles in Mombasa, including Nyali, Bamburi, Diani Beach and Mtwapa.',
-    image: 'https://images.unsplash.com/photo-1504214208698-ea1916a2195a?w=1200&h=630&fit=crop',
-    keywords: `Mombasa escort guide, Nyali escort, Bamburi escort, Diani escort, Mtwapa escort, coast escort Kenya, ${BASE_KW}`,
-  },
-  'escort-booking-safety-tips-kenya': {
-    title: 'Escort Booking Safety Tips in Kenya — Stay Safe | Wet3Camp',
-    description: 'Essential safety tips for clients booking escorts in Kenya. How to verify profiles, spot fakes, arrange safe meetups, and have a positive experience.',
-    image: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=1200&h=630&fit=crop',
-    keywords: `escort safety tips Kenya, safe escort booking Nairobi, verify escort Kenya, escort scam Kenya, fake escort Kenya, ${BASE_KW}`,
-  },
-  'vip-elite-escort-services-nairobi': {
-    title: 'VIP & Elite Escort Services in Nairobi | Wet3Camp',
-    description: 'Discover Nairobi\'s finest VIP and Elite escorts. High-class companion experiences, luxury hotels, dinner dates and overnights. Verified elite escort profiles.',
-    image: 'https://images.unsplash.com/photo-1611348586804-61bf6c080437?w=1200&h=630&fit=crop',
-    keywords: `VIP escort Nairobi, elite escort Nairobi, high class escort Kenya, luxury escort Nairobi, exclusive escort Nairobi, ${BASE_KW}`,
-  },
-  'girlfriend-experience-gfe-nairobi': {
-    title: 'Girlfriend Experience (GFE) in Nairobi — Escorts | Wet3Camp',
-    description: 'Looking for the girlfriend experience in Nairobi? Discover GFE escorts across Nairobi\'s top areas — Westlands, Karen, Kilimani and beyond on Wet3Camp.',
-    image: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=1200&h=630&fit=crop',
-    keywords: `GFE escort Nairobi, girlfriend experience Kenya, GFE escort Kenya, girlfriend experience Nairobi, GFE Westlands, GFE Karen, ${BASE_KW}`,
-  },
-  'nairobi-nightlife-escort-guide': {
-    title: 'Nairobi Nightlife & Escort Guide | Wet3Camp',
-    description: "Your guide to Nairobi's nightlife and escort scene. Top clubs, hotels, and verified escort companions for a memorable night in Nairobi.",
-    image: 'https://images.unsplash.com/photo-1611348586804-61bf6c080437?w=1200&h=630&fit=crop',
-    keywords: `Nairobi nightlife escorts, nightlife escort Nairobi, escort night out Nairobi, party escort Nairobi, club escort Nairobi, ${BASE_KW}`,
-  },
-  'booking-escorts-westlands-karen': {
-    title: 'Booking Escorts in Westlands & Karen, Nairobi | Wet3Camp',
-    description: 'Find and book verified escorts in Westlands and Karen, Nairobi. Incall and outcall available. VIP, Premium and Elite escort profiles on Wet3Camp.',
-    image: 'https://images.unsplash.com/photo-1611348586804-61bf6c080437?w=1200&h=630&fit=crop',
-    keywords: `Westlands escort, Karen escort, escort Westlands Nairobi, escort Karen Nairobi, incall Westlands, outcall Karen Nairobi, ${BASE_KW}`,
-  },
-  'elite-escorts-nairobi-cbd': {
-    title: 'Elite Escorts in Nairobi CBD — Top Profiles | Wet3Camp',
-    description: 'Elite and VIP escort profiles in Nairobi CBD. High-class companions available for incall and outcall in the Central Business District. Book on Wet3Camp.',
-    image: 'https://images.unsplash.com/photo-1611348586804-61bf6c080437?w=1200&h=630&fit=crop',
-    keywords: `escort Nairobi CBD, CBD escort, elite escort CBD Nairobi, VIP escort CBD, incall CBD Nairobi, ${BASE_KW}`,
-  },
-  'escort-tours-kenya-2025': {
-    title: 'Escort Tour Companions in Kenya — Safaris & Trips | Wet3Camp',
-    description: "Book escort travel companions for safaris, beach trips and tours across Kenya. Maasai Mara, Diani Beach, Amboseli, Nakuru and more — with Wet3Camp.",
-    image: 'https://images.unsplash.com/photo-1504214208698-ea1916a2195a?w=1200&h=630&fit=crop',
-    keywords: `escort tour Kenya, safari escort, travel companion Kenya, escort trip Nairobi, escort holiday Kenya, ${BASE_KW}`,
-  },
-  'verified-escorts-mombasa-guide': {
-    title: 'Verified Escorts in Mombasa — Complete Guide | Wet3Camp',
-    description: 'Find verified escorts in Mombasa across Nyali, Bamburi, Diani Beach, Mtwapa, Tudor and more. Checked profiles, real photos, safe bookings on Wet3Camp.',
-    image: 'https://images.unsplash.com/photo-1504214208698-ea1916a2195a?w=1200&h=630&fit=crop',
-    keywords: `verified escorts Mombasa, checked escort Mombasa, real escort Mombasa, escort Nyali, escort Bamburi, ${BASE_KW}`,
-  },
-  'kisumu-escort-guide-2025': {
-    title: 'Escorts in Kisumu — Verified Profiles | Wet3Camp',
-    description: 'A guide to verified escort profiles in Kisumu, Kenya, including Milimani, Kondele and Kisumu CBD.',
-    image: 'https://images.unsplash.com/photo-1611348586804-61bf6c080437?w=1200&h=630&fit=crop',
-    keywords: `escort Kisumu, Kisumu escort guide, female escort Kisumu, call girl Kisumu, escort Milimani Kisumu, ${BASE_KW}`,
-  },
-  'how-to-stay-safe-booking-escorts-kenya': {
-    title: 'How to Stay Safe Booking Escorts in Kenya | Wet3Camp',
-    description: 'A safety guide for clients booking escorts in Kenya. Learn how to verify profiles, use secure messaging, choose safe locations, and protect yourself.',
-    image: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=1200&h=630&fit=crop',
-    keywords: `escort safety Kenya, safe escort booking, protect yourself escort Kenya, verify escort profile, escort scam Kenya, ${BASE_KW}`,
-  },
-  'nakuru-eldoret-escort-guide': {
-    title: 'Escorts in Nakuru & Eldoret — Guide | Wet3Camp',
-    description: 'Find verified escort profiles in Nakuru and Eldoret, Kenya, with practical area and booking guidance.',
-    image: 'https://images.unsplash.com/photo-1611348586804-61bf6c080437?w=1200&h=630&fit=crop',
-    keywords: `escort Nakuru, escort Eldoret, Rift Valley escort Kenya, female escort Nakuru, ${BASE_KW}`,
-  },
-  'best-escort-rates-nairobi-2025': {
-    title: 'Escort Rates in Nairobi — Prices & Costs | Wet3Camp',
-    description: 'What do escorts charge in Nairobi? A guide to comparing hourly, overnight, incall and outcall rates across profile tiers.',
-    image: 'https://images.unsplash.com/photo-1611348586804-61bf6c080437?w=1200&h=630&fit=crop',
-    keywords: `escort rates Nairobi, escort prices Kenya, how much escort Nairobi, incall rates escort Nairobi, outcall escort price Kenya, ${BASE_KW}`,
-  },
-}
-
-// Optional SEO metadata for known guide slugs can supplement a published DB row;
-// it must never make an unpublished or missing article appear indexable.
-const LOCAL_BLOG_TITLES: Record<string, string> = {
-  'mombasa-escort-guide-2025': 'Mombasa Escort Guide — Nyali, Diani & More',
-  'escort-safety-tips-kenya': 'Escort Safety Tips in Kenya',
-  'nairobi-escort-rates-2025': 'Escort Rates in Nairobi — Prices & Booking Guide',
-  'westlands-escorts-nairobi-guide': 'Escorts in Westlands, Nairobi',
-  'gfe-girlfriend-experience-nairobi': 'Girlfriend Experience Escorts in Nairobi',
-  'incall-outcall-escorts-kenya': 'Incall & Outcall Escorts in Kenya',
-  'kisumu-escorts-guide-2025': 'Escorts in Kisumu — Area & Booking Guide',
-  'elite-vip-escorts-nairobi-difference': 'Elite vs VIP Escorts in Nairobi',
-  'massage-escorts-nairobi-guide': 'Massage Escorts in Nairobi',
-  'overnight-escorts-nairobi-guide': 'Overnight Escorts in Nairobi',
-  'nakuru-eldoret-escorts-guide': 'Escorts in Nakuru & Eldoret',
-  'how-to-spot-fake-escorts-kenya': 'How to Spot Fake Escort Profiles in Kenya',
-  'nairobi-nightlife-escort-companion-guide': 'Nairobi Nightlife & Escort Companion Guide',
-  'kenya-travel-escort-safari-companion': 'Kenya Travel Escort & Safari Companions',
-}
-
-for (const [slug, title] of Object.entries(LOCAL_BLOG_TITLES)) {
-  if (!BLOG_OG[slug]) {
-    BLOG_OG[slug] = {
-      title: `${title} | ${SITE_NAME}`,
-      description: `${title}. Read practical guidance for finding and booking profiles on Wet3 Camp.`,
-      image: DEFAULT_IMAGE,
-      keywords: `Kenya escort guide, ${title}, ${BASE_KW}`,
-    }
-  }
-}
-
 // ── Main middleware ────────────────────────────────────────────────────────────
 export async function ogPreviewMiddleware(req: Request, res: Response, next: NextFunction): Promise<void> {
   if (req.method !== 'GET') { next(); return }
@@ -1064,8 +940,6 @@ export async function ogPreviewMiddleware(req: Request, res: Response, next: Nex
   const blogMatch = path.match(/^\/blog\/([^/?#]+)/)
   if (blogMatch) {
     const bslug = blogMatch[1]
-    const staticBlog = BLOG_OG[bslug]
-
     // Only published database posts should receive indexable crawler metadata.
     const pool = getPool()
     const blogFallback = () => {
@@ -1088,12 +962,12 @@ export async function ogPreviewMiddleware(req: Request, res: Response, next: Nex
       .then(([rows]) => {
         const post = Array.isArray(rows) && rows.length > 0 ? rows[0] : null
         if (post) {
-          const rawTitle = post.seo_title || post.title || staticBlog?.title || 'Wet3 Camp article'
+          const rawTitle = post.seo_title || post.title || 'Wet3 Camp article'
           const title = /(?:\||—)\s*Wet3\s?Camp$/i.test(rawTitle)
             ? rawTitle
             : `${rawTitle} | ${SITE_NAME}`
-          const description = post.seo_description || post.excerpt || staticBlog?.description || 'Read this article on Wet3 Camp.'
-          const image = ogImage(post.image_url || post.image || staticBlog?.image)
+          const description = post.seo_description || post.excerpt || 'Read this article on Wet3 Camp.'
+          const image = ogImage(post.image_url || post.image)
           const articleSchema = {
             '@context': 'https://schema.org',
             '@type': 'Article',
@@ -1114,7 +988,7 @@ export async function ogPreviewMiddleware(req: Request, res: Response, next: Nex
             description,
             image,
             url: fullUrl, type: 'article',
-            keywords: staticBlog?.keywords || PAGE_OG['/blog']?.keywords,
+            keywords: PAGE_OG['/blog']?.keywords,
             schema: [...BASE_SCHEMAS, articleSchema],
           }))
         } else { blogFallback() }
