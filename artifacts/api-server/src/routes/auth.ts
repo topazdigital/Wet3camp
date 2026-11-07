@@ -42,21 +42,14 @@ router.post('/auth/login', async (req, res) => {
     const token = await signToken({ id: user.id, role: user.role, email: user.email })
 
     let approved = true
+    let hasEscortProfile: boolean | undefined
     if (user.role === 'escort') {
-      const [[escRow]] = await pool.query<any[]>('SELECT id, is_active FROM escorts WHERE user_id = ? LIMIT 1', [user.id])
-      if (!escRow) {
-        // Orphaned escort — auto-create a minimal profile so the user can log in
-        try {
-          await pool.query(
-            `INSERT INTO escorts (user_id, name, city, tier, available, is_active, verified, price_incall, price_outcall, price_incall_overnight, price_outcall_overnight, price_video)
-             VALUES (?,?,?,?,0,0,0,3000,5000,20000,25000,1500)`,
-            [user.id, user.display_name ?? user.username, 'Nairobi', 'standard']
-          )
-        } catch { /* migration might not have run yet — admin must run wet3camp-migration.sql */ }
-        approved = false
-      } else {
-        approved = !!escRow.is_active
-      }
+      const [[escRow]] = await pool.query<any[]>(
+        'SELECT id, is_active FROM escorts WHERE user_id = ? ORDER BY id DESC LIMIT 1',
+        [user.id]
+      )
+      hasEscortProfile = !!escRow
+      approved = !!escRow && !!Number(escRow.is_active)
     }
 
     res.json({
@@ -69,6 +62,7 @@ router.post('/auth/login', async (req, res) => {
         avatar:   user.avatar ?? null,
         phone:    user.phone ?? null,
         approved,
+        hasEscortProfile,
       },
     })
   } catch {
@@ -206,6 +200,7 @@ router.post('/auth/register', async (req, res) => {
         email: normalizedEmail,
         role: dbRole, avatar: null, phone: phone ?? null,
         approved,
+        hasEscortProfile: dbRole === 'escort' ? !!escortId : undefined,
       },
       escortId,
     })
@@ -311,15 +306,21 @@ router.get('/auth/me', requireAuth, async (req: AuthRequest, res) => {
     if (!user) { res.status(404).json({ message: 'User not found' }); return }
 
     let approved = true
+    let hasEscortProfile: boolean | undefined
     if (user.role === 'escort') {
-      const [[escRow]] = await pool.query<any[]>('SELECT is_active FROM escorts WHERE user_id = ? LIMIT 1', [user.id])
-      approved = escRow ? !!escRow.is_active : false
+      const [[escRow]] = await pool.query<any[]>(
+        'SELECT id, is_active FROM escorts WHERE user_id = ? ORDER BY id DESC LIMIT 1',
+        [user.id]
+      )
+      hasEscortProfile = !!escRow
+      approved = !!escRow && !!Number(escRow.is_active)
     }
 
     res.json({
       id: String(user.id), name: user.display_name ?? user.username,
       email: user.email, role: user.role, avatar: user.avatar, phone: user.phone,
       approved,
+      hasEscortProfile,
     })
   } catch {
     res.status(500).json({ message: 'Failed to fetch user' })
@@ -635,6 +636,7 @@ router.post('/auth/setup-escort', requireAuth, async (req: AuthRequest, res) => 
       token,
       escortId,
       approved: !!autoActive,
+      hasEscortProfile: true,
       user: { id: String(req.userId), name: displayName, email: user?.email ?? '', role: 'escort', approved: !!autoActive },
     })
   } catch (err) {
