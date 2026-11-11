@@ -700,6 +700,13 @@ export default function RegisterPage() {
                 ? 'After you sign up, we’ll return you to the profile verification steps.'
                 : hasOAuthProviders ? 'Choose a quick social login or register manually' : 'Create your account with email'}
             </p>
+            {isClaimSignup && (
+              <div data-testid="notice-claim-no-duplicate" className="mb-6 rounded-xl border border-[#FFD700]/20 bg-[#FFD700]/5 p-3.5">
+                <p className="text-xs text-text-muted leading-relaxed">
+                  Creating an account won’t create another escort listing. If your claim is approved, we’ll link this existing profile to your account.
+                </p>
+              </div>
+            )}
             {hasOAuthProviders && (
               <div className="space-y-3 mb-6">
                 {oauthConfig.providers.google && (
