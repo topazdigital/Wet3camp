@@ -403,7 +403,9 @@ export default function ProfilePage() {
                 {!(escort as any).user_id && !isOwnProfile && (
                   <div className="mt-1 mb-3 flex items-center gap-3 px-3 py-2.5 rounded-xl border bg-[#FFD700]/5 border-[#FFD700]/20">
                     <Shield size={13} className="text-[#FFD700] flex-shrink-0"/>
-                    <p className="text-xs text-text-muted flex-1">Is this your profile?</p>
+                    <p data-testid="status-unclaimed-profile" className="text-xs text-text-muted flex-1">
+                      This profile was imported from another directory and hasn’t been verified on Wet3Camp, so no account here manages it yet. Is it yours?
+                    </p>
                     <button onClick={handleClaim} className="px-3 py-1.5 bg-[#FFD700] text-black text-[10px] font-black rounded-lg hover:bg-[#e6c000] transition-all flex-shrink-0">
                       Claim Profile
                     </button>
