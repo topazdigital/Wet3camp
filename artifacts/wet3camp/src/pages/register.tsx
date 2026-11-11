@@ -473,7 +473,11 @@ export default function RegisterPage() {
     setStepIdx(s => s + 1)
   }
 
-  const back = () => { setError(''); setStepIdx(s => Math.max(0, s - 1)) }
+  const back = () => {
+    setError('')
+    // Claim signups begin at the account-method step and stay in the claim flow.
+    setStepIdx(s => Math.max(isClaimSignup ? 1 : 0, s - 1))
+  }
 
   const handleOAuthClick = (provider: string) => {
     const query = new URLSearchParams()
@@ -609,7 +613,7 @@ export default function RegisterPage() {
           body: JSON.stringify({ code: refCode, referred_user_id: res.user.id }),
         }).catch(() => {})
       }
-      navigate(role === 'escort' ? '/pending-approval' : redirectTo ?? '/')
+      navigate(isClaimSignup ? redirectTo! : role === 'escort' ? '/pending-approval' : redirectTo ?? '/')
     } catch (err: any) {
       setError(err?.message ?? 'Registration failed. Please try again.')
     } finally {
