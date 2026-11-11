@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS `users` (
 CREATE TABLE IF NOT EXISTS `escorts` (
   `id`               int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
   `user_id`          int(10) UNSIGNED DEFAULT NULL,
+  `merged_into_id`   int(10) UNSIGNED DEFAULT NULL,
   `name`             varchar(100)     NOT NULL,
   `age`              tinyint(3) UNSIGNED NOT NULL DEFAULT 0,
   `city`             varchar(100)     NOT NULL DEFAULT '',
@@ -72,6 +73,7 @@ CREATE TABLE IF NOT EXISTS `escorts` (
 ALTER TABLE escorts
   ADD COLUMN IF NOT EXISTS `tier_expires_at`  datetime         DEFAULT NULL,
   ADD COLUMN IF NOT EXISTS `is_active`       tinyint(1)       NOT NULL DEFAULT 1,
+  ADD COLUMN IF NOT EXISTS `merged_into_id`  int(10) UNSIGNED DEFAULT NULL,
   ADD COLUMN IF NOT EXISTS `online`          tinyint(1)       NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS `map_visible`     tinyint(1)       NOT NULL DEFAULT 1,
   ADD COLUMN IF NOT EXISTS `lat`             decimal(9,6)     NOT NULL DEFAULT 0.000000,
@@ -419,6 +421,7 @@ CREATE TABLE IF NOT EXISTS `profile_claims` (
   `id`         int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
   `escort_id`  int(10) UNSIGNED NOT NULL,
   `user_id`    int(10) UNSIGNED NOT NULL,
+  `merge_into_escort_id` int(10) UNSIGNED DEFAULT NULL,
   `message`    text             DEFAULT NULL,
   `status`     varchar(20)      NOT NULL DEFAULT 'pending',
   `created_at` datetime         NOT NULL DEFAULT current_timestamp(),
@@ -428,6 +431,9 @@ CREATE TABLE IF NOT EXISTS `profile_claims` (
   KEY `idx_profile_claims_user_id`   (`user_id`),
   KEY `idx_profile_claims_status`    (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+ALTER TABLE profile_claims
+  ADD COLUMN IF NOT EXISTS `merge_into_escort_id` int(10) UNSIGNED DEFAULT NULL;
 
 -- =============================================================================
 -- This file runs automatically on every deploy via deploy-on-server.sh.
