@@ -25,6 +25,8 @@ async function apiFetch(path: string, opts?: RequestInit) {
 type Method = 'sms' | 'email' | 'video'
 type Step = 'choose-method' | 'otp-sent' | 'email-sent' | 'video-record' | 'verified' | 'submitted' | 'status'
 
+const CLAIM_ACCOUNT_NOTICE = 'Creating an account won’t create another escort listing. If your claim is approved, we’ll link this existing profile to your account.'
+
 export default function ClaimProfile() {
   useSEO({ title: 'Claim Your Profile — Wet3Camp', canonicalPath: '/claim' })
 
@@ -119,6 +121,9 @@ export default function ClaimProfile() {
             <p className="text-sm text-text-muted leading-relaxed mb-6">
               Sign in or create a free account, then verify that this profile belongs to you. We’ll bring you back here after sign-in.
             </p>
+            <div data-testid="notice-claim-no-duplicate" className="mb-6 rounded-xl border border-[#FFD700]/20 bg-[#FFD700]/5 p-3.5">
+              <p className="text-xs text-text-muted leading-relaxed">{CLAIM_ACCOUNT_NOTICE}</p>
+            </div>
 
             <ol className="space-y-3 mb-7">
               {[
@@ -377,6 +382,9 @@ export default function ClaimProfile() {
                 <p className="text-sm text-text-muted leading-relaxed">
                   This profile was imported from another directory and hasn’t been verified on Wet3Camp, so no account here manages it yet. Choose how you’d like to verify your identity and claim it.
                 </p>
+                <div data-testid="notice-claim-no-duplicate" className="mt-3 rounded-xl border border-[#FFD700]/20 bg-[#FFD700]/5 p-3.5">
+                  <p className="text-xs text-text-muted leading-relaxed">{CLAIM_ACCOUNT_NOTICE}</p>
+                </div>
               </div>
 
               <p className="text-[10px] text-text-muted uppercase tracking-widest mb-3">Choose verification method</p>
