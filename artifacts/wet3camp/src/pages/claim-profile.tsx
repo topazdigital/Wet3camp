@@ -111,6 +111,11 @@ export default function ClaimProfile() {
             <h1 className="text-2xl font-black text-text-light mb-2">
               {escort?.name ? `Claim ${escort.name}’s profile` : 'Claim this profile'}
             </h1>
+            {!alreadyClaimed && escort && (
+              <p data-testid="status-unclaimed-profile" className="text-sm text-text-muted leading-relaxed mb-4">
+                This profile was imported from another directory and hasn’t been verified on Wet3Camp, so no account here manages it yet. If it belongs to you, continue to verify and manage it.
+              </p>
+            )}
             <p className="text-sm text-text-muted leading-relaxed mb-6">
               Sign in or create a free account, then verify that this profile belongs to you. We’ll bring you back here after sign-in.
             </p>
@@ -370,7 +375,7 @@ export default function ClaimProfile() {
                   <h1 className="text-lg font-bold text-text-light">Claim This Profile</h1>
                 </div>
                 <p className="text-sm text-text-muted leading-relaxed">
-                  This profile was imported from another directory. Choose how you'd like to verify your identity and claim it.
+                  This profile was imported from another directory and hasn’t been verified on Wet3Camp, so no account here manages it yet. Choose how you’d like to verify your identity and claim it.
                 </p>
               </div>
 
