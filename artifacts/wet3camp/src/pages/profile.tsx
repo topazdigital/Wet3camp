@@ -47,6 +47,11 @@ export default function ProfilePage() {
   const { escort: apiEscort, isLoading } = useEscort(slug)
   const escort = (apiEscort as any) ?? null
 
+  useEffect(() => {
+    if (!escort?.mergedRedirect || !escort?.id) return
+    window.location.replace(`/profile/${escort.id}`)
+  }, [escort?.mergedRedirect, escort?.id])
+
   const [similar, setSimilar] = useState<ApiEscort[]>([])
 
   useEffect(() => {
