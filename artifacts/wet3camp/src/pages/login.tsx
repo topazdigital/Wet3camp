@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Link, useLocation } from 'wouter'
-import { Mail, Lock, Eye, EyeOff, ShieldCheck, Star, AlertCircle } from 'lucide-react'
+import { Mail, Lock, Eye, EyeOff, ShieldCheck, Star, AlertCircle, Send } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { setToken } from '@/lib/api'
 import { safeInternalRedirect } from '@/lib/redirect'
@@ -129,13 +129,14 @@ export default function LoginPage() {
     setLoading(false)
   }
 
-  const handleOAuth = (provider: 'google' | 'facebook' | 'apple') => {
+  const handleOAuth = (provider: 'google' | 'facebook' | 'apple' | 'telegram') => {
     const query = new URLSearchParams()
     if (redirectTo) query.set('redirect', redirectTo)
     const suffix = query.size ? `?${query}` : ''
     if (provider === 'google')   { window.location.href = `/api/auth/google${suffix}`;   return }
     if (provider === 'facebook') { window.location.href = `/api/auth/facebook${suffix}`; return }
     if (provider === 'apple')    { window.location.href = `/api/auth/apple${suffix}`;    return }
+    if (provider === 'telegram') { window.location.href = `/api/auth/telegram${suffix}`; return }
   }
 
   return (
@@ -226,7 +227,7 @@ export default function LoginPage() {
               <div className="mb-4 flex items-start gap-2.5 p-3 bg-[#EF4444]/10 border border-[#EF4444]/20 rounded-xl">
                 <AlertCircle size={14} className="text-[#EF4444] mt-0.5 flex-shrink-0" />
                 <p className="text-xs text-[#EF4444]">{error}</p>
-                {isClaimIntent && <p className="text-[11px] text-text-muted mt-1">Your place in the claim flow is saved. {oauthConfig.providers.google ? 'Try Google again or use email below.' : 'Continue with email below.'}</p>}
+                {isClaimIntent && <p className="text-[11px] text-text-muted mt-1">Your place in the claim flow is saved. Try another sign-in option or use email below.</p>}
               </div>
             )}
 
@@ -242,6 +243,12 @@ export default function LoginPage() {
                       <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
                     </svg>
                     Continue with Google
+                  </button>
+                )}
+                {oauthConfig.providers.telegram && (
+                  <button data-testid="button-login-telegram" onClick={() => handleOAuth('telegram')} className="w-full flex items-center gap-3 py-2.5 px-4 bg-[#229ED9]/10 border border-[#229ED9]/30 rounded-xl text-sm text-text-light font-medium hover:bg-[#229ED9]/20 transition-all">
+                    <Send size={15} className="flex-shrink-0 text-[#229ED9]" />
+                    Continue with Telegram
                   </button>
                 )}
                 {oauthConfig.providers.facebook && (
