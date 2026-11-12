@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-export type OAuthProvider = 'google' | 'facebook' | 'apple'
+export type OAuthProvider = 'google' | 'facebook' | 'apple' | 'telegram'
 
 export interface OAuthConfig {
   googleClientId: string | null
@@ -9,7 +9,7 @@ export interface OAuthConfig {
 
 const EMPTY_OAUTH_CONFIG: OAuthConfig = {
   googleClientId: null,
-  providers: { google: false, facebook: false, apple: false },
+  providers: { google: false, facebook: false, apple: false, telegram: false },
 }
 
 export function useOAuthConfig(): OAuthConfig {
@@ -28,6 +28,7 @@ export function useOAuthConfig(): OAuthConfig {
             google: data.providers.google === true,
             facebook: data.providers.facebook === true,
             apple: data.providers.apple === true,
+            telegram: data.providers.telegram === true,
           },
         })
       })
