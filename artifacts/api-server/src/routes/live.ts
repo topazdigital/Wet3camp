@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import express from 'express'
 import { randomBytes } from 'crypto'
+import { getMergedEscortIds } from '../lib/escort-merge.js'
 import {
   startLive, endLive, getLiveSession, getAllLiveSessions, isLive,
   addSseClient, removeSseClient, addChatMessage, pinMessage, setLocked,
@@ -172,9 +173,12 @@ router.post('/live/start', async (req, res) => {
 
   // Notify all followers immediately — insert DB record + push SSE
   try {
+    const query = (sql: string, params: unknown[] = []) => pool.query(sql, params)
+    const associatedIds = await getMergedEscortIds(query, escort.id)
+    const placeholders = associatedIds.map(() => '?').join(', ')
     const [followers] = await pool.query<any[]>(
-      'SELECT user_id FROM user_follows WHERE escort_id = ?',
-      [escort.id]
+      `SELECT DISTINCT user_id FROM user_follows WHERE escort_id IN (${placeholders})`,
+      associatedIds,
     )
     const notifText = `🔴 ${escort.name} just went live! Tap to watch now`
     const notifLink = `/live/${escort.id}`
