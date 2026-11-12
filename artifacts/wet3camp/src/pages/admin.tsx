@@ -2959,6 +2959,27 @@ function AdminDashboard() {
                 </div>
               </div>
 
+              {/* Telegram OIDC Login */}
+              <div className="bg-card-bg border border-color rounded-2xl p-5">
+                <div className="flex items-center gap-2 mb-4">
+                  <Globe size={16} className="text-[#229ED9]" />
+                  <h3 className="text-sm font-bold text-text-light">Telegram Login</h3>
+                  <a href="https://core.telegram.org/bots/telegram-login" target="_blank" rel="noopener noreferrer" className="ml-auto text-[10px] text-[#FFD700] hover:underline">Telegram docs ↗</a>
+                </div>
+                <p className="text-[11px] leading-relaxed text-text-muted mb-4">
+                  Create a Telegram Login app with @BotFather and allow <span className="font-mono text-text-light">wet3.camp</span>. Telegram does not provide an email, so new sign-ins verify an email and link to an existing account when it matches.
+                </p>
+                <div className="space-y-4">
+                  <ApiKeyField label="Telegram Login Client ID" placeholder="Client ID from @BotFather" icon={Key} hint="Use the Login client ID, not the Telegram bot token." settingKey="telegram_client_id" />
+                  <ApiKeyField label="Telegram Login Client Secret" placeholder="Client Secret from @BotFather" icon={Lock} settingKey="telegram_client_secret" />
+                  <div>
+                    <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Redirect URL (register in Telegram)</label>
+                    <input readOnly value="https://wet3.camp/api/auth/telegram/callback" className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#229ED9] transition-all font-mono text-xs cursor-text" onClick={e => (e.target as HTMLInputElement).select()} />
+                    <p className="text-[10px] text-text-muted mt-1">The Telegram login button appears after both credentials are saved.</p>
+                  </div>
+                </div>
+              </div>
+
               {/* Facebook OAuth */}
               <div className="bg-card-bg border border-color rounded-2xl p-5">
                 <div className="flex items-center gap-2 mb-4">
