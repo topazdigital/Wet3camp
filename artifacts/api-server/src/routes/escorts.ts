@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { getPool } from '../lib/db.js'
 import { getEscortGalleryRows } from '../lib/escort-gallery.js'
+import { getMergedEscortIds, resolveCanonicalEscortId } from '../lib/escort-merge.js'
 import { CITY_AREA_VALUES } from '../lib/location-data.js'
 import { getPublicLocationDirectory, MIN_INDEXABLE_LOCATION_PROFILES } from '../lib/public-locations.js'
 import { buildProfileSeo } from '../lib/profile-seo.js'
@@ -244,10 +245,16 @@ router.get('/escorts/:id', async (req, res) => {
     if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
 
     let row: any = null
+    let mergedRedirect = false
+    const query = (sql: string, params: unknown[] = []) => pool.query(sql, params)
 
     if (/^\d+$/.test(id)) {
-      const [[byId]] = await pool.query<any[]>('SELECT * FROM escorts WHERE id = ? AND is_active = 1', [id])
-      row = byId ?? null
+      const canonical = await resolveCanonicalEscortId(query, id)
+      if (canonical) {
+        const [[byId]] = await pool.query<any[]>('SELECT * FROM escorts WHERE id = ? AND is_active = 1', [canonical.id])
+        row = byId ?? null
+        mergedRedirect = canonical.redirected && !!row
+      }
     }
 
     if (!row) {
@@ -259,8 +266,20 @@ router.get('/escorts/:id', async (req, res) => {
     }
 
     if (!row) {
-      const [allEscorts] = await pool.query<any[]>('SELECT * FROM escorts WHERE is_active = 1 LIMIT 2000')
-      row = (allEscorts as any[]).find(r => slugOf(r.name) === id.toLowerCase()) ?? null
+      const [allEscorts] = await pool.query<any[]>(
+        'SELECT id, name, is_active, merged_into_id FROM escorts WHERE is_active = 1 OR merged_into_id IS NOT NULL LIMIT 5000',
+      )
+      const matches = allEscorts as any[]
+      const match = matches.find(r => Number(r.is_active) === 1 && slugOf(r.name) === id.toLowerCase())
+        ?? matches.find(r => r.merged_into_id && slugOf(r.name) === id.toLowerCase())
+      if (match) {
+        const canonical = await resolveCanonicalEscortId(query, match.id)
+        if (canonical) {
+          const [[bySlug]] = await pool.query<any[]>('SELECT * FROM escorts WHERE id = ? AND is_active = 1', [canonical.id])
+          row = bySlug ?? null
+          mergedRedirect = canonical.redirected && !!row
+        }
+      }
     }
 
     if (!row) {
@@ -269,27 +288,29 @@ router.get('/escorts/:id', async (req, res) => {
     }
 
     const escortId = String(row.id)
+    const associatedIds = await getMergedEscortIds(query, escortId)
+    const associatedPlaceholders = associatedIds.map(() => '?').join(', ')
     const profileSeo = buildProfileSeo(row)
     const gallery     = await getEscortGalleryRows(pool, escortId)
     const [services]  = await pool.query<any[]>('SELECT name, MAX(available) AS available FROM escort_services WHERE escort_id = ? GROUP BY name ORDER BY name', [escortId])
     const [languages] = await pool.query<any[]>('SELECT DISTINCT language FROM escort_languages WHERE escort_id = ?', [escortId])
 
     const [[followerRow]] = await pool.query<any[]>(
-      'SELECT COUNT(*) AS cnt FROM user_follows WHERE escort_id = ?',
-      [escortId]
+      `SELECT COUNT(DISTINCT user_id) AS cnt FROM user_follows WHERE escort_id IN (${associatedPlaceholders})`,
+      associatedIds,
     ).catch(() => [[{ cnt: 0 }]])
 
     const [[reviewRow]] = await pool.query<any[]>(
-      'SELECT COUNT(*) AS cnt, AVG(rating) AS avg FROM reviews WHERE escort_id = ? AND is_visible = 1',
-      [escortId]
+      `SELECT COUNT(*) AS cnt, AVG(rating) AS avg FROM reviews WHERE escort_id IN (${associatedPlaceholders}) AND is_visible = 1`,
+      associatedIds,
     ).catch(() => [[{ cnt: 0, avg: 0 }]])
 
     const [recentReviews] = await pool.query<any[]>(
       `SELECT r.*, u.display_name AS reviewer_name, u.username AS reviewer_username
        FROM reviews r LEFT JOIN users u ON u.id = r.user_id
-       WHERE r.escort_id = ? AND r.is_visible = 1
+       WHERE r.escort_id IN (${associatedPlaceholders}) AND r.is_visible = 1
        ORDER BY r.created_at DESC LIMIT 10`,
-      [escortId]
+      associatedIds,
     ).catch(() => [[]])
 
     res.setHeader('Cache-Control', 'public, max-age=120, stale-while-revalidate=600')
@@ -302,6 +323,7 @@ router.get('/escorts/:id', async (req, res) => {
       }),
       seoTitle: profileSeo.title,
       seoDescription: profileSeo.description,
+      mergedRedirect,
       follower_count: Number((followerRow as any)?.cnt ?? 0),
       reviews_count:  Number((reviewRow as any)?.cnt ?? row.reviews_count ?? 0),
       rating:         Number((reviewRow as any)?.avg ?? row.rating ?? 0) || Number(row.rating ?? 0),
