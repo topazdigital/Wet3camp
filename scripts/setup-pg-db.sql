@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS escorts (
   id               SERIAL PRIMARY KEY,
   user_id          INTEGER       DEFAULT NULL,
+  merged_into_id   INTEGER       DEFAULT NULL,
   name             VARCHAR(100)  NOT NULL,
   age              SMALLINT      NOT NULL DEFAULT 0,
   city             VARCHAR(100)  NOT NULL DEFAULT '',
@@ -61,6 +62,7 @@ CREATE TABLE IF NOT EXISTS escorts (
 );
 
 ALTER TABLE escorts ADD COLUMN IF NOT EXISTS map_visible SMALLINT NOT NULL DEFAULT 1;
+ALTER TABLE escorts ADD COLUMN IF NOT EXISTS merged_into_id INTEGER DEFAULT NULL;
 CREATE INDEX IF NOT EXISTS idx_escorts_user_id ON escorts(user_id);
 CREATE INDEX IF NOT EXISTS idx_escorts_city    ON escorts(city);
 CREATE INDEX IF NOT EXISTS idx_escorts_tier    ON escorts(tier);
@@ -297,11 +299,13 @@ CREATE TABLE IF NOT EXISTS profile_claims (
   id         SERIAL PRIMARY KEY,
   escort_id  INTEGER   NOT NULL,
   user_id    INTEGER   NOT NULL,
+  merge_into_escort_id INTEGER DEFAULT NULL,
   message    TEXT      DEFAULT NULL,
   status     VARCHAR(20) NOT NULL DEFAULT 'pending',
   created_at TIMESTAMP NOT NULL DEFAULT current_timestamp,
   updated_at TIMESTAMP NOT NULL DEFAULT current_timestamp
 );
+ALTER TABLE profile_claims ADD COLUMN IF NOT EXISTS merge_into_escort_id INTEGER DEFAULT NULL;
 CREATE INDEX IF NOT EXISTS idx_profile_claims_escort_id ON profile_claims(escort_id);
 CREATE INDEX IF NOT EXISTS idx_profile_claims_user_id   ON profile_claims(user_id);
 CREATE INDEX IF NOT EXISTS idx_profile_claims_status    ON profile_claims(status);
