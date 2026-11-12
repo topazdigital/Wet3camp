@@ -44,6 +44,7 @@ const BlogPost        = lazy(() => import("@/pages/blog-post"))
 const AreaEscorts     = lazy(() => import("@/pages/AreaEscorts"))
 const PendingApproval = lazy(() => import("@/pages/pending-approval"))
 const AuthCallback    = lazy(() => import("@/pages/auth-callback"))
+const TelegramContinue = lazy(() => import("@/pages/telegram-continue"))
 const Account         = lazy(() => import("@/pages/account"))
 const ChooseRole      = lazy(() => import("@/pages/choose-role"))
 const SearchPage      = lazy(() => import("@/pages/search"))
@@ -140,6 +141,7 @@ function Router() {
         <Route path="/account">{() => <ProtectedRoute component={Account} clientOnly />}</Route>
         <Route path="/auth/choose-role" component={ChooseRole} />
         <Route path="/auth/callback" component={AuthCallback} />
+        <Route path="/auth/telegram/continue" component={TelegramContinue} />
         <Route path="/search" component={SearchPage} />
         <Route path="/tier-benefits" component={TierBenefits} />
         <Route path="/tier-upgrade">{() => <ProtectedRoute component={TierUpgrade} escortOnly />}</Route>
