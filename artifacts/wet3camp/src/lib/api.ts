@@ -66,6 +66,7 @@ export interface ApiEscort {
   languages: string[]
   services?: Array<{ name: string; available: boolean }>
   gallery?: string[]
+  mergedRedirect?: boolean
 }
 
 export interface ApiLocationArea {
