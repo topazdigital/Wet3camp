@@ -25,7 +25,7 @@ async function apiFetch(path: string, opts?: RequestInit) {
 type Method = 'sms' | 'email' | 'video'
 type Step = 'choose-method' | 'otp-sent' | 'email-sent' | 'video-record' | 'verified' | 'submitted' | 'status'
 
-const CLAIM_ACCOUNT_NOTICE = 'Creating an account won’t create another escort listing. If your claim is approved, we’ll link this existing profile to your account.'
+const CLAIM_ACCOUNT_NOTICE = 'Creating an account won’t create another escort listing. If you already manage a profile, additional claims are reviewed as possible duplicates and approved duplicates are merged into your existing profile.'
 
 export default function ClaimProfile() {
   useSEO({ title: 'Claim Your Profile — Wet3Camp', canonicalPath: '/claim' })
@@ -45,6 +45,7 @@ export default function ClaimProfile() {
   const [email, setEmail] = useState('')
   const [message, setMessage] = useState('')
   const [existingStatus, setExistingStatus] = useState<string | null>(null)
+  const [mergeTarget, setMergeTarget] = useState<{ id: string; name: string } | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [info, setInfo] = useState('')
@@ -64,7 +65,13 @@ export default function ClaimProfile() {
     setProfileLoading(true)
     setProfileError('')
     apiFetch(`/escorts/${escortId}`)
-      .then(d => setEscort(d))
+      .then(d => {
+        if (d.mergedRedirect && d.id) {
+          window.location.replace(`/profile/${d.id}`)
+          return
+        }
+        setEscort(d)
+      })
       .catch(() => setProfileError('This profile could not be found.'))
       .finally(() => setProfileLoading(false))
   }, [escortId])
@@ -72,7 +79,10 @@ export default function ClaimProfile() {
   useEffect(() => {
     if (!escortId || !user) return
     apiFetch(`/escorts/${escortId}/claim-status`)
-      .then(d => { if (d.status) { setExistingStatus(d.status); setStep('status') } })
+      .then(d => {
+        setMergeTarget(d.mergeTarget ?? null)
+        if (d.status) { setExistingStatus(d.status); setStep('status') }
+      })
       .catch(() => {})
   }, [escortId, user])
 
@@ -356,13 +366,17 @@ export default function ClaimProfile() {
                 Claim {existingStatus === 'pending' ? 'Under Review' : existingStatus === 'approved' ? 'Approved!' : 'Rejected'}
               </h2>
               <p className="text-sm text-text-muted mb-6">
-                {existingStatus === 'pending' && "Your claim is being reviewed by our team. We'll notify you once it's processed."}
-                {existingStatus === 'approved' && "Your claim was approved! You can now edit and manage this profile."}
+                {existingStatus === 'pending' && (mergeTarget
+                  ? `Your duplicate claim is being reviewed. If approved, this listing will be merged into ${mergeTarget.name}.`
+                  : "Your claim is being reviewed by our team. We'll notify you once it's processed.")}
+                {existingStatus === 'approved' && (mergeTarget
+                  ? `Your claim was approved and this listing was merged into ${mergeTarget.name}.`
+                  : "Your claim was approved! You can now edit and manage this profile.")}
                 {existingStatus === 'rejected' && "Your claim was not approved. Contact support if you believe this is a mistake."}
               </p>
               {existingStatus === 'approved' && (
                 <button
-                  onClick={() => setLocation(`/profile/${escortId}`)}
+                  onClick={() => setLocation(`/profile/${mergeTarget?.id ?? escortId}`)}
                   className="px-6 py-3 bg-[#8B0000] text-white text-sm font-bold rounded-xl hover:bg-[#a00000] transition-colors"
                 >
                   View My Profile
@@ -385,6 +399,13 @@ export default function ClaimProfile() {
                 <div data-testid="notice-claim-no-duplicate" className="mt-3 rounded-xl border border-[#FFD700]/20 bg-[#FFD700]/5 p-3.5">
                   <p className="text-xs text-text-muted leading-relaxed">{CLAIM_ACCOUNT_NOTICE}</p>
                 </div>
+                {mergeTarget && (
+                  <div className="mt-3 rounded-xl border border-[#8B0000]/30 bg-[#8B0000]/10 p-3.5">
+                    <p className="text-xs text-text-light leading-relaxed">
+                      You already manage <strong>{mergeTarget.name}</strong>. If this listing is yours too, your request will be reviewed as a duplicate and, if approved, merged into that profile. It won’t create a second managed listing.
+                    </p>
+                  </div>
+                )}
               </div>
 
               <p className="text-[10px] text-text-muted uppercase tracking-widest mb-3">Choose verification method</p>
@@ -663,11 +684,13 @@ export default function ClaimProfile() {
               <Clock size={48} className="text-[#FF9800] mx-auto mb-4" />
               <h2 className="text-xl font-bold text-text-light mb-2">Claim Submitted!</h2>
               <p className="text-sm text-text-muted mb-6 max-w-sm mx-auto">
-                Your profile claim is under review. Our team typically responds within 24 hours.
-                We'll notify you by email when it's approved.
+                {mergeTarget
+                  ? `Your request is under review. If approved, this listing will be merged into ${mergeTarget.name}; it won’t create a second managed profile.`
+                  : 'Your profile claim is under review. Our team typically responds within 24 hours.'}
+                {' '}Check this page for updates.
               </p>
               <button
-                onClick={() => setLocation(`/profile/${escortId}`)}
+                onClick={() => setLocation(`/profile/${mergeTarget?.id ?? escortId}`)}
                 className="px-6 py-3 bg-[#8B0000] text-white text-sm font-bold rounded-xl hover:bg-[#a00000] transition-colors"
               >
                 Back to Profile
