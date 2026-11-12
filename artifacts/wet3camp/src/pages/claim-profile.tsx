@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { useRoute, useLocation } from 'wouter'
 import Header from '@/components/Header'
 import Sidebar from '@/components/Sidebar'
-import { Shield, Phone, Mail, Video, CheckCircle2, Clock, XCircle, ChevronRight, AlertTriangle, Camera } from 'lucide-react'
+import { Shield, Phone, Mail, Video, CheckCircle2, Clock, XCircle, ChevronRight, AlertTriangle, Camera, Send } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { useSEO } from '@/lib/useSEO'
 import { useOAuthConfig } from '@/lib/oauth-config'
@@ -137,7 +137,7 @@ export default function ClaimProfile() {
 
             <ol className="space-y-3 mb-7">
               {[
-                ['1', 'Sign in or create an account', oauthConfig.providers.google ? 'Google creates your account automatically the first time.' : 'Use email to sign in or create your account.'],
+                ['1', 'Sign in or create an account', oauthConfig.providers.google || oauthConfig.providers.telegram ? 'Google or Telegram can create your account automatically the first time.' : 'Use email to sign in or create your account.'],
                 ['2', 'Verify your connection', 'Choose SMS, email, or video verification.'],
                 ['3', 'Wait for review', 'Our team reviews your request and lets you know the result.'],
               ].map(([number, title, detail]) => (
@@ -178,6 +178,14 @@ export default function ClaimProfile() {
                   </svg>
                   Continue with Google
                 </button>}
+                {oauthConfig.providers.telegram && <button
+                  data-testid="button-claim-telegram"
+                  onClick={() => window.location.assign(`/api/auth/telegram?redirect=${encodeURIComponent(claimPath)}`)}
+                  className="w-full flex items-center justify-center gap-3 py-3.5 px-4 bg-[#229ED9]/10 border border-[#229ED9]/30 text-text-light font-bold text-sm rounded-xl hover:bg-[#229ED9]/20 transition-colors"
+                >
+                  <Send size={17} className="text-[#229ED9]" />
+                  Continue with Telegram
+                </button>}
                 <button
                   data-testid="button-claim-email"
                   onClick={() => setLocation(`/login?redirect=${encodeURIComponent(claimPath)}&intent=claim`)}
@@ -186,8 +194,8 @@ export default function ClaimProfile() {
                   Continue with email
                 </button>
                 <p className="text-[11px] text-center text-text-muted">
-                  {oauthConfig.providers.google
-                    ? 'Google works for existing accounts and creates a free account for new users.'
+                  {oauthConfig.providers.google || oauthConfig.providers.telegram
+                    ? 'Use the same verified email to connect Telegram to an existing account without creating a duplicate.'
                     : 'Email works for existing accounts and lets new users create a free account.'}
                 </p>
               </div>
