@@ -14,7 +14,7 @@ router.post('/escorts/:id/claim/send-otp', requireAuth, async (req: AuthRequest,
   const pool = getPool()
   if (!pool) { res.status(503).json({ message: 'Database not configured' }); return }
   try {
-    const escortId = req.params!.id
+    const escortId = String(req.params!.id)
     const [[escort]] = await pool.query<any[]>(
       'SELECT id, user_id, phone, name FROM escorts WHERE id = ? AND is_active = 1',
       [escortId]
@@ -136,7 +136,7 @@ router.post('/escorts/:id/claim', requireAuth, async (req: AuthRequest, res) => 
     // Existing owners can submit a duplicate claim for review, but the
     // approved listing will be merged into their current managed profile.
     const [ownedProfiles] = await pool.query<any[]>(
-      'SELECT id, name FROM escorts WHERE user_id = ? AND is_active = 1 AND merged_into_id IS NULL ORDER BY id LIMIT 2',
+      'SELECT id, name, is_active FROM escorts WHERE user_id = ? AND merged_into_id IS NULL ORDER BY id LIMIT 2',
       [req.userId]
     )
     if (ownedProfiles.length > 1) {
@@ -145,6 +145,9 @@ router.post('/escorts/:id/claim', requireAuth, async (req: AuthRequest, res) => 
     const existingProfile = ownedProfiles[0] ?? null
     if (existingProfile && String(existingProfile.id) === String(escortId)) {
       res.status(409).json({ message: 'You already manage this profile' }); return
+    }
+    if (existingProfile && Number(existingProfile.is_active) !== 1) {
+      res.status(409).json({ message: 'Your current managed profile is inactive. Please contact admin before claiming another listing.' }); return
     }
 
     // Check no pending claim from this user for this profile
@@ -188,13 +191,14 @@ router.get('/escorts/:id/claim-status', requireAuth, async (req: AuthRequest, re
       [req.params!.id, req.userId]
     )
     const [ownedProfiles] = await pool.query<any[]>(
-      'SELECT id, name FROM escorts WHERE user_id = ? AND is_active = 1 AND merged_into_id IS NULL ORDER BY id LIMIT 2',
+      'SELECT id, name FROM escorts WHERE user_id = ? AND merged_into_id IS NULL ORDER BY id LIMIT 2',
       [req.userId],
     )
+    const otherOwnedProfiles = ownedProfiles.filter((profile: any) => String(profile.id) !== String(req.params!.id))
     const mergeTarget = claim?.merge_into_escort_id
       ? { id: String(claim.merge_into_escort_id), name: claim.merge_into_name }
-      : ownedProfiles.length === 1
-        ? { id: String(ownedProfiles[0].id), name: ownedProfiles[0].name }
+      : claim?.status !== 'approved' && otherOwnedProfiles.length === 1
+        ? { id: String(otherOwnedProfiles[0].id), name: otherOwnedProfiles[0].name }
         : null
     res.json({ status: claim?.status ?? null, mergeTarget })
   } catch {
@@ -282,7 +286,7 @@ router.patch('/admin/claims/:id/approve', requireAuth, async (req: AuthRequest, 
       }
 
       const [ownedProfiles] = await query(
-        'SELECT id, name FROM escorts WHERE user_id = ? AND is_active = 1 AND merged_into_id IS NULL ORDER BY id LIMIT 2 FOR UPDATE',
+        'SELECT id, name, is_active FROM escorts WHERE user_id = ? AND merged_into_id IS NULL ORDER BY id LIMIT 2 FOR UPDATE',
         [claim.user_id],
       )
       const owned = Array.isArray(ownedProfiles) ? ownedProfiles : []
