@@ -265,7 +265,21 @@ router.patch('/admin/claims/:id/approve', requireAuth, async (req: AuthRequest, 
     }
 
     const result = await pool.transaction(async query => {
-      const [userRows] = await query('SELECT id FROM users WHERE id = ? FOR UPDATE', [req.userId])
+      // Lock the claimant rather than the admin performing this action. This
+      // serializes approvals for separate claims from the same account, so two
+      // first-time claims cannot both become independent managed profiles.
+      const [claimOwnerRows] = await query(
+        'SELECT user_id FROM profile_claims WHERE id = ?',
+        [req.params!.id],
+      )
+      const claimOwner = Array.isArray(claimOwnerRows) ? claimOwnerRows[0] : null
+      if (!claimOwner) {
+        const error: any = new Error('Claim not found')
+        error.statusCode = 404
+        throw error
+      }
+
+      const [userRows] = await query('SELECT id FROM users WHERE id = ? FOR UPDATE', [claimOwner.user_id])
       if (!Array.isArray(userRows) || userRows.length === 0) {
         const error: any = new Error('Claim owner no longer exists')
         error.statusCode = 404
@@ -370,10 +384,43 @@ router.patch('/admin/claims/:id/reject', requireAuth, async (req: AuthRequest, r
   const pool = getPool()
   if (!pool) { res.status(503).json({ message: 'Database not configured' }); return }
   try {
-    await pool.query("UPDATE profile_claims SET status = 'rejected' WHERE id = ?", [req.params!.id])
+    await pool.transaction(async query => {
+      const [claimOwnerRows] = await query(
+        'SELECT user_id FROM profile_claims WHERE id = ?',
+        [req.params!.id],
+      )
+      const claimOwner = Array.isArray(claimOwnerRows) ? claimOwnerRows[0] : null
+      if (!claimOwner) {
+        const error: any = new Error('Claim not found')
+        error.statusCode = 404
+        throw error
+      }
+
+      // Use the same claimant-then-claim lock order as approval to prevent a
+      // reject racing an approval and changing the final status after a merge.
+      await query('SELECT id FROM users WHERE id = ? FOR UPDATE', [claimOwner.user_id])
+      const [claimRows] = await query('SELECT status FROM profile_claims WHERE id = ? FOR UPDATE', [req.params!.id])
+      const claim = Array.isArray(claimRows) ? claimRows[0] : null
+      if (!claim) {
+        const error: any = new Error('Claim not found')
+        error.statusCode = 404
+        throw error
+      }
+      if (claim.status !== 'pending') {
+        const error: any = new Error('This claim has already been resolved')
+        error.statusCode = 409
+        throw error
+      }
+
+      await query("UPDATE profile_claims SET status = 'rejected' WHERE id = ?", [req.params!.id])
+    })
     res.json({ success: true })
   } catch (err: any) {
-    res.status(500).json({ message: 'Failed to reject claim' })
+    const statusCode = Number(err?.statusCode) || 500
+    if (statusCode === 500) console.error('[claim rejection]', err?.message ?? err)
+    res.status(statusCode).json({
+      message: statusCode === 500 ? 'Failed to reject claim' : err.message,
+    })
   }
 })
 
