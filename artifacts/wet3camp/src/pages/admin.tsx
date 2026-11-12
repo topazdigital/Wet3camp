@@ -1998,11 +1998,18 @@ function ClaimsTab() {
   const handleAction = async (id: string, action: 'approve' | 'reject') => {
     setActionLoading(id + '_' + action)
     try {
-      await adminFetch(`/admin/claims/${id}/${action}`, { method: 'PATCH' })
+      const result = await adminFetch(`/admin/claims/${id}/${action}`, { method: 'PATCH' }) ?? {}
       setClaims(prev => prev.map(c => String(c.id) === id ? { ...c, status: action === 'approve' ? 'approved' : 'rejected' } : c))
-      setFeedback({ ok: true, msg: action === 'approve' ? 'Claim approved — profile linked to user.' : 'Claim rejected.' })
-    } catch {
-      setFeedback({ ok: false, msg: 'Action failed. Please try again.' })
+      setFeedback({
+        ok: true,
+        msg: action === 'approve'
+          ? result?.merged
+            ? `Claim approved and merged into ${result?.primaryProfile?.name || 'the existing profile'}.`
+            : 'Claim approved — profile linked to user.'
+          : 'Claim rejected.',
+      })
+    } catch (error: any) {
+      setFeedback({ ok: false, msg: error?.message || 'Action failed. Please try again.' })
     }
     setActionLoading(null)
     setTimeout(() => setFeedback(null), 4000)
@@ -2053,6 +2060,12 @@ function ClaimsTab() {
                     claiming <span className="text-text-light font-semibold">{c.escort_name}</span>
                     {c.escort_city && <span> ({c.escort_city})</span>}
                   </p>
+                  {c.merge_into_name && (
+                    <p className="mt-1 text-[10px] text-[#FFD700]">
+                      Duplicate claim — merge into <span className="font-bold">{c.merge_into_name}</span>
+                      {c.merge_into_city && <span> ({c.merge_into_city})</span>}
+                    </p>
+                  )}
                   {c.message && <p className="text-[10px] text-text-muted italic mt-0.5">"{c.message}"</p>}
                   <p className="text-[9px] text-text-muted mt-0.5">{new Date(c.created_at).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
                 </div>
@@ -2065,7 +2078,7 @@ function ClaimsTab() {
                         className="px-2.5 py-1 bg-[#28a745]/20 text-[#28a745] text-[9px] font-bold rounded-lg border border-[#28a745]/30 hover:bg-[#28a745]/30 disabled:opacity-50 flex items-center gap-1"
                       >
                         {actionLoading === c.id + '_approve' ? <div className="w-2.5 h-2.5 border border-[#28a745]/40 border-t-[#28a745] rounded-full animate-spin"/> : <CheckCircle2 size={10}/>}
-                        Approve
+                        {c.merge_into_name ? 'Approve & merge' : 'Approve'}
                       </button>
                       <button
                         onClick={() => handleAction(String(c.id), 'reject')}
