@@ -15,6 +15,7 @@
 import type { Request, Response, NextFunction } from 'express'
 import { getPool } from '../lib/db.js'
 import { buildProfileSeo } from '../lib/profile-seo.js'
+import { resolveCanonicalEscortId } from '../lib/escort-merge.js'
 import { AREA_LANDING_PAGES, CITY_AREA_VALUES, getAreaLandingPage, isAreaRowMatch } from '../lib/location-data.js'
 import {
   getPublicLocationDirectory,
@@ -303,10 +304,10 @@ async function findEscortBySlug(slug: string): Promise<any | null> {
       const [r] = await pool.query<any[]>(
         `SELECT e.id, e.name, e.age, e.city, e.area, e.tier, e.bio, e.verified,
                 e.incall, e.outcall, e.price_incall, e.price_hourly, e.rating,
-                COALESCE(NULLIF(e.image,''), eg.image_url) AS image
+                e.merged_into_id, COALESCE(NULLIF(e.image,''), eg.image_url) AS image
          FROM escorts e
          LEFT JOIN escort_gallery eg ON eg.escort_id = e.id
-         WHERE e.id = ? AND e.is_active = 1
+         WHERE e.id = ? AND (e.is_active = 1 OR e.merged_into_id IS NOT NULL)
          ORDER BY eg.sort_order ASC LIMIT 1`,
         [slug],
       )
@@ -315,19 +316,37 @@ async function findEscortBySlug(slug: string): Promise<any | null> {
       const [r] = await pool.query<any[]>(
         `SELECT e.id, e.name, e.age, e.city, e.area, e.tier, e.bio, e.verified,
                 e.incall, e.outcall, e.price_incall, e.price_hourly, e.rating,
-                COALESCE(NULLIF(e.image,''), eg.image_url) AS image
+                e.merged_into_id, COALESCE(NULLIF(e.image,''), eg.image_url) AS image
          FROM escorts e
          LEFT JOIN escort_gallery eg ON eg.escort_id = e.id
          WHERE (
            LOWER(REPLACE(REPLACE(REPLACE(e.name, ' ', '-'), '.', ''), ',', '')) = ?
            OR LOWER(e.name) = ?
-         ) AND e.is_active = 1
-         ORDER BY eg.sort_order ASC LIMIT 1`,
+         ) AND (e.is_active = 1 OR e.merged_into_id IS NOT NULL)
+         ORDER BY e.is_active DESC, eg.sort_order ASC
+         LIMIT 1`,
         [slug.toLowerCase(), slug.replace(/-/g, ' ').toLowerCase()],
       )
       rows = Array.isArray(r) ? r : []
     }
-    return rows.length > 0 ? rows[0] : null
+    if (rows.length === 0) return null
+    const query = (sql: string, params: unknown[] = []) => pool.query(sql, params)
+    const canonical = await resolveCanonicalEscortId(query, rows[0].id)
+    if (!canonical) return null
+    if (!canonical.redirected) return rows[0]
+
+    const [primaryRows] = await pool.query<any[]>(
+      `SELECT e.id, e.name, e.age, e.city, e.area, e.tier, e.bio, e.verified,
+              e.incall, e.outcall, e.price_incall, e.price_hourly, e.rating,
+              COALESCE(NULLIF(e.image,''), eg.image_url) AS image
+       FROM escorts e
+       LEFT JOIN escort_gallery eg ON eg.escort_id = e.id
+       WHERE e.id = ? AND e.is_active = 1
+       ORDER BY eg.sort_order ASC LIMIT 1`,
+      [canonical.id],
+    )
+    const primary = Array.isArray(primaryRows) ? primaryRows[0] : null
+    return primary ? { ...primary, mergedRedirect: true } : null
   } catch { return null }
 }
 
@@ -894,6 +913,11 @@ export async function ogPreviewMiddleware(req: Request, res: Response, next: Nex
             url: fullUrl,
             noIndex: true,
           }))
+          return
+        }
+
+        if (escort.mergedRedirect) {
+          res.redirect(301, profileMatch ? `/profile/${escort.id}` : `/@${profileSlug(escort.name)}`)
           return
         }
 
