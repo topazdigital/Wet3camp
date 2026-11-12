@@ -555,15 +555,27 @@ export async function sendSmsOtp(
 
 // ─── OTP ─────────────────────────────────────────────────────────────────────
 
-export async function sendOtpEmail(email: string, otp: string, name?: string) {
+export async function sendOtpEmail(
+  email: string,
+  otp: string,
+  name?: string,
+  purpose: 'registration' | 'telegram' = 'registration',
+) {
+  const isTelegramSignIn = purpose === 'telegram'
+  const subject = isTelegramSignIn
+    ? 'Your Wet3.camp Telegram sign-in code'
+    : 'Your Wet3.camp verification code'
+  const instruction = isTelegramSignIn
+    ? 'Use this code to link your Telegram account to Wet3.camp and sign in.'
+    : 'Use this code to verify your identity on Wet3.camp.'
   await send({
     to: email,
-    subject: `Your Wet3.camp verification code: ${otp}`,
-    text: `Hi${name ? ` ${name}` : ''},\n\nYour Wet3.camp verification code is:\n\n${otp}\n\nThis code expires in 10 minutes.\n\nIf you didn't request this, ignore this email.`,
+    subject,
+    text: `Hi${name ? ` ${name}` : ''},\n\n${instruction}\n\nYour verification code is:\n\n${otp}\n\nThis code expires in 10 minutes.\n\nIf you didn't request this, ignore this email.`,
     html: emailWrap(`
       ${heading('Verification Code')}
       <p style="margin:0 0 28px;font-size:14px;color:#cccccc;line-height:1.7;">
-        ${name ? `Hi <strong style="color:#FFD700;">${name}</strong>, enter` : 'Enter'} this code to verify your identity on Wet3.camp.
+        ${name ? `Hi <strong style="color:#FFD700;">${name}</strong>, ` : ''}${instruction}
       </p>
       <div style="text-align:center;margin:0 0 28px;">
         <div style="display:inline-block;background:#160000;border:2px solid #8B0000;border-radius:14px;padding:20px 40px;">
