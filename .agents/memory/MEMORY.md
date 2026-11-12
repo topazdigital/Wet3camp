@@ -4,7 +4,7 @@
 - [Booking policy decision](booking-policy.md) — platform does NOT process payments; bookings are appointment-requests only; escorts+clients arrange payment offline; STK push intentionally excluded
 - [Tier ordering protocol](tier-protocol.md) — elite > vip > premium > standard > free; search page shows Elite section first (large cards), VIP (medium), Premium, then Standard list cards
 - [Real-data fixes batch](real-data-fixes.md) — Standard tier is FREE; own-profile detection uses escort.user_id vs user.id; 3 new API endpoints: /profile/escort/earnings /profile/escort/followers /profile/escort/subscription; incall/outcall added to edit profile form; OTP requires real SMTP (no demo code leak); Instagram import shows "not configured"; earnings/followers/subscription all from real DB
-- [Social login and claim flow](social-login-claim-flow.md) — show only fully configured providers; preserve claim intent and password reset for social accounts
+- [Social login and claim flow](social-login-claim-flow.md) — preserve claim intent; reviewed duplicate claims merge into the existing canonical profile
 - [Official Wet3Camp branding](logo-favicon.md) — Use the official wordmark, square mark, and near-black/burgundy/gold palette consistently
 - [Dev PostgreSQL extra columns](dev-pg-columns.md) — escorts table needed gender, instagram, facebook, price_incall, price_outcall, price_incall_overnight, price_outcall_overnight, source_site, incall, outcall; profile_claims and user_follows tables also added; all already in wet3camp-migration.sql for MySQL
 - [Live streaming system](live-streaming.md) — live video is an ephemeral native browser stream relayed by the API process; don't promise recording or continuity through API restarts.
