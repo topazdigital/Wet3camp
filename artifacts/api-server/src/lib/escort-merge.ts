@@ -17,6 +17,7 @@ const PROFILE_TEXT_FIELDS = [
   'body_type',
   'ethnicity',
   'hair_color',
+  'gender',
   'city',
   'area',
   'phone',
@@ -30,6 +31,15 @@ const PROFILE_TEXT_FIELDS = [
 
 const PROFILE_ZERO_FIELDS = [
   'age',
+  'lat',
+  'lng',
+  'price_hourly',
+  'price_overnight',
+  'price_video',
+  'price_incall',
+  'price_outcall',
+  'price_incall_overnight',
+  'price_outcall_overnight',
 ]
 
 const SIMPLE_ESCORT_LINK_TABLES = [
