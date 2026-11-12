@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { createHash } from 'crypto'
 import { getPool } from '../lib/db.js'
 import { getEscortGalleryRows } from '../lib/escort-gallery.js'
+import { getMergedEscortIds } from '../lib/escort-merge.js'
 import { requireAuth, type AuthRequest } from '../middlewares/requireAuth.js'
 import { setEscortOnline } from '../lib/online-store.js'
 
@@ -288,33 +289,45 @@ router.get('/profile/escort/followers', requireAuth, async (req: AuthRequest, re
   try {
     const pool = getPool()
     if (!pool) { res.status(503).json({ message: 'Database not configured' }); return }
-    const [[escort]] = await pool.query<any[]>('SELECT id FROM escorts WHERE user_id = ?', [req.userId])
+    const [[escort]] = await pool.query<any[]>(
+      'SELECT id FROM escorts WHERE user_id = ? AND is_active = 1 AND merged_into_id IS NULL ORDER BY id LIMIT 1',
+      [req.userId],
+    )
     if (!escort) { res.status(404).json({ message: 'Escort profile not found' }); return }
     const escortId = escort.id
+    const query = (sql: string, params: unknown[] = []) => pool.query(sql, params)
+    const associatedIds = await getMergedEscortIds(query, escortId)
+    const placeholders = associatedIds.map(() => '?').join(', ')
 
     const [[{ total }]] = await pool.query<any[]>(
-      'SELECT COUNT(*) AS total FROM followers WHERE escort_id = ?', [escortId]
+      `SELECT COUNT(DISTINCT user_id) AS total FROM followers WHERE escort_id IN (${placeholders})`,
+      associatedIds,
     )
 
     const sevenDaysAgo = new Date(); sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
     const [[{ thisWeek }]] = await pool.query<any[]>(
-      'SELECT COUNT(*) AS thisWeek FROM followers WHERE escort_id = ? AND created_at >= ?',
-      [escortId, sevenDaysAgo]
+      `SELECT COUNT(DISTINCT user_id) AS thisWeek
+       FROM followers WHERE escort_id IN (${placeholders}) AND created_at >= ?`,
+      [...associatedIds, sevenDaysAgo],
     ).catch(() => [[{ thisWeek: 0 }]])
 
     const [recent] = await pool.query<any[]>(
-      `SELECT u.display_name AS name, u.username, u.avatar, f.created_at
+      `SELECT f.user_id, u.display_name AS name, u.username, u.avatar, f.created_at
        FROM followers f
        JOIN users u ON u.id = f.user_id
-       WHERE f.escort_id = ?
-       ORDER BY f.created_at DESC LIMIT 10`,
-      [escortId]
+       WHERE f.escort_id IN (${placeholders})
+       ORDER BY f.created_at DESC LIMIT 100`,
+      associatedIds,
     )
 
+    const uniqueRecent = new Map<string, any>()
+    for (const follower of recent as any[]) {
+      if (!uniqueRecent.has(String(follower.user_id))) uniqueRecent.set(String(follower.user_id), follower)
+    }
     res.json({
-      total:    total ?? 0,
-      thisWeek: thisWeek ?? 0,
-      recent:   recent.map((r: any) => ({
+      total:    Number(total ?? 0),
+      thisWeek: Number(thisWeek ?? 0),
+      recent:   [...uniqueRecent.values()].slice(0, 10).map((r: any) => ({
         name:      r.name || r.username || 'User',
         avatar:    r.avatar || null,
         followedAt: r.created_at,
