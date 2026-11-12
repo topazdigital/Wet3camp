@@ -18,6 +18,17 @@ CREATE TABLE IF NOT EXISTS users (
   UNIQUE (username)
 );
 
+CREATE TABLE IF NOT EXISTS user_auth_providers (
+  id                 SERIAL PRIMARY KEY,
+  user_id            INTEGER NOT NULL,
+  provider           VARCHAR(32)  NOT NULL,
+  provider_user_id   VARCHAR(191) NOT NULL,
+  provider_username  VARCHAR(191) DEFAULT NULL,
+  created_at         TIMESTAMP NOT NULL DEFAULT NOW(),
+  UNIQUE (provider, provider_user_id),
+  UNIQUE (user_id, provider)
+);
+
 CREATE TABLE IF NOT EXISTS escorts (
   id               SERIAL PRIMARY KEY,
   user_id          INTEGER          DEFAULT NULL,
