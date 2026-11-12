@@ -62,6 +62,7 @@ CREATE TABLE IF NOT EXISTS `sessions` (
 CREATE TABLE IF NOT EXISTS `escorts` (
   `id`            INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `user_id`       INT UNSIGNED DEFAULT NULL,          -- linked user account if she registers
+  `merged_into_id` INT UNSIGNED DEFAULT NULL,
   `name`          VARCHAR(100) NOT NULL,
   `age`           TINYINT UNSIGNED NOT NULL,
   `city`          VARCHAR(100) NOT NULL,
