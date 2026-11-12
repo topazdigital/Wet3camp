@@ -4,6 +4,7 @@
 // =============================================================================
 import { Router } from 'express'
 import { getPool } from '../lib/db.js'
+import { getMergedEscortIds, resolveCanonicalEscortId } from '../lib/escort-merge.js'
 import { requireAuth, type AuthRequest } from '../middlewares/requireAuth.js'
 
 const router = Router()
@@ -250,11 +251,26 @@ router.get('/feeds/:id/likes', async (req: any, res) => {
   const { id } = req.params
   const guestKey = req.query.gk as string | undefined
   try {
-    const [[row]] = await pool.query<any[]>('SELECT COUNT(*) AS cnt FROM feed_likes WHERE escort_id = ?', [id])
+    const query = (sql: string, params: unknown[] = []) => pool.query(sql, params)
+    const canonical = await resolveCanonicalEscortId(query, id)
+    if (!canonical) { res.json({ count: 0, liked: false }); return }
+    const ids = await getMergedEscortIds(query, canonical.id)
+    const placeholders = ids.map(() => '?').join(', ')
+    const [[row]] = await pool.query<any[]>(
+      `SELECT COUNT(DISTINCT CASE
+         WHEN user_id IS NOT NULL THEN CONCAT('u:', user_id)
+         WHEN guest_key IS NOT NULL THEN CONCAT('g:', guest_key)
+       END) AS cnt
+       FROM feed_likes WHERE escort_id IN (${placeholders})`,
+      ids,
+    )
     const count = Number(row?.cnt ?? 0)
     let liked = false
     if (guestKey) {
-      const [[lk]] = await pool.query<any[]>('SELECT id FROM feed_likes WHERE escort_id = ? AND guest_key = ? LIMIT 1', [id, guestKey])
+      const [[lk]] = await pool.query<any[]>(
+        `SELECT id FROM feed_likes WHERE escort_id IN (${placeholders}) AND guest_key = ? LIMIT 1`,
+        [...ids, guestKey],
+      )
       liked = !!lk
     }
     res.json({ count, liked })
@@ -269,12 +285,30 @@ router.post('/feeds/:id/like', async (req: any, res) => {
   const { guestKey, unlike } = req.body as { guestKey?: string; unlike?: boolean }
   if (!guestKey) { res.status(400).json({ message: 'guestKey required' }); return }
   try {
+    const query = (sql: string, params: unknown[] = []) => pool.query(sql, params)
+    const canonical = await resolveCanonicalEscortId(query, id)
+    if (!canonical) { res.status(404).json({ message: 'Profile not found' }); return }
+    const ids = await getMergedEscortIds(query, canonical.id)
+    const placeholders = ids.map(() => '?').join(', ')
     if (unlike) {
-      await pool.query('DELETE FROM feed_likes WHERE escort_id = ? AND guest_key = ?', [id, guestKey])
+      await pool.query(
+        `DELETE FROM feed_likes WHERE escort_id IN (${placeholders}) AND guest_key = ?`,
+        [...ids, guestKey],
+      )
     } else {
-      await pool.query('INSERT INTO feed_likes (escort_id, guest_key) VALUES (?,?) ON CONFLICT DO NOTHING', [id, guestKey])
+      await pool.query(
+        'INSERT IGNORE INTO feed_likes (escort_id, guest_key) VALUES (?,?)',
+        [canonical.id, guestKey],
+      )
     }
-    const [[row]] = await pool.query<any[]>('SELECT COUNT(*) AS cnt FROM feed_likes WHERE escort_id = ?', [id])
+    const [[row]] = await pool.query<any[]>(
+      `SELECT COUNT(DISTINCT CASE
+         WHEN user_id IS NOT NULL THEN CONCAT('u:', user_id)
+         WHEN guest_key IS NOT NULL THEN CONCAT('g:', guest_key)
+       END) AS cnt
+       FROM feed_likes WHERE escort_id IN (${placeholders})`,
+      ids,
+    )
     res.json({ count: Number(row?.cnt ?? 0), liked: !unlike })
   } catch (err: any) { res.status(500).json({ message: err?.message ?? 'error' }) }
 })
@@ -283,12 +317,14 @@ router.post('/feeds/:id/like', async (req: any, res) => {
 router.get('/feeds/:id/comments', async (req: any, res) => {
   const pool = getPool()
   if (!pool) { res.json([]); return }
-  const { id } = req.params
   try {
+    const query = (sql: string, params: unknown[] = []) => pool.query(sql, params)
+    const canonical = await resolveCanonicalEscortId(query, req.params.id)
+    if (!canonical) { res.json([]); return }
     const [rows] = await pool.query<any[]>(
       `SELECT id, parent_id, author_name, body, created_at
        FROM feed_comments WHERE escort_id = ? ORDER BY created_at ASC LIMIT 200`,
-      [id]
+      [canonical.id],
     )
     res.json(rows)
   } catch { res.json([]) }
@@ -298,18 +334,20 @@ router.get('/feeds/:id/comments', async (req: any, res) => {
 router.post('/feeds/:id/comments', async (req: any, res) => {
   const pool = getPool()
   if (!pool) { res.status(503).json({ message: 'DB error' }); return }
-  const { id } = req.params
   const { body, author_name, parent_id } = req.body as { body?: string; author_name?: string; parent_id?: number }
   if (!body || body.trim().length < 1) { res.status(400).json({ message: 'Comment cannot be empty' }); return }
   const name = (author_name || 'Anonymous').slice(0, 60)
   try {
+    const query = (sql: string, params: unknown[] = []) => pool.query(sql, params)
+    const canonical = await resolveCanonicalEscortId(query, req.params.id)
+    if (!canonical) { res.status(404).json({ message: 'Profile not found' }); return }
     const [result] = await pool.query<any>(
       'INSERT INTO feed_comments (escort_id, author_name, body, parent_id) VALUES (?,?,?,?)',
-      [id, name, body.trim().slice(0, 1000), parent_id ?? null]
+      [canonical.id, name, body.trim().slice(0, 1000), parent_id ?? null]
     )
     const newId = result?.insertId ?? result?.id
     const [[row]] = await pool.query<any[]>('SELECT id, parent_id, author_name, body, created_at FROM feed_comments WHERE id = ? LIMIT 1', [newId])
-    res.status(201).json(row ?? { id: newId, escort_id: id, author_name: name, body: body.trim(), parent_id: parent_id ?? null, created_at: new Date() })
+    res.status(201).json(row ?? { id: newId, escort_id: canonical.id, author_name: name, body: body.trim(), parent_id: parent_id ?? null, created_at: new Date() })
   } catch (err: any) { res.status(500).json({ message: err?.message ?? 'error' }) }
 })
 
