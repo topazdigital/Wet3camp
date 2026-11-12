@@ -26,3 +26,9 @@ Social sign-in buttons should appear only for providers whose complete credentia
 **Why:** The user wants Facebook and other social login choices hidden until their credentials have been configured in admin.
 
 **How to apply:** Derive readiness server-side from each provider's required settings, disable caching for the public config response, and hide each unavailable provider in every frontend entry point.
+
+An escort who already manages a profile can request to claim another listing without creating another escort account. Admin verifies the second claim; approval merges the duplicate into the existing profile, which remains canonical, and preserves the profile data and activity.
+
+**Why:** The user chose duplicate merging to handle an escort who discovers a second listing of their own.
+
+**How to apply:** Keep the existing managed profile primary, require review before merging, retain the source listing as an archived redirect, and include its associated activity in the canonical profile.
