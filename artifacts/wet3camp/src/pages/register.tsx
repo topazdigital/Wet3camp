@@ -703,7 +703,7 @@ export default function RegisterPage() {
             {isClaimSignup && (
               <div data-testid="notice-claim-no-duplicate" className="mb-6 rounded-xl border border-[#FFD700]/20 bg-[#FFD700]/5 p-3.5">
                 <p className="text-xs text-text-muted leading-relaxed">
-                  Creating an account won’t create another escort listing. If your claim is approved, we’ll link this existing profile to your account.
+                  Creating an account won’t create another escort listing. If you already manage a profile, additional claims are reviewed as possible duplicates and approved duplicates are merged into your existing profile.
                 </p>
               </div>
             )}
