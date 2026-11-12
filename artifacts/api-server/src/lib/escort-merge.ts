@@ -6,6 +6,10 @@ type MergeIds = {
   userId: string | number
 }
 
+function mergeError(message: string, statusCode = 409) {
+  return Object.assign(new Error(message), { statusCode })
+}
+
 const PROFILE_TEXT_FIELDS = [
   'bio',
   'image',
@@ -26,15 +30,6 @@ const PROFILE_TEXT_FIELDS = [
 
 const PROFILE_ZERO_FIELDS = [
   'age',
-  'lat',
-  'lng',
-  'price_hourly',
-  'price_overnight',
-  'price_video',
-  'price_incall',
-  'price_outcall',
-  'price_incall_overnight',
-  'price_outcall_overnight',
 ]
 
 const SIMPLE_ESCORT_LINK_TABLES = [
@@ -68,6 +63,33 @@ function isBlank(value: unknown, zeroIsBlank = false): boolean {
 async function getRows(query: CompatQuery, sql: string, params: unknown[] = []): Promise<any[]> {
   const [rows] = await query(sql, params)
   return Array.isArray(rows) ? rows : []
+}
+
+export async function getMergedEscortIds(query: CompatQuery, primaryId: string | number): Promise<string[]> {
+  const rows = await getRows(query, 'SELECT id FROM escorts WHERE merged_into_id = ?', [primaryId])
+  return [String(primaryId), ...rows.map(row => String(row.id))]
+}
+
+export async function resolveCanonicalEscortId(
+  query: CompatQuery,
+  requestedId: string | number,
+): Promise<{ id: string; redirected: boolean } | null> {
+  let currentId = String(requestedId)
+  const visited = new Set<string>()
+  let redirected = false
+
+  for (let depth = 0; depth < 20; depth += 1) {
+    if (visited.has(currentId)) return null
+    visited.add(currentId)
+    const rows = await getRows(query, 'SELECT id, merged_into_id FROM escorts WHERE id = ? LIMIT 1', [currentId])
+    const row = rows[0]
+    if (!row) return null
+    if (!row.merged_into_id) return { id: String(row.id), redirected }
+    currentId = String(row.merged_into_id)
+    redirected = true
+  }
+
+  return null
 }
 
 async function mergeMissingProfileFields(
@@ -206,28 +228,26 @@ export async function mergeEscortProfiles(
   { candidateId, primaryId, userId }: MergeIds,
 ) {
   if (!columns.has('escorts.merged_into_id')) {
-    throw new Error('The escort merge schema has not been applied')
+    throw mergeError('The escort merge schema has not been applied', 503)
   }
   if (sameId(candidateId, primaryId)) {
-    throw new Error('A profile cannot be merged into itself')
+    throw mergeError('A profile cannot be merged into itself')
   }
 
-  const [primaryRows, candidateRows] = await Promise.all([
-    getRows(query, 'SELECT * FROM escorts WHERE id = ? FOR UPDATE', [primaryId]),
-    getRows(query, 'SELECT * FROM escorts WHERE id = ? FOR UPDATE', [candidateId]),
-  ])
+  const primaryRows = await getRows(query, 'SELECT * FROM escorts WHERE id = ? FOR UPDATE', [primaryId])
+  const candidateRows = await getRows(query, 'SELECT * FROM escorts WHERE id = ? FOR UPDATE', [candidateId])
   const primary = primaryRows[0]
   const candidate = candidateRows[0]
 
-  if (!primary || !candidate) throw new Error('One of the profiles no longer exists')
+  if (!primary || !candidate) throw mergeError('One of the profiles no longer exists', 404)
   if (!sameId(primary.user_id, userId) || Number(primary.is_active) !== 1 || primary.merged_into_id) {
-    throw new Error('The existing managed profile is no longer available for this merge')
+    throw mergeError('The existing managed profile is no longer available for this merge')
   }
   if (candidate.user_id !== null && candidate.user_id !== undefined) {
-    throw new Error('The listing has already been claimed')
+    throw mergeError('The listing has already been claimed')
   }
   if (Number(candidate.is_active) !== 1 || candidate.merged_into_id) {
-    throw new Error('The listing is no longer available to merge')
+    throw mergeError('The listing is no longer available to merge')
   }
 
   await mergeMissingProfileFields(query, columns, primary, candidate, primaryId)
