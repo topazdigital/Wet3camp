@@ -146,6 +146,13 @@ export const api = {
     resetPassword: (details: { email: string; token: string; password: string }) =>
       req<{ message: string }>('/auth/reset-password', { method: 'POST', body: JSON.stringify(details) }),
     me: () => req<ApiUser>('/auth/me'),
+    telegramStatus: () =>
+      req<{ available: boolean; linked: boolean; username: string | null }>('/auth/telegram/status'),
+    startTelegramLink: (returnTo: string) =>
+      req<{ authorizationUrl: string }>('/auth/telegram/link/start', {
+        method: 'POST',
+        body: JSON.stringify({ returnTo }),
+      }),
   },
 
   reviews: {
