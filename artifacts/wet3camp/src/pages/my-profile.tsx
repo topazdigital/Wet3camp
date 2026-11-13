@@ -10,8 +10,9 @@ import { useFollow } from '@/lib/follow-context'
 import { useSEO } from '@/lib/useSEO'
 import { formatKes, usePublicPricing } from '@/lib/pricing'
 import EscortAnalyticsPanel from '@/components/EscortAnalyticsPanel'
+import TelegramAccountLink from '@/components/TelegramAccountLink'
 
-const TABS = ['Overview', 'Analytics', 'My Bookings', 'My Rooms', 'Edit Profile', 'Gallery', 'Followers', 'Monthly Tier', 'Get Featured', 'Instagram Import', 'Earnings']
+const TABS = ['Overview', 'Analytics', 'My Bookings', 'My Rooms', 'Edit Profile', 'Account & Security', 'Gallery', 'Followers', 'Monthly Tier', 'Get Featured', 'Instagram Import', 'Earnings']
 
 const PLACEHOLDER_IMG = 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=600&h=800&fit=crop&crop=face'
 
@@ -564,6 +565,16 @@ export default function MyProfile() {
           )}
 
           {activeTab === 'Analytics' && user?.role === 'escort' && <EscortAnalyticsPanel />}
+
+          {activeTab === 'Account & Security' && (
+            <div className="max-w-2xl space-y-5">
+              <div>
+                <h2 className="text-base font-bold text-text-light">Account &amp; security</h2>
+                <p className="mt-1 text-xs text-text-muted">Add Telegram as another secure way to access this same account.</p>
+              </div>
+              <TelegramAccountLink />
+            </div>
+          )}
 
           {/* ── MY BOOKINGS (escort side) ───────────────────────────────── */}
           {activeTab === 'My Bookings' && (
