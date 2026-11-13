@@ -10,6 +10,7 @@ import Sidebar from '@/components/Sidebar'
 import { useAuth } from '@/lib/auth-context'
 import { api, getToken } from '@/lib/api'
 import { useSEO } from '@/lib/useSEO'
+import TelegramAccountLink from '@/components/TelegramAccountLink'
 
 type Tab = 'overview' | 'requests' | 'rooms' | 'settings'
 type Booking = {
@@ -404,6 +405,9 @@ export default function Account() {
                   <button onClick={changePassword} disabled={pwSaving} className={primaryButton} data-testid="button-change-password">{pwSaving ? 'Changing password…' : 'Update password'}</button>
                 </div>
               </section>
+              <div className="xl:col-span-2">
+                <TelegramAccountLink />
+              </div>
               <section className="flex items-center gap-4 rounded-2xl border border-[#ffffff12] bg-[#191919] p-5 sm:p-6 xl:col-span-2">
                 <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#FFD70016] text-[#FFD700]"><ShieldCheck size={19} /></span>
                 <div className="min-w-0 flex-1"><h3 className="text-sm font-semibold">Room and appointment settings</h3><p className="mt-1 text-xs text-[#8f8981]">Review the status and details of your requests in one place.</p></div>
