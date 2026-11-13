@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import Header from '@/components/Header'
 import Sidebar from '@/components/Sidebar'
 import FeaturedCarousel from '@/components/FeaturedCarousel'
 import InfiniteEscortGrid from '@/components/InfiniteEscortGrid'
+import LatestHomepageContent from '@/components/LatestHomepageContent'
 import { Users, MapPin, ShieldCheck, Flame, Video, Hotel, Plane, ShoppingBag, Calendar, Newspaper, Navigation, Radio } from 'lucide-react'
 import { Link } from 'wouter'
 import { CITIES } from '@/data/escorts'
@@ -45,24 +46,45 @@ interface LiveSession {
 function TrendingLive() {
   const [sessions, setSessions] = useState<LiveSession[]>([])
   const [loading, setLoading] = useState(true)
+  const [rotation, setRotation] = useState(0)
+  const choseInitialRotation = useRef(false)
 
   useEffect(() => {
     const fetchLive = () => {
-      fetch('/api/live')
+      fetch('/api/live', { cache: 'no-store' })
         .then(r => { if (!r.ok) throw new Error('Failed'); return r.json() })
         .then(data => {
-          setSessions(Array.isArray(data) ? data : [])
+          const nextSessions: LiveSession[] = Array.isArray(data) ? data : []
+          setSessions(nextSessions)
+          if (!choseInitialRotation.current && nextSessions.length > 1) {
+            setRotation(Math.floor(Math.random() * nextSessions.length))
+            choseInitialRotation.current = true
+          }
           setLoading(false)
         })
         .catch(() => setLoading(false))
     }
     fetchLive()
-    const id = setInterval(fetchLive, 30000)
-    return () => clearInterval(id)
+    const refreshId = setInterval(fetchLive, 30000)
+    const rotateId = setInterval(() => setRotation(value => value + 1), 15000)
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') fetchLive()
+    }
+    document.addEventListener('visibilitychange', refreshWhenVisible)
+    return () => {
+      clearInterval(refreshId)
+      clearInterval(rotateId)
+      document.removeEventListener('visibilitychange', refreshWhenVisible)
+    }
   }, [])
 
   if (loading) return null
   if (sessions.length === 0) return <PreviewStories />
+  const startAt = rotation % sessions.length
+  const visibleSessions = Array.from(
+    { length: Math.min(8, sessions.length) },
+    (_, index) => sessions[(startAt + index) % sessions.length],
+  )
 
   return (
     <div className="w-full px-3 sm:px-5 py-4 border-b border-color bg-dark-bg">
@@ -81,7 +103,7 @@ function TrendingLive() {
 
       {/* Story-style circles */}
       <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-1">
-        {sessions.map(s => {
+        {visibleSessions.map(s => {
           const photo = s.avatar || s.image
           return (
           <Link
@@ -289,6 +311,8 @@ export default function Home() {
 
         {/* Live broadcasts or clearly marked prerecorded profile previews */}
         <TrendingLive />
+
+        <LatestHomepageContent />
 
         {/* Browse Section */}
         <div className="w-full">
