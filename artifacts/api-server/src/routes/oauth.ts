@@ -4,6 +4,7 @@ import { hashPassword } from '../lib/crypto.js'
 import { getPool } from '../lib/db.js'
 import { signToken, verifyToken } from '../lib/jwt.js'
 import { sendOtpEmail } from '../lib/mailer.js'
+import { requireAuth, type AuthRequest } from '../middlewares/requireAuth.js'
 import { SignJWT, importPKCS8, decodeJwt, createRemoteJWKSet, jwtVerify } from 'jose'
 
 const router = Router()
@@ -294,7 +295,7 @@ function telegramAuthorizationUrl(
 }
 
 async function getLinkedTelegramUser(pool: any, telegramUserId: string): Promise<any | null> {
-  const [[user]] = await pool.query<any[]>(
+  const [[user]] = await pool.query(
     `SELECT u.* FROM user_auth_providers p
      JOIN users u ON u.id = p.user_id
      WHERE p.provider = 'telegram' AND p.provider_user_id = ?
@@ -302,6 +303,18 @@ async function getLinkedTelegramUser(pool: any, telegramUserId: string): Promise
     [telegramUserId],
   )
   return user ?? null
+}
+
+function telegramLinkReturnUrl(origin: string, returnTo: string | undefined, error?: string): string {
+  const url = new URL(safeReturnPath(returnTo) ?? '/account', origin)
+  if (error) {
+    url.searchParams.set('telegramLinkError', error)
+    url.searchParams.delete('telegramLink')
+  } else {
+    url.searchParams.set('telegramLink', 'success')
+    url.searchParams.delete('telegramLinkError')
+  }
+  return url.toString()
 }
 
 function buildTelegramCompletionPath(input: {
@@ -774,6 +787,65 @@ router.get('/auth/telegram', async (req, res) => {
   }
 })
 
+router.get('/auth/telegram/status', requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const pool = getPool()
+    if (!pool || !req.userId) {
+      res.status(503).json({ message: 'Authentication service unavailable.' })
+      return
+    }
+    const [[identity]] = await pool.query<any[]>(
+      `SELECT provider_username FROM user_auth_providers
+       WHERE provider = 'telegram' AND user_id = ?
+       LIMIT 1`,
+      [req.userId],
+    )
+    const cfg = await getSettings(pool, ['telegram_client_id', 'telegram_client_secret'])
+    res.setHeader('Cache-Control', 'no-store')
+    res.json({
+      available: !!cfg.telegram_client_id?.trim() && !!cfg.telegram_client_secret?.trim(),
+      linked: !!identity,
+      username: identity?.provider_username ?? null,
+    })
+  } catch (err: any) {
+    console.error('[oauth/telegram/status]', err?.message ?? err)
+    res.status(503).json({ message: 'Could not load Telegram account status.' })
+  }
+})
+
+router.post('/auth/telegram/link/start', requireAuth, async (req: AuthRequest, res) => {
+  const origin = getOrigin(req)
+  try {
+    const pool = getPool()
+    if (!pool || !req.userId) {
+      res.status(503).json({ message: 'Authentication service unavailable.' })
+      return
+    }
+    const cfg = await getSettings(pool, ['telegram_client_id', 'telegram_client_secret'])
+    if (!cfg.telegram_client_id || !cfg.telegram_client_secret) {
+      res.status(503).json({ message: 'Telegram sign-in is not configured yet.' })
+      return
+    }
+    const returnTo = safeReturnPath((req.body as { returnTo?: unknown })?.returnTo)
+      ?? (req.userRole === 'escort' ? '/my-profile' : req.userRole === 'admin' ? '/admin' : '/account')
+    const nonce = randomUUID()
+    const codeVerifier = randomBytes(32).toString('base64url')
+    const state = await createOAuthState(returnTo, undefined, {
+      nonce,
+      codeVerifier,
+      linkUserId: req.userId,
+    })
+    setOAuthStateCookie(res, state, origin, 'telegram')
+    res.setHeader('Cache-Control', 'no-store')
+    res.json({
+      authorizationUrl: telegramAuthorizationUrl(origin, cfg.telegram_client_id, state, nonce, codeVerifier),
+    })
+  } catch (err: any) {
+    console.error('[oauth/telegram/link/start]', err?.message ?? err)
+    res.status(500).json({ message: 'Could not start Telegram linking. Please try again.' })
+  }
+})
+
 router.get('/auth/telegram/callback', async (req, res) => {
   const origin = getOrigin(req)
   let oauthState: Awaited<ReturnType<typeof readOAuthState>>
@@ -785,15 +857,19 @@ router.get('/auth/telegram/callback', async (req, res) => {
     return
   }
 
+  const redirectTelegramError = (message: string) => {
+    if (oauthState.linkUserId) {
+      safeRedirect(res, telegramLinkReturnUrl(origin, oauthState.returnTo, message))
+      return
+    }
+    safeRedirect(res, loginErrorUrl(origin, message, oauthState.returnTo))
+  }
+
   let stage = 'read callback'
   try {
     const { code, error: oauthError } = req.query as Record<string, string>
     if (oauthError || !code) {
-      safeRedirect(res, loginErrorUrl(
-        origin,
-        oauthError === 'access_denied' ? 'Telegram sign-in was cancelled.' : 'Telegram sign-in failed.',
-        oauthState.returnTo,
-      ))
+      redirectTelegramError(oauthError === 'access_denied' ? 'Telegram sign-in was cancelled.' : 'Telegram sign-in failed.')
       return
     }
     if (!oauthState.codeVerifier) throw new Error('Missing Telegram PKCE verifier')
@@ -801,14 +877,14 @@ router.get('/auth/telegram/callback', async (req, res) => {
     stage = 'load database'
     const pool = getPool()
     if (!pool) {
-      safeRedirect(res, loginErrorUrl(origin, 'Database unavailable.', oauthState.returnTo))
+      redirectTelegramError('Database unavailable. Please try again.')
       return
     }
 
     stage = 'load Telegram credentials'
     const cfg = await getSettings(pool, ['telegram_client_id', 'telegram_client_secret'])
     if (!cfg.telegram_client_id || !cfg.telegram_client_secret) {
-      safeRedirect(res, loginErrorUrl(origin, 'Telegram login is not configured yet.', oauthState.returnTo))
+      redirectTelegramError('Telegram login is not configured yet.')
       return
     }
 
@@ -827,7 +903,7 @@ router.get('/auth/telegram/callback', async (req, res) => {
     })
     if (!tokenRes.ok) {
       console.error('[oauth/telegram] token exchange:', await tokenRes.text())
-      safeRedirect(res, loginErrorUrl(origin, 'Telegram sign-in failed. Please try again.', oauthState.returnTo))
+      redirectTelegramError('Telegram sign-in failed. Please try again.')
       return
     }
     const tokens = await tokenRes.json() as { id_token?: string }
@@ -837,8 +913,10 @@ router.get('/auth/telegram/callback', async (req, res) => {
     const { payload } = await jwtVerify(tokens.id_token, telegramJwks, {
       issuer: 'https://oauth.telegram.org',
       audience: cfg.telegram_client_id,
-      nonce: oauthState.nonce,
     })
+    if (payload.nonce !== oauthState.nonce) {
+      throw new Error('Telegram identity nonce did not match')
+    }
     if (typeof payload.sub !== 'string' || !payload.sub) {
       throw new Error('Telegram identity has no subject')
     }
@@ -861,9 +939,70 @@ router.get('/auth/telegram/callback', async (req, res) => {
 
     stage = 'resolve linked account'
     const linkedUser = await getLinkedTelegramUser(pool, telegramUserId)
+    if (oauthState.linkUserId) {
+      if (linkedUser && Number(linkedUser.id) !== oauthState.linkUserId) {
+        redirectTelegramError('This Telegram account is already linked to another Wet3Camp account. Sign in to that account first.')
+        return
+      }
+      try {
+        await pool.transaction(async query => {
+          const [accountRows] = await query(
+            'SELECT id, is_active FROM users WHERE id = ? LIMIT 1 FOR UPDATE',
+            [oauthState.linkUserId],
+          )
+          const account = (accountRows as any[])[0]
+          if (!account || !Number(account.is_active)) throw new Error('ACCOUNT_INACTIVE')
+
+          const [identityRows] = await query(
+            `SELECT user_id FROM user_auth_providers
+             WHERE provider = 'telegram' AND provider_user_id = ?
+             LIMIT 1 FOR UPDATE`,
+            [telegramUserId],
+          )
+          const identity = (identityRows as any[])[0]
+          if (identity && Number(identity.user_id) !== oauthState.linkUserId) {
+            throw new Error('IDENTITY_LINKED_ELSEWHERE')
+          }
+
+          const [providerRows] = await query(
+            `SELECT provider_user_id FROM user_auth_providers
+             WHERE provider = 'telegram' AND user_id = ?
+             LIMIT 1 FOR UPDATE`,
+            [oauthState.linkUserId],
+          )
+          const currentProvider = (providerRows as any[])[0]
+          if (currentProvider && String(currentProvider.provider_user_id) !== telegramUserId) {
+            throw new Error('ACCOUNT_HAS_TELEGRAM')
+          }
+          if (!identity && !currentProvider) {
+            await query(
+              `INSERT INTO user_auth_providers
+                 (user_id, provider, provider_user_id, provider_username, created_at)
+               VALUES (?, 'telegram', ?, ?, NOW())`,
+              [oauthState.linkUserId, telegramUserId, telegramUsername],
+            )
+          }
+        })
+      } catch (err: any) {
+        console.error('[oauth/telegram/callback] account linking failed:', err?.message ?? err)
+        const message = err?.message === 'ACCOUNT_INACTIVE'
+          ? 'This Wet3Camp account is inactive. Contact support.'
+          : err?.message === 'ACCOUNT_HAS_TELEGRAM'
+            ? 'A different Telegram account is already linked to this Wet3Camp account.'
+            : err?.message === 'IDENTITY_LINKED_ELSEWHERE'
+              ? 'This Telegram account is already linked to another Wet3Camp account. Sign in to that account first.'
+              : 'Could not link Telegram to this account. Please try again.'
+        redirectTelegramError(message)
+        return
+      }
+      clearTelegramPendingCookie(res, origin)
+      safeRedirect(res, telegramLinkReturnUrl(origin, oauthState.returnTo))
+      return
+    }
+
     if (linkedUser) {
       if (!Number(linkedUser.is_active)) {
-        safeRedirect(res, loginErrorUrl(origin, 'This Wet3Camp account is inactive. Contact support.', oauthState.returnTo))
+        redirectTelegramError('This Wet3Camp account is inactive. Contact support.')
         return
       }
       let escortProfile: any = null
@@ -904,11 +1043,7 @@ router.get('/auth/telegram/callback', async (req, res) => {
     safeRedirect(res, `${origin}/auth/telegram/continue`)
   } catch (err: any) {
     console.error(`[oauth/telegram/callback] stage=${stage}:`, err?.message ?? err)
-    safeRedirect(res, loginErrorUrl(
-      origin,
-      'Telegram sign-in could not be completed. Please try again or use email.',
-      oauthState.returnTo,
-    ))
+    redirectTelegramError('Telegram sign-in could not be completed. Please try again or use email.')
   }
 })
 
