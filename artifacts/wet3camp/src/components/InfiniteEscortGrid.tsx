@@ -50,24 +50,30 @@ export default function InfiniteEscortGrid({
   activeCategory = 'all',
   priorityCity = 'Nairobi',
   activeService = '',
+  sort = 'featured',
 }: {
   activeCategory?: string
   priorityCity?: string
   activeService?: string
+  sort?: 'featured' | 'newest'
 }) {
   const { isFollowing, toggleFollow } = useFollow()
   const { user } = useAuth()
   const { isFavorite, toggleFavorite } = useFavorites()
   const { isOnline } = useOnlineStatus()
 
-  const { escorts: apiEscorts, fromApi, isLoading } = useAllEscorts({ service: activeService || undefined })
+  const { escorts: apiEscorts, fromApi, isLoading } = useAllEscorts({
+    service: activeService || undefined,
+    sort,
+  })
 
   const allEscorts = React.useMemo(() => {
     if (!fromApi) return []
     const withCity = apiEscorts.filter((e: any) => e.city === priorityCity)
     const others   = apiEscorts.filter((e: any) => e.city !== priorityCity)
-    return sortEscorts([...withCity, ...others])
-  }, [apiEscorts, fromApi, priorityCity])
+    const cityPrioritized = [...withCity, ...others]
+    return sort === 'newest' ? cityPrioritized : sortEscorts(cityPrioritized)
+  }, [apiEscorts, fromApi, priorityCity, sort])
 
   const filtered = React.useMemo(() => {
     if (activeCategory === 'all')       return allEscorts
