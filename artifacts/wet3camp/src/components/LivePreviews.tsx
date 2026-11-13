@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Link } from 'wouter'
 import { Play, Radio } from 'lucide-react'
+import { getSlug } from '@/data/escorts'
+import { api, type ApiEscort } from '@/lib/api'
 
 export interface PreviewClip {
   id: string
@@ -174,21 +176,55 @@ export function PreviewVideo({ clip, className, rounded = false }: { clip: Previ
 }
 
 export function PreviewStories() {
-  const { clips, loading } = useLivePreviewClips()
+  const { clips, loading: clipsLoading, error: clipsError } = useLivePreviewClips()
+  const [profiles, setProfiles] = useState<ApiEscort[]>([])
+  const [profilesLoading, setProfilesLoading] = useState(true)
   const [startIndex, setStartIndex] = useState(0)
 
   useEffect(() => {
-    if (clips.length < 2) {
+    let active = true
+    const loadProfiles = () => {
+      api.escorts.list({ sort: 'newest', limit: 12 })
+        .then(result => {
+          if (active) setProfiles(Array.isArray(result.data) ? result.data : [])
+        })
+        .catch(() => {
+          if (active) setProfiles([])
+        })
+        .finally(() => {
+          if (active) setProfilesLoading(false)
+        })
+    }
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') loadProfiles()
+    }
+
+    loadProfiles()
+    const interval = window.setInterval(() => {
+      if (!document.hidden) loadProfiles()
+    }, 60000)
+    document.addEventListener('visibilitychange', refreshWhenVisible)
+    return () => {
+      active = false
+      window.clearInterval(interval)
+      document.removeEventListener('visibilitychange', refreshWhenVisible)
+    }
+  }, [])
+
+  const storyCount = clips.length || profiles.length
+  useEffect(() => {
+    if (storyCount < 2) {
       setStartIndex(0)
       return
     }
-    setStartIndex(Math.floor(Math.random() * clips.length))
-    const interval = window.setInterval(() => {
-      setStartIndex(current => (current + 1) % clips.length)
+    setStartIndex(Math.floor(Math.random() * storyCount))
+    const rotationInterval = window.setInterval(() => {
+      setStartIndex(current => (current + 1) % storyCount)
     }, 15000)
-    return () => window.clearInterval(interval)
-  }, [clips.length])
+    return () => window.clearInterval(rotationInterval)
+  }, [storyCount])
 
+  const loading = clipsLoading || (clips.length === 0 && profilesLoading)
   if (loading) {
     return (
       <section className="w-full px-3 sm:px-5 py-4 border-b border-color bg-dark-bg" aria-label="Loading profile previews">
@@ -199,18 +235,36 @@ export function PreviewStories() {
       </section>
     )
   }
-  if (clips.length === 0) return null
-  const visibleClips = Array.from(
-    { length: Math.min(6, clips.length) },
-    (_, index) => clips[(startIndex + index) % clips.length],
-  )
+  const showingClips = clips.length > 0
+  const visibleClips = showingClips
+    ? Array.from(
+        { length: Math.min(6, clips.length) },
+        (_, index) => clips[(startIndex + index) % clips.length],
+      )
+    : []
+  const visibleProfiles = !showingClips
+    ? Array.from(
+        { length: Math.min(6, profiles.length) },
+        (_, index) => profiles[(startIndex + index) % profiles.length],
+      )
+    : []
+
+  const title = showingClips ? 'Community videos' : profiles.length ? 'Latest profiles' : 'Live Now'
+  const subtitle = showingClips
+    ? 'Recorded profile clips'
+    : profiles.length
+      ? 'Recently added escorts'
+      : clipsError
+        ? 'Recent videos could not be loaded'
+        : 'No active broadcasts right now'
+
   return (
-    <section className="w-full px-3 sm:px-5 py-4 border-b border-color bg-dark-bg" aria-label="Community profile videos">
+    <section className="w-full px-3 sm:px-5 py-4 border-b border-color bg-dark-bg" aria-label={title}>
       <div className="mb-3 flex items-center gap-3">
         <span className="h-7 w-1 rounded-full bg-gradient-to-b from-amber-200 via-amber-500 to-amber-900" aria-hidden="true" />
         <div className="min-w-0">
-          <p className="text-xs font-bold text-text-light">Community videos</p>
-          <p className="text-[10px] text-text-muted">Recorded profile clips</p>
+          <p className="text-xs font-bold text-text-light">{title}</p>
+          <p className="text-[10px] text-text-muted">{subtitle}</p>
         </div>
         <span className="ml-auto h-px w-12 bg-gradient-to-r from-transparent to-amber-200/50 sm:w-24" aria-hidden="true" />
       </div>
@@ -223,10 +277,57 @@ export function PreviewStories() {
             <p className="max-w-[82px] truncate text-center text-[10px] font-semibold text-text-light" title={clip.name}>{clip.name}</p>
           </div>
         ))}
-        <Link href="/videos" className="flex w-[76px] flex-shrink-0 flex-col items-center gap-1.5 text-text-muted hover:text-text-light">
-          <span className="flex h-[76px] w-[76px] items-center justify-center rounded-full border border-dashed border-color bg-card-bg"><Play size={20} /></span>
-          <span className="text-[10px] font-semibold">More clips</span>
-        </Link>
+        {visibleProfiles.map(profile => {
+          const photo = profile.image
+            ? profile.image.startsWith('http')
+              ? `/api/image-proxy?url=${encodeURIComponent(profile.image)}`
+              : profile.image
+            : ''
+          return (
+            <Link
+              key={profile.id}
+              href={`/@${getSlug(profile.name)}`}
+              className="group flex w-[82px] flex-shrink-0 flex-col items-center gap-1.5"
+              data-testid={`story-profile-${profile.id}`}
+            >
+              <span className="relative block h-[76px] w-[76px] rounded-full bg-gradient-to-br from-amber-200 via-amber-500 to-amber-900 p-[3px] shadow-[0_0_14px_#FFD70040] transition-shadow group-hover:shadow-[0_0_20px_#FFD70070]">
+                <span className="block h-full w-full rounded-full bg-dark-bg p-[2px]">
+                  <span className="block h-full w-full overflow-hidden rounded-full bg-card-bg">
+                    {photo ? (
+                      <img src={photo} alt={profile.name} loading="lazy" className="h-full w-full object-cover" />
+                    ) : (
+                      <span className="flex h-full w-full items-center justify-center text-xl font-bold text-amber-200">
+                        {(profile.name || '?').charAt(0).toUpperCase()}
+                      </span>
+                    )}
+                  </span>
+                </span>
+                <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 rounded-full border border-dark-bg bg-[#B8860B] px-2 py-0.5 text-[8px] font-black leading-none tracking-wide text-white">
+                  NEW
+                </span>
+              </span>
+              <span className="max-w-[82px] truncate text-center text-[10px] font-semibold text-text-light" title={profile.name}>
+                {profile.name.split(' ')[0]}
+              </span>
+            </Link>
+          )
+        })}
+        {clips.length > 0 ? (
+          <Link href="/videos" className="flex w-[76px] flex-shrink-0 flex-col items-center gap-1.5 text-text-muted hover:text-text-light">
+            <span className="flex h-[76px] w-[76px] items-center justify-center rounded-full border border-dashed border-color bg-card-bg"><Play size={20} /></span>
+            <span className="text-[10px] font-semibold">More clips</span>
+          </Link>
+        ) : profiles.length > 0 ? (
+          <Link href="/search" className="flex w-[76px] flex-shrink-0 flex-col items-center gap-1.5 text-text-muted hover:text-text-light">
+            <span className="flex h-[76px] w-[76px] items-center justify-center rounded-full border border-dashed border-color bg-card-bg"><Play size={20} /></span>
+            <span className="text-[10px] font-semibold">Browse</span>
+          </Link>
+        ) : (
+          <Link href="/live" className="flex w-[76px] flex-shrink-0 flex-col items-center gap-1.5 text-text-muted hover:text-text-light">
+            <span className="flex h-[76px] w-[76px] items-center justify-center rounded-full border border-dashed border-color bg-card-bg"><Radio size={20} /></span>
+            <span className="text-[10px] font-semibold">See live</span>
+          </Link>
+        )}
       </div>
     </section>
   )
