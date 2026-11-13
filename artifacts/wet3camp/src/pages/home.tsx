@@ -3,7 +3,6 @@ import Header from '@/components/Header'
 import Sidebar from '@/components/Sidebar'
 import FeaturedCarousel from '@/components/FeaturedCarousel'
 import InfiniteEscortGrid from '@/components/InfiniteEscortGrid'
-import LatestHomepageContent from '@/components/LatestHomepageContent'
 import { Users, MapPin, ShieldCheck, Flame, Video, Hotel, Plane, ShoppingBag, Calendar, Newspaper, Navigation, Radio } from 'lucide-react'
 import { Link } from 'wouter'
 import { CITIES } from '@/data/escorts'
@@ -312,8 +311,6 @@ export default function Home() {
         {/* Live broadcasts or clearly marked prerecorded profile previews */}
         <TrendingLive />
 
-        <LatestHomepageContent />
-
         {/* Browse Section */}
         <div className="w-full">
           <div className="px-3 sm:px-5 py-3 border-b border-color flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
@@ -378,7 +375,12 @@ export default function Home() {
             </div>
           )}
 
-          <InfiniteEscortGrid activeCategory={activeCategory} priorityCity={detectedCity || 'Nairobi'} activeService={activeService} />
+          <InfiniteEscortGrid
+            activeCategory={activeCategory}
+            priorityCity={detectedCity || 'Nairobi'}
+            activeService={activeService}
+            sort="newest"
+          />
         </div>
 
         <SeoFooter />
