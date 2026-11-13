@@ -9,7 +9,7 @@
 - [Official Wet3Camp branding](logo-favicon.md) — Use the official wordmark, square mark, and near-black/burgundy/gold palette consistently
 - [Dev PostgreSQL extra columns](dev-pg-columns.md) — escorts table needed gender, instagram, facebook, price_incall, price_outcall, price_incall_overnight, price_outcall_overnight, source_site, incall, outcall; profile_claims and user_follows tables also added; all already in wet3camp-migration.sql for MySQL
 - [Live streaming system](live-streaming.md) — live video is an ephemeral native browser stream relayed by the API process; don't promise recording or continuity through API restarts.
-- [Homepage content freshness](homepage-content-freshness.md) — Show current profiles and posts and rotate active live selections so repeat visits vary.
+- [Homepage content freshness](homepage-content-freshness.md) — Keep freshness inside existing homepage areas; preserve rounded live rail and keep blogs on the Blog page.
 - [MySQL-only production rule](mysql-only.md) — Replit PostgreSQL is DEV-ONLY fallback; NEVER add pg-specific SQL, NEVER add RETURNING/::cast syntax to app code; CompatPool in db.ts handles translation; pool.query<T[]>() returns [rows, fields] style tuple for both backends
 - [Wouter v3 at-sign routing](wouter-at-routing.md) — Wouter v3 cannot match /@:slug patterns; use AtProfileRoute component + useLocation() regex instead
 - [Manual GitHub deployment](github-autodeploy.md) — API sync can leave local Git behind; reconcile remote history safely and keep production deployment manual
