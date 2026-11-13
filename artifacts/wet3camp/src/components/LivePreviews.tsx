@@ -22,23 +22,6 @@ interface EscortVideoRow {
   escort_id?: number
 }
 
-const FALLBACK_CLIPS: PreviewClip[] = [
-  { id: 'nr-serenity', name: 'Serenity Spa', title: 'A short profile preview', videoUrl: 'https://nairobiraha.com/wp-content/uploads/1741084499810/17424592838201.mp4' },
-  { id: 'nr-clarabelle', name: 'Clarabelle Girls', title: 'A short profile preview', videoUrl: 'https://nairobiraha.com/wp-content/uploads/1741043003141/17410430633104.mp4' },
-  { id: 'nr-zira', name: 'Zira', title: 'A short profile preview', videoUrl: 'https://nairobiraha.com/wp-content/uploads/1742024826895/17420249584415.mp4' },
-  { id: 'nr-lexxie', name: 'Lexxie Spa', title: 'A short profile preview', videoUrl: 'https://nairobiraha.com/wp-content/uploads/174104570734/17424595029770.mp4' },
-  { id: 'nr-samba', name: 'Samba', title: 'A short profile preview', videoUrl: 'https://nairobiraha.com/wp-content/uploads/1741043522179/17410435862684.mp4' },
-  { id: 'nr-soraya', name: 'Soraya', title: 'A short profile preview', videoUrl: 'https://nairobiraha.com/wp-content/uploads/1741082620970/17432585428423.mp4' },
-  { id: 'nr-nikita', name: 'Nikita', title: 'A short profile preview', videoUrl: 'https://nairobiraha.com/wp-content/uploads/1742107473274/17421082737474.mp4' },
-  { id: 'nr-shayana', name: 'Shayana', title: 'A short profile preview', videoUrl: 'https://nairobiraha.com/wp-content/uploads/1741079347470/17416846763399.mp4' },
-  { id: 'nr-sherry', name: 'Sherry', title: 'A short profile preview', videoUrl: 'https://nairobiraha.com/wp-content/uploads/1781335767695/17813699942409.mp4' },
-  { id: 'nr-milly', name: 'Milly', title: 'A short profile preview', videoUrl: 'https://nairobiraha.com/wp-content/uploads/1741269649363/17498927817844.mp4' },
-  { id: 'nr-becky', name: 'Becky', title: 'A short profile preview', videoUrl: 'https://nairobiraha.com/wp-content/uploads/1741081313421/17410814477895.mp4' },
-  { id: 'nr-mwende', name: 'Mwende', title: 'A short profile preview', videoUrl: 'https://nairobiraha.com/wp-content/uploads/1741077850950/17680960868928.mp4' },
-  { id: 'nr-profile-preview', name: 'Profile Preview', title: 'A short profile preview', videoUrl: 'https://nairobiraha.com/wp-content/uploads/1741040819260/17415985638328.mp4' },
-  { id: 'nr-akoth', name: 'Akoth', title: 'A short profile preview', videoUrl: 'https://nairobiraha.com/wp-content/uploads/1741040245930/17410404031948.mp4' },
-]
-
 function safeMediaUrl(value?: string): string | undefined {
   if (!value || typeof window === 'undefined') return undefined
   try {
@@ -75,31 +58,47 @@ function toPreviewClip(row: EscortVideoRow): PreviewClip | null {
 export function useLivePreviewClips() {
   const [clips, setClips] = useState<PreviewClip[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
 
   useEffect(() => {
     let active = true
-    fetch('/api/escort-videos?cat=Free')
-      .then(response => {
-        if (!response.ok) throw new Error('Could not load clips')
-        return response.json()
-      })
-      .then((rows: EscortVideoRow[]) => {
-        if (!active) return
-        const uploaded = Array.isArray(rows)
-          ? rows.map(toPreviewClip).filter((clip): clip is PreviewClip => clip !== null)
-          : []
-        setClips(uploaded.length ? uploaded : FALLBACK_CLIPS)
-      })
-      .catch(() => {
-        if (active) setClips(FALLBACK_CLIPS)
-      })
-      .finally(() => {
-        if (active) setLoading(false)
-      })
-    return () => { active = false }
+    const fetchClips = () => {
+      fetch('/api/escort-videos?cat=Free', { cache: 'no-store' })
+        .then(response => {
+          if (!response.ok) throw new Error('Could not load clips')
+          return response.json()
+        })
+        .then((rows: EscortVideoRow[]) => {
+          if (!active) return
+          const latest = Array.isArray(rows)
+            ? rows.map(toPreviewClip).filter((clip): clip is PreviewClip => clip !== null).slice(0, 24)
+            : []
+          setClips(latest)
+          setError(false)
+        })
+        .catch(() => {
+          if (active) setError(true)
+        })
+        .finally(() => {
+          if (active) setLoading(false)
+        })
+    }
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') fetchClips()
+    }
+    fetchClips()
+    const interval = window.setInterval(() => {
+      if (!document.hidden) fetchClips()
+    }, 60000)
+    document.addEventListener('visibilitychange', refreshWhenVisible)
+    return () => {
+      active = false
+      window.clearInterval(interval)
+      document.removeEventListener('visibilitychange', refreshWhenVisible)
+    }
   }, [])
 
-  return { clips, loading }
+  return { clips, loading, error }
 }
 
 export function PreviewVideo({ clip, className, rounded = false }: { clip: PreviewClip; className: string; rounded?: boolean }) {
@@ -176,6 +175,20 @@ export function PreviewVideo({ clip, className, rounded = false }: { clip: Previ
 
 export function PreviewStories() {
   const { clips, loading } = useLivePreviewClips()
+  const [startIndex, setStartIndex] = useState(0)
+
+  useEffect(() => {
+    if (clips.length < 2) {
+      setStartIndex(0)
+      return
+    }
+    setStartIndex(Math.floor(Math.random() * clips.length))
+    const interval = window.setInterval(() => {
+      setStartIndex(current => (current + 1) % clips.length)
+    }, 15000)
+    return () => window.clearInterval(interval)
+  }, [clips.length])
+
   if (loading) {
     return (
       <section className="w-full px-3 sm:px-5 py-4 border-b border-color bg-dark-bg" aria-label="Loading profile previews">
@@ -186,6 +199,11 @@ export function PreviewStories() {
       </section>
     )
   }
+  if (clips.length === 0) return null
+  const visibleClips = Array.from(
+    { length: Math.min(6, clips.length) },
+    (_, index) => clips[(startIndex + index) % clips.length],
+  )
   return (
     <section className="w-full px-3 sm:px-5 py-4 border-b border-color bg-dark-bg" aria-label="Community profile videos">
       <div className="mb-3 flex items-center gap-3">
@@ -197,7 +215,7 @@ export function PreviewStories() {
         <span className="ml-auto h-px w-12 bg-gradient-to-r from-transparent to-amber-200/50 sm:w-24" aria-hidden="true" />
       </div>
       <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-2">
-        {clips.map(clip => (
+        {visibleClips.map(clip => (
           <div key={clip.id} className="flex w-[82px] flex-shrink-0 flex-col items-center gap-1.5">
             <div className="relative h-[76px] w-[76px] overflow-hidden rounded-full border border-amber-200/50 bg-card-bg p-[2px] shadow-[0_0_0_3px_rgba(255,255,255,0.04)]">
               <PreviewVideo clip={clip} className="h-full w-full object-cover" rounded />
@@ -215,12 +233,19 @@ export function PreviewStories() {
 }
 
 export function PreviewClipGrid() {
-  const { clips, loading } = useLivePreviewClips()
+  const { clips, loading, error } = useLivePreviewClips()
   if (loading) {
     return (
       <div className="grid grid-cols-2 gap-3 px-3 py-4 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 sm:px-5" aria-label="Loading preview clips">
         {[0, 1, 2, 3, 4, 5].map(index => <div key={index} className="aspect-[3/4] animate-pulse rounded-2xl bg-card-bg" />)}
       </div>
+    )
+  }
+  if (clips.length === 0) {
+    return (
+      <p className="px-4 py-12 text-center text-sm text-text-muted" role="status">
+        {error ? 'Recent videos could not be loaded right now.' : 'No recent community clips are available yet.'}
+      </p>
     )
   }
   return (
