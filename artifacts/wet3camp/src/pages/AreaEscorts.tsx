@@ -126,7 +126,6 @@ export default function AreaEscorts() {
             city: match.sourceCity,
             area: match.sourceArea,
             exactLocation: true,
-            claimedOnly: true,
             limit: 24,
             sort: 'featured',
           }).then(response => {
