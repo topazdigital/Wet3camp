@@ -201,7 +201,6 @@ export default function CityEscorts() {
         return api.escorts.list({
           city: match.sourceCity,
           exactLocation: true,
-          claimedOnly: true,
           limit: 24,
           sort: 'featured',
         }).then(response => {
