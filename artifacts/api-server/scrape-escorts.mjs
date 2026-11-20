@@ -9,6 +9,7 @@
  *   node scrape-escorts.mjs                       — full scrape all sources
  *   node scrape-escorts.mjs --fast                — skip image downloads (store remote URLs)
  *   node scrape-escorts.mjs --dry-run             — parse only, no DB writes
+ *   node scrape-escorts.mjs --discover-only       — count profile URLs without fetching profiles or writing
  *   node scrape-escorts.mjs --limit=20            — stop after N imports
  *   node scrape-escorts.mjs --source=nairobiraha  — one source only
  *   node scrape-escorts.mjs --source=hookup254
@@ -34,6 +35,7 @@ const USER_AGENT   = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.
 
 const args        = process.argv.slice(2)
 const DRY_RUN     = args.includes('--dry-run')
+const DISCOVER_ONLY = args.includes('--discover-only')
 const FAST_MODE   = args.includes('--fast')
 const UPDATE_MODE = args.includes('--update')
 const LIMIT       = parseInt(args.find(a => a.startsWith('--limit='))?.split('=')[1] || '9999', 10)
@@ -880,6 +882,9 @@ const MAX_NAIROBIRAHA_LISTING_PAGES = 500
 
 function buildNairobirahaListingUrls() {
   return [
+    `${NAIROBIRAHA_BASE}/`,
+    `${NAIROBIRAHA_BASE}/escort/`,
+    `${NAIROBIRAHA_BASE}/escorts/`,
     `${NAIROBIRAHA_BASE}/escorts/page/1/`,
     ...NAIROBIRAHA_CATEGORY_SLUGS.map((category) => `${NAIROBIRAHA_BASE}/${category}/`),
   ]
@@ -1001,32 +1006,35 @@ async function collectNairobirahaListings() {
   if (profiles.length >= LIMIT) return profiles
 
   console.log(`   Discovering ${roots.length} NairobiRaha listing sections (concurrency ${CONCURRENCY})...`)
-  const firstPages = await mapConcurrent(roots, CONCURRENCY, async (url) => {
-    const html = await fetchPage(url, NAIROBIRAHA_BASE)
-    await sleep(DELAY_MS)
-    return { url, html }
-  })
+  const pageQueue = roots.map((rootUrl) => ({ rootUrl, page: 1, url: rootUrl }))
+  const scheduledPages = new Set(pageQueue.map(({ url }) => url))
 
-  const additionalUrls = new Set()
-  for (const { url, html } of firstPages) {
-    if (!html) continue
-    addListings(html)
-    const pageCount = getNairobirahaPageCount(html)
-    for (let page = 2; page <= pageCount; page++) {
-      additionalUrls.add(getNairobirahaPageUrl(url, page))
-    }
-    console.log(`   ${url.replace(NAIROBIRAHA_BASE, '').padEnd(34)} ${pageCount} pages discovered`)
-  }
-
-  const pages = [...additionalUrls]
-  for (let offset = 0; offset < pages.length && profiles.length < LIMIT; offset += CONCURRENCY) {
-    const batch = pages.slice(offset, offset + CONCURRENCY)
-    const results = await mapConcurrent(batch, CONCURRENCY, async (url) => {
-      const html = await fetchPage(url, NAIROBIRAHA_BASE)
+  while (pageQueue.length && profiles.length < LIMIT) {
+    const batch = pageQueue.splice(0, CONCURRENCY)
+    const results = await mapConcurrent(batch, CONCURRENCY, async (item) => {
+      const html = await fetchPage(item.url, NAIROBIRAHA_BASE)
       await sleep(DELAY_MS)
-      return { url, html }
+      return { ...item, html }
     })
-    for (const { html } of results) addListings(html)
+
+    for (const { rootUrl, page, url, html } of results) {
+      if (!html) continue
+      addListings(html)
+      const pageCount = getNairobirahaPageCount(html)
+      if (page === 1) {
+        console.log(`   ${url.replace(NAIROBIRAHA_BASE, '').padEnd(34)} ${pageCount} pages discovered`)
+      }
+
+      // Some NairobiRaha archives show only the next page on page 1, then
+      // reveal later pages as each page is visited. Follow pagination until
+      // no newer page is linked, with the existing per-archive safety cap.
+      for (let nextPage = page + 1; nextPage <= pageCount; nextPage++) {
+        const nextUrl = getNairobirahaPageUrl(rootUrl, nextPage)
+        if (scheduledPages.has(nextUrl)) continue
+        scheduledPages.add(nextUrl)
+        pageQueue.push({ rootUrl, page: nextPage, url: nextUrl })
+      }
+    }
   }
 
   return profiles
@@ -1084,14 +1092,14 @@ async function runUpdateMode(db) {
 async function main() {
   console.log('\n🚀 Wet3Camp Multi-Source Escort Scraper')
   console.log(`   DB:      ${DATABASE_URL ? (IS_MYSQL ? 'MySQL/MariaDB' : 'PostgreSQL') : 'NONE (dry run)'}`)
-  console.log(`   Mode:    ${UPDATE_MODE ? 'UPDATE (re-fetch existing)' : DRY_RUN ? 'DRY RUN' : FAST_MODE ? 'FAST (remote URLs)' : 'FULL (download images)'}`)
+  console.log(`   Mode:    ${UPDATE_MODE ? 'UPDATE (re-fetch existing)' : DISCOVER_ONLY ? 'DISCOVERY ONLY (no profile fetches or DB writes)' : DRY_RUN ? 'DRY RUN' : FAST_MODE ? 'FAST (remote URLs)' : 'FULL (download images)'}`)
   console.log(`   Source:  ${SRC_FILTER || 'ALL (nairobiraha + hookup254)'}`)
   console.log(`   NairobiRaha request concurrency: ${CONCURRENCY} (max 6)`)
   console.log(`   Limit:   ${LIMIT}`)
   console.log()
 
   let db
-  if (!DRY_RUN) {
+  if (!DRY_RUN && !DISCOVER_ONLY) {
     db = await createDb()
     await ensureColumns(db)
     console.log('✅ Database connected\n')
@@ -1158,9 +1166,14 @@ async function main() {
   const total = Math.min(allProfiles.length, LIMIT)
   console.log(`📦 Total unique profile URLs collected: ${total}\n`)
 
+  if (DISCOVER_ONLY) {
+    console.log('Discovery-only mode: skipped profile detail requests and database writes.')
+    return
+  }
+
   if (total === 0) {
     console.log('No profiles found — check network connectivity and source sites')
-    if (!DRY_RUN) await db.end()
+    if (!DRY_RUN && db) await db.end()
     return
   }
 
