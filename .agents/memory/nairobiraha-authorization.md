@@ -14,3 +14,9 @@ The user wants NairobiRaha profiles continuously imported into Wet3Camp and expe
 **Why:** The user reported the count had remained at 134 for two days and asked for ongoing imports at a much larger scale.
 
 **How to apply:** Maintain a recurring sync, but verify the source actually exposes enough profiles; never promise thousands when the available source inventory is smaller.
+
+The user confirms the 147 profiles currently on Wet3Camp production were scraped from NairobiRaha.
+
+**Why:** The user corrected an assumption about the origin of the existing catalog.
+
+**How to apply:** Treat those 147 as existing NairobiRaha imports when estimating how many new profiles a sync could add.
