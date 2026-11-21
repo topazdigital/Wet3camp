@@ -18,6 +18,10 @@ const TIER_RANK: Record<string, number> = {
   elite: 1, vip: 2, premium: 3, standard: 99, free: 99,
 }
 
+const NEWEST_TIER_RANK: Record<string, number> = {
+  elite: 1, vip: 2, premium: 3, standard: 4, free: 5,
+}
+
 function sortEscorts(escorts: any[]): any[] {
   return [...escorts].sort((a, b) => {
     const ra = TIER_RANK[a.tier?.toLowerCase()] ?? 99
@@ -27,6 +31,16 @@ function sortEscorts(escorts: any[]): any[] {
     const aNum = parseInt(String(a.id).replace(/\D/g, '')) || 0
     const bNum = parseInt(String(b.id).replace(/\D/g, '')) || 0
     return bNum - aNum
+  })
+}
+
+function prioritizeTiersKeepingNewestOrder(escorts: any[]): any[] {
+  // The API supplies newest-first results; stable sorting groups tiers without
+  // changing the newest-first order within each tier.
+  return [...escorts].sort((a, b) => {
+    const aRank = NEWEST_TIER_RANK[a.tier?.toLowerCase()] ?? 6
+    const bRank = NEWEST_TIER_RANK[b.tier?.toLowerCase()] ?? 6
+    return aRank - bRank
   })
 }
 
@@ -69,10 +83,12 @@ export default function InfiniteEscortGrid({
 
   const allEscorts = React.useMemo(() => {
     if (!fromApi) return []
+    if (sort === 'newest') return prioritizeTiersKeepingNewestOrder(apiEscorts)
+
     const withCity = apiEscorts.filter((e: any) => e.city === priorityCity)
     const others   = apiEscorts.filter((e: any) => e.city !== priorityCity)
     const cityPrioritized = [...withCity, ...others]
-    return sort === 'newest' ? cityPrioritized : sortEscorts(cityPrioritized)
+    return sortEscorts(cityPrioritized)
   }, [apiEscorts, fromApi, priorityCity, sort])
 
   const filtered = React.useMemo(() => {
