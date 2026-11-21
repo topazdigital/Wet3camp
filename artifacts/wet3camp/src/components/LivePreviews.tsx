@@ -211,18 +211,17 @@ export function PreviewStories() {
     }
   }, [])
 
-  const storyCount = clips.length || profiles.length
   useEffect(() => {
-    if (storyCount < 2) {
+    if (clips.length < 2) {
       setStartIndex(0)
       return
     }
-    setStartIndex(Math.floor(Math.random() * storyCount))
+    setStartIndex(Math.floor(Math.random() * clips.length))
     const rotationInterval = window.setInterval(() => {
-      setStartIndex(current => (current + 1) % storyCount)
+      setStartIndex(current => (current + 1) % clips.length)
     }, 15000)
     return () => window.clearInterval(rotationInterval)
-  }, [storyCount])
+  }, [clips.length])
 
   const loading = clipsLoading || (clips.length === 0 && profilesLoading)
   if (loading) {
@@ -243,10 +242,7 @@ export function PreviewStories() {
       )
     : []
   const visibleProfiles = !showingClips
-    ? Array.from(
-        { length: Math.min(6, profiles.length) },
-        (_, index) => profiles[(startIndex + index) % profiles.length],
-      )
+    ? profiles.slice(0, 6)
     : []
 
   const title = showingClips ? 'Community videos' : profiles.length ? 'Latest profiles' : 'Live Now'
