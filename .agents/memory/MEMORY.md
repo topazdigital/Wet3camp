@@ -2,7 +2,7 @@
 - [Wet3Camp pre-existing TS errors](wet3camp-ts-errors.md) — Web and API typechecks have existing errors; production builds pass, don't treat unrelated failures as regressions
 - [Notifications schema migration](notifications-schema.md) — old schema had title/body/read; new schema uses text/link/dot/avatar/read_at; idempotent ALTER TABLE statements added to wet3camp-migration.sql
 - [Booking policy decision](booking-policy.md) — platform does NOT process payments; bookings are appointment-requests only; escorts+clients arrange payment offline; STK push intentionally excluded
-- [Tier ordering protocol](tier-protocol.md) — elite > vip > premium > standard > free; search page shows Elite section first (large cards), VIP (medium), Premium, then Standard list cards
+- [Tier ordering protocol](tier-protocol.md) — Elite > VIP > Premium > Standard > Free; keep newest profiles first within each tier on freshness-focused lists
 - [Real-data fixes batch](real-data-fixes.md) — Standard tier is FREE; own-profile detection uses escort.user_id vs user.id; 3 new API endpoints: /profile/escort/earnings /profile/escort/followers /profile/escort/subscription; incall/outcall added to edit profile form; OTP requires real SMTP (no demo code leak); Instagram import shows "not configured"; earnings/followers/subscription all from real DB
 - [Social login and claim flow](social-login-claim-flow.md) — preserve claim intent; reviewed duplicate claims merge into the existing canonical profile
 - [Telegram account linking](telegram-account-linking.md) — prioritize Telegram sign-in; link verified identities to existing accounts without changing roles
