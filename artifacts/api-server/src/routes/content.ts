@@ -52,6 +52,237 @@ router.get('/feeds', async (_req, res) => {
   }
 })
 
+function parseFeedMedia(value: unknown): Array<{ type: 'image' | 'video'; url: string }> {
+  try {
+    const parsed = typeof value === 'string' ? JSON.parse(value) : value
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter((item): item is { type: 'image' | 'video'; url: string } =>
+      item && (item.type === 'image' || item.type === 'video') && typeof item.url === 'string'
+    )
+  } catch {
+    return []
+  }
+}
+
+function serializeFeedPost(row: any) {
+  return {
+    ...row,
+    id: String(row.id),
+    escort_id: String(row.escort_id),
+    user_id: String(row.user_id),
+    media: parseFeedMedia(row.media_json),
+  }
+}
+
+function validateFeedMedia(value: unknown, userId: number): Array<{ type: 'image' | 'video'; url: string }> | null {
+  if (!Array.isArray(value) || value.length > 4) return null
+  const ownerUpload = new RegExp(`^/api/uploads/\\d+_${userId}_feed_[a-z0-9._-]+\\.(?:jpeg|jpg|png|webp|gif|mp4|webm|mov)$`, 'i')
+  const items: Array<{ type: 'image' | 'video'; url: string }> = []
+  for (const entry of value) {
+    if (!entry || (entry.type !== 'image' && entry.type !== 'video') || typeof entry.url !== 'string' || !ownerUpload.test(entry.url)) return null
+    const isVideoUrl = /\\.(mp4|webm|mov)$/i.test(entry.url)
+    if (isVideoUrl !== (entry.type === 'video')) return null
+    items.push({ type: entry.type, url: entry.url })
+  }
+  const videos = items.filter(item => item.type === 'video').length
+  if (videos > 1 || (videos === 1 && items.length !== 1)) return null
+  return items
+}
+
+// ── Escort-authored feed posts ──────────────────────────────────────────────────
+router.get('/feeds/posts', async (_req, res) => {
+  const pool = getPool()
+  if (!pool) { res.status(503).json({ message: 'Database not configured' }); return }
+  try {
+    const [rows] = await pool.query<any[]>(`
+      SELECT p.id, p.escort_id, p.user_id, p.body, p.media_json, p.created_at,
+             e.name AS escort_name, e.image AS escort_image, e.city, e.area,
+             e.tier, e.verified, e.online
+      FROM feed_posts p
+      JOIN escorts e ON e.id = p.escort_id
+      WHERE p.is_active = 1 AND e.is_active = 1
+      ORDER BY p.created_at DESC
+      LIMIT 60
+    `)
+    res.json(rows.map(serializeFeedPost))
+  } catch (err: any) {
+    console.error('[feed-posts]', err?.message)
+    res.status(500).json({ message: 'Could not load feed posts' })
+  }
+})
+
+router.post('/feeds/posts', requireAuth, async (req: AuthRequest, res) => {
+  if (req.userRole !== 'escort' || req.userId == null) {
+    res.status(403).json({ message: 'An active escort account is required to post' }); return
+  }
+  const pool = getPool()
+  if (!pool) { res.status(503).json({ message: 'Database not configured' }); return }
+  const body = typeof req.body?.body === 'string' ? req.body.body.trim() : ''
+  if (body.length > 2000) { res.status(400).json({ message: 'Post text must be 2,000 characters or fewer' }); return }
+  const media = validateFeedMedia(req.body?.media, req.userId)
+  if (!media) { res.status(400).json({ message: 'Choose up to four photos or one video uploaded to your account' }); return }
+  if (!body && media.length === 0) { res.status(400).json({ message: 'Add some text or media before posting' }); return }
+  try {
+    const [[escort]] = await pool.query<any[]>(
+      'SELECT id FROM escorts WHERE user_id = ? AND is_active = 1 ORDER BY id DESC LIMIT 1',
+      [req.userId],
+    )
+    if (!escort) { res.status(403).json({ message: 'An active, claimed escort profile is required to post' }); return }
+    const [result] = await pool.query<any>(
+      'INSERT INTO feed_posts (escort_id, user_id, body, media_json, is_active) VALUES (?, ?, ?, ?, 1)',
+      [escort.id, req.userId, body, JSON.stringify(media)],
+    )
+    const newId = result?.insertId ?? result?.id
+    const [[row]] = await pool.query<any[]>(`
+      SELECT p.id, p.escort_id, p.user_id, p.body, p.media_json, p.created_at,
+             e.name AS escort_name, e.image AS escort_image, e.city, e.area,
+             e.tier, e.verified, e.online
+      FROM feed_posts p
+      JOIN escorts e ON e.id = p.escort_id
+      WHERE p.id = ? LIMIT 1
+    `, [newId])
+    if (!row) { res.status(500).json({ message: 'Post was saved but could not be loaded' }); return }
+    res.status(201).json(serializeFeedPost(row))
+  } catch (err: any) {
+    console.error('[create-feed-post]', err?.message)
+    res.status(500).json({ message: 'Could not publish your post' })
+  }
+})
+
+router.delete('/feeds/posts/:id', requireAuth, async (req: AuthRequest, res) => {
+  const postId = Number(req.params.id)
+  if (!Number.isSafeInteger(postId) || postId <= 0) { res.status(400).json({ message: 'Invalid post ID' }); return }
+  const pool = getPool()
+  if (!pool) { res.status(503).json({ message: 'Database not configured' }); return }
+  try {
+    const [result] = await pool.query<any>(
+      req.userRole === 'admin'
+        ? 'UPDATE feed_posts SET is_active = 0 WHERE id = ? AND is_active = 1'
+        : 'UPDATE feed_posts SET is_active = 0 WHERE id = ? AND user_id = ? AND is_active = 1',
+      req.userRole === 'admin' ? [postId] : [postId, req.userId],
+    )
+    if (!Number(result?.affectedRows ?? result?.rowCount ?? 0)) { res.status(404).json({ message: 'Post not found or not yours' }); return }
+    res.json({ success: true })
+  } catch (err: any) {
+    console.error('[delete-feed-post]', err?.message)
+    res.status(500).json({ message: 'Could not remove post' })
+  }
+})
+
+router.post('/feeds/posts/:id/report', requireAuth, async (req: AuthRequest, res) => {
+  const postId = Number(req.params.id)
+  if (!Number.isSafeInteger(postId) || postId <= 0) { res.status(400).json({ message: 'Invalid post ID' }); return }
+  const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim().slice(0, 100) : ''
+  const details = typeof req.body?.details === 'string' ? req.body.details.trim().slice(0, 500) : ''
+  const allowedReasons = ['Spam', 'Inappropriate content', 'Unauthorized media', 'Other']
+  if (!allowedReasons.includes(reason)) { res.status(400).json({ message: 'Choose a valid report reason' }); return }
+  const pool = getPool()
+  if (!pool) { res.status(503).json({ message: 'Database not configured' }); return }
+  try {
+    const [[post]] = await pool.query<any[]>('SELECT id FROM feed_posts WHERE id = ? AND is_active = 1 LIMIT 1', [postId])
+    if (!post) { res.status(404).json({ message: 'Post not found' }); return }
+    await pool.query(
+      'INSERT IGNORE INTO feed_post_reports (post_id, reporter_id, reason, details, status) VALUES (?, ?, ?, ?, ?)',
+      [postId, req.userId, reason, details || null, 'pending'],
+    )
+    res.json({ success: true })
+  } catch (err: any) {
+    console.error('[report-feed-post]', err?.message)
+    res.status(500).json({ message: 'Could not submit report' })
+  }
+})
+
+router.get('/feeds/posts/:id/likes', async (req, res) => {
+  const postId = Number(req.params.id)
+  const guestKey = typeof req.query.gk === 'string' ? req.query.gk.slice(0, 64) : ''
+  if (!Number.isSafeInteger(postId) || postId <= 0) { res.status(400).json({ message: 'Invalid post ID' }); return }
+  const pool = getPool()
+  if (!pool) { res.json({ count: 0, liked: false }); return }
+  try {
+    const [[post]] = await pool.query<any[]>('SELECT id FROM feed_posts WHERE id = ? AND is_active = 1 LIMIT 1', [postId])
+    if (!post) { res.status(404).json({ message: 'Post not found' }); return }
+    const [[row]] = await pool.query<any[]>('SELECT COUNT(*) AS cnt FROM feed_post_likes WHERE post_id = ?', [postId])
+    let liked = false
+    if (guestKey) {
+      const [[like]] = await pool.query<any[]>('SELECT id FROM feed_post_likes WHERE post_id = ? AND guest_key = ? LIMIT 1', [postId, guestKey])
+      liked = !!like
+    }
+    res.json({ count: Number(row?.cnt ?? 0), liked })
+  } catch {
+    res.json({ count: 0, liked: false })
+  }
+})
+
+router.post('/feeds/posts/:id/like', async (req, res) => {
+  const postId = Number(req.params.id)
+  const { guestKey, unlike } = req.body as { guestKey?: string; unlike?: boolean }
+  if (!Number.isSafeInteger(postId) || postId <= 0) { res.status(400).json({ message: 'Invalid post ID' }); return }
+  if (typeof guestKey !== 'string' || !guestKey.trim() || guestKey.length > 64) { res.status(400).json({ message: 'guestKey required' }); return }
+  const pool = getPool()
+  if (!pool) { res.status(503).json({ message: 'Database not configured' }); return }
+  try {
+    const [[post]] = await pool.query<any[]>('SELECT id FROM feed_posts WHERE id = ? AND is_active = 1 LIMIT 1', [postId])
+    if (!post) { res.status(404).json({ message: 'Post not found' }); return }
+    if (unlike) {
+      await pool.query('DELETE FROM feed_post_likes WHERE post_id = ? AND guest_key = ?', [postId, guestKey.trim()])
+    } else {
+      await pool.query('INSERT IGNORE INTO feed_post_likes (post_id, guest_key) VALUES (?, ?)', [postId, guestKey.trim()])
+    }
+    const [[row]] = await pool.query<any[]>('SELECT COUNT(*) AS cnt FROM feed_post_likes WHERE post_id = ?', [postId])
+    res.json({ count: Number(row?.cnt ?? 0), liked: !unlike })
+  } catch (err: any) {
+    res.status(500).json({ message: err?.message ?? 'Could not update like' })
+  }
+})
+
+router.get('/feeds/posts/:id/comments', async (req, res) => {
+  const postId = Number(req.params.id)
+  if (!Number.isSafeInteger(postId) || postId <= 0) { res.status(400).json({ message: 'Invalid post ID' }); return }
+  const pool = getPool()
+  if (!pool) { res.json([]); return }
+  try {
+    const [rows] = await pool.query<any[]>(
+      'SELECT id, parent_id, author_name, body, created_at FROM feed_post_comments WHERE post_id = ? ORDER BY created_at ASC LIMIT 200',
+      [postId],
+    )
+    res.json(rows)
+  } catch {
+    res.json([])
+  }
+})
+
+router.post('/feeds/posts/:id/comments', async (req, res) => {
+  const postId = Number(req.params.id)
+  const body = typeof req.body?.body === 'string' ? req.body.body.trim() : ''
+  const parentId = req.body?.parent_id == null ? null : Number(req.body.parent_id)
+  const authorName = typeof req.body?.author_name === 'string' ? req.body.author_name.trim().slice(0, 60) : 'Anonymous'
+  if (!Number.isSafeInteger(postId) || postId <= 0) { res.status(400).json({ message: 'Invalid post ID' }); return }
+  if (!body || body.length > 1000) { res.status(400).json({ message: 'Comment must contain 1 to 1,000 characters' }); return }
+  if (parentId !== null && (!Number.isSafeInteger(parentId) || parentId <= 0)) { res.status(400).json({ message: 'Invalid reply target' }); return }
+  const pool = getPool()
+  if (!pool) { res.status(503).json({ message: 'Database not configured' }); return }
+  try {
+    const [[post]] = await pool.query<any[]>('SELECT id FROM feed_posts WHERE id = ? AND is_active = 1 LIMIT 1', [postId])
+    if (!post) { res.status(404).json({ message: 'Post not found' }); return }
+    if (parentId !== null) {
+      const [[parent]] = await pool.query<any[]>('SELECT id FROM feed_post_comments WHERE id = ? AND post_id = ? LIMIT 1', [parentId, postId])
+      if (!parent) { res.status(400).json({ message: 'Reply target does not belong to this post' }); return }
+    }
+    const [result] = await pool.query<any>(
+      'INSERT INTO feed_post_comments (post_id, parent_id, author_name, body) VALUES (?, ?, ?, ?)',
+      [postId, parentId, authorName || 'Anonymous', body],
+    )
+    const newId = result?.insertId ?? result?.id
+    const [[comment]] = await pool.query<any[]>(
+      'SELECT id, parent_id, author_name, body, created_at FROM feed_post_comments WHERE id = ? LIMIT 1',
+      [newId],
+    )
+    res.status(201).json(comment ?? { id: newId, parent_id: parentId, author_name: authorName || 'Anonymous', body, created_at: new Date() })
+  } catch (err: any) {
+    res.status(500).json({ message: err?.message ?? 'Could not add comment' })
+  }
+})
+
 // ── GET /api/events ───────────────────────────────────────────────────────────
 router.get('/events', async (req: any, res) => {
   const pool = getPool()

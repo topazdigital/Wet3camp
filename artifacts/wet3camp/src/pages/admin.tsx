@@ -1882,6 +1882,10 @@ function ReportsTab() {
   const [reports, setReports] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState<number | null>(null)
+  const [feedReports, setFeedReports] = useState<any[]>([])
+  const [feedLoading, setFeedLoading] = useState(true)
+  const [feedError, setFeedError] = useState('')
+  const [feedUpdating, setFeedUpdating] = useState<number | null>(null)
 
   useEffect(() => {
     setLoading(true)
@@ -1889,6 +1893,11 @@ function ReportsTab() {
       .then((data: any[]) => setReports(Array.isArray(data) ? data : []))
       .catch(() => setReports([]))
       .finally(() => setLoading(false))
+    setFeedLoading(true)
+    adminFetch('/admin/feed-post-reports')
+      .then((data: any[]) => { setFeedReports(Array.isArray(data) ? data : []); setFeedError('') })
+      .catch((error: Error) => setFeedError(error.message || 'Could not load feed reports.'))
+      .finally(() => setFeedLoading(false))
   }, [])
 
   const updateStatus = async (id: number, status: string) => {
@@ -1905,6 +1914,25 @@ function ReportsTab() {
     reviewed: '#2196F3',
     dismissed: '#6B7280',
     actioned: '#EF4444',
+  }
+
+  const updateFeedStatus = async (id: number, status: string) => {
+    setFeedUpdating(id)
+    setFeedError('')
+    try {
+      await adminFetch(`/admin/feed-post-reports/${id}/action`, {
+        method: 'POST',
+        body: JSON.stringify({ status }),
+      })
+      setFeedReports(current => current.map(report => report.id === id
+        ? { ...report, status, post_is_active: status === 'actioned' ? 0 : report.post_is_active }
+        : report
+      ))
+    } catch (error) {
+      setFeedError(error instanceof Error ? error.message : 'Could not update feed report.')
+    } finally {
+      setFeedUpdating(null)
+    }
   }
 
   return (
@@ -1973,6 +2001,71 @@ function ReportsTab() {
           </div>
         </div>
       )}
+
+      <section className="space-y-3 border-t border-color pt-5">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="text-sm font-bold text-text-light">Feed post reports</h3>
+            <p className="mt-1 text-xs text-text-muted">Review reports on posts published by escort accounts. Hiding a post removes it from the public feed.</p>
+          </div>
+          <span className="shrink-0 self-start rounded-xl border border-[#EF4444]/20 bg-[#EF4444]/10 px-3 py-1 text-xs font-bold text-[#EF4444]">
+            {feedReports.filter(report => report.status === 'pending').length} pending
+          </span>
+        </div>
+        {feedError && <p role="alert" className="rounded-lg border border-[#EF4444]/30 bg-[#EF4444]/10 px-3 py-2 text-xs text-[#ff9d9d]">{feedError}</p>}
+        {feedLoading ? (
+          <div className="py-8 text-center text-xs text-text-muted">Loading feed reports…</div>
+        ) : feedReports.length === 0 && !feedError ? (
+          <div className="rounded-xl border border-color bg-card-bg py-8 text-center text-xs text-text-muted">No feed post reports yet.</div>
+        ) : (
+          <div className="space-y-3">
+            {feedReports.map(report => {
+              let media: Array<{ type: string; url: string }> = []
+              try {
+                const parsed = typeof report.media_json === 'string' ? JSON.parse(report.media_json) : report.media_json
+                if (Array.isArray(parsed)) media = parsed
+              } catch {}
+              return (
+                <article key={report.id} className="rounded-xl border border-color bg-card-bg p-3 sm:p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row">
+                    {media[0]?.url && (
+                      media[0].type === 'video'
+                        ? <video src={media[0].url} controls preload="metadata" className="h-28 w-full rounded-lg bg-black object-contain sm:w-40" />
+                        : <img src={media[0].url} alt="Reported post media" loading="lazy" className="h-28 w-full rounded-lg bg-black object-contain sm:w-40" />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-bold text-text-light">{report.escort_name ?? `Escort #${report.escort_id}`}</span>
+                        <span className="rounded-lg border px-2 py-0.5 text-[10px] font-bold" style={{ color: statusColor[report.status] ?? '#fff', borderColor: `${statusColor[report.status] ?? '#fff'}55`, background: `${statusColor[report.status] ?? '#fff'}15` }}>{report.status}</span>
+                        <span className="text-[10px] text-text-muted">{report.created_at ? new Date(report.created_at).toLocaleString() : ''}</span>
+                      </div>
+                      <p className="mt-2 whitespace-pre-wrap break-words text-xs leading-relaxed text-text-light">{report.post_body || <span className="italic text-text-muted">Media-only post</span>}</p>
+                      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-text-muted">
+                        <span>Reason: <strong className="text-[#ff9d9d]">{report.reason}</strong></span>
+                        {report.reporter_name && <span>Reporter: {report.reporter_name}</span>}
+                        {report.details && <span className="max-w-full break-words">Details: {report.details}</span>}
+                        <span>Post {report.post_is_active ? 'is public' : 'is hidden'}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2 border-t border-color/60 pt-3">
+                    {report.status === 'pending' && (
+                      <>
+                        <button disabled={feedUpdating === report.id} onClick={() => updateFeedStatus(report.id, 'reviewed')} className="rounded-lg border border-[#2196F3]/30 bg-[#2196F3]/10 px-3 py-1.5 text-[10px] font-bold text-[#2196F3] disabled:opacity-50">Mark reviewed</button>
+                        <button disabled={feedUpdating === report.id} onClick={() => updateFeedStatus(report.id, 'actioned')} className="rounded-lg border border-[#EF4444]/30 bg-[#EF4444]/10 px-3 py-1.5 text-[10px] font-bold text-[#EF4444] disabled:opacity-50">Hide post</button>
+                        <button disabled={feedUpdating === report.id} onClick={() => updateFeedStatus(report.id, 'dismissed')} className="rounded-lg border border-color bg-dark-bg px-3 py-1.5 text-[10px] font-bold text-text-muted disabled:opacity-50">Dismiss</button>
+                      </>
+                    )}
+                    {report.status !== 'pending' && (
+                      <button disabled={feedUpdating === report.id} onClick={() => updateFeedStatus(report.id, 'pending')} className="rounded-lg border border-color bg-dark-bg px-3 py-1.5 text-[10px] text-text-muted disabled:opacity-50">Reopen report</button>
+                    )}
+                  </div>
+                </article>
+              )
+            })}
+          </div>
+        )}
+      </section>
     </div>
   )
 }

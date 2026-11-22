@@ -389,6 +389,51 @@ CREATE TABLE IF NOT EXISTS feed_comments (
 CREATE INDEX IF NOT EXISTS idx_feed_comments_escort_id ON feed_comments (escort_id);
 CREATE INDEX IF NOT EXISTS idx_feed_comments_parent_id ON feed_comments (parent_id);
 
+CREATE TABLE IF NOT EXISTS feed_posts (
+  id         SERIAL PRIMARY KEY,
+  escort_id  INTEGER      NOT NULL,
+  user_id    INTEGER      NOT NULL,
+  body       TEXT         NOT NULL,
+  media_json TEXT         NOT NULL,
+  is_active  SMALLINT     NOT NULL DEFAULT 1,
+  created_at TIMESTAMP    NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_feed_posts_escort_created ON feed_posts (escort_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_feed_posts_user_id ON feed_posts (user_id);
+CREATE INDEX IF NOT EXISTS idx_feed_posts_active_created ON feed_posts (is_active, created_at);
+
+CREATE TABLE IF NOT EXISTS feed_post_likes (
+  id         SERIAL PRIMARY KEY,
+  post_id    INTEGER      NOT NULL,
+  guest_key  VARCHAR(64)  NOT NULL,
+  created_at TIMESTAMP    NOT NULL DEFAULT NOW(),
+  CONSTRAINT uq_feed_post_likes_guest UNIQUE (post_id, guest_key)
+);
+CREATE INDEX IF NOT EXISTS idx_feed_post_likes_post_id ON feed_post_likes (post_id);
+
+CREATE TABLE IF NOT EXISTS feed_post_comments (
+  id          SERIAL PRIMARY KEY,
+  post_id     INTEGER      NOT NULL,
+  parent_id   INTEGER      DEFAULT NULL,
+  author_name VARCHAR(100) NOT NULL DEFAULT 'Anonymous',
+  body        TEXT         NOT NULL,
+  created_at  TIMESTAMP    NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_feed_post_comments_post_id ON feed_post_comments (post_id);
+CREATE INDEX IF NOT EXISTS idx_feed_post_comments_parent_id ON feed_post_comments (parent_id);
+
+CREATE TABLE IF NOT EXISTS feed_post_reports (
+  id          SERIAL PRIMARY KEY,
+  post_id     INTEGER      NOT NULL,
+  reporter_id INTEGER      NOT NULL,
+  reason      VARCHAR(100) NOT NULL,
+  details     TEXT         DEFAULT NULL,
+  status      VARCHAR(20)  NOT NULL DEFAULT 'pending',
+  created_at  TIMESTAMP    NOT NULL DEFAULT NOW(),
+  CONSTRAINT uq_feed_post_reporter UNIQUE (post_id, reporter_id)
+);
+CREATE INDEX IF NOT EXISTS idx_feed_post_reports_status ON feed_post_reports (status, created_at);
+
 -- Idempotent column additions for existing dev DBs (safe to re-run)
 ALTER TABLE escorts ADD COLUMN IF NOT EXISTS views_count BIGINT NOT NULL DEFAULT 0;
 ALTER TABLE escorts ADD COLUMN IF NOT EXISTS incall                  SMALLINT DEFAULT 1;

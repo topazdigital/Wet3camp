@@ -106,6 +106,18 @@ router.post('/upload', requireAuth, async (req: AuthRequest, res) => {
     if (type === 'blog' && req.userRole !== 'admin') {
       res.status(403).json({ message: 'Admin access required' }); return
     }
+    if (type === 'feed') {
+      if (req.userRole !== 'escort' || req.userId == null) {
+        res.status(403).json({ message: 'An active escort account is required to upload feed media' }); return
+      }
+      const pool = getPool()
+      if (!pool) { res.status(503).json({ message: 'Database not configured' }); return }
+      const [[escort]] = await pool.query<any[]>(
+        'SELECT id FROM escorts WHERE user_id = ? AND is_active = 1 ORDER BY id DESC LIMIT 1',
+        [req.userId],
+      )
+      if (!escort) { res.status(403).json({ message: 'An active, claimed escort profile is required to upload feed media' }); return }
+    }
 
     let ext: string
     let buffer: Buffer
@@ -128,7 +140,9 @@ router.post('/upload', requireAuth, async (req: AuthRequest, res) => {
     } else {
       const data = body.data!
       const imgMatches = data.match(/^data:image\/(jpeg|jpg|png|webp|gif);base64,(.+)$/)
-      const vidMatches = type === 'blog' ? data.match(/^data:video\/(mp4|webm|quicktime|mov);base64,(.+)$/) : null
+      const vidMatches = type === 'blog' || type === 'feed'
+        ? data.match(/^data:video\/(mp4|webm|quicktime|mov);base64,(.+)$/)
+        : null
 
       if (!imgMatches && !vidMatches) {
         res.status(400).json({ message: 'Invalid file format. Send a base64 data URL (image, or video for blog uploads).' }); return
@@ -141,7 +155,9 @@ router.post('/upload', requireAuth, async (req: AuthRequest, res) => {
       buffer = Buffer.from(matches[2], 'base64')
     }
 
-    const maxSize = isVideo ? 80 * 1024 * 1024 : 8 * 1024 * 1024
+    const maxSize = isVideo
+      ? (type === 'feed' ? 30 : 80) * 1024 * 1024
+      : 8 * 1024 * 1024
     if (buffer.length > maxSize) {
       res.status(413).json({ message: `File too large. Maximum size is ${isVideo ? '80MB' : '8MB'}.` }); return
     }
@@ -150,7 +166,8 @@ router.post('/upload', requireAuth, async (req: AuthRequest, res) => {
       res.status(401).json({ message: 'Authentication required' }); return
     }
 
-    const url = await persistUpload(buffer, filename, type, req.userId, ext)
+    const uploadFilename = type === 'feed' ? `feed_${filename || 'media'}` : filename
+    const url = await persistUpload(buffer, uploadFilename, type, req.userId, ext)
 
     res.json({ success: true, url })
   } catch (err: any) {

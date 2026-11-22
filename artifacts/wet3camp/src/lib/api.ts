@@ -97,6 +97,27 @@ export interface ApiUser {
   hasEscortProfile?: boolean
 }
 
+export interface FeedPostMedia {
+  type: 'image' | 'video'
+  url: string
+}
+
+export interface FeedPost {
+  id: string
+  escort_id: string
+  user_id: string
+  body: string
+  media: FeedPostMedia[]
+  created_at: string
+  escort_name: string
+  escort_image?: string | null
+  city?: string
+  area?: string
+  tier?: string
+  verified?: boolean
+  online?: boolean
+}
+
 export const api = {
   escorts: {
     list: (p?: { city?: string; area?: string; tier?: string; available?: string; featured?: boolean; sort?: string; limit?: number; offset?: number; service?: string; exactLocation?: boolean; claimedOnly?: boolean }) => {
@@ -210,6 +231,16 @@ export const api = {
     toggle: (id: string)  => req<{ saved: boolean }>(`/favorites/${id}`, { method: 'POST' }),
   },
 
+  feed: {
+    posts: () => req<FeedPost[]>('/feeds/posts'),
+    createPost: (data: { body: string; media: FeedPostMedia[] }) =>
+      req<FeedPost>('/feeds/posts', { method: 'POST', body: JSON.stringify(data) }),
+    removePost: (id: string) =>
+      req<{ success: boolean }>(`/feeds/posts/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+    reportPost: (id: string, data: { reason: string; details?: string }) =>
+      req<{ success: boolean }>(`/feeds/posts/${encodeURIComponent(id)}/report`, { method: 'POST', body: JSON.stringify(data) }),
+  },
+
   profile: {
     get: () => req<ApiUser>('/profile'),
     getEscort: () => req<any>('/profile/escort'),
@@ -234,6 +265,11 @@ export const api = {
       req<{ success: boolean; url: string }>('/upload', {
         method: 'POST',
         body: JSON.stringify({ data, filename, type }),
+      }),
+    feed: (data: string, filename: string) =>
+      req<{ success: boolean; url: string }>('/upload', {
+        method: 'POST',
+        body: JSON.stringify({ data, filename, type: 'feed' }),
       }),
     removeGallery: (url: string) =>
       req<{ success: boolean; image?: string | null; gallery?: string[] }>('/upload', {

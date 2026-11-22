@@ -1504,4 +1504,50 @@ router.patch('/admin/reports/:id', requireAuth, requireAdmin, async (req: AuthRe
   }
 })
 
+router.get('/admin/feed-post-reports', requireAuth, requireAdmin, async (_req: AuthRequest, res) => {
+  const pool = getPool()
+  if (!pool) { res.status(503).json({ message: 'No DB' }); return }
+  try {
+    const [rows] = await pool.query<any[]>(`
+      SELECT r.id, r.post_id, r.reporter_id, r.reason, r.details, r.status, r.created_at,
+             p.body AS post_body, p.media_json, p.is_active AS post_is_active,
+             e.id AS escort_id, e.name AS escort_name, e.city AS escort_city,
+             u.display_name AS reporter_name, u.email AS reporter_email
+      FROM feed_post_reports r
+      JOIN feed_posts p ON p.id = r.post_id
+      LEFT JOIN escorts e ON e.id = p.escort_id
+      LEFT JOIN users u ON u.id = r.reporter_id
+      ORDER BY CASE r.status WHEN 'pending' THEN 0 ELSE 1 END, r.created_at DESC
+      LIMIT 200
+    `)
+    res.json(rows)
+  } catch (err: any) {
+    console.error('[admin/feed-post-reports]', err?.message)
+    res.status(500).json({ message: 'Could not load feed post reports' })
+  }
+})
+
+router.post('/admin/feed-post-reports/:id/action', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  const reportId = parsePositiveId(req.params.id)
+  const { status } = req.body as { status?: string }
+  if (!reportId) { res.status(400).json({ message: 'Invalid report ID' }); return }
+  if (!['pending', 'reviewed', 'dismissed', 'actioned'].includes(status ?? '')) {
+    res.status(400).json({ message: 'Invalid report status' }); return
+  }
+  const pool = getPool()
+  if (!pool) { res.status(503).json({ message: 'No DB' }); return }
+  try {
+    const [[report]] = await pool.query<any[]>('SELECT post_id FROM feed_post_reports WHERE id = ? LIMIT 1', [reportId])
+    if (!report) { res.status(404).json({ message: 'Report not found' }); return }
+    await pool.query('UPDATE feed_post_reports SET status = ? WHERE id = ?', [status, reportId])
+    if (status === 'actioned') {
+      await pool.query('UPDATE feed_posts SET is_active = 0 WHERE id = ?', [report.post_id])
+    }
+    res.json({ success: true })
+  } catch (err: any) {
+    console.error('[admin/feed-post-reports/action]', err?.message)
+    res.status(500).json({ message: 'Could not update report' })
+  }
+})
+
 export default router

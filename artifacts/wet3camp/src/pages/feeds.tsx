@@ -9,6 +9,9 @@ import { useAuth } from '@/lib/auth-context'
 import { useAllEscorts } from '@/hooks/useEscorts'
 import { useSEO } from '@/lib/useSEO'
 import { getSlug } from '@/data/escorts'
+import FeedPostComposer from '@/components/FeedPostComposer'
+import FeedPostCard from '@/components/FeedPostCard'
+import { api, type FeedPost } from '@/lib/api'
 
 const TIER_COLOR: Record<string, string> = { elite:'#8B0000', vip:'#B8860B', premium:'#FFD700', standard:'#6c757d' }
 
@@ -222,14 +225,14 @@ function FeedPost({ escort }: { escort: any }) {
 
       {/* Bio */}
       <div className="px-4 pb-3">
-        <p className="text-sm text-text-light leading-relaxed whitespace-pre-line line-clamp-4">{escort.bio}</p>
+        <p className="text-sm text-text-light leading-relaxed whitespace-pre-line line-clamp-3">{escort.bio}</p>
         <Link href={`/@${getSlug(escort.name)}`} className="text-[11px] text-[#8B0000] hover:underline mt-1 block">View full profile →</Link>
       </div>
 
       {/* Photo */}
       {escort.image && (
-        <Link href={`/@${getSlug(escort.name)}`} className="block w-full overflow-hidden">
-          <img src={proxyImg(escort.image, 960)} alt={escort.name} loading="lazy" decoding="async" className="w-full object-cover hover:scale-[1.01] transition-transform duration-500 cursor-pointer max-h-[500px]" />
+        <Link href={`/@${getSlug(escort.name)}`} className="mx-auto flex h-[240px] w-full max-w-4xl items-center justify-center overflow-hidden bg-black sm:h-[320px] lg:h-[360px]">
+          <img src={proxyImg(escort.image, 960)} alt={escort.name} loading="lazy" decoding="async" className="max-h-full max-w-full object-contain transition-transform duration-300 hover:scale-[1.01]" />
         </Link>
       )}
 
@@ -326,17 +329,51 @@ export default function FeedsPage() {
     keywords: 'escort feeds Kenya, escort social media, escort updates Nairobi',
     canonicalPath: '/feeds',
   })
-  const [posts, setPosts] = useState<any[]>([])
+  const [feedItems, setFeedItems] = useState<Array<{ kind: 'profile'; escort: any; sortTime: number } | { kind: 'post'; post: FeedPost; sortTime: number }>>([])
   const [loading, setLoading] = useState(true)
   const { followerCount } = useFollow()
   const { escorts: apiEscorts } = useAllEscorts()
+  const { user, isLoggedIn, isEscort, isAuthReady, isPendingEscort } = useAuth()
+  const [canPost, setCanPost] = useState(false)
+
+  const loadFeed = useCallback(async () => {
+    setLoading(true)
+    const [profileResult, authoredResult] = await Promise.all([
+      fetch('/api/feeds').then(response => response.ok ? response.json() : []).catch(() => []),
+      api.feed.posts().catch(() => []),
+    ])
+    const profiles = Array.isArray(profileResult) ? profileResult : []
+    const authored = Array.isArray(authoredResult) ? authoredResult : []
+    const merged = [
+      ...profiles.map(escort => ({ kind: 'profile' as const, escort, sortTime: Date.parse(escort.created_at ?? '') || 0 })),
+      ...authored.map(post => ({ kind: 'post' as const, post, sortTime: Date.parse(post.created_at ?? '') || 0 })),
+    ].sort((a, b) => b.sortTime - a.sortTime)
+    setFeedItems(merged)
+    setLoading(false)
+  }, [])
+
+  useEffect(() => { void loadFeed() }, [loadFeed])
 
   useEffect(() => {
-    fetch('/api/feeds')
-      .then(r => r.json())
-      .then(d => { setPosts(Array.isArray(d) ? d : []); setLoading(false) })
-      .catch(() => setLoading(false))
-  }, [])
+    let current = true
+    setCanPost(false)
+    if (!isAuthReady || !isEscort) return () => { current = false }
+    api.profile.getEscort()
+      .then(profile => { if (current) setCanPost(profile?.is_active === true || Number(profile?.is_active) === 1) })
+      .catch(() => { if (current) setCanPost(false) })
+    return () => { current = false }
+  }, [isAuthReady, isEscort, user?.id])
+
+  const onPublished = (post: FeedPost) => {
+    setFeedItems(current => [
+      { kind: 'post', post, sortTime: Date.parse(post.created_at ?? '') || Date.now() },
+      ...current.filter(item => !(item.kind === 'post' && item.post.id === post.id)),
+    ])
+  }
+
+  const onPostRemoved = (id: string) => {
+    setFeedItems(current => current.filter(item => item.kind !== 'post' || item.post.id !== id))
+  }
 
   const recommended = (apiEscorts as any[]).filter(e => ['elite', 'vip'].includes((e.tier ?? '').toLowerCase())).slice(0, 7)
 
@@ -346,11 +383,11 @@ export default function FeedsPage() {
       <div className="flex-1 w-full overflow-x-hidden lg:pb-0 pb-24 min-w-0">
         <Header />
 
-        <div className="w-full px-3 sm:px-5 py-5">
-          <div className="flex gap-5 items-start">
+        <div className="w-full px-3 py-4 sm:px-5 lg:py-5">
+          <div className="mx-auto flex w-full max-w-[1480px] items-start gap-4 xl:gap-5">
 
-            {/* CENTER: Feed — full width on all sizes */}
-            <div className="flex-1 min-w-0">
+            {/* Feed stays fluid on phones and is capped on wide desktop screens. */}
+            <div className="min-w-0 w-full max-w-5xl flex-1">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <Flame size={16} className="text-[#8B0000]" />
@@ -362,9 +399,21 @@ export default function FeedsPage() {
                 </div>
               </div>
 
+              {canPost && <FeedPostComposer onPublished={onPublished} />}
+              {isEscort && !canPost && !isAuthReady && (
+                <div className="mb-4 rounded-xl border border-color bg-card-bg px-4 py-3 text-xs text-text-muted">
+                  Checking your escort profile…
+                </div>
+              )}
+              {isEscort && isAuthReady && !canPost && (
+                <div className="mb-4 rounded-xl border border-color bg-card-bg px-4 py-3 text-xs text-text-muted">
+                  {isPendingEscort ? 'Posting opens after your escort profile is approved.' : 'Posting is available to active, claimed escort profiles.'}
+                </div>
+              )}
+
               {loading && (
                 <div className="space-y-4">
-                  {[...Array(5)].map((_, i) => (
+                  {[...Array(3)].map((_, i) => (
                     <div key={i} className="bg-card-bg border border-color rounded-2xl overflow-hidden animate-pulse">
                       <div className="flex items-center gap-3 px-4 pt-4 pb-3">
                         <div className="w-10 h-10 rounded-full bg-dark-bg" />
@@ -377,26 +426,29 @@ export default function FeedsPage() {
                         <div className="h-3 bg-dark-bg rounded" />
                         <div className="h-3 bg-dark-bg rounded w-4/5" />
                       </div>
-                      <div className="aspect-video bg-dark-bg" />
+                      <div className="h-[240px] bg-dark-bg sm:h-[300px]" />
                     </div>
                   ))}
                 </div>
               )}
 
-              {!loading && posts.length === 0 && (
+              {!loading && feedItems.length === 0 && (
                 <div className="text-center py-16">
                   <Flame size={40} className="text-[#8B0000]/30 mx-auto mb-3" />
-                  <p className="text-sm text-text-muted mb-4">No posts yet. Escorts will appear here as they join the platform.</p>
+                  <p className="text-sm text-text-muted mb-4">No feed updates yet. Escort profiles and their posts will appear here.</p>
                   <Link href="/register?role=escort" className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#8B0000] text-white text-sm font-bold rounded-xl hover:bg-[#a00000] transition-colors">
                     <Crown size={14} /> Join as Escort
                   </Link>
                 </div>
               )}
 
-              <div className="space-y-4">
-                {posts.map(escort => <FeedPost key={escort.id} escort={escort} />)}
+              <div className="space-y-3 sm:space-y-4">
+                {feedItems.map(item => item.kind === 'profile'
+                  ? <FeedPost key={`profile-${item.escort.id}`} escort={item.escort} />
+                  : <FeedPostCard key={`post-${item.post.id}`} post={item.post} onRemoved={onPostRemoved} />
+                )}
 
-                {!loading && posts.length > 0 && (
+                {!loading && feedItems.length > 0 && !isLoggedIn && (
                   <div className="text-center py-6">
                     <Link href="/register" className="inline-flex items-center gap-2 px-6 py-3 bg-[#8B0000] text-white font-bold text-sm rounded-xl hover:bg-[#a00000] transition-all">
                       <Crown size={14} /> Join to see more
@@ -407,7 +459,7 @@ export default function FeedsPage() {
             </div>
 
             {/* RIGHT SIDEBAR */}
-            <div className="hidden lg:flex flex-col w-64 flex-shrink-0 gap-4">
+            <div className="hidden xl:flex w-[280px] flex-shrink-0 flex-col gap-4">
               <div className="bg-card-bg border border-[#FFD700]/20 rounded-2xl p-4">
                 <div className="flex items-center gap-1.5 mb-3">
                   <div className="w-2 h-2 bg-[#28a745] rounded-full" />
