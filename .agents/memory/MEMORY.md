@@ -26,6 +26,7 @@
 - [Server deploy self-update](server-deploy-self-update.md) — a deploy script that resets its own checkout must re-exec once before PM2 work, then health-check the dedicated API port
 - [Production route synchronization](production-route-sync.md) — wet3.camp can serve an older API than checked-in source; verify critical routes live after the GitHub deploy completes
 - [Escort landing density](escort-landing-density.md) — Keep escort discovery and acquisition pages compact and responsive across phone, tablet, and desktop
+- [Escort feed posting](escort-feed-posting.md) — Escort social posts may contain text, emojis, photos, or videos and publish immediately
 - [Admin-managed escort pricing](admin-managed-escort-pricing.md) — Keep featured placement display prices and M-Pesa charges aligned; account subscriptions are separate
 - [PayHero callback verification](payhero-callback-verification.md) — STK callbacks wrap status and amount in `response`; verify the provider reference before activating paid tiers
 - [Profile analytics privacy](profile-analytics.md) — Count each active profile open publicly, including unclaimed listings; keep detailed analytics claim-scoped and anonymous
