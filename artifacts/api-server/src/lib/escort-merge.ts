@@ -3,7 +3,8 @@ import type { CompatQuery } from './db.js'
 type MergeIds = {
   candidateId: string | number
   primaryId: string | number
-  userId: string | number
+  userId?: string | number
+  admin?: boolean
 }
 
 function mergeError(message: string, statusCode = 409) {
@@ -235,7 +236,7 @@ async function moveUniqueRows(
 export async function mergeEscortProfiles(
   query: CompatQuery,
   columns: Set<string>,
-  { candidateId, primaryId, userId }: MergeIds,
+  { candidateId, primaryId, userId, admin = false }: MergeIds,
 ) {
   if (!columns.has('escorts.merged_into_id')) {
     throw mergeError('The escort merge schema has not been applied', 503)
@@ -250,14 +251,37 @@ export async function mergeEscortProfiles(
   const candidate = candidateRows[0]
 
   if (!primary || !candidate) throw mergeError('One of the profiles no longer exists', 404)
-  if (!sameId(primary.user_id, userId) || Number(primary.is_active) !== 1 || primary.merged_into_id) {
-    throw mergeError('The existing managed profile is no longer available for this merge')
+  if (admin) {
+    if (Number(primary.is_active) !== 1 || primary.merged_into_id) {
+      throw mergeError('The profile you chose to keep must be active and not already merged')
+    }
+    if (Number(candidate.is_active) !== 1 || candidate.merged_into_id) {
+      throw mergeError('The profile you chose to merge must be active and not already merged')
+    }
+    if (
+      primary.user_id !== null &&
+      primary.user_id !== undefined &&
+      candidate.user_id !== null &&
+      candidate.user_id !== undefined &&
+      !sameId(primary.user_id, candidate.user_id)
+    ) {
+      throw mergeError('These profiles belong to different accounts and cannot be merged automatically')
+    }
+  } else {
+    if (!sameId(primary.user_id, userId) || Number(primary.is_active) !== 1 || primary.merged_into_id) {
+      throw mergeError('The existing managed profile is no longer available for this merge')
+    }
+    if (candidate.user_id !== null && candidate.user_id !== undefined) {
+      throw mergeError('The listing has already been claimed')
+    }
+    if (Number(candidate.is_active) !== 1 || candidate.merged_into_id) {
+      throw mergeError('The listing is no longer available to merge')
+    }
   }
-  if (candidate.user_id !== null && candidate.user_id !== undefined) {
-    throw mergeError('The listing has already been claimed')
-  }
-  if (Number(candidate.is_active) !== 1 || candidate.merged_into_id) {
-    throw mergeError('The listing is no longer available to merge')
+
+  const ownerUserId = primary.user_id ?? candidate.user_id ?? null
+  if (admin && !primary.user_id && ownerUserId) {
+    await query('UPDATE escorts SET user_id = ? WHERE id = ?', [ownerUserId, primaryId])
   }
 
   await mergeMissingProfileFields(query, columns, primary, candidate, primaryId)
@@ -277,6 +301,7 @@ export async function mergeEscortProfiles(
 
   const candidateSet = ['merged_into_id = ?', 'is_active = 0']
   const candidateParams: unknown[] = [primaryId]
+  if (admin) candidateSet.push('user_id = NULL')
   if (columns.has('escorts.online')) candidateSet.push('online = 0')
   if (columns.has('escorts.available')) candidateSet.push('available = 0')
   if (columns.has('escorts.updated_at')) candidateSet.push('updated_at = NOW()')
@@ -317,5 +342,6 @@ export async function mergeEscortProfiles(
     primaryId: String(primaryId),
     primaryName: String(primary.name),
     candidateId: String(candidateId),
+    ownerUserId: ownerUserId == null ? null : String(ownerUserId),
   }
 }

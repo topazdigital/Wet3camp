@@ -9,6 +9,7 @@ import { requireAuth, type AuthRequest } from '../middlewares/requireAuth.js'
 import { setEscortOnline } from '../lib/online-store.js'
 import { sendEscortApprovedEmail, sendEscortRejectedEmail, sendTelegramNotification } from '../lib/mailer.js'
 import { signToken } from '../lib/jwt.js'
+import { mergeEscortProfiles } from '../lib/escort-merge.js'
 import { downloadAndStoreImage } from '../lib/image-download.js'
 import {
   isValidPlatformPricing,
@@ -135,6 +136,106 @@ router.get('/admin/escorts', requireAuth, requireAdmin, async (req: AuthRequest,
   } catch (err: any) {
     console.error('[admin/escorts]', err?.message ?? err)
     res.status(500).json({ message: 'Failed to fetch escorts' })
+  }
+})
+
+router.post('/admin/escorts/merge', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  const pool = getPool()
+  if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
+
+  const { keepProfileId, mergeProfileId, confirmation, identityVerified } = req.body as {
+    keepProfileId?: string | number
+    mergeProfileId?: string | number
+    confirmation?: string
+    identityVerified?: boolean
+  }
+  const keepId = parsePositiveId(String(keepProfileId ?? ''))
+  const mergeId = parsePositiveId(String(mergeProfileId ?? ''))
+  if (!keepId || !mergeId) {
+    res.status(400).json({ message: 'Choose two valid profiles to merge' }); return
+  }
+  if (keepId === mergeId) {
+    res.status(400).json({ message: 'Choose two different profiles' }); return
+  }
+  if (confirmation !== 'MERGE') {
+    res.status(400).json({ message: 'Type MERGE to confirm this profile merge' }); return
+  }
+  if (identityVerified !== true) {
+    res.status(400).json({ message: 'Confirm that both listings belong to the same person before merging' }); return
+  }
+
+  try {
+    const columns = await pool.getExistingColumns([
+      'escorts',
+      'profile_claims',
+      'escort_gallery',
+      'escort_services',
+      'escort_languages',
+      'bookings',
+      'messages',
+      'reviews',
+      'favorites',
+      'followers',
+      'user_follows',
+      'subscriptions',
+      'escort_profile_events',
+      'feed_likes',
+      'feed_comments',
+      'escort_videos',
+      'adverts',
+    ])
+    if (!columns.has('escorts.merged_into_id')) {
+      res.status(503).json({ message: 'Profile merge schema is not ready. Please try again later.' }); return
+    }
+
+    const result = await pool.transaction(async query => {
+      // Lock both rows in stable order before checking state or moving data.
+      const [profileRows] = await query(
+        'SELECT id FROM escorts WHERE id IN (?, ?) ORDER BY id FOR UPDATE',
+        [keepId, mergeId],
+      )
+      if (!Array.isArray(profileRows) || profileRows.length !== 2) {
+        const error: any = new Error('One or both profiles could not be found')
+        error.statusCode = 404
+        throw error
+      }
+
+      if (columns.has('profile_claims.escort_id') && columns.has('profile_claims.status')) {
+        const [pendingClaims] = await query(
+          "SELECT id FROM profile_claims WHERE escort_id = ? AND status = 'pending' LIMIT 1 FOR UPDATE",
+          [mergeId],
+        )
+        if (Array.isArray(pendingClaims) && pendingClaims.length > 0) {
+          const error: any = new Error('Resolve the pending claim for the profile being merged before continuing')
+          error.statusCode = 409
+          throw error
+        }
+      }
+
+      const merged = await mergeEscortProfiles(query, columns, {
+        primaryId: keepId,
+        candidateId: mergeId,
+        admin: true,
+      })
+      if (merged.ownerUserId) {
+        await query("UPDATE users SET role = 'escort' WHERE id = ? AND role = 'user'", [merged.ownerUserId])
+      }
+      return merged
+    })
+
+    console.info(`[admin profile merge] admin=${req.userId} kept=${result.primaryId} archived=${result.candidateId}`)
+    res.json({
+      success: true,
+      primaryProfile: { id: result.primaryId, name: result.primaryName },
+      archivedProfile: { id: result.candidateId },
+      message: `${result.primaryName} was kept; the duplicate profile is now archived and redirects here.`,
+    })
+  } catch (err: any) {
+    const statusCode = Number(err?.statusCode) || 500
+    if (statusCode === 500) console.error('[admin profile merge]', err?.message ?? err)
+    res.status(statusCode).json({
+      message: statusCode === 500 ? 'Could not merge these profiles' : err.message,
+    })
   }
 })
 

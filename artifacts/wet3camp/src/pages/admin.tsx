@@ -7,7 +7,7 @@ import {
   Shield, Users, Calendar, BarChart2, Settings, Plus, Trash2, Edit2, CheckCircle2, XCircle,
   AlertTriangle, Lock, Mail, Eye, EyeOff, TrendingUp, Crown, Key, Instagram,
   Smartphone, Globe, MessageCircle, MessageSquare, Bell, Star, Save, RefreshCw, Camera, Radio, WifiOff,
-  DollarSign, MapPin, Award, ChevronDown
+  DollarSign, MapPin, Award, ChevronDown, GitMerge
 } from 'lucide-react'
 import { useSEO } from '@/lib/useSEO'
 import {
@@ -105,6 +105,7 @@ interface AdminEscort {
   online: boolean | number; is_active: boolean | number; verified: boolean | number
   featured?: boolean | number; price_hourly?: number; bookings_count?: number
   image?: string; user_id?: string | number | null; user_role?: string | null
+  merged_into_id?: string | number | null
 }
 
 const TABS = ['Overview','Escorts','Claims','Clients','Bookings','Revenue','Moderators','Featured','Blog','API Keys','Settings','Reports']
@@ -2225,6 +2226,213 @@ function RevenueDashboard() {
   )
 }
 
+function MergeProfilesModal({
+  escorts,
+  onClose,
+  onMerged,
+}: {
+  escorts: AdminEscort[]
+  onClose: () => void
+  onMerged: (message: string) => void
+}) {
+  const mergeable = escorts.filter(escort => Number(escort.is_active) === 1 && !escort.merged_into_id)
+  const [keepId, setKeepId] = useState(mergeable[0]?.id ?? '')
+  const [mergeId, setMergeId] = useState(mergeable.find(escort => escort.id !== mergeable[0]?.id)?.id ?? '')
+  const [confirmation, setConfirmation] = useState('')
+  const [identityVerified, setIdentityVerified] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const keepProfile = mergeable.find(escort => escort.id === keepId)
+  const mergeProfile = mergeable.find(escort => escort.id === mergeId)
+  const profilesBelongToDifferentAccounts = Boolean(
+    keepProfile?.user_id &&
+    mergeProfile?.user_id &&
+    String(keepProfile.user_id) !== String(mergeProfile.user_id)
+  )
+  const inputClass = 'w-full px-3 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#FFD700]'
+
+  const submit = async () => {
+    if (!keepProfile || !mergeProfile || keepProfile.id === mergeProfile.id) {
+      setError('Choose two different active profiles.')
+      return
+    }
+    if (profilesBelongToDifferentAccounts) {
+      setError('These profiles belong to different accounts. Confirm ownership before using a manual merge.')
+      return
+    }
+    if (!identityVerified) {
+      setError('Confirm that you verified both listings belong to the same person.')
+      return
+    }
+    if (confirmation !== 'MERGE') {
+      setError('Type MERGE exactly to confirm.')
+      return
+    }
+
+    setLoading(true)
+    setError('')
+    try {
+      const result = await adminFetch('/admin/escorts/merge', {
+        method: 'POST',
+        body: JSON.stringify({
+          keepProfileId: keepProfile.id,
+          mergeProfileId: mergeProfile.id,
+          confirmation,
+          identityVerified,
+        }),
+      })
+      onMerged(result.message || `${keepProfile.name} was kept and the duplicate was archived.`)
+      onClose()
+    } catch (err: any) {
+      setError(err?.message || 'Could not merge these profiles.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/80 p-3 sm:p-5"
+      onClick={event => { if (event.target === event.currentTarget && !loading) onClose() }}
+    >
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="merge-profiles-title"
+        className="w-full max-w-xl rounded-2xl border border-[#FFD700]/25 bg-card-bg p-4 shadow-2xl sm:p-6"
+      >
+        <div className="mb-4 flex items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#FFD700]/10 text-[#FFD700]">
+            <GitMerge size={19} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h2 id="merge-profiles-title" className="text-lg font-black text-text-light">Merge duplicate profiles</h2>
+            <p className="mt-1 text-xs leading-relaxed text-text-muted">
+              Choose which profile stays in place. The other profile will be archived and its old link will redirect to the one you keep.
+            </p>
+          </div>
+          <button onClick={onClose} disabled={loading} aria-label="Close merge dialog" className="text-text-muted hover:text-text-light disabled:opacity-50">×</button>
+        </div>
+
+        {mergeable.length < 2 ? (
+          <p className="rounded-xl border border-[#FFD700]/20 bg-[#FFD700]/5 p-3 text-sm text-text-muted">
+            At least two active profiles are required.
+          </p>
+        ) : (
+          <div className="space-y-4">
+            <div>
+              <label htmlFor="merge-keep-profile" className="mb-1.5 block text-[10px] font-bold uppercase tracking-widest text-text-muted">Keep this profile</label>
+              <select
+                id="merge-keep-profile"
+                value={keepId}
+                onChange={event => {
+                  const nextId = event.target.value
+                  setKeepId(nextId)
+                  if (nextId === mergeId) {
+                    setMergeId(mergeable.find(escort => escort.id !== nextId)?.id ?? '')
+                  }
+                  setIdentityVerified(false)
+                  setConfirmation('')
+                  setError('')
+                }}
+                className={inputClass}
+              >
+                {mergeable.map(profile => (
+                  <option key={profile.id} value={profile.id}>
+                    {profile.name} · {profile.city || 'No city'} · #{profile.id}
+                  </option>
+                ))}
+              </select>
+              {keepProfile && <p className="mt-1 text-[10px] text-text-muted">{keepProfile.user_id ? 'Linked to an account' : 'No account linked'}</p>}
+            </div>
+
+            <div>
+              <label htmlFor="merge-source-profile" className="mb-1.5 block text-[10px] font-bold uppercase tracking-widest text-text-muted">Merge this profile into it</label>
+              <select
+                id="merge-source-profile"
+                value={mergeId}
+                onChange={event => {
+                  setMergeId(event.target.value)
+                  setIdentityVerified(false)
+                  setConfirmation('')
+                  setError('')
+                }}
+                className={inputClass}
+              >
+                {mergeable.filter(profile => profile.id !== keepId).map(profile => (
+                  <option key={profile.id} value={profile.id}>
+                    {profile.name} · {profile.city || 'No city'} · #{profile.id}
+                  </option>
+                ))}
+              </select>
+              {mergeProfile && <p className="mt-1 text-[10px] text-text-muted">{mergeProfile.user_id ? 'Linked to an account' : 'No account linked'}</p>}
+            </div>
+
+            {keepProfile && mergeProfile && (
+              <div className="space-y-2 rounded-xl border border-[#FFD700]/20 bg-[#FFD700]/5 p-3">
+                <p className="text-xs font-bold text-[#FFD700]">
+                  {mergeProfile.name} → {keepProfile.name}
+                </p>
+                <p className="text-[11px] leading-relaxed text-text-muted">
+                  Profile details, photos, services, and supported activity records move to {keepProfile.name}. The duplicate is not deleted: it becomes inactive and redirects to the kept profile.
+                </p>
+                <p className="text-[11px] leading-relaxed text-text-muted">
+                  If only the duplicate is linked to an account, that account stays with the kept profile. Merges between two different accounts are blocked.
+                </p>
+                <label className="flex cursor-pointer items-start gap-2 text-[11px] leading-relaxed text-text-light">
+                  <input
+                    type="checkbox"
+                    checked={identityVerified}
+                    onChange={event => { setIdentityVerified(event.target.checked); setError('') }}
+                    className="mt-0.5 accent-[#FFD700]"
+                  />
+                  <span>I verified these listings belong to the same person.</span>
+                </label>
+                {profilesBelongToDifferentAccounts && (
+                  <p role="alert" className="text-[11px] font-semibold text-[#EF4444]">
+                    These profiles belong to different accounts. The merge is blocked to protect account ownership.
+                  </p>
+                )}
+              </div>
+            )}
+
+            <div>
+              <label htmlFor="merge-confirmation" className="mb-1.5 block text-[10px] font-bold uppercase tracking-widest text-text-muted">
+                Type MERGE to confirm
+              </label>
+              <input
+                id="merge-confirmation"
+                value={confirmation}
+                onChange={event => setConfirmation(event.target.value)}
+                placeholder="MERGE"
+                className={inputClass}
+                autoComplete="off"
+              />
+            </div>
+
+            {error && <p role="alert" className="rounded-xl border border-[#EF4444]/20 bg-[#EF4444]/10 p-3 text-xs text-[#EF4444]">{error}</p>}
+          </div>
+        )}
+
+        <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button onClick={onClose} disabled={loading} className="rounded-xl border border-color px-4 py-2.5 text-xs font-bold text-text-muted hover:text-text-light disabled:opacity-50">
+            Cancel
+          </button>
+          {mergeable.length >= 2 && (
+            <button
+              onClick={submit}
+              disabled={loading || confirmation !== 'MERGE' || !identityVerified || profilesBelongToDifferentAccounts}
+              className="flex items-center justify-center gap-2 rounded-xl bg-[#8B0000] px-4 py-2.5 text-xs font-bold text-white hover:bg-[#a00000] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {loading ? <><span className="h-3 w-3 animate-spin rounded-full border border-white/30 border-t-white" />Merging…</> : <><GitMerge size={13} />Merge profiles</>}
+            </button>
+          )}
+        </div>
+      </section>
+    </div>
+  )
+}
+
 function EscortsTab() {
   const [escorts, setEscorts] = useState<AdminEscort[]>([])
   const [loading, setLoading] = useState(true)
@@ -2235,6 +2443,8 @@ function EscortsTab() {
   const [actionLoading, setActionLoading] = useState<string|null>(null)
   const [cleanupLoading, setCleanupLoading] = useState(false)
   const [cleanupMsg, setCleanupMsg] = useState('')
+  const [showMergeModal, setShowMergeModal] = useState(false)
+  const [mergeMsg, setMergeMsg] = useState('')
   const [showAddModal, setShowAddModal] = useState(false)
   const [editEscort, setEditEscort] = useState<AdminEscort | null>(null)
   const [bulkApproveLoading, setBulkApproveLoading] = useState(false)
@@ -2351,11 +2561,12 @@ function EscortsTab() {
     }
   }
 
-  const pendingCount = escorts.filter(e => !Boolean(e.is_active) && !Boolean(e.verified)).length
+  const pendingCount = escorts.filter(e => !e.merged_into_id && !Boolean(e.is_active) && !Boolean(e.verified)).length
+  const mergeableCount = escorts.filter(e => Number(e.is_active) === 1 && !e.merged_into_id).length
 
   const filtered = escorts.filter(e => {
     const matchSearch = !search || e.name?.toLowerCase().includes(search.toLowerCase()) || e.city?.toLowerCase().includes(search.toLowerCase())
-    const matchStatus = statusFilter === 'all' || (statusFilter === 'pending' ? (!Boolean(e.is_active) && !Boolean(e.verified)) : Boolean(e.is_active))
+    const matchStatus = statusFilter === 'all' || (statusFilter === 'pending' ? (!e.merged_into_id && !Boolean(e.is_active) && !Boolean(e.verified)) : (Boolean(e.is_active) && !e.merged_into_id))
     return matchSearch && matchStatus
   })
 
@@ -2364,6 +2575,7 @@ function EscortsTab() {
   return (
     <div className="space-y-4">
       {actionError && <div role="alert" data-testid="admin-escort-action-error" className="p-3 bg-[#EF4444]/10 border border-[#EF4444]/20 rounded-xl text-xs text-[#EF4444]">{actionError}</div>}
+      {mergeMsg && <div role="status" className="p-3 bg-[#28a745]/10 border border-[#28a745]/20 rounded-xl text-xs text-[#28a745]">{mergeMsg}</div>}
       <BulkOnlinePanel escorts={escorts} onBulkToggle={handleBulkToggle} />
       <div className="flex flex-col items-start gap-2.5 p-3.5 bg-[#EF4444]/10 border border-[#EF4444]/30 rounded-2xl sm:flex-row sm:items-center sm:gap-3">
         <Trash2 size={14} className="text-[#EF4444] flex-shrink-0" />
@@ -2424,7 +2636,18 @@ function EscortsTab() {
             <h3 className="text-sm font-bold text-text-light">All Escorts {!loading && `(${filtered.length})`}</h3>
             <p className="mt-1 text-[10px] text-text-muted">Boost individual profiles to feature them on the homepage and rank them ahead of non-featured listings. Inactive profiles remain hidden until activated.</p>
           </div>
-          <button onClick={() => setShowAddModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-[#8B0000] text-white text-xs font-bold rounded-xl"><Plus size={12}/>Add Escort</button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => { setMergeMsg(''); setShowMergeModal(true) }}
+              disabled={loading || mergeableCount < 2}
+              className="flex items-center gap-1.5 rounded-xl border border-[#FFD700]/30 bg-[#FFD700]/10 px-3 py-1.5 text-xs font-bold text-[#FFD700] disabled:cursor-not-allowed disabled:opacity-50"
+              title={mergeableCount < 2 ? 'At least two active profiles are required' : 'Combine duplicate profiles without deleting the old profile link'}
+              data-testid="button-merge-escort-profiles"
+            >
+              <GitMerge size={12}/>Merge Profiles
+            </button>
+            <button onClick={() => setShowAddModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-[#8B0000] text-white text-xs font-bold rounded-xl"><Plus size={12}/>Add Escort</button>
+          </div>
         </div>
 
         {loading && (
@@ -2458,7 +2681,10 @@ function EscortsTab() {
                         {(e.name || '?').charAt(0).toUpperCase()}
                       </div>
                     </td>
-                    <td data-label="Name" className="px-4 py-3 font-semibold text-text-light">{e.name}</td>
+                    <td data-label="Name" className="px-4 py-3 font-semibold text-text-light">
+                      {e.name}
+                      {e.merged_into_id && <p className="mt-0.5 text-[9px] font-normal text-text-muted">Merged into profile #{e.merged_into_id}</p>}
+                    </td>
                     <td data-label="City" className="px-4 py-3 text-text-muted">{e.city || '—'}</td>
                     <td data-label="Tier" className="px-4 py-3">
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{background:e.tier==='Elite'?'#8B000020':e.tier==='VIP'?'#B8860B20':e.tier==='Premium'?'#FFD70020':'#55555520',color:e.tier==='Elite'?'#8B0000':e.tier==='VIP'?'#B8860B':e.tier==='Premium'?'#FFD700':'#aaa'}}>
@@ -2503,7 +2729,9 @@ function EscortsTab() {
                     </td>
                     <td data-label="Actions" className="px-4 py-3">
                       <div className="flex gap-1.5 flex-wrap">
-                        {!Boolean(e.is_active) && !Boolean(e.verified) ? (
+                        {e.merged_into_id ? (
+                          <span className="rounded-lg border border-text-muted/20 bg-dark-bg px-2.5 py-1 text-[9px] font-bold text-text-muted">Archived redirect</span>
+                        ) : !Boolean(e.is_active) && !Boolean(e.verified) ? (
                           <>
                             <button
                               onClick={() => handleApprove(e.id)}
@@ -2594,6 +2822,16 @@ function EscortsTab() {
           onSaved={updated => {
             setEscorts(prev => prev.map(e => e.id === updated.id ? { ...e, ...updated } : e))
             setEditEscort(null)
+          }}
+        />
+      )}
+      {showMergeModal && (
+        <MergeProfilesModal
+          escorts={escorts}
+          onClose={() => setShowMergeModal(false)}
+          onMerged={message => {
+            setMergeMsg(message)
+            load()
           }}
         />
       )}

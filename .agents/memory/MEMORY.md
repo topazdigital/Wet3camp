@@ -4,7 +4,7 @@
 - [Booking policy decision](booking-policy.md) — platform does NOT process payments; bookings are appointment-requests only; escorts+clients arrange payment offline; STK push intentionally excluded
 - [Tier ordering protocol](tier-protocol.md) — Elite > VIP > Premium > Standard > Free; keep newest profiles first within each tier on freshness-focused lists
 - [Real-data fixes batch](real-data-fixes.md) — Standard tier is FREE; own-profile detection uses escort.user_id vs user.id; 3 new API endpoints: /profile/escort/earnings /profile/escort/followers /profile/escort/subscription; incall/outcall added to edit profile form; OTP requires real SMTP (no demo code leak); Instagram import shows "not configured"; earnings/followers/subscription all from real DB
-- [Social login and claim flow](social-login-claim-flow.md) — preserve claim intent; reviewed duplicate claims merge into the existing canonical profile
+- [Social login and claim flow](social-login-claim-flow.md) — preserve claim intent; verified claims or admin-assisted merges keep one canonical owner and redirect the source listing
 - [Telegram account linking](telegram-account-linking.md) — prioritize Telegram sign-in; link verified identities to existing accounts without changing roles
 - [Official Wet3Camp branding](logo-favicon.md) — Use the official wordmark, square mark, and near-black/burgundy/gold palette consistently
 - [Dev PostgreSQL extra columns](dev-pg-columns.md) — escorts table needed gender, instagram, facebook, price_incall, price_outcall, price_incall_overnight, price_outcall_overnight, source_site, incall, outcall; profile_claims and user_follows tables also added; all already in wet3camp-migration.sql for MySQL

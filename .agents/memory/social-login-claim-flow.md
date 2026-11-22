@@ -32,3 +32,9 @@ An escort who already manages a profile can request to claim another listing wit
 **Why:** The user chose duplicate merging to handle an escort who discovers a second listing of their own.
 
 **How to apply:** Keep the existing managed profile primary, require review before merging, retain the source listing as an archived redirect, and include its associated activity in the canonical profile.
+
+Administrators can also manually merge duplicate escort listings when the claimant cannot complete the self-service claim flow. The admin chooses which profile stays canonical; verify both listings belong to the same person, preserve the canonical account owner, move supported profile data and activity, and keep the source URL as an archived redirect. Never automatically merge two profiles owned by different accounts.
+
+**Why:** The user wants admin help for people who cannot complete claiming and create a second listing instead.
+
+**How to apply:** Require an explicit identity confirmation and merge confirmation in the admin panel. Keep the user-created profile when selected, and block cross-account merges until ownership is resolved.
