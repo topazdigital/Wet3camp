@@ -380,10 +380,17 @@ export default function ProfilePage() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-4 mb-3 py-3 border-t border-b border-color/50">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mb-3 py-3 border-t border-b border-color/50">
                   <div className="text-center"><p className="text-sm font-black text-text-light">{followerCount(escort.id).toLocaleString()}</p><p className="text-[9px] text-text-muted">Followers</p></div>
                   <div className="text-center"><p className="text-sm font-black text-text-light">{escort.reviews}</p><p className="text-[9px] text-text-muted">Reviews</p></div>
                   <div className="text-center"><p className="text-sm font-black text-text-light">{escort.rating}★</p><p className="text-[9px] text-text-muted">Rating</p></div>
+                  <div className="text-center" data-testid="public-profile-views">
+                    <p className="inline-flex items-center justify-center gap-1 text-sm font-black text-text-light">
+                      <Eye size={12} className="text-text-muted" />
+                      {Number(escort.views_count ?? 0).toLocaleString()}
+                    </p>
+                    <p className="text-[9px] text-text-muted">Profile Views</p>
+                  </div>
                   {!isOwnProfile && (
                     <div className="ml-auto">
                       <button onClick={() => { if (!isLoggedIn) { window.location.href = `/login?redirect=/profile/${escort.id}`; return }; toggleFollow(escort.id) }} className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all border ${following ? 'bg-card-bg border-color text-text-muted hover:border-[#EF4444] hover:text-[#EF4444]' : 'bg-[#8B0000] border-[#8B0000] text-white hover:bg-[#a00000]'}`}>

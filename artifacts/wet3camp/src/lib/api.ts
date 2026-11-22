@@ -62,7 +62,7 @@ export interface ApiEscort {
   price_incall_overnight: number; price_outcall_overnight: number
   whatsapp: string; telegram: string
   available: boolean; verified: boolean; online: boolean; featured?: boolean
-  follower_count?: number
+  follower_count?: number; views_count?: number
   languages: string[]
   services?: Array<{ name: string; available: boolean }>
   gallery?: string[]

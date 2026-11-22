@@ -300,6 +300,17 @@ router.get('/escorts/:id', async (req, res) => {
       associatedIds,
     ).catch(() => [[{ cnt: 0 }]])
 
+    let viewsCount = 0
+    if (row.user_id != null) {
+      const [[viewRow]] = await pool.query<any[]>(
+        `SELECT COUNT(*) AS cnt
+         FROM escort_profile_events
+         WHERE escort_id IN (${associatedPlaceholders}) AND event_type = 'profile_view'`,
+        associatedIds,
+      )
+      viewsCount = Number(viewRow?.cnt ?? 0)
+    }
+
     const [[reviewRow]] = await pool.query<any[]>(
       `SELECT COUNT(*) AS cnt, AVG(rating) AS avg FROM reviews WHERE escort_id IN (${associatedPlaceholders}) AND is_visible = 1`,
       associatedIds,
@@ -325,6 +336,7 @@ router.get('/escorts/:id', async (req, res) => {
       seoDescription: profileSeo.description,
       mergedRedirect,
       follower_count: Number((followerRow as any)?.cnt ?? 0),
+      views_count:    viewsCount,
       reviews_count:  Number((reviewRow as any)?.cnt ?? row.reviews_count ?? 0),
       rating:         Number((reviewRow as any)?.avg ?? row.rating ?? 0) || Number(row.rating ?? 0),
       gallery:        gallery.map((g: any) => g.image_url),

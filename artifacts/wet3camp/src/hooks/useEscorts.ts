@@ -40,6 +40,7 @@ function toAppEscort(e: ApiEscort) {
     online:      e.online,
     featured:    (e as any).featured ?? false,
     follower_count: (e as any).follower_count ?? 0,
+    views_count: Number((e as any).views_count ?? 0),
     mergedRedirect: (e as any).mergedRedirect ?? false,
     phone:       e.whatsapp,
     whatsapp:    e.whatsapp,
