@@ -156,11 +156,7 @@ async function findOrCreateUser(
   requiresEscortSetup: boolean
   escortApproved: boolean
 }> {
-  const [[existing]] = await pool.query(
-    'SELECT * FROM users WHERE email = ? LIMIT 1',
-    [email.toLowerCase()]
-  )
-  if (existing) {
+  const loadExistingUser = async (existing: any) => {
     if (picture && !existing.avatar) {
       await pool.query('UPDATE users SET avatar = ? WHERE id = ?', [picture, existing.id]).catch(() => {})
     }
@@ -181,14 +177,40 @@ async function findOrCreateUser(
       escortApproved: existing.role !== 'escort' || !!Number(escortProfile?.is_active),
     }
   }
+
+  const [[existing]] = await pool.query(
+    'SELECT * FROM users WHERE email = ? LIMIT 1',
+    [email.toLowerCase()]
+  )
+  if (existing) return loadExistingUser(existing)
+
   const base     = email.split('@')[0].replace(/[^a-z0-9]/gi, '_').toLowerCase().slice(0, 32) || 'user'
   const username = `${base}_${randomUUID().replace(/-/g, '').slice(0, 8)}`
   const passwordHash = await hashPassword(randomUUID())
   const role = signupRole === 'escort' ? 'escort' : 'user'
-  const [ins]    = await pool.query(
-    'INSERT INTO users (username, email, password_hash, display_name, avatar, role, is_active, created_at) VALUES (?,?,?,?,?,?,1,NOW())',
-    [username, email.toLowerCase(), passwordHash, name ?? username, picture ?? null, role]
-  )
+  let ins: any
+  try {
+    ;[ins] = await pool.query(
+      'INSERT INTO users (username, email, password_hash, display_name, avatar, role, is_active, created_at) VALUES (?,?,?,?,?,?,1,NOW())',
+      [username, email.toLowerCase(), passwordHash, name ?? username, picture ?? null, role]
+    )
+  } catch (error: any) {
+    const message = String(error?.message ?? error).toLowerCase()
+    const isUniqueConflict =
+      error?.code === 'ER_DUP_ENTRY' ||
+      error?.code === '23505' ||
+      /duplicate entry|unique constraint|already exists/.test(message)
+    if (!isUniqueConflict) throw error
+
+    // Two OAuth callbacks for the same new Google account can race between
+    // the lookup above and INSERT. Reuse the account created by the winner.
+    const [[racedUser]] = await pool.query(
+      'SELECT * FROM users WHERE email = ? LIMIT 1',
+      [email.toLowerCase()]
+    )
+    if (!racedUser) throw error
+    return loadExistingUser(racedUser)
+  }
   return {
     userId:      ins.insertId ?? ins[0]?.id,
     userRole:    role,

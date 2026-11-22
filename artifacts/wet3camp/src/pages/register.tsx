@@ -508,21 +508,36 @@ export default function RegisterPage() {
         }),
       })
       const result = await response.json().catch(() => ({}))
-      if (!response.ok) throw new Error(result.message || 'Photo upload failed')
+      if (!response.ok) {
+        const error = new Error(result.message || 'Photo upload failed') as Error & { status?: number }
+        error.status = response.status
+        throw error
+      }
       return result
+    }
+
+    const uploadWithRetry = async (data: string, type: 'avatar' | 'gallery', index: number) => {
+      try {
+        return await upload(data, type, index)
+      } catch (error: any) {
+        const retryable = !error?.status || error.status === 429 || error.status >= 500
+        if (!retryable) throw error
+        await new Promise(resolve => setTimeout(resolve, 500))
+        return upload(data, type, index)
+      }
     }
 
     let failedUploads = 0
     // Add every registration photo to the gallery first. Their insertion order
     // makes photo one the initial cover in the same way as dashboard uploads.
     for (const [index, photo] of photos.entries()) {
-      try { await upload(photo, 'gallery', index) } catch (err) {
+      try { await uploadWithRetry(photo, 'gallery', index) } catch (err) {
         failedUploads++
-        console.error('[registration gallery upload]', err)
+        console.error(`[registration gallery upload] photo ${index + 1}`, err)
       }
     }
     // The first photo is also stored as the account and escort profile image.
-    try { await upload(photos[0], 'avatar', 0) } catch (err) {
+    try { await uploadWithRetry(photos[0], 'avatar', 0) } catch (err) {
       failedUploads++
       console.error('[registration avatar upload]', err)
     }
