@@ -338,7 +338,7 @@ router.get('/profile/escort/followers', requireAuth, async (req: AuthRequest, re
   }
 })
 
-// Public, anonymous event ingestion. Only claimed profiles are tracked.
+// Public profile views are counted for every active listing; owner analytics remain claim-scoped.
 router.post('/profile/escort/analytics/events', async (req, res) => {
   try {
     const pool = getPool()
@@ -360,10 +360,18 @@ router.post('/profile/escort/analytics/events', async (req, res) => {
     }
 
     const [[escort]] = await pool.query<any[]>(
-      'SELECT id FROM escorts WHERE id = ? AND is_active = 1 AND user_id IS NOT NULL',
+      'SELECT id, user_id FROM escorts WHERE id = ? AND is_active = 1',
       [escortId]
     )
     if (!escort) { res.status(204).end(); return }
+
+    if (eventType === 'profile_view') {
+      await pool.query(
+        'UPDATE escorts SET views_count = views_count + 1 WHERE id = ? AND is_active = 1',
+        [escortId]
+      )
+    }
+    if (escort.user_id == null) { res.status(204).end(); return }
 
     const visitorHash = createHash('sha256').update(sessionKey).digest('hex')
     const sourceCandidate = String(body.source ?? 'direct')
@@ -371,6 +379,8 @@ router.post('/profile/escort/analytics/events', async (req, res) => {
     const cityCandidate = String(body.cityContext ?? '').replace(/[\u0000-\u001f\u007f]/g, '').trim()
     const cityContext = analyticsCities.has(cityCandidate) ? cityCandidate : null
 
+    // Preserve the owner-analytics sampling rule while the public total above
+    // counts every open, including repeated opens in one visitor session.
     if (eventType === 'profile_view') {
       const dedupeSince = new Date(Date.now() - 30 * 60 * 1000)
       const [[priorView]] = await pool.query<any[]>(

@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS escorts (
   tier_expires_at  TIMESTAMP        DEFAULT NULL,
   rating           DECIMAL(2,1)     NOT NULL DEFAULT 0.0,
   reviews_count    SMALLINT         NOT NULL DEFAULT 0,
+  views_count      BIGINT           NOT NULL DEFAULT 0,
   bio              TEXT             DEFAULT NULL,
   image            VARCHAR(500)     DEFAULT NULL,
   height           VARCHAR(20)      DEFAULT NULL,
@@ -389,6 +390,7 @@ CREATE INDEX IF NOT EXISTS idx_feed_comments_escort_id ON feed_comments (escort_
 CREATE INDEX IF NOT EXISTS idx_feed_comments_parent_id ON feed_comments (parent_id);
 
 -- Idempotent column additions for existing dev DBs (safe to re-run)
+ALTER TABLE escorts ADD COLUMN IF NOT EXISTS views_count BIGINT NOT NULL DEFAULT 0;
 ALTER TABLE escorts ADD COLUMN IF NOT EXISTS incall                  SMALLINT DEFAULT 1;
 ALTER TABLE escorts ADD COLUMN IF NOT EXISTS outcall                 SMALLINT DEFAULT 1;
 ALTER TABLE escorts ADD COLUMN IF NOT EXISTS price_incall_overnight  INTEGER  DEFAULT 0;

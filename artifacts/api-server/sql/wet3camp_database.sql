@@ -72,6 +72,7 @@ CREATE TABLE IF NOT EXISTS `escorts` (
   `tier`          ENUM('elite','vip','premium','standard','free') NOT NULL DEFAULT 'standard',
   `rating`        DECIMAL(2,1) NOT NULL DEFAULT 0.0,
   `reviews_count` SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  `views_count`   BIGINT UNSIGNED NOT NULL DEFAULT 0,
   `bio`           TEXT         DEFAULT NULL,
   `image`         VARCHAR(500) DEFAULT NULL,
   `height`        VARCHAR(20)  DEFAULT NULL,
