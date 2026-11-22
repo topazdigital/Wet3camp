@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import Header from '@/components/Header'
 import Sidebar from '@/components/Sidebar'
+import ProfilePhoto from '@/components/ProfilePhoto'
 import { useSEO } from '@/lib/useSEO'
-import { proxyImg } from '@/lib/proxyImg'
 import { Search, SlidersHorizontal, MapPin, Star, Check, X, Heart, MessageCircle, Crown, ChevronDown } from 'lucide-react'
 import { Link, useLocation } from 'wouter'
 import { api } from '@/lib/api'
@@ -27,36 +27,20 @@ const TIER_META: Record<string, { label: string; color: string; bg: string; orde
 
 // ─── Card components ────────────────────────────────────────────────────────────
 
-function EscortPlaceholder({ name, size = 'lg' }: { name: string; size?: 'sm' | 'md' | 'lg' }) {
-  const letter = (name || '?').charAt(0).toUpperCase()
-  const sizeClass = size === 'sm' ? 'text-2xl' : size === 'md' ? 'text-3xl' : 'text-5xl'
-  return (
-    <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-[#1a1a1a] to-[#2a1a1a]">
-      <span className={`${sizeClass} font-black text-[#8B0000]/60 select-none`}>{letter}</span>
-    </div>
-  )
-}
-
 function EliteCard({ escort, isFav, onFav }: { escort: ApiEscort; isFav: boolean; onFav: () => void }) {
   return (
     <Link
       href={`/@${getSlug(escort.name)}`}
-      className="relative col-span-2 md:col-span-1 rounded-2xl overflow-hidden border-2 border-[#FFD700]/40 shadow-xl shadow-[#FFD700]/10 group hover:border-[#FFD700]/70 transition-all block cursor-pointer"
+      className="relative col-span-1 rounded-2xl overflow-hidden border-2 border-[#FFD700]/40 shadow-xl shadow-[#FFD700]/10 group hover:border-[#FFD700]/70 transition-all block cursor-pointer"
     >
       <div className="aspect-[4/5] relative">
-        {escort.image ? (
-          <>
-            <img
-              src={proxyImg(escort.image, 640)}
-              alt={escort.name}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-              onError={(ev) => { ev.currentTarget.style.display='none'; const fb=ev.currentTarget.parentElement?.querySelector<HTMLElement>('.img-fallback'); if(fb) fb.style.display='flex' }}
-            />
-            <div className="img-fallback w-full h-full absolute inset-0 items-center justify-center" style={{ display:'none' }}><EscortPlaceholder name={escort.name} size="lg" /></div>
-          </>
-        ) : (
-          <EscortPlaceholder name={escort.name} size="lg" />
-        )}
+        <ProfilePhoto
+          src={escort.image}
+          alt={`${escort.name} profile`}
+          name={escort.name}
+          width={480}
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+        />
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
 
         <div className="absolute top-3 left-3 flex items-center gap-1.5">
@@ -115,19 +99,13 @@ function VIPCard({ escort, isFav, onFav }: { escort: ApiEscort; isFav: boolean; 
       className="relative rounded-xl overflow-hidden border border-[#B8860B]/30 shadow-lg group hover:border-[#B8860B]/60 transition-all block cursor-pointer"
     >
       <div className="aspect-[3/4] relative">
-        {escort.image ? (
-          <>
-            <img
-              src={proxyImg(escort.image, 640)}
-              alt={escort.name}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-              onError={(ev) => { ev.currentTarget.style.display='none'; const fb=ev.currentTarget.parentElement?.querySelector<HTMLElement>('.img-fallback'); if(fb) fb.style.display='flex' }}
-            />
-            <div className="img-fallback w-full h-full absolute inset-0 items-center justify-center" style={{ display:'none' }}><EscortPlaceholder name={escort.name} size="md" /></div>
-          </>
-        ) : (
-          <EscortPlaceholder name={escort.name} size="md" />
-        )}
+        <ProfilePhoto
+          src={escort.image}
+          alt={`${escort.name} profile`}
+          name={escort.name}
+          width={480}
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+        />
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-transparent" />
 
         <div className="absolute top-2 left-2">
@@ -165,22 +143,16 @@ function StandardCard({ escort, isFav, onFav }: { escort: ApiEscort; isFav: bool
   return (
     <Link
       href={`/@${getSlug(escort.name)}`}
-      className="flex gap-3 p-3 bg-card-bg border border-color rounded-xl hover:border-[#8B0000]/40 transition-all group cursor-pointer"
+      className="flex min-w-0 gap-3 p-2.5 bg-card-bg border border-color rounded-xl hover:border-[#8B0000]/50 transition-all group cursor-pointer"
     >
-      <div className="relative flex-shrink-0 w-16 h-16 rounded-xl overflow-hidden">
-        {escort.image ? (
-          <>
-            <img
-              src={proxyImg(escort.image, 320)}
-              alt={escort.name}
-              className="w-full h-full object-cover"
-              onError={(ev) => { ev.currentTarget.style.display='none'; const fb=ev.currentTarget.parentElement?.querySelector<HTMLElement>('.img-fallback'); if(fb) fb.style.display='flex' }}
-            />
-            <div className="img-fallback w-full h-full absolute inset-0 items-center justify-center" style={{ display:'none' }}><EscortPlaceholder name={escort.name} size="sm" /></div>
-          </>
-        ) : (
-          <EscortPlaceholder name={escort.name} size="sm" />
-        )}
+      <div className="relative flex-shrink-0 w-[4.25rem] h-[4.75rem] rounded-xl overflow-hidden">
+        <ProfilePhoto
+          src={escort.image}
+          alt={`${escort.name} profile`}
+          name={escort.name}
+          width={320}
+          className="w-full h-full object-cover"
+        />
         {escort.online && <div className="absolute bottom-0.5 right-0.5 w-2.5 h-2.5 rounded-full bg-[#28a745] ring-2 ring-card-bg" />}
       </div>
       <div className="flex-1 min-w-0">
@@ -200,8 +172,8 @@ function StandardCard({ escort, isFav, onFav }: { escort: ApiEscort; isFav: bool
         <button onClick={(ev) => { ev.preventDefault(); ev.stopPropagation(); onFav() }} className="z-10">
           <Heart size={14} className={isFav ? 'fill-[#E91E63] text-[#E91E63]' : 'text-text-muted hover:text-[#E91E63] transition-colors'} />
         </button>
-        <p className="text-xs font-bold text-[#8B0000]">KES {(escort.price_incall || escort.price_hourly || 0).toLocaleString()}</p>
-        <span className="text-[10px] px-2 py-1 bg-[#8B0000]/15 text-[#8B0000] rounded-lg font-semibold">
+        <p className="text-xs font-bold text-[#FFD700]">KES {(escort.price_incall || escort.price_hourly || 0).toLocaleString()}</p>
+        <span className="text-[10px] px-2 py-1 bg-[#8B0000]/25 text-[#f0b6b6] rounded-lg font-semibold">
           View
         </span>
       </div>
@@ -299,15 +271,15 @@ export default function SearchPage() {
         <Header />
 
         {/* Hero Search Bar */}
-        <div className="bg-card-bg border-b border-color px-4 py-4 sticky top-14 z-30">
-          <div className="max-w-3xl mx-auto flex items-center gap-2">
+        <div className="sticky top-14 z-30 border-b border-color bg-[#111111]/95 px-3 py-3 backdrop-blur-xl sm:px-4 lg:px-5">
+          <div className="flex w-full items-center gap-2">
             <div className="relative flex-1">
               <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
               <input
                 value={query}
                 onChange={e => setQuery(e.target.value)}
                 placeholder="Search by name, area or service…"
-                className="w-full pl-9 pr-4 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted focus:outline-none focus:border-[#8B0000]/60 transition-all"
+                className="w-full pl-9 pr-10 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted focus:outline-none focus:border-[#8B0000]/60 transition-all"
               />
               {query && (
                 <button onClick={() => setQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-light">
@@ -317,7 +289,9 @@ export default function SearchPage() {
             </div>
             <button
               onClick={() => setShowFilters(v => !v)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-semibold transition-all ${showFilters ? 'bg-[#8B0000] border-[#8B0000] text-white' : 'bg-dark-bg border-color text-text-muted hover:border-[#8B0000]/50'}`}
+              aria-expanded={showFilters}
+              aria-label={showFilters ? 'Hide filters' : 'Show filters'}
+              className={`flex flex-shrink-0 items-center gap-2 px-3.5 py-2.5 rounded-xl border text-sm font-semibold transition-all sm:px-4 ${showFilters ? 'bg-[#8B0000] border-[#8B0000] text-white' : 'bg-dark-bg border-color text-text-muted hover:border-[#8B0000]/50'}`}
             >
               <SlidersHorizontal size={15} />
               <span className="hidden sm:inline">Filters</span>
@@ -326,7 +300,7 @@ export default function SearchPage() {
 
           {/* Filter Panel */}
           {showFilters && (
-            <div className="max-w-3xl mx-auto mt-3 p-4 bg-dark-bg border border-color rounded-xl">
+            <div className="mt-3 w-full rounded-xl border border-color bg-dark-bg p-3 sm:p-4">
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {/* City */}
                 <div>
@@ -427,10 +401,10 @@ export default function SearchPage() {
         </div>
 
         {/* Results */}
-        <div className="max-w-7xl mx-auto px-4 py-6">
+        <div className="w-full px-3 py-4 sm:px-4 lg:px-5 lg:py-5 2xl:px-6">
 
           {/* Stats bar */}
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-3">
             <p className="text-sm text-text-muted">
               {loading ? <span className="animate-pulse">Searching…</span> : (
                 <><span className="text-text-light font-bold">{escorts.length}</span>{total > escorts.length ? ` of ${total.toLocaleString()}` : ''} escorts {query ? `matching "${query}"` : city !== 'All Cities' ? `in ${city}` : 'available'}</>
@@ -444,7 +418,7 @@ export default function SearchPage() {
           </div>
 
           {loading && escorts.length === 0 && (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 min-[520px]:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
               {[...Array(8)].map((_, i) => (
                 <div key={i} className="aspect-[3/4] bg-card-bg rounded-xl animate-pulse" />
               ))}
@@ -483,7 +457,7 @@ export default function SearchPage() {
                 <div className="flex-1 h-px bg-[#FFD700]/20" />
                 <span className="text-[10px] text-[#FFD700]/60">{elites.length} elite escorts</span>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 min-[520px]:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
                 {elites.map(e => (
                   <EliteCard key={e.id} escort={e} isFav={isFavorite(e.id)} onFav={() => toggleFavorite(e.id)} />
                 ))}
@@ -500,7 +474,7 @@ export default function SearchPage() {
                 <div className="flex-1 h-px bg-[#B8860B]/20" />
                 <span className="text-[10px] text-[#B8860B]/60">{vips.length} VIP escorts</span>
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 min-[520px]:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
                 {vips.map(e => (
                   <VIPCard key={e.id} escort={e} isFav={isFavorite(e.id)} onFav={() => toggleFavorite(e.id)} />
                 ))}
@@ -516,7 +490,7 @@ export default function SearchPage() {
                 <h2 className="text-sm font-black text-[#B8860B] uppercase tracking-widest">Premium Escorts</h2>
                 <div className="flex-1 h-px bg-[#B8860B]/20" />
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 min-[520px]:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
                 {premiums.map(e => (
                   <VIPCard key={e.id} escort={e} isFav={isFavorite(e.id)} onFav={() => toggleFavorite(e.id)} />
                 ))}
@@ -533,7 +507,7 @@ export default function SearchPage() {
                   <div className="flex-1 h-px bg-color" />
                 </div>
               )}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 min-[560px]:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3">
                 {others.map(e => (
                   <StandardCard key={e.id} escort={e} isFav={isFavorite(e.id)} onFav={() => toggleFavorite(e.id)} />
                 ))}

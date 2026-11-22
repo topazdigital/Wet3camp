@@ -1,10 +1,10 @@
 ---
 name: Escort landing density
-description: Design preference for compact escort acquisition pages across device sizes.
+description: Design preference for compact, responsive escort discovery and acquisition pages.
 ---
 
-Escort acquisition pages should use compact spacing and typography across phone, tablet, and desktop while keeping the key signup, pricing, eligibility, and SEO information.
+Escort discovery and acquisition pages should use the available content width, with compact spacing and typography that adapt across phone, tablet, and desktop.
 
-**Why:** The first live escort landing page felt too tall to the user.
+**Why:** The user asked for the search page to fill its available width and stay compact and responsive on all devices; the first live escort landing page also felt too tall.
 
-**How to apply:** Keep the hero concise, remove repeated explanations, and check mobile, tablet, and desktop layouts before release.
+**How to apply:** Keep acquisition-page heroes concise, avoid unused side gutters on search pages, and check mobile, tablet, and desktop layouts before release.
