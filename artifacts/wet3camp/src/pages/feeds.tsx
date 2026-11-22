@@ -231,7 +231,7 @@ function FeedPost({ escort }: { escort: any }) {
 
       {/* Photo */}
       {escort.image && (
-        <Link href={`/@${getSlug(escort.name)}`} className="mx-auto flex h-[240px] w-full max-w-4xl items-center justify-center overflow-hidden bg-black sm:h-[320px] lg:h-[360px]">
+        <Link href={`/@${getSlug(escort.name)}`} className="mx-auto flex h-[184px] w-full max-w-3xl items-center justify-center overflow-hidden bg-black sm:h-[216px] lg:h-[240px]">
           <img src={proxyImg(escort.image, 960)} alt={escort.name} loading="lazy" decoding="async" className="max-h-full max-w-full object-contain transition-transform duration-300 hover:scale-[1.01]" />
         </Link>
       )}
@@ -387,7 +387,7 @@ export default function FeedsPage() {
           <div className="mx-auto flex w-full max-w-[1480px] items-start gap-4 xl:gap-5">
 
             {/* Feed stays fluid on phones and is capped on wide desktop screens. */}
-            <div className="min-w-0 w-full max-w-5xl flex-1">
+            <div className="mx-auto min-w-0 w-full max-w-3xl flex-1">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <Flame size={16} className="text-[#8B0000]" />
@@ -426,7 +426,7 @@ export default function FeedsPage() {
                         <div className="h-3 bg-dark-bg rounded" />
                         <div className="h-3 bg-dark-bg rounded w-4/5" />
                       </div>
-                      <div className="h-[240px] bg-dark-bg sm:h-[300px]" />
+                      <div className="h-[184px] bg-dark-bg sm:h-[216px] lg:h-[240px]" />
                     </div>
                   ))}
                 </div>

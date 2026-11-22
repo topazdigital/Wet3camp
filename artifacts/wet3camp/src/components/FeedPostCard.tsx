@@ -278,7 +278,7 @@ export default function FeedPostCard({ post, onRemoved }: { post: FeedPost; onRe
                 controls
                 playsInline
                 preload="metadata"
-                className="h-[260px] w-full bg-black object-contain sm:h-[340px] lg:h-[380px]"
+                className="h-[192px] w-full bg-black object-contain sm:h-[224px] lg:h-[256px]"
               />
             ) : (
               <button
@@ -286,7 +286,7 @@ export default function FeedPostCard({ post, onRemoved }: { post: FeedPost; onRe
                 type="button"
                 onClick={() => setLightbox(item.url)}
                 aria-label={`View photo ${index + 1} from ${post.escort_name}'s post`}
-                className={`flex h-[260px] min-w-0 items-center justify-center overflow-hidden bg-black sm:h-[340px] lg:h-[380px] ${post.media.length > 1 ? 'h-[180px] sm:h-[230px] lg:h-[260px]' : ''}`}
+                className={`flex h-[192px] min-w-0 items-center justify-center overflow-hidden bg-black sm:h-[224px] lg:h-[256px] ${post.media.length > 1 ? 'h-[136px] sm:h-[168px] lg:h-[192px]' : ''}`}
               >
                 <img
                   src={item.url}
