@@ -3,6 +3,7 @@ import { Link } from 'wouter'
 import { Play, Radio } from 'lucide-react'
 import { getSlug } from '@/data/escorts'
 import { api, type ApiEscort } from '@/lib/api'
+import { proxyImg } from '@/lib/proxyImg'
 
 export interface PreviewClip {
   id: string
@@ -274,11 +275,7 @@ export function PreviewStories() {
           </div>
         ))}
         {visibleProfiles.map(profile => {
-          const photo = profile.image
-            ? profile.image.startsWith('http')
-              ? `/api/image-proxy?url=${encodeURIComponent(profile.image)}`
-              : profile.image
-            : ''
+          const photo = proxyImg(profile.image, 320) ?? ''
           return (
             <Link
               key={profile.id}

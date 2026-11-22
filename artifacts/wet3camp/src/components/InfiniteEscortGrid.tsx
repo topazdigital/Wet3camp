@@ -7,6 +7,7 @@ import { useFollow } from '@/lib/follow-context'
 import { useAuth } from '@/lib/auth-context'
 import { useFavorites } from '@/lib/favorites-context'
 import { useOnlineStatus } from '@/lib/use-online-status'
+import ProfilePhoto from '@/components/ProfilePhoto'
 
 const TIER_STYLE: Record<string, { bg: string; label: string }> = {
   Elite:   { bg: '#8B0000', label: 'Elite'   },
@@ -181,32 +182,15 @@ export default function InfiniteEscortGrid({
             <Link href={profileHref} key={uniqueKey} className="group">
               <div className="bg-card-bg rounded-xl overflow-hidden border border-color hover:border-[#8B0000]/50 hover:shadow-lg hover:shadow-[#8B0000]/10 transition-all duration-200">
                 <div className="relative w-full aspect-[3/4] overflow-hidden">
-                  {escort.image ? (
-                    <>
-                      <img
-                        src={escort.image.startsWith('http') ? `/api/image-proxy?url=${encodeURIComponent(escort.image)}` : escort.image}
-                        alt={escort.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-400"
-                        loading={idx < 12 ? 'eager' : 'lazy'}
-                        decoding="async"
-                        fetchPriority={idx < 4 ? 'high' : 'auto'}
-                        onError={(ev) => {
-                          ev.currentTarget.style.display = 'none'
-                          const fb = ev.currentTarget.parentElement?.querySelector<HTMLElement>('.img-fallback')
-                          if (fb) fb.style.display = 'flex'
-                        }}
-                      />
-                      <div className="img-fallback w-full h-full absolute inset-0 items-center justify-center bg-gradient-to-br from-[#1a1a1a] to-[#2a1a1a]" style={{ display: 'none' }}>
-                        <span className="text-5xl font-black text-[#8B0000]/60 select-none">{(escort.name || '?').charAt(0).toUpperCase()}</span>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-[#1a1a1a] to-[#2a1a1a]">
-                      <span className="text-5xl font-black text-[#8B0000]/60 select-none">
-                        {(escort.name || '?').charAt(0).toUpperCase()}
-                      </span>
-                    </div>
-                  )}
+                  <ProfilePhoto
+                    src={escort.image}
+                    alt={escort.name}
+                    name={escort.name}
+                    width={480}
+                    className="absolute inset-0 h-full w-full object-cover group-hover:scale-105 transition-transform duration-400"
+                    loading={idx < 6 ? 'eager' : 'lazy'}
+                    priority={idx < 2}
+                  />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
 
                   {tier && (

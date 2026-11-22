@@ -3,6 +3,7 @@ import { ArrowUpRight, BookOpen, CheckCircle2, MapPin } from 'lucide-react'
 import { Link } from 'wouter'
 import { api, type ApiEscort } from '@/lib/api'
 import { getSlug } from '@/data/escorts'
+import { proxyImg } from '@/lib/proxyImg'
 
 interface BlogPreview {
   id: string
@@ -29,15 +30,8 @@ function chooseFresh<T>(items: T[], count: number, keepNewest: number): T[] {
   return [...pinned, ...shuffle(items.slice(keepNewest)).slice(0, count - pinned.length)]
 }
 
-function escortImage(image?: string | null) {
-  if (!image) return ''
-  return image.startsWith('http')
-    ? `/api/image-proxy?url=${encodeURIComponent(image)}`
-    : image
-}
-
 function EscortCard({ escort }: { escort: ApiEscort }) {
-  const image = escortImage(escort.image)
+  const image = proxyImg(escort.image, 480) ?? ''
   const tierColor = escort.tier?.toLowerCase() === 'elite'
     ? '#8B0000'
     : escort.tier?.toLowerCase() === 'vip'
@@ -215,7 +209,7 @@ export default function LatestHomepageContent() {
                   data-testid={`link-home-blog-${post.slug}`}
                 >
                   {post.imageUrl ? (
-                    <img src={post.imageUrl} alt="" loading="lazy" className="h-12 w-14 flex-shrink-0 rounded-lg object-cover" />
+            <img src={proxyImg(post.imageUrl, 480)} alt="" loading="lazy" decoding="async" className="h-12 w-14 flex-shrink-0 rounded-lg object-cover" />
                   ) : (
                     <span className="flex h-12 w-14 flex-shrink-0 items-center justify-center rounded-lg bg-[#8B0000]/15 text-[#B8860B]">
                       <BookOpen size={18} />

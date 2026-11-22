@@ -47,7 +47,7 @@ function EliteCard({ escort, isFav, onFav }: { escort: ApiEscort; isFav: boolean
         {escort.image ? (
           <>
             <img
-              src={proxyImg(escort.image)}
+              src={proxyImg(escort.image, 640)}
               alt={escort.name}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
               onError={(ev) => { ev.currentTarget.style.display='none'; const fb=ev.currentTarget.parentElement?.querySelector<HTMLElement>('.img-fallback'); if(fb) fb.style.display='flex' }}
@@ -118,7 +118,7 @@ function VIPCard({ escort, isFav, onFav }: { escort: ApiEscort; isFav: boolean; 
         {escort.image ? (
           <>
             <img
-              src={proxyImg(escort.image)}
+              src={proxyImg(escort.image, 640)}
               alt={escort.name}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
               onError={(ev) => { ev.currentTarget.style.display='none'; const fb=ev.currentTarget.parentElement?.querySelector<HTMLElement>('.img-fallback'); if(fb) fb.style.display='flex' }}
@@ -171,7 +171,7 @@ function StandardCard({ escort, isFav, onFav }: { escort: ApiEscort; isFav: bool
         {escort.image ? (
           <>
             <img
-              src={proxyImg(escort.image)}
+              src={proxyImg(escort.image, 320)}
               alt={escort.name}
               className="w-full h-full object-cover"
               onError={(ev) => { ev.currentTarget.style.display='none'; const fb=ev.currentTarget.parentElement?.querySelector<HTMLElement>('.img-fallback'); if(fb) fb.style.display='flex' }}

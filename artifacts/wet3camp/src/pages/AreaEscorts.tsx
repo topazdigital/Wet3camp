@@ -20,7 +20,7 @@ function ProfileCard({ escort }: { escort: ApiEscort }) {
       <div className="relative aspect-[3/4] overflow-hidden">
         {escort.image ? (
           <img
-            src={proxyImg(escort.image)}
+            src={proxyImg(escort.image, 480)}
             alt={`${escort.name} profile in ${escort.area || escort.city}`}
             width="300"
             height="400"

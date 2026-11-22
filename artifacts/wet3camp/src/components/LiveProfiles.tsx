@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'wouter'
 import { Radio } from 'lucide-react'
+import { proxyImg } from '@/lib/proxyImg'
 
 interface LiveSession {
   id: string
@@ -53,7 +54,7 @@ export default function LiveProfiles() {
                       <div className="w-full h-full rounded-full p-[2px] bg-dark-bg">
                         <div className="w-full h-full rounded-full overflow-hidden group-hover:scale-105 transition-transform duration-300">
                           {photo
-                            ? <img src={photo} alt={s.name} className="w-full h-full object-cover" />
+                            ? <img src={proxyImg(photo, 320)} alt={s.name} loading="lazy" decoding="async" className="w-full h-full object-cover" />
                             : <div className="w-full h-full bg-card-bg flex items-center justify-center text-xl font-black text-[#8B0000]/50">
                                 {(s.name || '?')[0]}
                               </div>

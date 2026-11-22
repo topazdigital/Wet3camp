@@ -3,6 +3,7 @@ import { Link } from 'wouter'
 import { Star, MapPin, CheckCircle2 } from 'lucide-react'
 import { api, type ApiEscort } from '@/lib/api'
 import { getSlug } from '@/data/escorts'
+import ProfilePhoto from '@/components/ProfilePhoto'
 
 const CARD_W = 220
 const GAP    = 12
@@ -90,30 +91,15 @@ export default function FeaturedCarousel() {
               }}
             >
               <div className="relative" style={{ height: 300 }}>
-                {e.image ? (
-                  <>
-                    <img
-                      src={e.image}
-                      alt={e.name}
-                      draggable={false}
-                      loading="lazy"
-                      decoding="async"
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      onError={(ev) => {
-                        ev.currentTarget.style.display = 'none'
-                        const fb = ev.currentTarget.parentElement?.querySelector<HTMLElement>('.img-fallback')
-                        if (fb) fb.style.display = 'flex'
-                      }}
-                    />
-                    <div className="img-fallback w-full h-full absolute inset-0 items-center justify-center bg-gradient-to-br from-[#1a1a1a] to-[#2a1a1a]" style={{ display: 'none' }}>
-                      <span className="text-5xl font-black text-[#8B0000]/40 select-none">{(e.name || '?').charAt(0).toUpperCase()}</span>
-                    </div>
-                  </>
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#1a1a1a] to-[#2a1a1a]">
-                    <span className="text-5xl font-black text-[#8B0000]/40 select-none">{(e.name || '?').charAt(0).toUpperCase()}</span>
-                  </div>
-                )}
+                <ProfilePhoto
+                  src={e.image}
+                  alt={e.name}
+                  name={e.name}
+                  width={480}
+                  className="absolute inset-0 h-full w-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  loading="lazy"
+                  draggable={false}
+                />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-transparent" />
                 <div className="absolute top-2 left-2 flex gap-1 flex-wrap">
                   {badge && (
