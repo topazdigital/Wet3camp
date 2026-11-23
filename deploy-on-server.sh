@@ -746,7 +746,7 @@ if [ "${RUN_SCRAPER_NOW:-0}" = "1" ] && [ -f "$SCRAPER" ] && [ -n "$DATABASE_URL
     SCRAPER_LOG="/tmp/wet3camp-scraper-${$}.log"
   fi
   DATABASE_URL="$DATABASE_URL" UPLOADS_DIR="$UPLOADS_REAL" \
-    nohup node "$SCRAPER" --fast --source=nairobiraha </dev/null > "$SCRAPER_LOG" 2>&1 &
+    nohup node "$SCRAPER" --fast --source=approved </dev/null > "$SCRAPER_LOG" 2>&1 &
   SCRAPER_PID=$!
   disown "$SCRAPER_PID" 2>/dev/null || true
   echo "    Scraper running in background (PID: $SCRAPER_PID)"
@@ -760,7 +760,7 @@ else
 fi
 
 echo ""
-echo "==> [9/9] Setting up nightly scraper cron job (3 AM Nairobi time = midnight UTC)..."
+echo "==> [9/9] Setting up nightly approved-source scraper (3 AM Nairobi time = midnight UTC)..."
 SCRAPER_CRON_LOG="$API_DIR/wet3camp-scraper-cron.log"
 if ! touch "$SCRAPER_CRON_LOG" 2>/dev/null; then
   SCRAPER_CRON_LOG="/tmp/wet3camp-scraper-cron-${USER:-admin}.log"

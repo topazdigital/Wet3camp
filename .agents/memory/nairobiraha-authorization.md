@@ -1,13 +1,19 @@
 ---
-name: NairobiRaha sourcing authorization
-description: User-confirmed authorization to import provider profiles from NairobiRaha into Wet3Camp.
+name: Escort directory sourcing authorization
+description: User-approved source list and scope for recurring profile imports into Wet3Camp.
 ---
 
 The user confirmed NairobiRaha is theirs and providers permit republication of their profiles on Wet3Camp.
 
 **Why:** The user explicitly confirmed source ownership and provider permission.
 
-**How to apply:** Use this authorization for NairobiRaha imports only; do not assume other sources permit scraping or republication.
+**How to apply:** Keep NairobiRaha as a recurring source.
+
+The user approved these additional domains for recurring Wet3Camp imports: rahaescorts.com, raha.ke, toplesskenya.com, nairobihot.com, kenyaraha.com, escortamus.com, rahaanairobi.com, mahabakenya.com, lovebiteglobal.com, and ladys.one.
+
+**Why:** The user selected the domains after being asked to approve only sources they control or are authorized to scrape and republish.
+
+**How to apply:** The scheduled source set is NairobiRaha plus these ten domains. Do not add other sources (including hookup254.com) to the recurring schedule without approval. Respect site crawl rules and never bypass access blocks; skip unavailable sources.
 
 The user wants NairobiRaha profiles continuously imported into Wet3Camp and expects the catalog to reach thousands.
 

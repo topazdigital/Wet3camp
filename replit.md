@@ -25,6 +25,15 @@ Kenya escort marketplace and booking platform — discover, book, and manage com
 - Fresh imported workspace: if the full mobile-inclusive install is blocked by the package firewall, restore the web/API preview with `pnpm install --frozen-lockfile --filter '@workspace/wet3camp...' --filter '@workspace/api-server...'`.
 - After completing and verifying each requested code change, push directly to `main` with `bash push-to-github.sh`; do not create a compare branch or pull request or ask for routine push approval. The script refreshes the committed frontend build and pushes the release, but does not deploy to the server. Production deployment is started separately over SSH with `bash /home/admin/wet3camp-build/deploy-on-server.sh`.
 
+## Escort profile imports
+
+- The production cron runs `scripts/run-nairobiraha-scraper.sh` nightly at 03:00 Nairobi time. It now uses `--source=approved`: NairobiRaha plus the ten additional directories the user approved.
+- Approved additional directories: `rahaescorts.com`, `raha.ke`, `toplesskenya.com`, `nairobihot.com`, `kenyaraha.com`, `escortamus.com`, `rahaanairobi.com`, `mahabakenya.com`, `lovebiteglobal.com`, and `ladys.one`. Do not add another source without user approval.
+- Run a no-write link check from `artifacts/api-server/` with `node scrape-escorts.mjs --source=approved --discover-only`; use `--dry-run --limit=1 --source=<id>` to test one source's profile parser.
+- Each added directory is limited to 200 new profile URLs per run. Existing `source_url` records are skipped before profile pages are fetched.
+- Directory crawling checks each site's `robots.txt`, uses its public sitemap/listing pages, and does not bypass HTTP blocks or rehost third-party profile photos. A source that denies access or is unavailable is skipped and logged.
+- A scraper code change does not update the live cron until the normal server deploy installs the revised runner and cron entry.
+
 ## Stack
 
 - pnpm workspaces, Node.js 24, TypeScript 5.9

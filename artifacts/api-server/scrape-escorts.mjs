@@ -4,6 +4,7 @@
  * Sources (in order):
  *   1. nairobiraha.com  — static HTML profiles, services from bio text, languages from section-boxes
  *   2. hookup254.com    — WordPress AJAX-based, discovers nonce from listing page then POSTs to admin-ajax
+ *   3. approved Kenyan directories — public sitemaps/listing pages, robots.txt checked
  *
  * Usage (run from artifacts/api-server/):
  *   node scrape-escorts.mjs                       — full scrape all sources
@@ -13,6 +14,7 @@
  *   node scrape-escorts.mjs --limit=20            — stop after N imports
  *   node scrape-escorts.mjs --source=nairobiraha  — one source only
  *   node scrape-escorts.mjs --source=hookup254
+ *   node scrape-escorts.mjs --source=approved    — NairobiRaha + the ten approved directories
  *   node scrape-escorts.mjs --concurrency=6       — NairobiRaha requests per batch (1-6; default 6)
  *   node scrape-escorts.mjs --update              — re-fetch existing escorts and update services/languages/rates
  *
@@ -26,6 +28,13 @@ import { mkdirSync, existsSync } from 'fs'
 import { writeFile } from 'fs/promises'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import {
+  collectDirectoryListings,
+  DIRECTORY_SOURCES,
+  fetchDirectoryPage,
+  getDirectorySource,
+  isSourceSelected,
+} from './scraper-directories.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -743,10 +752,149 @@ function parseHookup254Profile(html, profileUrl) {
   }
 }
 
+function getTagAttribute(tag, name) {
+  const match = tag.match(new RegExp(`(?:^|\\s)${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, 'i'))
+  return match ? (match[1] ?? match[2] ?? match[3] ?? '').trim() : ''
+}
+
+function getDirectoryMeta(html, key, value) {
+  const metaTags = html.match(/<meta\b[^>]*>/gi) || []
+  for (const tag of metaTags) {
+    if (getTagAttribute(tag, key).toLowerCase() === value.toLowerCase()) {
+      const content = getTagAttribute(tag, 'content')
+      if (content) return decodeHtml(content)
+    }
+  }
+  return null
+}
+
+function cleanDirectoryName(value) {
+  return decodeHtml(value)
+    .replace(/\b(?:location_on|location|place|pin_drop|person)\b/gi, ' ')
+    .replace(/\s*[|]\s*[^|]+$/, '')
+    .replace(/\s+[–—]\s+[^–—]+$/, '')
+    .replace(/\s+-\s+[^-]+$/, '')
+    .replace(/[_]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function isPlausibleDirectoryName(value) {
+  if (!value || value.length < 2 || value.length > 80 || !/[a-z]{2}/i.test(value)) return false
+  if (/^(?:home|escort|escorts|escort profile|profile|model|kenya|nairobi|mombasa|kisumu|nakuru|eldoret|location on)$/i.test(value)) return false
+  if (/^[+\d\s().'-]+$/.test(value)) return false
+  return true
+}
+
+function inferDirectoryLocation(profileUrl) {
+  try {
+    const pathname = new URL(profileUrl).pathname.toLowerCase()
+    const locations = [
+      'nairobi', 'mombasa', 'kisumu', 'nakuru', 'eldoret', 'thika', 'nyeri',
+      'meru', 'malindi', 'naivasha', 'machakos', 'kiambu', 'kakamega', 'garissa',
+      'kitale', 'ruiru', 'westlands', 'kilimani', 'karen', 'lavington',
+    ]
+    return locations.find((location) => pathname.includes(location)) || ''
+  } catch {
+    return ''
+  }
+}
+
+function parseDirectoryProfile(html, site, profileUrl) {
+  const h1 = html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i)
+  const titleCandidates = [
+    h1?.[1],
+    getDirectoryMeta(html, 'property', 'og:title'),
+    html.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i)?.[1],
+  ].filter(Boolean).map(cleanDirectoryName)
+  let name = titleCandidates.find(isPlausibleDirectoryName) || ''
+  if (!name && profileUrl) {
+    name = cleanDirectoryName(decodeURIComponentSafe(profileUrl.split('/').filter(Boolean).at(-1) || ''))
+  }
+  if (!isPlausibleDirectoryName(name)) return null
+
+  const text = decodeHtml(html)
+  const metaDescription = getDirectoryMeta(html, 'name', 'description')
+    || getDirectoryMeta(html, 'property', 'og:description')
+  const bioMatch = html.match(/<(?:div|section|p)\b[^>]*(?:class|itemprop)=["'][^"']*(?:aboutme|about|description|profile-bio|bio|escort-description)[^"']*["'][^>]*>([\s\S]{0,4000}?)<\/(?:div|section|p)>/i)
+  const bio = (metaDescription || (bioMatch ? decodeHtml(bioMatch[1]) : null))?.slice(0, 1200) || null
+
+  let phone = null
+  const links = [...html.matchAll(/<a\b[^>]*href\s*=\s*(?:"([^"]*)"|'([^']*)')[^>]*>/gi)]
+  for (const link of links) {
+    const href = (link[1] ?? link[2] ?? '').replace(/&amp;/g, '&')
+    const phoneValue = href.match(/^tel:(.+)$/i)?.[1]
+      || href.match(/(?:wa\.me\/|phone=)(\+?[\d%+().\-\s]+)/i)?.[1]
+    if (phoneValue) {
+      phone = normalizePhone(decodeURIComponentSafe(phoneValue))
+      if (phone) break
+    }
+  }
+
+  const ageMatch = text.match(/\b(?:age|aged)\s*:?\s*(1[89]|2\d|3\d)\b/i)
+    || text.match(/\b(1[89]|2\d|3\d)\s*(?:years?\s*old|yrs?\s*old)\b/i)
+  const age = ageMatch ? parseInt(ageMatch[1], 10) : 0
+  const heightMatch = text.match(/\b(1[3-9]\d)\s*cm\b/i)
+  const height = heightMatch ? `${heightMatch[1]}cm` : null
+  const locality = getDirectoryMeta(html, 'property', 'og:locality')
+    || getDirectoryMeta(html, 'itemprop', 'addressLocality')
+    || html.match(/<(?:span|div|p)\b[^>]*(?:class|itemprop)=["'][^"']*(?:location|city|area)[^"']*["'][^>]*>([\s\S]{0,180}?)<\/(?:span|div|p)>/i)?.[1]
+  let rawLocation = locality
+    ? decodeHtml(locality).replace(/\b(?:location_on|location|place|pin_drop)\b/gi, ' ').replace(/_/g, ' ').trim()
+    : ''
+  if (rawLocation.length > 70 || !/[a-z]/i.test(rawLocation) ||
+    /\d{7,}/.test(rawLocation.replace(/\D/g, '')) ||
+    /\b(?:type|search|select|choose|enter|find)\b/i.test(rawLocation)) {
+    rawLocation = ''
+  }
+  const { city, area } = normalizeCity(rawLocation || inferDirectoryLocation(profileUrl) || 'Nairobi')
+
+  let price_incall = 0
+  let price_outcall = 0
+  let price_overnight = 0
+  const rateMatches = [...text.matchAll(/(?:KES|KSh?|Sh)\s*([\d,]{3,8}(?:\.\d{1,2})?|\d+(?:\.\d+)?k)\b/gi)]
+  if (rateMatches[0]) price_incall = parseKES(rateMatches[0][0])
+  if (rateMatches[1]) price_outcall = parseKES(rateMatches[1][0])
+  const overnightMatch = text.match(/overnight[^.\n]{0,80}?(?:KES|KSh?|Sh)\s*([\d,]{3,8}|\d+k)\b/i)
+  if (overnightMatch) price_overnight = parseKES(overnightMatch[0])
+
+  const knownLanguages = ['English', 'Swahili', 'French', 'Arabic', 'Spanish', 'German', 'Chinese', 'Portuguese', 'Somali', 'Kikuyu', 'Luo', 'Luhya', 'Italian']
+  const languages = knownLanguages.filter((language) => new RegExp(`\\b${language}\\b`, 'i').test(bio || ''))
+  const services = servicesFromBio(bio)
+
+  return {
+    name,
+    phone,
+    age,
+    city,
+    area,
+    bio,
+    height,
+    ethnicity: 'African',
+    bodyType: null,
+    incall: /\bincall\b/i.test(text) ? 1 : 0,
+    outcall: /\boutcall\b/i.test(text) ? 1 : 0,
+    price_incall,
+    price_outcall,
+    price_overnight,
+    services,
+    languages,
+    // Third-party image files are not copied or re-hosted by this importer.
+    galleryImgs: [],
+    source: site,
+    sourceUrl: profileUrl || null,
+  }
+}
+
+function decodeURIComponentSafe(value) {
+  try { return decodeURIComponent(value) } catch { return value }
+}
+
 // ── Unified dispatcher ────────────────────────────────────────────────────────
 function parseProfile(html, site, url) {
   if (site === 'nairobiraha') return parseNairobirahaProfile(html, url)
   if (site === 'hookup254')   return parseHookup254Profile(html, url)
+  if (getDirectorySource(site)) return parseDirectoryProfile(html, site, url)
   return null
 }
 
@@ -761,6 +909,21 @@ async function escortExists(db, phone, name) {
     if (rows.length > 0) return rows[0].id
   }
   return null
+}
+
+async function existingSourceUrls(db, listings) {
+  const found = new Set()
+  const urls = [...new Set(listings.map((listing) => listing.url).filter(Boolean))]
+  for (let offset = 0; offset < urls.length; offset += 300) {
+    const batch = urls.slice(offset, offset + 300)
+    const placeholders = batch.map((_, index) => `$${index + 1}`).join(', ')
+    const { rows } = await db.query(
+      `SELECT source_url FROM escorts WHERE source_url IN (${placeholders})`,
+      batch
+    )
+    for (const row of rows) if (row.source_url) found.add(row.source_url)
+  }
+  return found
 }
 
 async function insertEscort(db, profile, avatarPath) {
@@ -1063,7 +1226,10 @@ async function runUpdateMode(db) {
     const num    = `[${i+1}/${rows.length}]`
     process.stdout.write(`${num} ${escort.name?.slice(0,30).padEnd(30)} [${escort.source_site}] ... `)
 
-    const html = await fetchPage(escort.source_url)
+    const directorySource = getDirectorySource(escort.source_site)
+    const html = directorySource
+      ? await fetchDirectoryPage(directorySource, escort.source_url, directorySource.baseUrl, fetchPage)
+      : await fetchPage(escort.source_url)
     if (!html) { console.log('❌ fetch failed'); failed++; await sleep(1000); continue }
 
     const profile = parseProfile(html, escort.source_site, escort.source_url)
@@ -1088,12 +1254,23 @@ async function runUpdateMode(db) {
   console.log(`${'─'.repeat(60)}\n`)
 }
 
+function sourceBaseUrl(sourceId) {
+  if (sourceId === 'nairobiraha') return NAIROBIRAHA_BASE
+  if (sourceId === 'hookup254') return HOOKUP254_BASE
+  return getDirectorySource(sourceId)?.baseUrl || NAIROBIRAHA_BASE
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 async function main() {
+  if (SRC_FILTER && !['all', 'approved', 'nairobiraha', 'hookup254'].includes(SRC_FILTER) &&
+    !getDirectorySource(SRC_FILTER)) {
+    throw new Error(`Unknown source "${SRC_FILTER}". Use --source=approved, --source=all, or a registered source ID.`)
+  }
+
   console.log('\n🚀 Wet3Camp Multi-Source Escort Scraper')
   console.log(`   DB:      ${DATABASE_URL ? (IS_MYSQL ? 'MySQL/MariaDB' : 'PostgreSQL') : 'NONE (dry run)'}`)
   console.log(`   Mode:    ${UPDATE_MODE ? 'UPDATE (re-fetch existing)' : DISCOVER_ONLY ? 'DISCOVERY ONLY (no profile fetches or DB writes)' : DRY_RUN ? 'DRY RUN' : FAST_MODE ? 'FAST (remote URLs)' : 'FULL (download images)'}`)
-  console.log(`   Source:  ${SRC_FILTER || 'ALL (nairobiraha + hookup254)'}`)
+  console.log(`   Source:  ${SRC_FILTER || 'ALL registered sources'}`)
   console.log(`   NairobiRaha request concurrency: ${CONCURRENCY} (max 6)`)
   console.log(`   Limit:   ${LIMIT}`)
   console.log()
@@ -1118,7 +1295,7 @@ async function main() {
   const allProfiles = []
 
   // Source 1 — nairobiraha.com
-  if (!SRC_FILTER || SRC_FILTER === 'nairobiraha') {
+  if (isSourceSelected('nairobiraha', SRC_FILTER)) {
     console.log('📋 Collecting nairobiraha.com listings...')
     const listings = await collectNairobirahaListings()
     for (const profile of listings) {
@@ -1130,7 +1307,7 @@ async function main() {
   }
 
   // Source 2 — hookup254.com (AJAX-based)
-  if (!SRC_FILTER || SRC_FILTER === 'hookup254') {
+  if (isSourceSelected('hookup254', SRC_FILTER)) {
     console.log('📋 Collecting hookup254.com listings (AJAX)...')
     const hook254Before = allProfiles.length
 
@@ -1163,6 +1340,51 @@ async function main() {
     }
   }
 
+  for (const source of DIRECTORY_SOURCES) {
+    if (!isSourceSelected(source.id, SRC_FILTER) || allProfiles.length >= LIMIT) continue
+    console.log(`📋 Collecting ${source.name} (${source.baseUrl})...`)
+    const listings = await collectDirectoryListings(source, {
+      fetchPage,
+      sleep,
+      limit: LIMIT - allProfiles.length,
+    })
+    let added = 0
+    for (const profile of listings) {
+      if (seenUrls.has(profile.url)) continue
+      seenUrls.add(profile.url)
+      allProfiles.push(profile)
+      added++
+    }
+    console.log(`  ↳ ${source.id}: ${added} profile URLs\n`)
+  }
+
+  if (!DISCOVER_ONLY && !DRY_RUN && db && allProfiles.length) {
+    const knownUrls = await existingSourceUrls(db, allProfiles)
+    const importCounts = new Map()
+    const newListings = []
+    let alreadyImported = 0
+    let deferredBySourceCap = 0
+    for (const listing of allProfiles) {
+      if (knownUrls.has(listing.url)) {
+        alreadyImported++
+        continue
+      }
+      const directorySource = getDirectorySource(listing.site)
+      const sourceCap = directorySource?.maxProfilesPerRun
+      const importedFromSource = importCounts.get(listing.site) || 0
+      if (sourceCap && importedFromSource >= sourceCap) {
+        deferredBySourceCap++
+        continue
+      }
+      importCounts.set(listing.site, importedFromSource + 1)
+      newListings.push(listing)
+    }
+    allProfiles.splice(0, allProfiles.length, ...newListings)
+    if (alreadyImported || deferredBySourceCap) {
+      console.log(`⏭  Skipping ${alreadyImported} already-imported URLs; deferring ${deferredBySourceCap} beyond per-source caps\n`)
+    }
+  }
+
   const total = Math.min(allProfiles.length, LIMIT)
   console.log(`📦 Total unique profile URLs collected: ${total}\n`)
 
@@ -1189,8 +1411,11 @@ async function main() {
     const batchSize = firstListing.site === 'nairobiraha' ? CONCURRENCY : 1
     const batch = allProfiles.slice(offset, Math.min(total, offset + batchSize))
     const htmlPages = await Promise.all(batch.map((listing) => {
-      const referer = listing.site === 'hookup254' ? HOOKUP254_BASE : NAIROBIRAHA_BASE
-      return fetchPage(listing.url, referer)
+      const directorySource = getDirectorySource(listing.site)
+      const referer = sourceBaseUrl(listing.site)
+      return directorySource
+        ? fetchDirectoryPage(directorySource, listing.url, referer, fetchPage)
+        : fetchPage(listing.url, referer)
     }))
 
     for (let batchIndex = 0; batchIndex < batch.length; batchIndex++) {
@@ -1251,7 +1476,7 @@ async function main() {
       seenNames.add(profile.name.toLowerCase())
 
       // Images
-      const referer = listing.site === 'hookup254' ? HOOKUP254_BASE : NAIROBIRAHA_BASE
+      const referer = sourceBaseUrl(listing.site)
       let avatarPath = null
       const primaryImg = profile.galleryImgs[0] || listing.thumbnailUrl
       if (primaryImg) {

@@ -7,7 +7,7 @@ API_ENV="${API_ENV:-/home/admin/api-server/env}"
 SCRAPER_DIR="${SCRAPER_DIR:-${API_DIR:-/home/admin/wet3camp-build/artifacts/api-server}}"
 UPLOADS_DIR="${UPLOADS_DIR:-$SCRAPER_DIR/uploads}"
 
-printf '=== NairobiRaha scraper started at %s ===\n' "$(date -Is)"
+printf '=== Approved escort-source scraper started at %s ===\n' "$(date -Is)"
 
 if [[ ! -r "$API_ENV" ]]; then
   echo "ERROR: scraper environment file is not readable: $API_ENV" >&2
@@ -48,4 +48,4 @@ fi
 
 export DATABASE_URL UPLOADS_DIR
 cd "$SCRAPER_DIR"
-exec /usr/bin/env node scrape-escorts.mjs --fast --source=nairobiraha "$@"
+exec /usr/bin/env node scrape-escorts.mjs --fast --source=approved "$@"

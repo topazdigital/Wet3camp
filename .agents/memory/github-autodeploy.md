@@ -4,7 +4,7 @@ description: Push to GitHub from Replit Shell; server deployment is not triggere
 ---
 
 ## Rule
-`GITHUB_TOKEN` or `GITHUB_PERSONAL_ACCESS_TOKEN` is set in Replit Secrets. Do NOT ask the user to provide it — it is already there.
+GitHub sync requires `GITHUB_TOKEN` or `GITHUB_PERSONAL_ACCESS_TOKEN` in Replit Secrets. Never ask for or print the value; check secret existence before syncing and tell the user to add it through Secrets if absent.
 
 ## Current deploy flow
 1. Agent makes changes in Replit.
@@ -17,7 +17,7 @@ description: Push to GitHub from Replit Shell; server deployment is not triggere
 **How to apply:** Push with `bash push-to-github.sh` from Replit Shell. Use the manual GitHub Actions workflow only when explicitly choosing an automated server deployment.
 
 ## Shell push preference
-The user wants to push from Replit Shell without reconnecting the Git source-control pane. Use the saved PAT through `bash push-to-github.sh`; its GitHub API fallback handles a disconnected proxy. Never ask for or print the token. If a Shell opened before the secret was added says it is missing, reopen the Shell.
+The user wants to push from Replit Shell without reconnecting the Git source-control pane. Use the saved PAT through `bash push-to-github.sh`; its GitHub API fallback handles a disconnected proxy. Never ask for or print the token. If the script says it is missing, verify whether the secret exists before suggesting a shell refresh.
 
 **Why:** The user explicitly said they do not want to connect Git source control and prefer the Shell workflow they use with other agents. GitHub pushes are separate from the manually triggered production deployment.
 
@@ -31,7 +31,6 @@ The GitHub Contents API fallback creates one remote commit per changed file but 
 **How to apply:** Run `bash push-to-github.sh` from a fresh Replit Shell. It builds, commits, tries Git push, and safely falls back to the Contents API when its history check passes. The API helper uses a temporary private curl config for the PAT; never put the token in a remote URL or command argument. API pushes do not deploy production or advance local `origin/main`.
 
 ## Credentials
-- `GITHUB_TOKEN` or `GITHUB_PERSONAL_ACCESS_TOKEN` — in Replit Secrets ✅ (never ask again)
 - `DEPLOY_SSH_KEY` — required in GitHub repo Secrets only when manually running the GitHub Actions deployment
 - `DEPLOY_SSH_PASSPHRASE` — optional, also in GitHub repo Secrets if key has passphrase
 - Server: root@157.250.205.180, build dir: /home/admin/wet3camp-build

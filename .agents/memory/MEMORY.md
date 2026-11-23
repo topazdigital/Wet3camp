@@ -33,6 +33,6 @@
 - [Dynamic location SEO](dynamic-location-seo.md) — Use all active profiles, claimed or not, for location pages; keep indexing thresholds aligned across UI, crawler HTML, and sitemap
 - [Mobile profile tabs](mobile-profile-tabs.md) — User confirmed the phone profile-section navigation works; leave it alone unless asked
 - [Admin account controls](admin-account-controls.md) — Apache can reject admin DELETE/PATCH; use authenticated POST aliases and update rows only after success
-- [NairobiRaha sourcing authorization](nairobiraha-authorization.md) — Keep authorized profiles synced continuously; the user wants thousands, subject to source availability
+- [Escort directory sourcing authorization](nairobiraha-authorization.md) — Recurring imports are approved for NairobiRaha plus ten named directories; do not add other sources without approval
 - [NairobiRaha scraper deployment](nairobiraha-scraper-deployment.md) — Keep the cron's DB env path separate from the scraper source checkout so it runs current code
 - [Profile maps and live site](profile-map-privacy.md) — wet3.camp is live; keep public map locations approximate and treat Replit edits as unpublished until requested
