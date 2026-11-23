@@ -8,6 +8,7 @@ import { useAuth } from '@/lib/auth-context'
 import { useFavorites } from '@/lib/favorites-context'
 import { useOnlineStatus } from '@/lib/use-online-status'
 import ProfilePhoto from '@/components/ProfilePhoto'
+import { readNavigationPageState, writeNavigationPageState } from '@/lib/navigation-state'
 
 const TIER_STYLE: Record<string, { bg: string; label: string }> = {
   Elite:   { bg: '#8B0000', label: 'Elite'   },
@@ -102,16 +103,27 @@ export default function InfiniteEscortGrid({
 
   const [page, setPage] = useState(0)
   const [shown, setShown] = useState<typeof filtered>([])
+  const [shownForKey, setShownForKey] = useState('')
   const [hasMore, setHasMore] = useState(true)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const observerTarget = useRef<HTMLDivElement>(null)
+  const gridStateKey = `home-grid:${activeCategory}:${priorityCity}:${activeService}:${sort}`
 
   useEffect(() => {
-    const first = filtered.slice(0, PER_PAGE)
-    setShown(first)
-    setPage(0)
-    setHasMore(filtered.length > PER_PAGE)
-  }, [filtered])
+    if (!fromApi) return
+    const savedPageCount = readNavigationPageState<number>(gridStateKey) ?? 1
+    const restoredCount = Math.max(1, Number(savedPageCount) || 1)
+    const restoredItems = filtered.slice(0, restoredCount * PER_PAGE)
+    setShown(restoredItems)
+    setPage(Math.max(0, Math.ceil(restoredItems.length / PER_PAGE) - 1))
+    setHasMore(restoredItems.length < filtered.length)
+    setShownForKey(gridStateKey)
+  }, [filtered, fromApi, gridStateKey])
+
+  useEffect(() => {
+    if (!fromApi || !shown.length || shownForKey !== gridStateKey) return
+    writeNavigationPageState(gridStateKey, Math.max(1, Math.ceil(shown.length / PER_PAGE)))
+  }, [fromApi, gridStateKey, shown, shownForKey])
 
   const fetchMore = useCallback(() => {
     if (isLoadingMore || !hasMore) return

@@ -10,6 +10,7 @@ import { useSEO } from '@/lib/useSEO'
 import { api } from '@/lib/api'
 import SeoFooter from '@/components/SeoFooter'
 import { PreviewStories } from '@/components/LivePreviews'
+import { readNavigationPageState, writeNavigationPageState } from '@/lib/navigation-state'
 
 const TIER_CATEGORIES = [
   { label: 'All',       value: 'all',       icon: '✨' },
@@ -27,6 +28,12 @@ const QUICK_LINKS = [
   { icon: ShoppingBag, label: 'Shop',   href: '/shop',   color: '#00BCD4' },
   { icon: Calendar,    label: 'Events', href: '/events', color: '#4CAF50' },
 ]
+
+type HomeNavigationState = {
+  activeCategory?: string
+  activeService?: string
+  detectedCity?: string | null
+}
 
 // ─── Trending Live Strip ──────────────────────────────────────────────────────
 
@@ -170,13 +177,23 @@ export default function Home() {
     keywords: 'Nairobi escorts, Mombasa escorts, Kisumu escorts, verified escorts Kenya, escort directory Kenya, escort booking Kenya, escort profiles Nairobi, escort profiles Mombasa',
     canonicalPath: '/',
   })
-  const [activeCategory, setActiveCategory] = useState('all')
-  const [activeService, setActiveService] = useState('')
-  const [detectedCity, setDetectedCity] = useState<string | null>(null)
+  const [activeCategory, setActiveCategory] = useState(
+    () => readNavigationPageState<HomeNavigationState>('home')?.activeCategory ?? 'all',
+  )
+  const [activeService, setActiveService] = useState(
+    () => readNavigationPageState<HomeNavigationState>('home')?.activeService ?? '',
+  )
+  const [detectedCity, setDetectedCity] = useState<string | null>(
+    () => readNavigationPageState<HomeNavigationState>('home')?.detectedCity ?? null,
+  )
   const [geoState, setGeoState] = useState<'idle' | 'loading' | 'done' | 'denied'>('idle')
   const [stats, setStats] = useState<{ total: number; verified: number; online: number; cities: number } | null>(null)
   const [popularCities, setPopularCities] = useState<string[]>([])
   const [popularServices, setPopularServices] = useState<string[]>([])
+
+  useEffect(() => {
+    writeNavigationPageState('home', { activeCategory, activeService, detectedCity })
+  }, [activeCategory, activeService, detectedCity])
 
   useEffect(() => {
     api.escorts.meta()

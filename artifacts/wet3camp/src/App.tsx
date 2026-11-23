@@ -9,6 +9,7 @@ import { BookingsProvider } from "@/lib/bookings-context"
 import { FavoritesProvider } from "@/lib/favorites-context";
 import BottomNav from "@/components/BottomNav";
 import { ImpersonationBanner } from "@/pages/view-as";
+import ScrollRestoration from "@/components/ScrollRestoration";
 
 // ── Lazy-load every page — each becomes its own JS chunk loaded on demand ─────
 const NotFound        = lazy(() => import("@/pages/not-found"))
@@ -170,6 +171,7 @@ function App() {
             <FollowProvider>
               <SidebarProvider>
                 <ImpersonationBanner />
+                <ScrollRestoration />
                 <Router />
                 <BottomNav />
               </SidebarProvider>

@@ -6,6 +6,8 @@ import { useSEO } from '@/lib/useSEO'
 import { Search, SlidersHorizontal, MapPin, Star, Check, X, Heart, MessageCircle, Crown, ChevronDown } from 'lucide-react'
 import { Link, useLocation } from 'wouter'
 import { api } from '@/lib/api'
+import { readNavigationPageState, writeNavigationPageState } from '@/lib/navigation-state'
+import { useNavigationEntryKey } from '@/hooks/useNavigationEntryKey'
 import type { ApiEscort } from '@/lib/api'
 import { useFavorites } from '@/lib/favorites-context'
 import { getSlug } from '@/data/escorts'
@@ -183,34 +185,94 @@ function StandardCard({ escort, isFav, onFav }: { escort: ApiEscort; isFav: bool
 
 // ─── Main Page ──────────────────────────────────────────────────────────────────
 
+type SearchNavigationState = {
+  query?: string
+  city?: string
+  area?: string
+  tier?: string
+  service?: string
+  availableOnly?: boolean
+  sortBy?: 'featured' | 'rating' | 'newest'
+  showFilters?: boolean
+  page?: number
+}
+
 export default function SearchPage() {
   const [location] = useLocation()
+  const entryKey = useNavigationEntryKey()
 
   // Parse URL params on every navigation so header search stays in sync
   const urlParams = new URLSearchParams(location.includes('?') ? location.split('?')[1] : '')
+  const initialSnapshot = useRef(readNavigationPageState<SearchNavigationState>('search')).current
 
-  const [query, setQuery] = useState(urlParams.get('q') ?? '')
-  const [city, setCity] = useState(urlParams.get('city') ?? 'All Cities')
-  const [area, setArea] = useState(urlParams.get('area') ?? '')
-  const [tier, setTier] = useState(urlParams.get('tier') ?? 'all')
-  const [service, setService] = useState(urlParams.get('service') ?? '')
-  const [availableOnly, setAvailableOnly] = useState(false)
-  const [sortBy, setSortBy] = useState<'featured' | 'rating' | 'newest'>('featured')
-  const [showFilters, setShowFilters] = useState(false)
+  const [query, setQuery] = useState(() => initialSnapshot?.query ?? urlParams.get('q') ?? '')
+  const [city, setCity] = useState(() => initialSnapshot?.city ?? urlParams.get('city') ?? 'All Cities')
+  const [area, setArea] = useState(() => initialSnapshot?.area ?? urlParams.get('area') ?? '')
+  const [tier, setTier] = useState(() => initialSnapshot?.tier ?? urlParams.get('tier') ?? 'all')
+  const [service, setService] = useState(() => initialSnapshot?.service ?? urlParams.get('service') ?? '')
+  const [availableOnly, setAvailableOnly] = useState(() => initialSnapshot?.availableOnly ?? false)
+  const [sortBy, setSortBy] = useState<'featured' | 'rating' | 'newest'>(
+    () => initialSnapshot?.sortBy ?? 'featured',
+  )
+  const [showFilters, setShowFilters] = useState(() => initialSnapshot?.showFilters ?? false)
   const [escorts, setEscorts] = useState<ApiEscort[]>([])
   const [loading, setLoading] = useState(false)
   const [total, setTotal] = useState(0)
-  const [page, setPage] = useState(0)
+  const [page, setPage] = useState(() => initialSnapshot?.page ?? 0)
   const [hasMore, setHasMore] = useState(false)
+  const pendingRestorePage = useRef(
+    initialSnapshot && initialSnapshot.page && initialSnapshot.page > 0
+      ? initialSnapshot.page
+      : null,
+  )
+  const lastLocation = useRef(location)
+  const lastEntryKey = useRef(entryKey)
 
   // Sync from URL when navigating from header search
   useEffect(() => {
-    const p = new URLSearchParams(location.includes('?') ? location.split('?')[1] : '')
-    setQuery(p.get('q') ?? '')
-    if (p.get('city')) setCity(p.get('city') ?? 'All Cities')
-    setArea(p.get('area') ?? '')
-    if (p.get('service')) setService(p.get('service') ?? '')
-  }, [location])
+    if (lastLocation.current === location && lastEntryKey.current === entryKey) return
+    lastLocation.current = location
+    lastEntryKey.current = entryKey
+
+    const saved = readNavigationPageState<SearchNavigationState>('search')
+    if (saved) {
+      pendingRestorePage.current = saved.page && saved.page > 0 ? saved.page : null
+      setQuery(saved.query ?? '')
+      setCity(saved.city ?? 'All Cities')
+      setArea(saved.area ?? '')
+      setTier(saved.tier ?? 'all')
+      setService(saved.service ?? '')
+      setAvailableOnly(saved.availableOnly ?? false)
+      setSortBy(saved.sortBy ?? 'featured')
+      setShowFilters(saved.showFilters ?? false)
+      setPage(saved.page ?? 0)
+      return
+    }
+
+    pendingRestorePage.current = null
+    const currentUrl = new URL(window.location.href)
+    const params = currentUrl.searchParams
+    setQuery(params.get('q') ?? '')
+    if (params.get('city')) setCity(params.get('city') ?? 'All Cities')
+    setArea(params.get('area') ?? '')
+    if (params.get('tier')) setTier(params.get('tier') ?? 'all')
+    if (params.get('service')) setService(params.get('service') ?? '')
+    setPage(0)
+  }, [entryKey, location])
+
+  useEffect(() => {
+    writeNavigationPageState('search', {
+      query,
+      city,
+      area,
+      tier,
+      service,
+      availableOnly,
+      sortBy,
+      showFilters,
+      page,
+    })
+  }, [query, city, area, tier, service, availableOnly, sortBy, showFilters, page])
 
   useEffect(() => {
     rememberProfileSearchContext(city)
@@ -255,9 +317,22 @@ export default function SearchPage() {
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
+    const restoreThroughPage = pendingRestorePage.current
+    if (restoreThroughPage !== null) {
+      pendingRestorePage.current = null
+      let active = true
+      const restoreLoadedPages = async () => {
+        for (let pg = 0; pg <= restoreThroughPage; pg += 1) {
+          if (!active) return
+          await fetchEscorts(pg, pg === 0)
+        }
+      }
+      void restoreLoadedPages()
+      return () => { active = false }
+    }
     debounceRef.current = setTimeout(() => fetchEscorts(0, true), query ? 400 : 0)
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
-  }, [fetchEscorts])
+  }, [entryKey, fetchEscorts])
 
   const elites   = escorts.filter(e => e.tier === 'elite')
   const vips     = escorts.filter(e => e.tier === 'vip')
