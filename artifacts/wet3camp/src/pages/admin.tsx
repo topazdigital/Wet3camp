@@ -10,6 +10,7 @@ import {
   DollarSign, MapPin, Award, ChevronDown, GitMerge
 } from 'lucide-react'
 import { useSEO } from '@/lib/useSEO'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   CartesianGrid, Cell
@@ -596,7 +597,17 @@ function ClientsTab() {
               {clients.length === 0 && <tr><td colSpan={8} className="px-4 py-10 text-center text-text-muted">No users yet.</td></tr>}
               {clients.map(c=>(
                 <tr key={c.id} className="border-b border-color/40 hover:bg-dark-bg transition-colors">
-                  <td data-label="Name" className="px-4 py-3 font-semibold text-text-light">{c.display_name || c.username}</td>
+                  <td data-label="Name" className="px-4 py-3 font-semibold text-text-light">
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      <Avatar className="size-7 border border-color bg-dark-bg">
+                        {c.avatar && <AvatarImage src={c.avatar} alt="" className="object-cover" />}
+                        <AvatarFallback className="bg-[#8B0000]/15 text-[10px] font-bold text-[#FFD700]">
+                          {(c.display_name || c.username || c.email || '?').trim().charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="truncate">{c.display_name || c.username || '—'}</span>
+                    </div>
+                  </td>
                   <td data-label="Email" className="px-4 py-3 text-text-muted">{c.email}</td>
                   <td data-label="Role" className="px-4 py-3">
                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${c.role==='admin'?'bg-[#8B0000]/20 text-[#8B0000]':c.role==='escort'?'bg-[#FF9800]/20 text-[#FF9800]':'bg-[#2196F3]/20 text-[#2196F3]'}`}>{c.role}</span>

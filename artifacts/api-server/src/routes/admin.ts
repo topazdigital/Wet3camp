@@ -88,7 +88,7 @@ router.get('/admin/users', requireAuth, requireAdmin, async (req: AuthRequest, r
     if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
     const limit = Math.min(parseInt((req.query as any).limit ?? '200', 10), 500)
     const [rows] = await pool.query<any[]>(
-      `SELECT u.id, u.username, u.email, u.role, u.display_name, u.phone, u.is_active, u.created_at,
+      `SELECT u.id, u.username, u.email, u.role, u.display_name, u.avatar, u.phone, u.is_active, u.created_at,
         e.escort_profile_id, e.escort_profile_active, e.escort_profile_verified
        FROM users u
        LEFT JOIN (
