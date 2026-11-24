@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import Header from '@/components/Header'
 import Sidebar from '@/components/Sidebar'
+import AdminPhotoGallery from '@/components/AdminPhotoGallery'
 import { useAuth } from '@/lib/auth-context'
 import { broadcastAccountDeleted } from '@/lib/api'
 import {
@@ -161,7 +162,7 @@ function getAdminEscortSource(sourceSite?: string | null, sourceUrl?: string | n
   return { label, href: safeUrl?.href ?? null }
 }
 
-const TABS = ['Overview','Escorts','Claims','Clients','Bookings','Revenue','Moderators','Featured','Blog','API Keys','Settings','Reports']
+const TABS = ['Overview','Escorts','Gallery','Claims','Clients','Bookings','Revenue','Moderators','Featured','Blog','API Keys','Settings','Reports']
 
 interface Moderator { id: number; name: string; email: string; role: string; level: 1|2|3; status: 'active'|'inactive'; createdAt: string }
 
@@ -3170,6 +3171,9 @@ function AdminDashboard() {
 
           {/* ── ESCORTS ── */}
           {activeTab === 'Escorts' && <EscortsTab />}
+
+          {/* ── GALLERY ── */}
+          {activeTab === 'Gallery' && <AdminPhotoGallery adminFetch={adminFetch} />}
 
           {/* ── CLAIMS ── */}
           {activeTab === 'Claims' && <ClaimsTab />}
