@@ -6,7 +6,7 @@ import { Heart, MessageCircle, Share2, Eye, Bookmark, TrendingUp, Crown, Flame, 
 import { Link } from 'wouter'
 import { useFollow } from '@/lib/follow-context'
 import { useAuth } from '@/lib/auth-context'
-import { useAllEscorts } from '@/hooks/useEscorts'
+import { hasRealEscortPhoto, useAllEscorts } from '@/hooks/useEscorts'
 import { useSEO } from '@/lib/useSEO'
 import { getSlug } from '@/data/escorts'
 import FeedPostComposer from '@/components/FeedPostComposer'
@@ -347,7 +347,11 @@ export default function FeedsPage() {
     const merged = [
       ...profiles.map(escort => ({ kind: 'profile' as const, escort, sortTime: Date.parse(escort.created_at ?? '') || 0 })),
       ...authored.map(post => ({ kind: 'post' as const, post, sortTime: Date.parse(post.created_at ?? '') || 0 })),
-    ].sort((a, b) => b.sortTime - a.sortTime)
+    ].sort((a, b) => {
+      const aFallbackProfile = a.kind === 'profile' && !hasRealEscortPhoto(a.escort.image)
+      const bFallbackProfile = b.kind === 'profile' && !hasRealEscortPhoto(b.escort.image)
+      return Number(aFallbackProfile) - Number(bFallbackProfile) || b.sortTime - a.sortTime
+    })
     setFeedItems(merged)
     setLoading(false)
   }, [])
