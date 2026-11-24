@@ -18,6 +18,7 @@ import {
 } from '../lib/platform-pricing.js'
 
 const router = Router()
+const DEFAULT_ESCORT_IMAGE = '/logo-woman.png'
 
 function requireAdmin(req: AuthRequest, res: any, next: any) {
   if (req.userRole !== 'admin') {
@@ -127,6 +128,11 @@ router.get('/admin/escorts', requireAuth, requireAdmin, async (req: AuthRequest,
     const offset = Math.max(0, parseInt((req.query as any).offset ?? '0', 10) || 0)
     const status = (req.query as any).status
     let sql = `SELECT e.*,
+      COALESCE(NULLIF(e.image, ''), (
+        SELECT eg.image_url FROM escort_gallery eg
+        WHERE eg.escort_id = e.id AND eg.image_url IS NOT NULL AND eg.image_url <> ''
+        ORDER BY eg.id ASC LIMIT 1
+      ), '${DEFAULT_ESCORT_IMAGE}') AS effective_image,
       u.email AS user_email,
       COALESCE(u.display_name, u.username) AS user_display_name,
       u.role AS user_role
@@ -136,10 +142,189 @@ router.get('/admin/escorts', requireAuth, requireAdmin, async (req: AuthRequest,
     else if (status === 'active') sql += ' WHERE e.is_active = 1'
     sql += ' ORDER BY e.id DESC LIMIT ? OFFSET ?'
     const [rows] = await pool.query<any[]>(sql, [limit, offset])
-    res.json(rows.map(e => ({ ...e, id: String(e.id) })))
+    res.json(rows.map((e: any) => ({
+      ...e,
+      id: String(e.id),
+      image: e.effective_image || e.image || DEFAULT_ESCORT_IMAGE,
+    })))
   } catch (err: any) {
     console.error('[admin/escorts]', err?.message ?? err)
     res.status(500).json({ message: 'Failed to fetch escorts' })
+  }
+})
+
+// GET /api/admin/photo-gallery — all gallery photos plus profile-only photos.
+// Profiles without a gallery record are included regardless of whether they
+// have a linked user account, so imported listings are visible too.
+router.get('/admin/photo-gallery', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const pool = getPool()
+    if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
+
+    const requestedLimit = parseInt(String(req.query.limit ?? '60'), 10)
+    const limit = Number.isFinite(requestedLimit) && requestedLimit > 0 ? Math.min(requestedLimit, 200) : 60
+    const offset = Math.max(0, parseInt(String(req.query.offset ?? '0'), 10) || 0)
+    const search = String(req.query.q ?? '').trim().slice(0, 120)
+    const searchWhere = search
+      ? " WHERE (LOWER(photo.escort_name) LIKE LOWER(?) OR LOWER(COALESCE(photo.city, '')) LIKE LOWER(?) OR LOWER(COALESCE(photo.source_site, '')) LIKE LOWER(?))"
+      : ''
+    const searchParams = search ? [`%${search}%`, `%${search}%`, `%${search}%`] : []
+
+    const photoRowsSql = `
+      SELECT 'gallery' AS photo_type, eg.id AS photo_id, e.id AS escort_id,
+        e.name AS escort_name, e.city, e.source_site, eg.image_url,
+        CASE WHEN e.image = eg.image_url THEN 1 ELSE 0 END AS is_profile
+      FROM escort_gallery eg
+      INNER JOIN escorts e ON e.id = eg.escort_id
+      WHERE eg.image_url IS NOT NULL AND TRIM(eg.image_url) <> ''
+      UNION ALL
+      SELECT 'profile' AS photo_type, NULL AS photo_id, e.id AS escort_id,
+        e.name AS escort_name, e.city, e.source_site, e.image AS image_url,
+        1 AS is_profile
+      FROM escorts e
+      WHERE e.image IS NOT NULL AND TRIM(e.image) <> ''
+        AND NOT EXISTS (
+          SELECT 1 FROM escort_gallery eg
+          WHERE eg.escort_id = e.id AND eg.image_url = e.image
+        )
+    `
+    const [[countRow]] = await pool.query<any[]>(
+      `SELECT COUNT(*) AS total FROM (${photoRowsSql}) photo${searchWhere}`,
+      searchParams,
+    )
+    const [rows] = await pool.query<any[]>(
+      `SELECT * FROM (${photoRowsSql}) photo${searchWhere}
+       ORDER BY photo.escort_id DESC, photo.is_profile DESC, photo.photo_id DESC
+       LIMIT ? OFFSET ?`,
+      [...searchParams, limit, offset],
+    )
+
+    res.json({
+      data: rows.map((photo: any) => ({
+        ...photo,
+        photo_id: photo.photo_id == null ? null : String(photo.photo_id),
+        escort_id: String(photo.escort_id),
+        is_profile: Boolean(Number(photo.is_profile)),
+      })),
+      total: Number(countRow?.total ?? 0),
+      limit,
+      offset,
+    })
+  } catch (err: any) {
+    console.error('[admin/photo-gallery]', err?.message ?? err)
+    res.status(500).json({ message: 'Failed to fetch escort photos' })
+  }
+})
+
+// POST /api/admin/photo-gallery/delete — remove selected photo references.
+// A profile left without another photo receives the official site logo.
+router.post('/admin/photo-gallery/delete', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  const rawItems = (req.body as { items?: unknown } | undefined)?.items
+  if (!Array.isArray(rawItems) || rawItems.length === 0 || rawItems.length > 500) {
+    res.status(400).json({ message: 'Choose between 1 and 500 photos to delete' }); return
+  }
+
+  const items = rawItems.map((item: any) => ({
+    escortId: parsePositiveId(String(item?.escort_id ?? '')),
+    photoType: item?.photo_type,
+    photoId: item?.photo_id == null ? null : parsePositiveId(String(item.photo_id)),
+    imageUrl: typeof item?.image_url === 'string' ? item.image_url.trim() : '',
+  }))
+  if (items.some(item =>
+    !item.escortId ||
+    !['gallery', 'profile'].includes(item.photoType) ||
+    !item.imageUrl ||
+    item.imageUrl.length > 2048 ||
+    (item.photoType === 'gallery' && !item.photoId) ||
+    (item.photoType === 'profile' && item.photoId !== null)
+  )) {
+    res.status(400).json({ message: 'One or more selected photos are invalid' }); return
+  }
+
+  try {
+    const pool = getPool()
+    if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
+
+    const result = await pool.transaction(async query => {
+      let deleted = 0
+      let skipped = 0
+      const affected = new Map<string, { removedUrls: Set<string>; profileWasSelected: boolean }>()
+
+      for (const item of items) {
+        const escortId = item.escortId!
+        const [escortRows] = await query(
+          'SELECT id, image FROM escorts WHERE id = ? FOR UPDATE',
+          [escortId],
+        )
+        const escort = (escortRows as any[])[0]
+        if (!escort) { skipped++; continue }
+
+        let imageUrl = ''
+        if (item.photoType === 'gallery') {
+          const [photoRows] = await query(
+            'SELECT image_url FROM escort_gallery WHERE id = ? AND escort_id = ? LIMIT 1 FOR UPDATE',
+            [item.photoId, escortId],
+          )
+          const photo = (photoRows as any[])[0]
+          if (!photo || String(photo.image_url) !== item.imageUrl) { skipped++; continue }
+          imageUrl = String(photo.image_url)
+          await query('DELETE FROM escort_gallery WHERE id = ? AND escort_id = ?', [item.photoId, escortId])
+        } else {
+          if (!escort.image || String(escort.image) !== item.imageUrl) { skipped++; continue }
+          const [galleryRefs] = await query(
+            'SELECT id FROM escort_gallery WHERE escort_id = ? AND image_url = ? LIMIT 1 FOR UPDATE',
+            [escortId, item.imageUrl],
+          )
+          if ((galleryRefs as any[]).length > 0) { skipped++; continue }
+          imageUrl = String(escort.image)
+        }
+
+        const current = affected.get(String(escortId)) ?? {
+          removedUrls: new Set<string>(),
+          profileWasSelected: false,
+        }
+        current.removedUrls.add(imageUrl)
+        if (item.photoType === 'profile') current.profileWasSelected = true
+        affected.set(String(escortId), current)
+        deleted++
+      }
+
+      for (const [escortId, change] of affected) {
+        const [escortRows] = await query(
+          'SELECT image, user_id FROM escorts WHERE id = ? FOR UPDATE',
+          [escortId],
+        )
+        const escort = (escortRows as any[])[0]
+        const currentImage = escort?.image == null ? '' : String(escort.image)
+        if (!escort || (!change.profileWasSelected && !change.removedUrls.has(currentImage))) continue
+
+        const [samePhotoRows] = await query(
+          'SELECT id FROM escort_gallery WHERE escort_id = ? AND image_url = ? LIMIT 1',
+          [escortId, currentImage],
+        )
+        if (currentImage && (samePhotoRows as any[]).length > 0) continue
+
+        const [nextPhotoRows] = await query(
+          "SELECT image_url FROM escort_gallery WHERE escort_id = ? AND image_url IS NOT NULL AND TRIM(image_url) <> '' ORDER BY id ASC LIMIT 1",
+          [escortId],
+        )
+        const nextImage = (nextPhotoRows as any[])[0]?.image_url || DEFAULT_ESCORT_IMAGE
+        await query('UPDATE escorts SET image = ? WHERE id = ?', [nextImage, escortId])
+        if (escort.user_id != null && currentImage) {
+          await query(
+            'UPDATE users SET avatar = ? WHERE id = ? AND avatar = ?',
+            [nextImage, escort.user_id, currentImage],
+          )
+        }
+      }
+
+      return { deleted, skipped }
+    })
+
+    res.json({ success: true, ...result })
+  } catch (err: any) {
+    console.error('[admin/photo-gallery/delete]', err?.message ?? err)
+    res.status(500).json({ message: 'Failed to delete selected photos' })
   }
 })
 
@@ -575,7 +760,12 @@ router.get('/admin/escorts/:id', requireAuth, requireAdmin, async (req: AuthRequ
       'SELECT id, image_url, sort_order FROM escort_gallery WHERE escort_id = ? ORDER BY sort_order ASC, id ASC',
       [req.params!.id]
     ).catch(() => [[]])
-    res.json({ ...escort, id: String(escort.id), gallery: Array.isArray(gallery) ? gallery : [] })
+    res.json({
+      ...escort,
+      id: String(escort.id),
+      image: escort.image || (Array.isArray(gallery) ? gallery[0]?.image_url : null) || DEFAULT_ESCORT_IMAGE,
+      gallery: Array.isArray(gallery) ? gallery : [],
+    })
   } catch (err: any) {
     res.status(500).json({ message: 'Failed to fetch escort', detail: err?.message ?? '' })
   }
