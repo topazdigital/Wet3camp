@@ -120,7 +120,11 @@ router.get('/admin/escorts', requireAuth, requireAdmin, async (req: AuthRequest,
   try {
     const pool = getPool()
     if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
-    const limit = Math.min(parseInt((req.query as any).limit ?? '200', 10), 500)
+    const requestedLimit = parseInt((req.query as any).limit ?? '200', 10)
+    const limit = Number.isFinite(requestedLimit) && requestedLimit > 0
+      ? Math.min(requestedLimit, 500)
+      : 200
+    const offset = Math.max(0, parseInt((req.query as any).offset ?? '0', 10) || 0)
     const status = (req.query as any).status
     let sql = `SELECT e.*,
       u.email AS user_email,
@@ -130,8 +134,8 @@ router.get('/admin/escorts', requireAuth, requireAdmin, async (req: AuthRequest,
       LEFT JOIN users u ON u.id = e.user_id`
     if (status === 'pending') sql += ' WHERE e.is_active = 0 AND e.verified = 0'
     else if (status === 'active') sql += ' WHERE e.is_active = 1'
-    sql += ' ORDER BY e.id DESC LIMIT ?'
-    const [rows] = await pool.query<any[]>(sql, [limit])
+    sql += ' ORDER BY e.id DESC LIMIT ? OFFSET ?'
+    const [rows] = await pool.query<any[]>(sql, [limit, offset])
     res.json(rows.map(e => ({ ...e, id: String(e.id) })))
   } catch (err: any) {
     console.error('[admin/escorts]', err?.message ?? err)
