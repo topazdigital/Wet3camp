@@ -5,7 +5,12 @@ import { getMergedEscortIds, resolveCanonicalEscortId } from '../lib/escort-merg
 import { CITY_AREA_VALUES } from '../lib/location-data.js'
 import { getPublicLocationDirectory, MIN_INDEXABLE_LOCATION_PROFILES } from '../lib/public-locations.js'
 import { buildProfileSeo } from '../lib/profile-seo.js'
-import { DEFAULT_ESCORT_IMAGE, isDefaultEscortImage, normalizeEscortImage } from '../lib/escort-image.js'
+import {
+  escortImageSql,
+  escortPhotoPrioritySql,
+  isDefaultEscortImage,
+  normalizeEscortImage,
+} from '../lib/escort-image.js'
 
 const router = Router()
 
@@ -153,24 +158,13 @@ router.get('/escorts', async (req, res) => {
 
     const [rows] = await pool.query<any[]>(
       `SELECT e.*,
-              COALESCE(NULLIF(CASE
-                WHEN LOWER(COALESCE(e.image, '')) LIKE '%logo-woman.png%'
-                  OR LOWER(COALESCE(e.image, '')) LIKE '%icon-512.png%'
-                THEN NULL ELSE e.image END, ''), (
-                SELECT eg.image_url FROM escort_gallery eg
-                WHERE eg.escort_id = e.id
-                   AND eg.image_url IS NOT NULL AND eg.image_url <> ''
-                   AND LOWER(eg.image_url) NOT LIKE '%logo-woman.png%'
-                   AND LOWER(eg.image_url) NOT LIKE '%icon-512.png%'
-                ORDER BY eg.id ASC
-                LIMIT 1
-              ), '${DEFAULT_ESCORT_IMAGE}') AS effective_image,
+              ${escortImageSql()} AS effective_image,
               GROUP_CONCAT(DISTINCT el.language ORDER BY el.language SEPARATOR ',') AS languages_csv
        FROM escorts e
        LEFT JOIN escort_languages el ON el.escort_id = e.id
        WHERE ${where}
        GROUP BY e.id
-       ORDER BY ${orderBy}
+        ORDER BY ${escortPhotoPrioritySql()}, ${orderBy}
        LIMIT ? OFFSET ?`,
       [...params, lim, off]
     )
@@ -206,20 +200,11 @@ router.get('/escorts/search', async (req, res) => {
   try {
     const [rows] = await pool.query<any[]>(
       `SELECT e.id, e.name, e.city, e.area,
-         COALESCE(NULLIF(CASE
-           WHEN LOWER(COALESCE(e.image, '')) LIKE '%logo-woman.png%'
-             OR LOWER(COALESCE(e.image, '')) LIKE '%icon-512.png%'
-           THEN NULL ELSE e.image END, ''), (
-           SELECT eg.image_url FROM escort_gallery eg
-            WHERE eg.escort_id = e.id AND eg.image_url IS NOT NULL AND eg.image_url <> ''
-              AND LOWER(eg.image_url) NOT LIKE '%logo-woman.png%'
-              AND LOWER(eg.image_url) NOT LIKE '%icon-512.png%'
-           ORDER BY eg.id ASC LIMIT 1
-         ), '${DEFAULT_ESCORT_IMAGE}') AS image,
+         ${escortImageSql()} AS image,
          tier, verified, featured
        FROM escorts e
        WHERE (e.name LIKE ? OR e.area LIKE ? OR e.city LIKE ?) AND e.is_active = 1
-       ORDER BY e.featured DESC, e.rating DESC
+        ORDER BY ${escortPhotoPrioritySql()}, e.featured DESC, e.rating DESC
        LIMIT 10`,
       [`%${q}%`, `%${q}%`, `%${q}%`]
     )
