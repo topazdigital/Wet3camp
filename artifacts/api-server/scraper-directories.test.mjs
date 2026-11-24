@@ -10,6 +10,11 @@ import {
   parseRobotsRules,
   robotsPathAllowed,
 } from './scraper-directories.mjs'
+import {
+  extractDirectoryBio,
+  extractDirectoryProfileImages,
+  isArchiveLikeDirectoryName,
+} from './scraper-directory-fields.mjs'
 
 test('the recurring directory set contains exactly the ten approved sources', () => {
   assert.deepEqual(
@@ -47,9 +52,45 @@ test('profile URL checks reject archives and unrelated locations', () => {
   assert.equal(isDirectoryProfileUrl(getDirectorySource('toplesskenya'), 'https://toplesskenya.com/escort/example/'), true)
   assert.equal(isDirectoryProfileUrl(getDirectorySource('toplesskenya'), 'https://toplesskenya.com/escorts/nairobi/'), false)
   assert.equal(isDirectoryProfileUrl(getDirectorySource('kenyaraha'), 'https://www.kenyaraha.com/kenyan-escort-from-nairobi-kenya/example/'), true)
+  assert.equal(isDirectoryProfileUrl(getDirectorySource('kenyaraha'), 'https://www.kenyaraha.com/kenyan-escort-from-nairobi-kenya/woodley-archives/'), false)
   assert.equal(isDirectoryProfileUrl(getDirectorySource('kenyaraha'), 'https://www.kenyaraha.com/embed-1/kenyan-escort-from-nairobi-kenya/example/'), false)
   assert.equal(isDirectoryProfileUrl(getDirectorySource('escortamus'), 'https://www.escortamus.com/kenya/nairobi/example/'), true)
   assert.equal(isDirectoryProfileUrl(getDirectorySource('escortamus'), 'https://www.escortamus.com/uganda/kampala/example/'), false)
+})
+
+test('archive and category labels are not treated as profile names', () => {
+  assert.equal(isArchiveLikeDirectoryName('Woodley Archives'), true)
+  assert.equal(isArchiveLikeDirectoryName('Safari Park Archives'), true)
+  assert.equal(isArchiveLikeDirectoryName('Nairobi escort profile'), false)
+})
+
+test('directory photo extraction prioritizes profile metadata and lazy-loaded images', () => {
+  const images = extractDirectoryProfileImages(`
+    <meta property="og:image" content="/wp-content/uploads/profile-main.jpg?size=large&amp;v=1">
+    <img class="site-logo" src="/wp-content/uploads/site-logo.png">
+    <img class="profile-gallery" data-lazy-src="/wp-content/uploads/profile-second.webp" width="480" height="640">
+    <img src="/wp-content/uploads/tiny.jpg" width="24" height="24">
+  `, 'https://raha.ke/escort/example/')
+  assert.deepEqual(images, [
+    'https://raha.ke/wp-content/uploads/profile-main.jpg?size=large&v=1',
+    'https://raha.ke/wp-content/uploads/profile-second.webp',
+  ])
+})
+
+test('directory photo extraction reads JSON-LD and skips placeholders', () => {
+  const images = extractDirectoryProfileImages(`
+    <script type="application/ld+json">{"@type":"Person","image":["https://cdn.example.test/p1.jpg","https://cdn.example.test/no-image.png"]}</script>
+    <img alt="default avatar" src="/images/default-avatar.jpg">
+  `, 'https://raha.ke/escort/example/')
+  assert.deepEqual(images, ['https://cdn.example.test/p1.jpg'])
+})
+
+test('directory bio extraction prefers a usable description', () => {
+  const bio = extractDirectoryBio(`
+    <meta name="description" content="A profile description with details about availability and services in Nairobi.">
+    <div class="site-description">Browse escorts and profiles from Kenya.</div>
+  `)
+  assert.equal(bio, 'A profile description with details about availability and services in Nairobi.')
 })
 
 test('robots rules honor the most-specific allow or disallow rule', () => {

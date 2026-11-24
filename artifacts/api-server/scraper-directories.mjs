@@ -142,9 +142,23 @@ export function isDirectoryProfileUrl(source, rawUrl) {
   const normalized = normalizeDirectoryUrl(source, rawUrl)
   if (!normalized) return false
   try {
-    return source.profilePath.test(new URL(normalized).pathname)
+    const pathname = new URL(normalized).pathname
+    if (isDirectoryArchiveUrl(normalized)) return false
+    return source.profilePath.test(pathname)
   } catch {
     return false
+  }
+}
+
+export function isDirectoryArchiveUrl(rawUrl) {
+  try {
+    const pathname = decodeURIComponent(new URL(rawUrl).pathname)
+    return pathname.split('/').some((segment) =>
+      /(?:^|[-_])(?:archives?|categories?|tags?|search)(?:$|[-_])/i.test(segment) ||
+      /^(?:page|feed|author|category|tag)$/i.test(segment)
+    )
+  } catch {
+    return true
   }
 }
 

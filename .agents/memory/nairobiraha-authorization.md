@@ -21,6 +21,12 @@ The user wants NairobiRaha profiles continuously imported into Wet3Camp and expe
 
 **How to apply:** Maintain a recurring sync, but verify the source actually exposes enough profiles; never promise thousands when the available source inventory is smaller.
 
+The user confirmed NairobiRaha already imports photos, bios, and related profile details; the missing fields are from the ten additional directories.
+
+**Why:** The user clarified this while reviewing the first multi-source import.
+
+**How to apply:** Preserve NairobiRaha's existing parsing behavior and focus photo/bio improvements on the added directory sources.
+
 The user confirms the 147 profiles currently on Wet3Camp production were scraped from NairobiRaha.
 
 **Why:** The user corrected an assumption about the origin of the existing catalog.

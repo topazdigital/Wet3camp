@@ -17,6 +17,7 @@
  *   node scrape-escorts.mjs --source=approved    — NairobiRaha + the ten approved directories
  *   node scrape-escorts.mjs --concurrency=6       — NairobiRaha requests per batch (1-6; default 6)
  *   node scrape-escorts.mjs --update              — re-fetch existing escorts and update services/languages/rates
+ *   node scrape-escorts.mjs --backfill-directory-data — fill only missing bios/photos for imported directory rows
  *
  * Live server:
  *   cd /home/admin/wet3camp-build/artifacts/api-server
@@ -33,8 +34,15 @@ import {
   DIRECTORY_SOURCES,
   fetchDirectoryPage,
   getDirectorySource,
+  isDirectoryArchiveUrl,
+  isDirectoryProfileUrl,
   isSourceSelected,
 } from './scraper-directories.mjs'
+import {
+  extractDirectoryBio,
+  extractDirectoryProfileImages,
+  isArchiveLikeDirectoryName,
+} from './scraper-directory-fields.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -47,6 +55,7 @@ const DRY_RUN     = args.includes('--dry-run')
 const DISCOVER_ONLY = args.includes('--discover-only')
 const FAST_MODE   = args.includes('--fast')
 const UPDATE_MODE = args.includes('--update')
+const BACKFILL_DIRECTORY_DATA = args.includes('--backfill-directory-data')
 const LIMIT       = parseInt(args.find(a => a.startsWith('--limit='))?.split('=')[1] || '9999', 10)
 const SRC_FILTER  = args.find(a => a.startsWith('--source='))?.split('=')[1]?.toLowerCase() || null
 const concurrencyArg = Number.parseInt(args.find(a => a.startsWith('--concurrency='))?.split('=')[1] || '6', 10)
@@ -783,6 +792,7 @@ function isPlausibleDirectoryName(value) {
   if (!value || value.length < 2 || value.length > 80 || !/[a-z]{2}/i.test(value)) return false
   if (/^(?:home|escort|escorts|escort profile|profile|model|kenya|nairobi|mombasa|kisumu|nakuru|eldoret|location on)$/i.test(value)) return false
   if (/^[+\d\s().'-]+$/.test(value)) return false
+  if (isArchiveLikeDirectoryName(value)) return false
   return true
 }
 
@@ -801,6 +811,7 @@ function inferDirectoryLocation(profileUrl) {
 }
 
 function parseDirectoryProfile(html, site, profileUrl) {
+  if (isDirectoryArchiveUrl(profileUrl)) return null
   const h1 = html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i)
   const titleCandidates = [
     h1?.[1],
@@ -817,7 +828,9 @@ function parseDirectoryProfile(html, site, profileUrl) {
   const metaDescription = getDirectoryMeta(html, 'name', 'description')
     || getDirectoryMeta(html, 'property', 'og:description')
   const bioMatch = html.match(/<(?:div|section|p)\b[^>]*(?:class|itemprop)=["'][^"']*(?:aboutme|about|description|profile-bio|bio|escort-description)[^"']*["'][^>]*>([\s\S]{0,4000}?)<\/(?:div|section|p)>/i)
-  const bio = (metaDescription || (bioMatch ? decodeHtml(bioMatch[1]) : null))?.slice(0, 1200) || null
+  const bio = extractDirectoryBio(html)
+    || (metaDescription || (bioMatch ? decodeHtml(bioMatch[1]) : null))?.slice(0, 1200)
+    || null
 
   let phone = null
   const links = [...html.matchAll(/<a\b[^>]*href\s*=\s*(?:"([^"]*)"|'([^']*)')[^>]*>/gi)]
@@ -879,8 +892,7 @@ function parseDirectoryProfile(html, site, profileUrl) {
     price_overnight,
     services,
     languages,
-    // Third-party image files are not copied or re-hosted by this importer.
-    galleryImgs: [],
+    galleryImgs: extractDirectoryProfileImages(html, profileUrl),
     source: site,
     sourceUrl: profileUrl || null,
   }
@@ -1014,6 +1026,31 @@ async function insertGallery(db, escortId, imageUrls) {
         )
       }
     } catch { /* ignore duplicate */ }
+  }
+}
+
+async function appendMissingGalleryImages(db, escortId, imageUrls) {
+  const { rows } = await db.query(
+    'SELECT image_url FROM escort_gallery WHERE escort_id = $1',
+    [escortId]
+  )
+  const existing = new Set(rows.map((row) => String(row.image_url || '').trim()).filter(Boolean))
+  let sortOrder = rows.length
+  for (const imageUrl of imageUrls) {
+    if (!imageUrl || imageUrl.length > 500 || existing.has(imageUrl) || sortOrder > 255) continue
+    if (db.isMysql) {
+      await db.run(
+        'INSERT INTO escort_gallery (escort_id, image_url, sort_order) VALUES (?, ?, ?)',
+        [escortId, imageUrl, sortOrder]
+      )
+    } else {
+      await db.run(
+        'INSERT INTO escort_gallery (escort_id, image_url, sort_order) VALUES ($1, $2, $3)',
+        [escortId, imageUrl, sortOrder]
+      )
+    }
+    existing.add(imageUrl)
+    sortOrder++
   }
 }
 
@@ -1203,6 +1240,119 @@ async function collectNairobirahaListings() {
   return profiles
 }
 
+// ── Backfill missing fields on existing approved directory imports ────────────
+async function runDirectoryDataBackfill(db) {
+  const selectedSources = DIRECTORY_SOURCES.filter((source) => isSourceSelected(source.id, SRC_FILTER))
+  if (!selectedSources.length) {
+    console.log('No approved directory sources selected for backfill.')
+    return
+  }
+
+  const sourceIds = selectedSources.map((source) => source.id)
+  const placeholders = sourceIds.map((_, index) => `$${index + 1}`).join(', ')
+  const limit = Number.isSafeInteger(LIMIT) && LIMIT > 0 ? Math.min(LIMIT, 20000) : 9999
+  const { rows } = await db.query(
+    `SELECT id, name, source_site, source_url, image, bio
+     FROM escorts
+     WHERE source_site IN (${placeholders})
+       AND source_url IS NOT NULL AND source_url <> ''
+       AND (image IS NULL OR TRIM(image) = '' OR bio IS NULL OR TRIM(bio) = '')
+     ORDER BY id ASC
+     LIMIT ${limit}`,
+    sourceIds
+  )
+
+  console.log(`\n🖼️  Backfilling missing photos/bios for ${rows.length} approved directory rows\n`)
+  let photoUpdates = 0
+  let bioUpdates = 0
+  let noPhoto = 0
+  let unavailable = 0
+  let invalid = 0
+  let errors = 0
+
+  for (let index = 0; index < rows.length; index++) {
+    const escort = rows[index]
+    const source = getDirectorySource(escort.source_site)
+    process.stdout.write(`[${index + 1}/${rows.length}] id:${escort.id} [${escort.source_site}] ... `)
+
+    if (!source || !isDirectoryProfileUrl(source, escort.source_url) ||
+      isArchiveLikeDirectoryName(escort.name)) {
+      console.log('⏭ invalid/archive record; left unchanged')
+      invalid++
+      continue
+    }
+
+    try {
+      const html = await fetchDirectoryPage(source, escort.source_url, source.baseUrl, fetchPage)
+      if (!html) {
+        console.log('⚠️ source page unavailable')
+        unavailable++
+        await sleep(DELAY_MS)
+        continue
+      }
+
+      const profile = parseProfile(html, source.id, escort.source_url)
+      if (!profile) {
+        console.log('⏭ not a valid profile page; left unchanged')
+        invalid++
+        await sleep(DELAY_MS)
+        continue
+      }
+
+      const currentImage = String(escort.image || '').trim()
+      const currentBio = String(escort.bio || '').trim()
+      const photoUrl = profile.galleryImgs?.[0] || null
+      const imageWasMissing = !currentImage
+      let updated = false
+
+      if (imageWasMissing && photoUrl) {
+        await db.run(
+          `UPDATE escorts SET image = $1
+           WHERE id = $2 AND (image IS NULL OR TRIM(image) = '')`,
+          [photoUrl, escort.id]
+        )
+        const { rows: refreshed } = await db.query(
+          'SELECT image FROM escorts WHERE id = $1',
+          [escort.id]
+        )
+        const savedImage = String(refreshed[0]?.image || '').trim()
+        if (savedImage === photoUrl) {
+          await appendMissingGalleryImages(db, escort.id, profile.galleryImgs || [])
+          photoUpdates++
+          updated = true
+        }
+      } else if (imageWasMissing) {
+        noPhoto++
+      }
+
+      if (!currentBio && profile.bio) {
+        await db.run(
+          `UPDATE escorts SET bio = $1
+           WHERE id = $2 AND (bio IS NULL OR TRIM(bio) = '')`,
+          [profile.bio, escort.id]
+        )
+        const { rows: refreshed } = await db.query(
+          'SELECT bio FROM escorts WHERE id = $1',
+          [escort.id]
+        )
+        if (String(refreshed[0]?.bio || '').trim() === profile.bio) {
+          bioUpdates++
+          updated = true
+        }
+      }
+
+      console.log(updated ? '✅ missing fields filled' : '— no missing fields available')
+      await sleep(DELAY_MS)
+    } catch (error) {
+      console.log(`❌ backfill error: ${error.message}`)
+      errors++
+      await sleep(DELAY_MS)
+    }
+  }
+
+  console.log(`\nBackfill summary — photos: ${photoUpdates} | bios: ${bioUpdates} | no photo found: ${noPhoto} | unavailable: ${unavailable} | invalid/archive: ${invalid} | errors: ${errors}\n`)
+}
+
 // ── --update mode: re-fetch existing escorts by source_url ────────────────────
 async function runUpdateMode(db) {
   console.log('\n🔄  UPDATE MODE — re-fetching existing escorts for real data\n')
@@ -1286,6 +1436,16 @@ async function main() {
   if (UPDATE_MODE) {
     if (!db) { console.error('--update requires a live DB connection (set DATABASE_URL)'); process.exit(1) }
     await runUpdateMode(db)
+    await db.end()
+    return
+  }
+
+  if (BACKFILL_DIRECTORY_DATA) {
+    if (!db) {
+      console.error('--backfill-directory-data requires a live DB connection (set DATABASE_URL)')
+      process.exit(1)
+    }
+    await runDirectoryDataBackfill(db)
     await db.end()
     return
   }
@@ -1400,7 +1560,7 @@ async function main() {
   }
 
   // ── Scrape + import each profile ─────────────────────────────────────────
-  let imported = 0, skipped = 0, errors = 0
+  let imported = 0, skipped = 0, errors = 0, skippedNoPhoto = 0
   const seenPhones = new Set()
   const seenNames  = new Set()
 
@@ -1440,10 +1600,18 @@ async function main() {
         console.log('❌ no name'); errors++; continue
       }
 
+      const primaryImg = profile.galleryImgs?.[0] || listing.thumbnailUrl || null
+      if (getDirectorySource(listing.site) && !primaryImg) {
+        console.log('⏭ no source photo; not imported')
+        skipped++
+        skippedNoPhoto++
+        continue
+      }
+
       if (DRY_RUN) {
         const svcCount = profile.services.length
         const rate     = profile.price_incall ? `KES ${profile.price_incall}` : 'no rate'
-        console.log(`✓ parsed | ${profile.area || 'location unknown'} | ${rate} | ${svcCount} svcs`)
+        console.log(`✓ parsed | ${profile.area || 'location unknown'} | ${rate} | ${svcCount} svcs | photo`)
         imported++
         continue
       }
@@ -1478,7 +1646,6 @@ async function main() {
       // Images
       const referer = sourceBaseUrl(listing.site)
       let avatarPath = null
-      const primaryImg = profile.galleryImgs[0] || listing.thumbnailUrl
       if (primaryImg) {
         if (FAST_MODE) {
           avatarPath = primaryImg
@@ -1526,7 +1693,7 @@ async function main() {
   }
 
   console.log(`\n${'─'.repeat(60)}`)
-  console.log(`✅ Done — imported: ${imported} | skipped: ${skipped} | errors: ${errors}`)
+  console.log(`✅ Done — imported: ${imported} | skipped: ${skipped} | no-photo skipped: ${skippedNoPhoto} | errors: ${errors}`)
   console.log(`${'─'.repeat(60)}\n`)
 
   if (!DRY_RUN) await db.end()
