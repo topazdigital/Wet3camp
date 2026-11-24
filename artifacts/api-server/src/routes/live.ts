@@ -11,6 +11,7 @@ import {
 import { verifyToken } from '../lib/jwt.js'
 import { getPool } from '../lib/db.js'
 import { pushNotification } from '../lib/notif-store.js'
+import { normalizeEscortImage } from '../lib/escort-image.js'
 
 const router = Router()
 
@@ -105,7 +106,7 @@ router.get('/live', (_req, res) => {
     id: String(s.escortId),
     escortId: s.escortId,
     name: s.escortName,
-    image: s.escortImage,
+    image: normalizeEscortImage(s.escortImage),
     tier: s.escortTier,
     city: s.escortCity,
     area: s.escortArea,
@@ -127,7 +128,7 @@ router.get('/live/:escortId', async (req, res) => {
     id: String(session.escortId),
     escortId: session.escortId,
     name: session.escortName,
-    image: session.escortImage,
+    image: normalizeEscortImage(session.escortImage),
     tier: session.escortTier,
     city: session.escortCity,
     area: session.escortArea,
@@ -163,7 +164,7 @@ router.post('/live/start', async (req, res) => {
   const cleanTitle = typeof title === 'string' ? title.trim().slice(0, 100) : ''
   const session = startLive(escort.id, {
     name: escort.name,
-    image: escort.image,
+    image: normalizeEscortImage(escort.image),
     tier: escort.tier,
     city: escort.city,
     area: escort.area,
