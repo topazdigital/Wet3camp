@@ -196,7 +196,7 @@ export default function AdminPhotoGallery({ adminFetch }: { adminFetch: AdminFet
           {photos.map(photo => {
             const key = photoKey(photo)
             const isSelected = Boolean(selected[key])
-            const imageSrc = proxyImg(photo.image_url, 480) || '/logo-woman.png'
+            const imageSrc = proxyImg(photo.image_url, 480) || '/icon-512.png'
             return (
               <article
                 key={key}
@@ -218,7 +218,7 @@ export default function AdminPhotoGallery({ adminFetch }: { adminFetch: AdminFet
                     alt={`${photo.escort_name} profile photo`}
                     loading="lazy"
                     decoding="async"
-                    onError={event => { event.currentTarget.onerror = null; event.currentTarget.src = '/logo-woman.png' }}
+                    onError={event => { event.currentTarget.onerror = null; event.currentTarget.src = '/icon-512.png' }}
                     className="aspect-square w-full bg-dark-bg object-cover"
                   />
                 </label>
