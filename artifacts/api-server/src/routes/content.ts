@@ -40,13 +40,13 @@ router.get('/feeds', async (_req, res) => {
   if (!pool) { res.json([]); return }
   try {
     const [rows] = await pool.query<any[]>(`
-      SELECT e.id, e.name, e.city, e.area, e.image, e.tier, e.verified,
+      SELECT e.id, e.name, e.city, e.area, ${escortImageSql()} AS image, e.tier, e.verified,
              e.rating, e.online, e.bio, e.phone, e.created_at,
              u.id AS user_id
       FROM escorts e
       LEFT JOIN users u ON u.id = e.user_id
       WHERE e.is_active = 1 AND (e.bio IS NOT NULL AND e.bio != '')
-      ORDER BY e.created_at DESC, e.rating DESC
+      ORDER BY ${escortPhotoPrioritySql()}, e.created_at DESC, e.rating DESC
       LIMIT 30
     `)
     res.json(rows)
