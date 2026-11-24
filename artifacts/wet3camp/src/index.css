@@ -360,6 +360,10 @@
     .admin-responsive-table-escorts tbody td[data-label="Name"] {
       grid-column: 2;
     }
+
+    .admin-responsive-table-escorts tbody td[data-label="Source"] {
+      grid-column: 1 / -1;
+    }
   }
 
   .glass {
