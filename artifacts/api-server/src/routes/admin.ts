@@ -177,12 +177,14 @@ router.get('/admin/photo-gallery', requireAuth, requireAdmin, async (req: AuthRe
       FROM escort_gallery eg
       INNER JOIN escorts e ON e.id = eg.escort_id
       WHERE eg.image_url IS NOT NULL AND TRIM(eg.image_url) <> ''
+        AND LOWER(eg.image_url) NOT LIKE '%logo-woman.png%'
       UNION ALL
       SELECT 'profile' AS photo_type, NULL AS photo_id, e.id AS escort_id,
         e.name AS escort_name, e.city, e.source_site, e.image AS image_url,
         1 AS is_profile
       FROM escorts e
       WHERE e.image IS NOT NULL AND TRIM(e.image) <> ''
+        AND LOWER(e.image) NOT LIKE '%logo-woman.png%'
         AND NOT EXISTS (
           SELECT 1 FROM escort_gallery eg
           WHERE eg.escort_id = e.id AND eg.image_url = e.image
