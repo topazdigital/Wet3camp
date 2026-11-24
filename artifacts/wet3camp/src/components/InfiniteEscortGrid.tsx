@@ -78,7 +78,15 @@ export default function InfiniteEscortGrid({
   const { isFavorite, toggleFavorite } = useFavorites()
   const { isOnline } = useOnlineStatus()
 
-  const { escorts: apiEscorts, fromApi, isLoading } = useAllEscorts({
+  const {
+    escorts: apiEscorts,
+    fromApi,
+    isLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isFetchNextPageError,
+  } = useAllEscorts({
     service: activeService || undefined,
     sort,
   })
@@ -101,51 +109,50 @@ export default function InfiniteEscortGrid({
     return allEscorts.filter((e: any) => e.city === activeCategory)
   }, [activeCategory, allEscorts])
 
-  const [page, setPage] = useState(0)
-  const [shown, setShown] = useState<typeof filtered>([])
+  const [visibleCount, setVisibleCount] = useState(PER_PAGE)
   const [shownForKey, setShownForKey] = useState('')
-  const [hasMore, setHasMore] = useState(true)
-  const [isLoadingMore, setIsLoadingMore] = useState(false)
   const observerTarget = useRef<HTMLDivElement>(null)
+  const loadingMoreRef = useRef(false)
   const gridStateKey = `home-grid:${activeCategory}:${priorityCity}:${activeService}:${sort}`
+  const shown = React.useMemo(() => filtered.slice(0, visibleCount), [filtered, visibleCount])
+  const hasMore = visibleCount < filtered.length || hasNextPage
 
   useEffect(() => {
     if (!fromApi) return
     const savedPageCount = readNavigationPageState<number>(gridStateKey) ?? 1
     const restoredCount = Math.max(1, Number(savedPageCount) || 1)
-    const restoredItems = filtered.slice(0, restoredCount * PER_PAGE)
-    setShown(restoredItems)
-    setPage(Math.max(0, Math.ceil(restoredItems.length / PER_PAGE) - 1))
-    setHasMore(restoredItems.length < filtered.length)
+    setVisibleCount(restoredCount * PER_PAGE)
     setShownForKey(gridStateKey)
-  }, [filtered, fromApi, gridStateKey])
+  }, [fromApi, gridStateKey])
 
   useEffect(() => {
-    if (!fromApi || !shown.length || shownForKey !== gridStateKey) return
-    writeNavigationPageState(gridStateKey, Math.max(1, Math.ceil(shown.length / PER_PAGE)))
-  }, [fromApi, gridStateKey, shown, shownForKey])
+    if (!fromApi || !visibleCount || shownForKey !== gridStateKey) return
+    writeNavigationPageState(gridStateKey, Math.max(1, Math.ceil(visibleCount / PER_PAGE)))
+  }, [fromApi, gridStateKey, visibleCount, shownForKey])
+
+  const loadNextApiPage = useCallback(() => {
+    if (!hasNextPage || isFetchingNextPage || loadingMoreRef.current) return
+    loadingMoreRef.current = true
+    void fetchNextPage()
+      .catch(() => {})
+      .finally(() => { loadingMoreRef.current = false })
+  }, [fetchNextPage, hasNextPage, isFetchingNextPage])
 
   const fetchMore = useCallback(() => {
-    if (isLoadingMore || !hasMore) return
-    setIsLoadingMore(true)
-    setTimeout(() => {
-      setShown(prev => {
-        const next = filtered.slice(prev.length, prev.length + PER_PAGE)
-        if (next.length === 0) { setHasMore(false); return prev }
-        if (prev.length + next.length >= filtered.length) setHasMore(false)
-        return [...prev, ...next]
-      })
-      setIsLoadingMore(false)
-    }, 400)
-  }, [isLoadingMore, hasMore, filtered])
+    if (visibleCount < filtered.length) {
+      setVisibleCount(current => Math.min(current + PER_PAGE, filtered.length))
+      return
+    }
+    if (hasNextPage && !isFetchNextPageError) loadNextApiPage()
+  }, [visibleCount, filtered.length, hasNextPage, isFetchNextPageError, loadNextApiPage])
 
   useEffect(() => {
     const obs = new IntersectionObserver(entries => {
-      if (entries[0].isIntersecting && hasMore && !isLoadingMore) fetchMore()
+      if (entries[0].isIntersecting && hasMore && !isFetchingNextPage && !isFetchNextPageError) fetchMore()
     }, { threshold: 0.1 })
     if (observerTarget.current) obs.observe(observerTarget.current)
     return () => obs.disconnect()
-  }, [hasMore, isLoadingMore, fetchMore])
+  }, [hasMore, isFetchingNextPage, isFetchNextPageError, fetchMore])
 
   const toggleLike = (e: React.MouseEvent, id: string) => {
     e.preventDefault(); e.stopPropagation()
@@ -267,11 +274,19 @@ export default function InfiniteEscortGrid({
 
       {hasMore && (
         <div ref={observerTarget} className="flex justify-center py-6">
-          {isLoadingMore && (
+          {isFetchingNextPage && (
             <div className="flex items-center gap-2 text-text-muted text-xs">
               <div className="w-4 h-4 border-2 border-[#8B0000]/30 border-t-[#8B0000] rounded-full animate-spin" />
               Loading more…
             </div>
+          )}
+          {isFetchNextPageError && (
+            <button
+              onClick={loadNextApiPage}
+              className="text-xs text-text-muted underline underline-offset-4 hover:text-text-light"
+            >
+              Couldn’t load more profiles. Retry
+            </button>
           )}
         </div>
       )}
