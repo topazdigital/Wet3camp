@@ -1,8 +1,9 @@
 import { useMemo } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { api, type ApiEscort } from '@/lib/api'
 
 const PLACEHOLDER_IMAGE = '/api/placeholder-escort.jpg'
+const ESCORTS_PAGE_SIZE = 200
 
 function toAppEscort(e: ApiEscort) {
   return {
@@ -51,25 +52,51 @@ function toAppEscort(e: ApiEscort) {
 export function useAllEscorts(params?: { service?: string; sort?: 'featured' | 'newest' }) {
   const svc = params?.service ?? ''
   const sort = params?.sort ?? 'featured'
-  const { data, isLoading, isError } = useQuery({
+  const {
+    data,
+    isLoading,
+    isError,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isFetchNextPageError,
+  } = useInfiniteQuery({
     queryKey:  ['escorts', 'all', svc, sort],
-    queryFn:   () => api.escorts.list({ limit: 200, sort, ...(svc ? { service: svc } : {}) }),
+    initialPageParam: 0,
+    queryFn:   ({ pageParam }) => api.escorts.list({
+      limit: ESCORTS_PAGE_SIZE,
+      offset: pageParam,
+      sort,
+      ...(svc ? { service: svc } : {}),
+    }),
+    getNextPageParam: (lastPage, pages) => {
+      const loadedCount = pages.reduce((total, page) => total + page.data.length, 0)
+      return loadedCount < lastPage.total ? loadedCount : undefined
+    },
     staleTime: 5 * 60 * 1000,
     retry:     1,
   })
 
   const escorts = useMemo(() => {
-    if (data?.data?.length) return data.data.map(toAppEscort)
-    return []
+    return data?.pages.flatMap(page => page.data.map(toAppEscort)) ?? []
   }, [data])
 
   // An empty array is still a successful API response. Keep it distinct from
   // the not-yet-loaded state so the grid can render its empty state instead of
   // showing skeleton cards forever on a fresh development database.
-  const fromApi = Array.isArray(data?.data)
-  const total   = data?.total ?? 0
+  const fromApi = Array.isArray(data?.pages)
+  const total   = data?.pages[0]?.total ?? 0
 
-  return { escorts, total, fromApi, isLoading: isLoading && !isError }
+  return {
+    escorts,
+    total,
+    fromApi,
+    isLoading: isLoading && !isError,
+    fetchNextPage,
+    hasNextPage: Boolean(hasNextPage),
+    isFetchingNextPage,
+    isFetchNextPageError,
+  }
 }
 
 export function useEscort(slugOrId: string | undefined) {
