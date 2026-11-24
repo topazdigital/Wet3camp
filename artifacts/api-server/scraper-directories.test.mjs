@@ -13,7 +13,9 @@ import {
 import {
   extractDirectoryBio,
   extractDirectoryProfileImages,
+  extractDirectoryProfileImageCandidates,
   isArchiveLikeDirectoryName,
+  isDirectoryBrandOrPlaceholderImage,
 } from './scraper-directory-fields.mjs'
 
 test('the recurring directory set contains exactly the ten approved sources', () => {
@@ -64,7 +66,7 @@ test('archive and category labels are not treated as profile names', () => {
   assert.equal(isArchiveLikeDirectoryName('Nairobi escort profile'), false)
 })
 
-test('directory photo extraction prioritizes profile metadata and lazy-loaded images', () => {
+test('directory photo extraction prioritizes profile images over generic metadata', () => {
   const images = extractDirectoryProfileImages(`
     <meta property="og:image" content="/wp-content/uploads/profile-main.jpg?size=large&amp;v=1">
     <img class="site-logo" src="/wp-content/uploads/site-logo.png">
@@ -72,9 +74,26 @@ test('directory photo extraction prioritizes profile metadata and lazy-loaded im
     <img src="/wp-content/uploads/tiny.jpg" width="24" height="24">
   `, 'https://raha.ke/escort/example/')
   assert.deepEqual(images, [
-    'https://raha.ke/wp-content/uploads/profile-main.jpg?size=large&v=1',
     'https://raha.ke/wp-content/uploads/profile-second.webp',
+    'https://raha.ke/wp-content/uploads/profile-main.jpg?size=large&v=1',
   ])
+})
+
+test('directory photo extraction rejects social icons and keeps generic previews low confidence', () => {
+  const candidates = extractDirectoryProfileImageCandidates(`
+    <meta property="og:image" content="/wp-content/uploads/shared-cover.jpg">
+    <img class="gallery-photo" src="/wp-content/uploads/profile-photo.jpg" width="500" height="700">
+    <img alt="WhatsApp contact" src="/wp-content/uploads/whatsapp-contact.png" width="400" height="400">
+    <img class="social-icon" src="/wp-content/uploads/chat.png" width="400" height="400">
+  `, 'https://rahaescorts.com/escort/example/')
+
+  assert.equal(candidates[0].url, 'https://rahaescorts.com/wp-content/uploads/profile-photo.jpg')
+  assert.equal(candidates[0].score, 100)
+  assert.equal(candidates.some((candidate) => /whatsapp|chat\.png/i.test(candidate.url)), false)
+  assert.equal(candidates.find((candidate) => candidate.url.endsWith('/shared-cover.jpg'))?.score, 58)
+  assert.equal(isDirectoryBrandOrPlaceholderImage('/uploads/default-avatar.png'), true)
+  assert.equal(isDirectoryBrandOrPlaceholderImage('/uploads/telegram-icon.png'), true)
+  assert.equal(isDirectoryBrandOrPlaceholderImage('/uploads/model-portrait.jpg'), false)
 })
 
 test('directory photo extraction reads JSON-LD and skips placeholders', () => {
