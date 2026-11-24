@@ -125,6 +125,40 @@ interface AdminEscort {
   featured?: boolean | number; price_hourly?: number; bookings_count?: number
   image?: string; user_id?: string | number | null; user_role?: string | null
   merged_into_id?: string | number | null
+  source_site?: string | null; source_url?: string | null
+}
+
+const IMPORT_SOURCE_LABELS: Record<string, string> = {
+  nairobiraha: 'NairobiRaha',
+  rahaescorts: 'Raha Escorts',
+  'raha-ke': 'Raha Kenya',
+  toplesskenya: 'Topless Kenya',
+  nairobihot: 'Nairobi Hot',
+  kenyaraha: 'Kenya Raha',
+  escortamus: 'Escortamus',
+  rahaanairobi: 'Raha Nairobi',
+  mahabakenya: 'Mahaba Kenya',
+  lovebiteglobal: 'Lovebite Global',
+  'ladys-one': 'Ladys One',
+}
+
+function getAdminEscortSource(sourceSite?: string | null, sourceUrl?: string | null) {
+  let safeUrl: URL | null = null
+  if (sourceUrl?.trim()) {
+    try {
+      const parsed = new URL(sourceUrl.trim())
+      if (['http:', 'https:'].includes(parsed.protocol) && !parsed.username && !parsed.password) {
+        safeUrl = parsed
+      }
+    } catch {}
+  }
+
+  const siteKey = sourceSite?.trim().toLowerCase() ?? ''
+  const label = siteKey
+    ? IMPORT_SOURCE_LABELS[siteKey] ?? sourceSite!.trim().replace(/[-_]+/g, ' ')
+    : safeUrl?.hostname.replace(/^www\./i, '') ?? 'Not recorded'
+
+  return { label, href: safeUrl?.href ?? null }
 }
 
 const TABS = ['Overview','Escorts','Claims','Clients','Bookings','Revenue','Moderators','Featured','Blog','API Keys','Settings','Reports']
@@ -2787,11 +2821,11 @@ function EscortsTab() {
           <div className="overflow-x-auto admin-responsive-table admin-responsive-table-escorts">
             <table className="w-full text-xs">
               <thead className="bg-dark-bg border-b border-color">
-                <tr>{['Photo','Name','City','Tier','Active','Online Now','Verified','Featured','Actions'].map(h=><th key={h} scope="col" className="px-4 py-3 text-left font-semibold text-text-muted">{h}</th>)}</tr>
+                <tr>{['Photo','Name','City','Source','Tier','Active','Online Now','Verified','Featured','Actions'].map(h=><th key={h} scope="col" className="px-4 py-3 text-left font-semibold text-text-muted">{h}</th>)}</tr>
               </thead>
               <tbody>
                 {filtered.length === 0 && (
-                  <tr><td colSpan={9} className="px-4 py-10 text-center text-text-muted">No escorts found.</td></tr>
+                  <tr><td colSpan={10} className="px-4 py-10 text-center text-text-muted">No escorts found.</td></tr>
                 )}
                 {filtered.map(e => (
                   <tr key={e.id} className="border-b border-color/40 hover:bg-dark-bg transition-colors">
@@ -2808,6 +2842,28 @@ function EscortsTab() {
                       {e.merged_into_id && <p className="mt-0.5 text-[9px] font-normal text-text-muted">Merged into profile #{e.merged_into_id}</p>}
                     </td>
                     <td data-label="City" className="px-4 py-3 text-text-muted">{e.city || '—'}</td>
+                    <td data-label="Source" className="px-4 py-3">
+                      {(() => {
+                        const source = getAdminEscortSource(e.source_site, e.source_url)
+                        return (
+                          <div className="flex min-w-0 flex-col items-start gap-1">
+                            <span className="max-w-40 truncate text-[10px] font-semibold text-text-light" title={source.label}>
+                              {source.label}
+                            </span>
+                            {source.href && (
+                              <a
+                                href={source.href}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[9px] font-semibold text-[#FFD700] hover:underline"
+                              >
+                                Open source ↗
+                              </a>
+                            )}
+                          </div>
+                        )
+                      })()}
+                    </td>
                     <td data-label="Tier" className="px-4 py-3">
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{background:e.tier==='Elite'?'#8B000020':e.tier==='VIP'?'#B8860B20':e.tier==='Premium'?'#FFD70020':'#55555520',color:e.tier==='Elite'?'#8B0000':e.tier==='VIP'?'#B8860B':e.tier==='Premium'?'#FFD700':'#aaa'}}>
                         {e.tier || 'Standard'}
