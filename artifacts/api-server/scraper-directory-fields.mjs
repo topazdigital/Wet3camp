@@ -1,6 +1,6 @@
 const IMAGE_EXTENSION = /\.(?:jpe?g|png|webp|gif|avif)(?:$|[?#])/i
 const IMAGE_PATH_HINT = /(?:\/images?\/|\/uploads?\/|\/media\/|[?&](?:format|fm)=(?:jpe?g|png|webp|avif))/i
-const BAD_IMAGE_HINT = /(?:logo|favicon|placeholder|no[-_ ]?image|default[-_ ]?(?:image|avatar)|avatar[-_ ]?default|banner|sprite|captcha|payment|sponsor|tracking|pixel|flag)/i
+const BAD_IMAGE_HINT = /(?:logo|favicon|placeholder|no[-_ ]?image|default[-_ ]?(?:image|avatar)|avatar[-_ ]?default|banner|sprite|captcha|payment|sponsor|tracking|pixel|flag|whatsapp|telegram|wechat|viber|messenger|social[-_ ]?(?:media|icon)|contact[-_ ]?icon|phone[-_ ]?icon)/i
 const ARCHIVE_NAME_HINT = /\b(?:archives?|categories?|tags?|search results|escort listings|all escorts)\b/i
 
 function decodeHtml(value) {
@@ -108,7 +108,11 @@ export function isArchiveLikeDirectoryName(name) {
   return ARCHIVE_NAME_HINT.test(String(name || ''))
 }
 
-export function extractDirectoryProfileImages(html, profileUrl, limit = 6) {
+export function isDirectoryBrandOrPlaceholderImage(value) {
+  return BAD_IMAGE_HINT.test(String(value || ''))
+}
+
+export function extractDirectoryProfileImageCandidates(html, profileUrl, limit = 6) {
   const candidates = new Map()
   const add = (raw, score, context = '', allowExtensionless = false) => {
     const url = normalizeImageUrl(raw, profileUrl, context)
@@ -123,13 +127,16 @@ export function extractDirectoryProfileImages(html, profileUrl, limit = 6) {
     const attrs = attributesFromTag(tag[0])
     const key = `${attrs.property || ''} ${attrs.name || ''}`.toLowerCase()
     if (/\b(?:og:image|twitter:image|twitter:image:src)\b/.test(key)) {
-      add(attrs.content, 100, `${key} ${attrs.alt || ''}`, true)
+      // Social metadata often points at a site-wide fallback image. Keep it as
+      // a low-priority candidate unless stronger profile-specific evidence exists.
+      const metadataLooksProfileSpecific = /(?:profile|escort|gallery|portrait|model)/i.test(attrs.content || '')
+      add(attrs.content, metadataLooksProfileSpecific ? 85 : 58, `${key} ${attrs.alt || ''}`, true)
     }
   }
 
   for (const tag of String(html || '').matchAll(/<link\b[^>]*>/gi)) {
     const attrs = attributesFromTag(tag[0])
-    if (/\bimage_src\b/i.test(attrs.rel || '')) add(attrs.href, 90, attrs.rel, true)
+    if (/\bimage_src\b/i.test(attrs.rel || '')) add(attrs.href, 65, attrs.rel, true)
   }
 
   for (const script of String(html || '').matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)) {
@@ -145,7 +152,7 @@ export function extractDirectoryProfileImages(html, profileUrl, limit = 6) {
               : item && typeof item === 'object'
                 ? item.url || item.contentUrl || item['@id']
                 : null
-            add(raw, 95, key, true)
+            add(raw, 85, key, true)
           }
         }
       })
@@ -163,7 +170,8 @@ export function extractDirectoryProfileImages(html, profileUrl, limit = 6) {
     if ((width && width < 80) || (height && height < 80)) continue
 
     const descriptive = /(?:profile|escort|gallery|portrait|model|photo|image)/i.test(context)
-    const score = descriptive ? 85 : 65
+    const portraitSized = width >= 180 && height >= 180 && height / width >= 0.9
+    const score = descriptive ? 100 : portraitSized ? 85 : 45
     for (const key of ['data-full', 'data-large', 'data-large_image', 'data-original', 'data-lazy-src', 'data-src', 'src']) {
       if (attrs[key]) add(attrs[key], score, context, true)
     }
@@ -172,10 +180,15 @@ export function extractDirectoryProfileImages(html, profileUrl, limit = 6) {
     }
   }
 
-  const ordered = [...candidates.values()]
+  return [...candidates.values()]
     .sort((a, b) => b.score - a.score)
+    .filter((candidate, index, all) => all.findIndex((item) => item.url === candidate.url) === index)
+    .slice(0, Math.max(0, limit))
+}
+
+export function extractDirectoryProfileImages(html, profileUrl, limit = 6) {
+  return extractDirectoryProfileImageCandidates(html, profileUrl, limit)
     .map((candidate) => candidate.url)
-  return [...new Set(ordered)].slice(0, Math.max(0, limit))
 }
 
 export function extractDirectoryBio(html) {
