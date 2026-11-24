@@ -4,6 +4,31 @@ import { api, type ApiEscort } from '@/lib/api'
 
 const PLACEHOLDER_IMAGE = '/api/placeholder-escort.jpg'
 const ESCORTS_PAGE_SIZE = 200
+const PLACEHOLDER_PROFILE_IMAGE_FILES = [
+  'logo-woman.png',
+  'icon-512.png',
+  'icon-512-maskable.png',
+  'icon-192.png',
+  'icon-light-32x32.png',
+  'icon-dark-32x32.png',
+  'favicon.ico',
+  'apple-icon.png',
+  'wet3camp-wordmark.png',
+  'placeholder.jpg',
+  'placeholder-user.jpg',
+  'placeholder-logo.png',
+  'placeholder-logo.svg',
+  'placeholder.svg',
+  'placeholder-escort.jpg',
+]
+
+export function hasRealEscortPhoto(image: unknown): boolean {
+  if (typeof image !== 'string' || !image.trim()) return false
+  const path = image.trim().split(/[?#]/, 1)[0].toLowerCase()
+  return !PLACEHOLDER_PROFILE_IMAGE_FILES.some(filename =>
+    path === filename || path.endsWith(`/${filename}`),
+  )
+}
 
 function toAppEscort(e: ApiEscort) {
   return {
