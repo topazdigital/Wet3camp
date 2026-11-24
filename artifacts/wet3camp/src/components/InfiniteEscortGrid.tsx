@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { Star, Heart, MapPin, CheckCircle2, UserPlus, UserCheck } from 'lucide-react'
 import { Link } from 'wouter'
 import { getSlug } from '@/data/escorts'
-import { useAllEscorts } from '@/hooks/useEscorts'
+import { hasRealEscortPhoto, useAllEscorts } from '@/hooks/useEscorts'
 import { useFollow } from '@/lib/follow-context'
 import { useAuth } from '@/lib/auth-context'
 import { useFavorites } from '@/lib/favorites-context'
@@ -26,6 +26,10 @@ const NEWEST_TIER_RANK: Record<string, number> = {
 
 function sortEscorts(escorts: any[]): any[] {
   return [...escorts].sort((a, b) => {
+    const aHasPhoto = hasRealEscortPhoto(a.image)
+    const bHasPhoto = hasRealEscortPhoto(b.image)
+    if (aHasPhoto !== bHasPhoto) return aHasPhoto ? -1 : 1
+
     const ra = TIER_RANK[a.tier?.toLowerCase()] ?? 99
     const rb = TIER_RANK[b.tier?.toLowerCase()] ?? 99
     if (ra !== rb) return ra - rb
@@ -38,8 +42,12 @@ function sortEscorts(escorts: any[]): any[] {
 
 function prioritizeTiersKeepingNewestOrder(escorts: any[]): any[] {
   // The API supplies newest-first results; stable sorting groups tiers without
-  // changing the newest-first order within each tier.
+  // changing the newest-first order within each tier. Photo profiles stay first.
   return [...escorts].sort((a, b) => {
+    const aHasPhoto = hasRealEscortPhoto(a.image)
+    const bHasPhoto = hasRealEscortPhoto(b.image)
+    if (aHasPhoto !== bHasPhoto) return aHasPhoto ? -1 : 1
+
     const aRank = NEWEST_TIER_RANK[a.tier?.toLowerCase()] ?? 6
     const bRank = NEWEST_TIER_RANK[b.tier?.toLowerCase()] ?? 6
     return aRank - bRank
