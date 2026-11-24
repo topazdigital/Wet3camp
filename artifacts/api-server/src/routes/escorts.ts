@@ -7,6 +7,7 @@ import { getPublicLocationDirectory, MIN_INDEXABLE_LOCATION_PROFILES } from '../
 import { buildProfileSeo } from '../lib/profile-seo.js'
 
 const router = Router()
+const DEFAULT_ESCORT_IMAGE = '/logo-woman.png'
 
 // ── Helper ────────────────────────────────────────────────────────────────────
 const slugOf = (name: string) =>
@@ -17,7 +18,7 @@ function mapEscort(row: any) {
     ...row,
     id:        String(row.id),
     // Fall back to first gallery image when the main `image` column is NULL
-    image:     row.effective_image ?? row.image ?? null,
+    image:     row.effective_image || row.image || DEFAULT_ESCORT_IMAGE,
     available: !!row.available,
     verified:  !!row.verified,
     online:    !!row.online,
@@ -152,12 +153,13 @@ router.get('/escorts', async (req, res) => {
 
     const [rows] = await pool.query<any[]>(
       `SELECT e.*,
-              COALESCE(e.image, (
+              COALESCE(NULLIF(e.image, ''), (
                 SELECT eg.image_url FROM escort_gallery eg
                 WHERE eg.escort_id = e.id
+                   AND eg.image_url IS NOT NULL AND eg.image_url <> ''
                 ORDER BY eg.id ASC
                 LIMIT 1
-              )) AS effective_image,
+              ), '${DEFAULT_ESCORT_IMAGE}') AS effective_image,
               GROUP_CONCAT(DISTINCT el.language ORDER BY el.language SEPARATOR ',') AS languages_csv
        FROM escorts e
        LEFT JOIN escort_languages el ON el.escort_id = e.id
@@ -198,16 +200,22 @@ router.get('/escorts/search', async (req, res) => {
   if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
   try {
     const [rows] = await pool.query<any[]>(
-      `SELECT id, name, city, area, image, tier, verified, featured
-       FROM escorts
-       WHERE (name LIKE ? OR area LIKE ? OR city LIKE ?) AND is_active = 1
-       ORDER BY featured DESC, rating DESC
+      `SELECT e.id, e.name, e.city, e.area,
+         COALESCE(NULLIF(e.image, ''), (
+           SELECT eg.image_url FROM escort_gallery eg
+           WHERE eg.escort_id = e.id AND eg.image_url IS NOT NULL AND eg.image_url <> ''
+           ORDER BY eg.id ASC LIMIT 1
+         ), '${DEFAULT_ESCORT_IMAGE}') AS image,
+         tier, verified, featured
+       FROM escorts e
+       WHERE (e.name LIKE ? OR e.area LIKE ? OR e.city LIKE ?) AND e.is_active = 1
+       ORDER BY e.featured DESC, e.rating DESC
        LIMIT 10`,
       [`%${q}%`, `%${q}%`, `%${q}%`]
     )
     res.json(rows.map((e: any) => ({
       id: String(e.id), name: e.name, city: e.city, area: e.area,
-      image: e.image, tier: e.tier, verified: !!e.verified, featured: !!e.featured,
+       image: e.image || DEFAULT_ESCORT_IMAGE, tier: e.tier, verified: !!e.verified, featured: !!e.featured,
     })))
   } catch {
     res.status(500).json({ message: 'Search failed' })
@@ -318,7 +326,7 @@ router.get('/escorts/:id', async (req, res) => {
       ...mapEscort({
         ...row,
         // Use first gallery image as fallback when image column is NULL
-        effective_image: row.image || gallery[0]?.image_url || null,
+        effective_image: row.image || gallery[0]?.image_url || DEFAULT_ESCORT_IMAGE,
         languages_csv: languages.map((l: any) => l.language).join(','),
       }),
       seoTitle: profileSeo.title,
