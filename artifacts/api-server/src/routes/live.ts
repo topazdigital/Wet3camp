@@ -11,7 +11,7 @@ import {
 import { verifyToken } from '../lib/jwt.js'
 import { getPool } from '../lib/db.js'
 import { pushNotification } from '../lib/notif-store.js'
-import { normalizeEscortImage } from '../lib/escort-image.js'
+import { hasEscortPhoto, normalizeEscortImage } from '../lib/escort-image.js'
 
 const router = Router()
 
@@ -101,7 +101,9 @@ router.get('/live/:escortId/video', async (req, res) => {
 
 // ── GET /live — list all active streams ─────────────────────────────────────
 router.get('/live', (_req, res) => {
-  const sessions = getAllLiveSessions().filter(s => !s.isLocked)
+  const sessions = getAllLiveSessions()
+    .filter(s => !s.isLocked)
+    .sort((a, b) => Number(hasEscortPhoto(b.escortImage)) - Number(hasEscortPhoto(a.escortImage)))
   res.json(sessions.map(s => ({
     id: String(s.escortId),
     escortId: s.escortId,
