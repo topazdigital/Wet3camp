@@ -32,6 +32,7 @@ Kenya escort marketplace and booking platform — discover, book, and manage com
 - Run a no-write link check from `artifacts/api-server/` with `node scrape-escorts.mjs --source=approved --discover-only`; use `--dry-run --limit=1 --source=<id>` to test one source's profile parser.
 - Each added directory is limited to 200 new profile URLs per run. Existing `source_url` records are skipped before profile pages are fetched.
 - Directory crawling checks each site's `robots.txt`, uses its public sitemap/listing pages, and does not bypass HTTP blocks or rehost third-party profile photos. A source that denies access or is unavailable is skipped and logged.
+- Directory photo selection prefers profile-specific images, rejects known branding/social icons, and skips new profiles without a reliable photo. Preview current-cover cleanup with `node scrape-escorts.mjs --repair-directory-photos --source=approved`; add `--apply` only after reviewing the preview. It changes only missing or likely-placeholder covers, and clears a placeholder when the source has no reliable profile photo.
 - A scraper code change does not update the live cron until the normal server deploy installs the revised runner and cron entry.
 
 ## Stack
