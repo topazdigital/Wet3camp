@@ -18,6 +18,8 @@
  *   node scrape-escorts.mjs --concurrency=6       — NairobiRaha requests per batch (1-6; default 6)
  *   node scrape-escorts.mjs --update              — re-fetch existing escorts and update services/languages/rates
  *   node scrape-escorts.mjs --backfill-directory-data — fill only missing bios/photos for imported directory rows
+ *   node scrape-escorts.mjs --repair-directory-photos — preview repairs for imported placeholder covers
+ *   node scrape-escorts.mjs --repair-directory-photos --apply — apply only safe photo repairs
  *
  * Live server:
  *   cd /home/admin/wet3camp-build/artifacts/api-server
@@ -26,7 +28,8 @@
  */
 
 import { mkdirSync, existsSync } from 'fs'
-import { writeFile } from 'fs/promises'
+import { readFile, writeFile } from 'fs/promises'
+import { createHash } from 'crypto'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import {
@@ -40,8 +43,9 @@ import {
 } from './scraper-directories.mjs'
 import {
   extractDirectoryBio,
-  extractDirectoryProfileImages,
+  extractDirectoryProfileImageCandidates,
   isArchiveLikeDirectoryName,
+  isDirectoryBrandOrPlaceholderImage,
 } from './scraper-directory-fields.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -56,6 +60,8 @@ const DISCOVER_ONLY = args.includes('--discover-only')
 const FAST_MODE   = args.includes('--fast')
 const UPDATE_MODE = args.includes('--update')
 const BACKFILL_DIRECTORY_DATA = args.includes('--backfill-directory-data')
+const REPAIR_DIRECTORY_PHOTOS = args.includes('--repair-directory-photos')
+const APPLY_DIRECTORY_PHOTO_REPAIRS = args.includes('--apply')
 const LIMIT       = parseInt(args.find(a => a.startsWith('--limit='))?.split('=')[1] || '9999', 10)
 const SRC_FILTER  = args.find(a => a.startsWith('--source='))?.split('=')[1]?.toLowerCase() || null
 const concurrencyArg = Number.parseInt(args.find(a => a.startsWith('--concurrency='))?.split('=')[1] || '6', 10)
@@ -874,6 +880,7 @@ function parseDirectoryProfile(html, site, profileUrl) {
   const knownLanguages = ['English', 'Swahili', 'French', 'Arabic', 'Spanish', 'German', 'Chinese', 'Portuguese', 'Somali', 'Kikuyu', 'Luo', 'Luhya', 'Italian']
   const languages = knownLanguages.filter((language) => new RegExp(`\\b${language}\\b`, 'i').test(bio || ''))
   const services = servicesFromBio(bio)
+  const galleryPhotoCandidates = extractDirectoryProfileImageCandidates(html, profileUrl)
 
   return {
     name,
@@ -892,7 +899,8 @@ function parseDirectoryProfile(html, site, profileUrl) {
     price_overnight,
     services,
     languages,
-    galleryImgs: extractDirectoryProfileImages(html, profileUrl),
+    galleryImgs: galleryPhotoCandidates.map((candidate) => candidate.url),
+    galleryPhotoCandidates,
     source: site,
     sourceUrl: profileUrl || null,
   }
@@ -1301,7 +1309,9 @@ async function runDirectoryDataBackfill(db) {
 
       const currentImage = String(escort.image || '').trim()
       const currentBio = String(escort.bio || '').trim()
-      const photoUrl = profile.galleryImgs?.[0] || null
+      const photoCandidates = (profile.galleryPhotoCandidates || [])
+        .filter((candidate) => candidate.score >= 85)
+      const photoUrl = photoCandidates[0]?.url || null
       const imageWasMissing = !currentImage
       let updated = false
 
@@ -1317,7 +1327,7 @@ async function runDirectoryDataBackfill(db) {
         )
         const savedImage = String(refreshed[0]?.image || '').trim()
         if (savedImage === photoUrl) {
-          await appendMissingGalleryImages(db, escort.id, profile.galleryImgs || [])
+          await appendMissingGalleryImages(db, escort.id, photoCandidates.map((candidate) => candidate.url))
           photoUpdates++
           updated = true
         }
@@ -1351,6 +1361,167 @@ async function runDirectoryDataBackfill(db) {
   }
 
   console.log(`\nBackfill summary — photos: ${photoUpdates} | bios: ${bioUpdates} | no photo found: ${noPhoto} | unavailable: ${unavailable} | invalid/archive: ${invalid} | errors: ${errors}\n`)
+}
+
+async function getLocalUploadFingerprint(image) {
+  try {
+    const url = new URL(String(image || ''), 'https://wet3.camp')
+    const prefix = '/api/uploads/'
+    if (url.origin !== 'https://wet3.camp' || !url.pathname.startsWith(prefix)) return null
+    const filename = decodeURIComponent(url.pathname.slice(prefix.length))
+    if (!filename || path.basename(filename) !== filename) return null
+    const contents = await readFile(path.join(UPLOADS_DIR, filename))
+    return createHash('sha256').update(contents).digest('hex')
+  } catch {
+    return null
+  }
+}
+
+// ── --repair-directory-photos: preview, then optionally repair bad covers ──────
+async function runDirectoryPhotoRepair(db) {
+  const selectedSources = DIRECTORY_SOURCES.filter((source) => isSourceSelected(source.id, SRC_FILTER))
+  if (!selectedSources.length) {
+    console.log('No approved directory sources selected for photo repair.')
+    return
+  }
+
+  const sourceIds = selectedSources.map((source) => source.id)
+  const placeholders = sourceIds.map((_, index) => `$${index + 1}`).join(', ')
+  const limit = Number.isSafeInteger(LIMIT) && LIMIT > 0 ? Math.min(LIMIT, 20000) : 9999
+  const { rows } = await db.query(
+    `SELECT id, name, source_site, source_url, image
+     FROM escorts
+     WHERE source_site IN (${placeholders})
+       AND source_url IS NOT NULL AND source_url <> ''
+     ORDER BY id ASC
+     LIMIT ${limit}`,
+    sourceIds
+  )
+
+  const fingerprints = new Map()
+  const fingerprintFor = async (image) => {
+    if (!fingerprints.has(image)) fingerprints.set(image, await getLocalUploadFingerprint(image))
+    return fingerprints.get(image)
+  }
+  const hashCounts = new Map()
+  const rowFingerprints = new Map()
+  for (const escort of rows) {
+    const image = String(escort.image || '').trim()
+    if (!image) continue
+    const fingerprint = await fingerprintFor(image)
+    if (!fingerprint) continue
+    const key = `${escort.source_site}:${fingerprint}`
+    rowFingerprints.set(String(escort.id), key)
+    hashCounts.set(key, (hashCounts.get(key) || 0) + 1)
+  }
+
+  const targets = rows.filter((escort) => {
+    const image = String(escort.image || '').trim()
+    if (!image || isDirectoryBrandOrPlaceholderImage(image)) return true
+    const fingerprintKey = rowFingerprints.get(String(escort.id))
+    return Boolean(fingerprintKey && hashCounts.get(fingerprintKey) >= 5)
+  })
+
+  console.log(`\n${APPLY_DIRECTORY_PHOTO_REPAIRS ? '🛠️  APPLYING' : '🔎 PREVIEW'} directory photo repairs`)
+  console.log(`   Source profiles checked: ${rows.length}; likely placeholder covers: ${targets.length}`)
+  console.log('   Unique local covers repeated 5+ times within a source are treated as shared placeholders.')
+  let replaced = 0
+  let cleared = 0
+  let noPhoto = 0
+  let unavailable = 0
+  let invalid = 0
+  let errors = 0
+
+  for (let index = 0; index < targets.length; index++) {
+    const escort = targets[index]
+    const source = getDirectorySource(escort.source_site)
+    const currentImage = String(escort.image || '').trim()
+    process.stdout.write(`[${index + 1}/${targets.length}] id:${escort.id} [${escort.source_site}] ... `)
+
+    if (!source || !isDirectoryProfileUrl(source, escort.source_url) ||
+      isArchiveLikeDirectoryName(escort.name)) {
+      console.log('⏭ invalid/archive record; left unchanged')
+      invalid++
+      continue
+    }
+
+    try {
+      const html = await fetchDirectoryPage(source, escort.source_url, source.baseUrl, fetchPage)
+      if (!html) {
+        console.log('⚠️ source page unavailable; left unchanged')
+        unavailable++
+        await sleep(DELAY_MS)
+        continue
+      }
+
+      const candidates = extractDirectoryProfileImageCandidates(html, escort.source_url)
+        .filter((candidate) => candidate.score >= 85)
+      const sourcePhoto = candidates[0]?.url || null
+
+      if (sourcePhoto) {
+        if (!APPLY_DIRECTORY_PHOTO_REPAIRS) {
+          console.log(`would use source photo ${sourcePhoto}`)
+          replaced++
+        } else {
+          await db.run(
+            `UPDATE escorts SET image = $1
+             WHERE id = $2 AND COALESCE(image, '') = $3`,
+            [sourcePhoto, escort.id, currentImage]
+          )
+          const { rows: refreshed } = await db.query(
+            'SELECT image FROM escorts WHERE id = $1',
+            [escort.id]
+          )
+          if (String(refreshed[0]?.image || '').trim() === sourcePhoto) {
+            await appendMissingGalleryImages(
+              db,
+              escort.id,
+              candidates.map((candidate) => candidate.url)
+            )
+            console.log('✅ cover replaced with a profile-specific source photo')
+            replaced++
+          } else {
+            console.log('⏭ profile changed during repair; left gallery unchanged')
+          }
+        }
+      } else if (currentImage) {
+        if (!APPLY_DIRECTORY_PHOTO_REPAIRS) {
+          console.log('would clear placeholder; source has no reliable profile photo')
+          cleared++
+        } else {
+          await db.run(
+            `UPDATE escorts SET image = NULL
+             WHERE id = $1 AND COALESCE(image, '') = $2`,
+            [escort.id, currentImage]
+          )
+          const { rows: refreshed } = await db.query(
+            'SELECT image FROM escorts WHERE id = $1',
+            [escort.id]
+          )
+          if (!String(refreshed[0]?.image || '').trim()) {
+            console.log('✅ placeholder cleared; source has no reliable profile photo')
+            cleared++
+          } else {
+            console.log('⏭ profile changed during repair; left unchanged')
+          }
+        }
+      } else {
+        console.log('— source has no reliable profile photo')
+        noPhoto++
+      }
+      await sleep(DELAY_MS)
+    } catch (error) {
+      console.log(`❌ repair error: ${error.message}`)
+      errors++
+      await sleep(DELAY_MS)
+    }
+  }
+
+  console.log(`\nPhoto repair summary — replaced: ${replaced} | cleared: ${cleared} | no photo: ${noPhoto} | unavailable: ${unavailable} | invalid/archive: ${invalid} | errors: ${errors}`)
+  if (!APPLY_DIRECTORY_PHOTO_REPAIRS) {
+    console.log('Preview only: no profile data was changed. Add --apply to apply this repair.')
+  }
+  console.log()
 }
 
 // ── --update mode: re-fetch existing escorts by source_url ────────────────────
@@ -1416,20 +1587,36 @@ async function main() {
     !getDirectorySource(SRC_FILTER)) {
     throw new Error(`Unknown source "${SRC_FILTER}". Use --source=approved, --source=all, or a registered source ID.`)
   }
+  if (REPAIR_DIRECTORY_PHOTOS && DISCOVER_ONLY) {
+    throw new Error('--repair-directory-photos cannot be combined with --discover-only')
+  }
+  if (REPAIR_DIRECTORY_PHOTOS && APPLY_DIRECTORY_PHOTO_REPAIRS && DRY_RUN) {
+    throw new Error('--repair-directory-photos --apply cannot be combined with --dry-run')
+  }
 
   console.log('\n🚀 Wet3Camp Multi-Source Escort Scraper')
   console.log(`   DB:      ${DATABASE_URL ? (IS_MYSQL ? 'MySQL/MariaDB' : 'PostgreSQL') : 'NONE (dry run)'}`)
-  console.log(`   Mode:    ${UPDATE_MODE ? 'UPDATE (re-fetch existing)' : DISCOVER_ONLY ? 'DISCOVERY ONLY (no profile fetches or DB writes)' : DRY_RUN ? 'DRY RUN' : FAST_MODE ? 'FAST (remote URLs)' : 'FULL (download images)'}`)
+  console.log(`   Mode:    ${REPAIR_DIRECTORY_PHOTOS ? (APPLY_DIRECTORY_PHOTO_REPAIRS ? 'PHOTO REPAIR (apply)' : 'PHOTO REPAIR (preview)') : UPDATE_MODE ? 'UPDATE (re-fetch existing)' : DISCOVER_ONLY ? 'DISCOVERY ONLY (no profile fetches or DB writes)' : DRY_RUN ? 'DRY RUN' : FAST_MODE ? 'FAST (remote URLs)' : 'FULL (download images)'}`)
   console.log(`   Source:  ${SRC_FILTER || 'ALL registered sources'}`)
   console.log(`   NairobiRaha request concurrency: ${CONCURRENCY} (max 6)`)
   console.log(`   Limit:   ${LIMIT}`)
   console.log()
 
   let db
-  if (!DRY_RUN && !DISCOVER_ONLY) {
+  if ((!DRY_RUN || REPAIR_DIRECTORY_PHOTOS) && !DISCOVER_ONLY) {
     db = await createDb()
     await ensureColumns(db)
     console.log('✅ Database connected\n')
+  }
+
+  if (REPAIR_DIRECTORY_PHOTOS) {
+    if (!db) {
+      console.error('--repair-directory-photos requires a live DB connection (set DATABASE_URL)')
+      process.exit(1)
+    }
+    await runDirectoryPhotoRepair(db)
+    await db.end()
+    return
   }
 
   // Handle update mode
@@ -1600,8 +1787,17 @@ async function main() {
         console.log('❌ no name'); errors++; continue
       }
 
-      const primaryImg = profile.galleryImgs?.[0] || listing.thumbnailUrl || null
-      if (getDirectorySource(listing.site) && !primaryImg) {
+      const isApprovedDirectory = Boolean(getDirectorySource(listing.site))
+      const directoryPhotoUrls = isApprovedDirectory
+        ? (profile.galleryPhotoCandidates || [])
+          .filter((candidate) => candidate.score >= 85)
+          .map((candidate) => candidate.url)
+        : []
+      const importPhotoUrls = isApprovedDirectory ? directoryPhotoUrls : (profile.galleryImgs || [])
+      const primaryImg = isApprovedDirectory
+        ? (directoryPhotoUrls[0] || null)
+        : (profile.galleryImgs?.[0] || listing.thumbnailUrl || null)
+      if (isApprovedDirectory && !primaryImg) {
         console.log('⏭ no source photo; not imported')
         skipped++
         skippedNoPhoto++
@@ -1658,13 +1854,13 @@ async function main() {
 
       const galleryPaths = avatarPath ? [avatarPath] : []
       const maxGallery   = FAST_MODE ? 6 : 5
-      for (let g = 1; g < Math.min(profile.galleryImgs.length, maxGallery); g++) {
+      for (let g = 1; g < Math.min(importPhotoUrls.length, maxGallery); g++) {
         if (FAST_MODE) {
-          galleryPaths.push(profile.galleryImgs[g])
+          galleryPaths.push(importPhotoUrls[g])
         } else {
-          const ext   = profile.galleryImgs[g].match(/\.(jpg|jpeg|png|webp)/i)?.[1] || 'jpg'
+          const ext   = importPhotoUrls[g].match(/\.(jpg|jpeg|png|webp)/i)?.[1] || 'jpg'
           const fname = `scraped_${Date.now()}_${Math.random().toString(36).slice(2,7)}.${ext}`
-          const gp    = await downloadImage(profile.galleryImgs[g], fname, referer)
+          const gp    = await downloadImage(importPhotoUrls[g], fname, referer)
           if (gp) galleryPaths.push(gp)
           await sleep(300)
         }
