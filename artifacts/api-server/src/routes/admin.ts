@@ -16,9 +16,9 @@ import {
   platformPricingSettings,
   readPlatformPricing,
 } from '../lib/platform-pricing.js'
+import { DEFAULT_ESCORT_IMAGE, isDefaultEscortImage, normalizeEscortImage } from '../lib/escort-image.js'
 
 const router = Router()
-const DEFAULT_ESCORT_IMAGE = '/logo-woman.png'
 
 function requireAdmin(req: AuthRequest, res: any, next: any) {
   if (req.userRole !== 'admin') {
@@ -128,9 +128,14 @@ router.get('/admin/escorts', requireAuth, requireAdmin, async (req: AuthRequest,
     const offset = Math.max(0, parseInt((req.query as any).offset ?? '0', 10) || 0)
     const status = (req.query as any).status
     let sql = `SELECT e.*,
-      COALESCE(NULLIF(e.image, ''), (
+      COALESCE(NULLIF(CASE
+        WHEN LOWER(COALESCE(e.image, '')) LIKE '%logo-woman.png%'
+          OR LOWER(COALESCE(e.image, '')) LIKE '%icon-512.png%'
+        THEN NULL ELSE e.image END, ''), (
         SELECT eg.image_url FROM escort_gallery eg
         WHERE eg.escort_id = e.id AND eg.image_url IS NOT NULL AND eg.image_url <> ''
+          AND LOWER(eg.image_url) NOT LIKE '%logo-woman.png%'
+          AND LOWER(eg.image_url) NOT LIKE '%icon-512.png%'
         ORDER BY eg.id ASC LIMIT 1
       ), '${DEFAULT_ESCORT_IMAGE}') AS effective_image,
       u.email AS user_email,
@@ -145,7 +150,7 @@ router.get('/admin/escorts', requireAuth, requireAdmin, async (req: AuthRequest,
     res.json(rows.map((e: any) => ({
       ...e,
       id: String(e.id),
-      image: e.effective_image || e.image || DEFAULT_ESCORT_IMAGE,
+      image: normalizeEscortImage(e.effective_image, e.image),
     })))
   } catch (err: any) {
     console.error('[admin/escorts]', err?.message ?? err)
@@ -178,6 +183,7 @@ router.get('/admin/photo-gallery', requireAuth, requireAdmin, async (req: AuthRe
       INNER JOIN escorts e ON e.id = eg.escort_id
       WHERE eg.image_url IS NOT NULL AND TRIM(eg.image_url) <> ''
         AND LOWER(eg.image_url) NOT LIKE '%logo-woman.png%'
+        AND LOWER(eg.image_url) NOT LIKE '%icon-512.png%'
       UNION ALL
       SELECT 'profile' AS photo_type, NULL AS photo_id, e.id AS escort_id,
         e.name AS escort_name, e.city, e.source_site, e.image AS image_url,
@@ -185,6 +191,7 @@ router.get('/admin/photo-gallery', requireAuth, requireAdmin, async (req: AuthRe
       FROM escorts e
       WHERE e.image IS NOT NULL AND TRIM(e.image) <> ''
         AND LOWER(e.image) NOT LIKE '%logo-woman.png%'
+        AND LOWER(e.image) NOT LIKE '%icon-512.png%'
         AND NOT EXISTS (
           SELECT 1 FROM escort_gallery eg
           WHERE eg.escort_id = e.id AND eg.image_url = e.image
@@ -307,7 +314,7 @@ router.post('/admin/photo-gallery/delete', requireAuth, requireAdmin, async (req
         if (currentImage && (samePhotoRows as any[]).length > 0) continue
 
         const [nextPhotoRows] = await query(
-          "SELECT image_url FROM escort_gallery WHERE escort_id = ? AND image_url IS NOT NULL AND TRIM(image_url) <> '' ORDER BY id ASC LIMIT 1",
+          "SELECT image_url FROM escort_gallery WHERE escort_id = ? AND image_url IS NOT NULL AND TRIM(image_url) <> '' AND LOWER(image_url) NOT LIKE '%logo-woman.png%' AND LOWER(image_url) NOT LIKE '%icon-512.png%' ORDER BY id ASC LIMIT 1",
           [escortId],
         )
         const nextImage = (nextPhotoRows as any[])[0]?.image_url || DEFAULT_ESCORT_IMAGE
@@ -758,15 +765,18 @@ router.get('/admin/escorts/:id', requireAuth, requireAdmin, async (req: AuthRequ
     if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
     const [[escort]] = await pool.query<any[]>('SELECT * FROM escorts WHERE id = ?', [req.params!.id])
     if (!escort) { res.status(404).json({ message: 'Escort not found' }); return }
-    const [gallery] = await pool.query<any[]>(
+    const [galleryRows] = await pool.query<any[]>(
       'SELECT id, image_url, sort_order FROM escort_gallery WHERE escort_id = ? ORDER BY sort_order ASC, id ASC',
       [req.params!.id]
     ).catch(() => [[]])
+    const gallery = Array.isArray(galleryRows)
+      ? galleryRows.filter((photo: any) => !isDefaultEscortImage(photo.image_url))
+      : []
     res.json({
       ...escort,
       id: String(escort.id),
-      image: escort.image || (Array.isArray(gallery) ? gallery[0]?.image_url : null) || DEFAULT_ESCORT_IMAGE,
-      gallery: Array.isArray(gallery) ? gallery : [],
+      image: normalizeEscortImage(escort.image, gallery[0]?.image_url),
+      gallery,
     })
   } catch (err: any) {
     res.status(500).json({ message: 'Failed to fetch escort', detail: err?.message ?? '' })
