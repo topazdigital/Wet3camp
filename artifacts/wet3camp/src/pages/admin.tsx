@@ -41,6 +41,24 @@ async function adminFetch(path: string, opts?: RequestInit) {
   return res.json()
 }
 
+const ADMIN_ESCORT_PAGE_SIZE = 500
+
+async function fetchAllAdminEscorts(filters = '') {
+  const params = new URLSearchParams(filters)
+  params.set('limit', String(ADMIN_ESCORT_PAGE_SIZE))
+  const escorts: any[] = []
+  let offset = 0
+
+  while (true) {
+    params.set('offset', String(offset))
+    const page = await adminFetch(`/admin/escorts?${params.toString()}`)
+    if (!Array.isArray(page)) throw new Error('Invalid escort list response')
+    escorts.push(...page)
+    if (page.length < ADMIN_ESCORT_PAGE_SIZE) return escorts
+    offset += page.length
+  }
+}
+
 async function startAdminViewAs(userId: string | number) {
   const nonce = crypto.randomUUID()
   const target = window.open(`/view-as?nonce=${encodeURIComponent(nonce)}`, '_blank')
@@ -863,7 +881,7 @@ function PendingApprovals() {
   const [reviewLoading, setReviewLoading] = useState(false)
 
   useEffect(() => {
-    adminFetch('/admin/escorts?status=pending&limit=200')
+    fetchAllAdminEscorts('status=pending')
       .then((data: any[]) => setEscorts(data.filter(e => !Boolean(e.is_active) && !Boolean(e.verified))))
       .catch(() => {})
       .finally(() => setLoading(false))
@@ -2584,7 +2602,7 @@ function EscortsTab() {
   const load = useCallback(async () => {
     setLoading(true); setError('')
     try {
-      const data = await adminFetch('/admin/escorts')
+      const data = await fetchAllAdminEscorts()
       setEscorts(data)
     } catch {
       setError('Failed to load escorts')
