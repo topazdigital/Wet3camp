@@ -9,6 +9,7 @@ import { setEscortOnline } from '../lib/online-store.js'
 function hashPassword(p: string) { return createHash('sha256').update(p).digest('hex') }
 
 const router = Router()
+const DEFAULT_ESCORT_IMAGE = '/logo-woman.png'
 const analyticsEventTypes = new Set([
   'profile_view',
   'whatsapp_click',
@@ -69,6 +70,7 @@ router.get('/profile/escort', requireAuth, async (req: AuthRequest, res) => {
     res.json({
       ...escort,
       id: String(escort.id),
+      image: escort.image || gallery[0] || DEFAULT_ESCORT_IMAGE,
       available: !!escort.available,
       verified: !!escort.verified,
       is_active: !!escort.is_active,
