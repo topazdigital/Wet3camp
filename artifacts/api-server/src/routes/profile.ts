@@ -5,11 +5,11 @@ import { getEscortGalleryRows } from '../lib/escort-gallery.js'
 import { getMergedEscortIds } from '../lib/escort-merge.js'
 import { requireAuth, type AuthRequest } from '../middlewares/requireAuth.js'
 import { setEscortOnline } from '../lib/online-store.js'
+import { isDefaultEscortImage, normalizeEscortImage } from '../lib/escort-image.js'
 
 function hashPassword(p: string) { return createHash('sha256').update(p).digest('hex') }
 
 const router = Router()
-const DEFAULT_ESCORT_IMAGE = '/logo-woman.png'
 const analyticsEventTypes = new Set([
   'profile_view',
   'whatsapp_click',
@@ -66,11 +66,13 @@ router.get('/profile/escort', requireAuth, async (req: AuthRequest, res) => {
     )
     if (!escort) { res.status(404).json({ message: 'Escort profile not found' }); return }
     const galleryRows = await getEscortGalleryRows(pool, escort.id)
-    const gallery = galleryRows.map((g: any) => g.image_url)
+    const gallery = galleryRows
+      .map((g: any) => g.image_url)
+      .filter((image: unknown) => !isDefaultEscortImage(image))
     res.json({
       ...escort,
       id: String(escort.id),
-      image: escort.image || gallery[0] || DEFAULT_ESCORT_IMAGE,
+      image: normalizeEscortImage(escort.image, gallery[0]),
       available: !!escort.available,
       verified: !!escort.verified,
       is_active: !!escort.is_active,
