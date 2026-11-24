@@ -5,9 +5,9 @@ import { getMergedEscortIds, resolveCanonicalEscortId } from '../lib/escort-merg
 import { CITY_AREA_VALUES } from '../lib/location-data.js'
 import { getPublicLocationDirectory, MIN_INDEXABLE_LOCATION_PROFILES } from '../lib/public-locations.js'
 import { buildProfileSeo } from '../lib/profile-seo.js'
+import { DEFAULT_ESCORT_IMAGE, isDefaultEscortImage, normalizeEscortImage } from '../lib/escort-image.js'
 
 const router = Router()
-const DEFAULT_ESCORT_IMAGE = '/logo-woman.png'
 
 // ── Helper ────────────────────────────────────────────────────────────────────
 const slugOf = (name: string) =>
@@ -18,7 +18,7 @@ function mapEscort(row: any) {
     ...row,
     id:        String(row.id),
     // Fall back to first gallery image when the main `image` column is NULL
-    image:     row.effective_image || row.image || DEFAULT_ESCORT_IMAGE,
+    image:     normalizeEscortImage(row.effective_image, row.image),
     available: !!row.available,
     verified:  !!row.verified,
     online:    !!row.online,
@@ -153,10 +153,15 @@ router.get('/escorts', async (req, res) => {
 
     const [rows] = await pool.query<any[]>(
       `SELECT e.*,
-              COALESCE(NULLIF(e.image, ''), (
+              COALESCE(NULLIF(CASE
+                WHEN LOWER(COALESCE(e.image, '')) LIKE '%logo-woman.png%'
+                  OR LOWER(COALESCE(e.image, '')) LIKE '%icon-512.png%'
+                THEN NULL ELSE e.image END, ''), (
                 SELECT eg.image_url FROM escort_gallery eg
                 WHERE eg.escort_id = e.id
                    AND eg.image_url IS NOT NULL AND eg.image_url <> ''
+                   AND LOWER(eg.image_url) NOT LIKE '%logo-woman.png%'
+                   AND LOWER(eg.image_url) NOT LIKE '%icon-512.png%'
                 ORDER BY eg.id ASC
                 LIMIT 1
               ), '${DEFAULT_ESCORT_IMAGE}') AS effective_image,
@@ -201,9 +206,14 @@ router.get('/escorts/search', async (req, res) => {
   try {
     const [rows] = await pool.query<any[]>(
       `SELECT e.id, e.name, e.city, e.area,
-         COALESCE(NULLIF(e.image, ''), (
+         COALESCE(NULLIF(CASE
+           WHEN LOWER(COALESCE(e.image, '')) LIKE '%logo-woman.png%'
+             OR LOWER(COALESCE(e.image, '')) LIKE '%icon-512.png%'
+           THEN NULL ELSE e.image END, ''), (
            SELECT eg.image_url FROM escort_gallery eg
-           WHERE eg.escort_id = e.id AND eg.image_url IS NOT NULL AND eg.image_url <> ''
+            WHERE eg.escort_id = e.id AND eg.image_url IS NOT NULL AND eg.image_url <> ''
+              AND LOWER(eg.image_url) NOT LIKE '%logo-woman.png%'
+              AND LOWER(eg.image_url) NOT LIKE '%icon-512.png%'
            ORDER BY eg.id ASC LIMIT 1
          ), '${DEFAULT_ESCORT_IMAGE}') AS image,
          tier, verified, featured
@@ -215,7 +225,7 @@ router.get('/escorts/search', async (req, res) => {
     )
     res.json(rows.map((e: any) => ({
       id: String(e.id), name: e.name, city: e.city, area: e.area,
-       image: e.image || DEFAULT_ESCORT_IMAGE, tier: e.tier, verified: !!e.verified, featured: !!e.featured,
+       image: normalizeEscortImage(e.image), tier: e.tier, verified: !!e.verified, featured: !!e.featured,
     })))
   } catch {
     res.status(500).json({ message: 'Search failed' })
@@ -299,7 +309,8 @@ router.get('/escorts/:id', async (req, res) => {
     const associatedIds = await getMergedEscortIds(query, escortId)
     const associatedPlaceholders = associatedIds.map(() => '?').join(', ')
     const profileSeo = buildProfileSeo(row)
-    const gallery     = await getEscortGalleryRows(pool, escortId)
+    const galleryRows = await getEscortGalleryRows(pool, escortId)
+    const gallery     = galleryRows.filter((photo: any) => !isDefaultEscortImage(photo.image_url))
     const [services]  = await pool.query<any[]>('SELECT name, MAX(available) AS available FROM escort_services WHERE escort_id = ? GROUP BY name ORDER BY name', [escortId])
     const [languages] = await pool.query<any[]>('SELECT DISTINCT language FROM escort_languages WHERE escort_id = ?', [escortId])
 
@@ -326,7 +337,7 @@ router.get('/escorts/:id', async (req, res) => {
       ...mapEscort({
         ...row,
         // Use first gallery image as fallback when image column is NULL
-        effective_image: row.image || gallery[0]?.image_url || DEFAULT_ESCORT_IMAGE,
+        effective_image: normalizeEscortImage(row.image, gallery[0]?.image_url),
         languages_csv: languages.map((l: any) => l.language).join(','),
       }),
       seoTitle: profileSeo.title,
