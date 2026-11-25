@@ -147,7 +147,7 @@ router.patch('/profile/escort', requireAuth, async (req: AuthRequest, res) => {
       mapVisible,
     } = req.body as Record<string, any>
 
-    const [[escort]] = await pool.query<any[]>('SELECT id FROM escorts WHERE user_id = ?', [req.userId])
+    const [[escort]] = await pool.query<any[]>('SELECT id, approval_status FROM escorts WHERE user_id = ?', [req.userId])
     if (!escort) { res.status(404).json({ message: 'Escort profile not found' }); return }
 
     const escortId = escort.id
@@ -172,6 +172,9 @@ router.patch('/profile/escort', requireAuth, async (req: AuthRequest, res) => {
     if (typeof mapVisible === 'boolean') {
       updates.push('map_visible = ?')
       params.push(mapVisible ? 1 : 0)
+    }
+    if (escort.approval_status === 'rejected' && updates.length > 0) {
+      updates.push("approval_status = 'pending'")
     }
 
     if (updates.length) {
