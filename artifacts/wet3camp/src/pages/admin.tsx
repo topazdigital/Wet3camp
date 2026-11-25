@@ -3606,6 +3606,7 @@ function BlogMediaToolbar({ onInsert }: { onInsert: (snippet: string) => void })
 
 function AdminBlog() {
   const [posts, setPosts] = useState<AdminBlogPost[]>([])
+  const [importedDraftCount, setImportedDraftCount] = useState(0)
   const [editing, setEditing] = useState<AdminBlogForm | null>(null)
   const [creating, setCreating] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -3627,6 +3628,7 @@ function AdminBlog() {
         published: !!p.published, published_at: p.published_at, slug: p.slug,
         source_url: p.source_url ?? null,
       })))
+      setImportedDraftCount(Number(data.importedDraftCount ?? 0))
       setLoadError('')
     } catch (err: any) {
       setLoadError('Could not load posts.')
@@ -3682,6 +3684,24 @@ function AdminBlog() {
       setPosts(current => current.map(p => p.id === id ? { ...p, published: Boolean(result.published) } : p))
     } catch (error: any) {
       setLoadError(error?.message ? `Failed to update publish state: ${error.message}` : 'Failed to update publish state.')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const publishImportedDrafts = async () => {
+    if (importedDraftCount < 1) return
+    const countLabel = `${importedDraftCount} imported draft${importedDraftCount === 1 ? '' : 's'}`
+    if (!window.confirm(`Publish ${countLabel} now? These articles will become public on the Blog page.`)) return
+    setActionLoading('publish-imported')
+    setLoadError('')
+    try {
+      const result = await adminFetch('/admin/blog/publish-imported-drafts', { method: 'POST' })
+      await loadPosts()
+      const published = Number(result?.published ?? 0)
+      setImportStatus(`Published ${published} imported draft${published === 1 ? '' : 's'}.`)
+    } catch (error: any) {
+      setLoadError(error?.message ? `Failed to publish imported drafts: ${error.message}` : 'Failed to publish imported drafts.')
     } finally {
       setActionLoading(null)
     }
@@ -3819,6 +3839,12 @@ function AdminBlog() {
             <RefreshCw size={12} className={importing ? 'animate-spin' : ''} />
             {importing ? 'Importing blogs…' : 'Import from approved sites'}
           </button>
+          {importedDraftCount > 0 && (
+            <button data-testid="button-publish-imported-drafts" onClick={publishImportedDrafts} disabled={!!actionLoading || importing} className="px-3 py-2 bg-[#28a745]/15 border border-[#28a745]/30 text-[#28a745] text-xs font-bold rounded-xl hover:bg-[#28a745]/25 transition-all flex items-center gap-1.5 disabled:opacity-60">
+              <CheckCircle2 size={12} />
+              {actionLoading === 'publish-imported' ? 'Publishing…' : `Publish ${importedDraftCount} imported draft${importedDraftCount === 1 ? '' : 's'}`}
+            </button>
+          )}
           <button data-testid="button-new-blog-article" onClick={() => { setCreating(true); setEditing({ ...blank }) }} className="px-3 py-2 bg-[#8B0000] text-white text-xs font-bold rounded-xl hover:bg-[#a00000] transition-all flex items-center gap-1.5">
             + New Article
           </button>
