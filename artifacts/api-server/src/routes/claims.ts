@@ -1,105 +1,186 @@
 import { Router } from 'express'
+import { randomInt } from 'node:crypto'
 import { getPool } from '../lib/db.js'
 import { requireAuth, type AuthRequest } from '../middlewares/requireAuth.js'
 import { mergeEscortProfiles } from '../lib/escort-merge.js'
+import {
+  sendOtpEmail,
+  sendProfileClaimDecisionEmail,
+  sendProfileClaimSubmittedEmails,
+  sendSmsOtp,
+} from '../lib/mailer.js'
 
 const router = Router()
 
-// In-memory OTP store for claim verification (phone → {code, expires, escortId})
-const claimOtpStore = new Map<string, { code: string; expires: number; escortId: string }>()
+type ClaimMethod = 'sms' | 'email' | 'video'
+type ClaimOtpRecord = {
+  code: string
+  expires: number
+  sentAt: number
+  attempts: number
+}
 
-// ── POST /api/escorts/:id/claim/send-otp ──────────────────────────────────────
-// Sends a 6-digit OTP to the phone number on the scraped profile
-router.post('/escorts/:id/claim/send-otp', requireAuth, async (req: AuthRequest, res) => {
+const CLAIM_OTP_TTL_MS = 10 * 60 * 1000
+const CLAIM_OTP_RESEND_MS = 60 * 1000
+const CLAIM_OTP_MAX_ATTEMPTS = 5
+const MAX_CLAIM_VIDEO_BYTES = 8 * 1024 * 1024
+const claimOtpStore = new Map<string, ClaimOtpRecord>()
+
+function claimOtpKey(method: 'sms' | 'email', escortId: string, userId: number) {
+  return `${method}:${escortId}:${userId}`
+}
+
+function settingValue(settings: Map<string, string>, key: string) {
+  const value = settings.get(key)?.trim()
+  return value && !['CHANGE_ME', 'your_smtp_password'].includes(value) && !value.startsWith('CHANGE_')
+    ? value
+    : ''
+}
+
+async function getClaimVerificationConfig(pool: NonNullable<ReturnType<typeof getPool>>) {
+  const [rows] = await pool.query<any[]>(
+    "SELECT `key`, value FROM platform_settings WHERE `key` IN ('at_api_key','at_username','at_sender_id','smtp_host','smtp_user','smtp_pass')"
+  ).catch(() => [[]] as any)
+  const settings = new Map((rows as any[]).map(row => [String(row.key), String(row.value ?? '')]))
+  const columns = await pool.getExistingColumns(['profile_claims'])
+  const schemaReady = columns.has('profile_claims.verification_method')
+  const videoReady = schemaReady &&
+    columns.has('profile_claims.verification_video_data') &&
+    columns.has('profile_claims.verification_video_mime')
+  const smsApiKey = settingValue(settings, 'at_api_key')
+  const smsUsername = settingValue(settings, 'at_username')
+  const smtpHost = settingValue(settings, 'smtp_host')
+  const smtpUser = settingValue(settings, 'smtp_user')
+  const smtpPass = settingValue(settings, 'smtp_pass')
+  return {
+    methods: {
+      sms: schemaReady && Boolean(smsApiKey && smsUsername),
+      email: schemaReady && Boolean(smtpHost && smtpUser && smtpPass),
+      video: videoReady,
+    },
+    smsCredentials: {
+      apiKey: smsApiKey,
+      username: smsUsername,
+      senderId: settingValue(settings, 'at_sender_id') || undefined,
+    },
+  }
+}
+
+function maskEmail(email: string) {
+  const [local, domain] = email.split('@')
+  return local && domain ? `${local.slice(0, 1)}***@${domain}` : 'your account email'
+}
+
+async function sendClaimOtp(req: AuthRequest, res: any, method: 'sms' | 'email') {
   const pool = getPool()
   if (!pool) { res.status(503).json({ message: 'Database not configured' }); return }
   try {
     const escortId = String(req.params!.id)
+    const userId = Number(req.userId)
+    const config = await getClaimVerificationConfig(pool)
+    if (!config.methods[method]) {
+      res.status(503).json({ message: `${method === 'sms' ? 'SMS' : 'Email'} verification is not configured in Admin.` }); return
+    }
+
     const [[escort]] = await pool.query<any[]>(
       'SELECT id, user_id, phone, name FROM escorts WHERE id = ? AND is_active = 1',
-      [escortId]
+      [escortId],
     )
     if (!escort) { res.status(404).json({ message: 'Profile not found' }); return }
     if (escort.user_id) { res.status(409).json({ message: 'This profile has already been claimed' }); return }
-    if (!escort.phone) { res.status(400).json({ message: 'No phone number on this profile — contact admin to claim it.' }); return }
-
-    const code    = String(Math.floor(100000 + Math.random() * 900000))
-    const expires = Date.now() + 10 * 60 * 1000 // 10 minutes
-    claimOtpStore.set(escort.phone, { code, expires, escortId })
-
-    // Read Africa's Talking credentials from platform_settings
-    const [[atKeyRow]]  = await pool.query<any[]>("SELECT value FROM platform_settings WHERE `key` = 'at_api_key'").catch(() => [[null]])
-    const [[atUserRow]] = await pool.query<any[]>("SELECT value FROM platform_settings WHERE `key` = 'at_username'").catch(() => [[null]])
-    const [[atSenderRow]] = await pool.query<any[]>("SELECT value FROM platform_settings WHERE `key` = 'at_sender_id'").catch(() => [[null]])
-    const atApiKey   = (atKeyRow  as any)?.value?.trim()
-    const atUsername = (atUserRow as any)?.value?.trim()
-    const atSenderId = (atSenderRow as any)?.value?.trim() || undefined
-
-    let smsSent = false
-    if (atApiKey && atUsername) {
-      try {
-        const { sendSmsOtp } = await import('../lib/mailer.js')
-        smsSent = await sendSmsOtp(escort.phone, code, escort.name, { apiKey: atApiKey, username: atUsername, senderId: atSenderId })
-      } catch (smsErr) {
-        console.warn('[CLAIM OTP] SMS send failed:', smsErr)
-      }
+    if (method === 'sms' && !escort.phone) {
+      res.status(400).json({ message: 'This profile does not have a phone number for SMS verification.' }); return
     }
 
-    if (!smsSent) {
-      // Fallback: log code (dev) or warn (prod — admin needs to configure AT)
-      console.log(`[CLAIM OTP] ${escort.phone} → ${code}${smsSent === false && atApiKey ? ' (AT delivery failed)' : ' (AT not configured)'}`)
+    const [[user]] = await pool.query<any[]>(
+      'SELECT email, display_name, username FROM users WHERE id = ? LIMIT 1',
+      [userId],
+    )
+    if (!user?.email) { res.status(400).json({ message: 'Your account needs an email address before email verification can be used.' }); return }
+
+    const key = claimOtpKey(method, escortId, userId)
+    const previous = claimOtpStore.get(key)
+    const now = Date.now()
+    if (previous && now - previous.sentAt < CLAIM_OTP_RESEND_MS) {
+      res.status(429).json({ message: 'Please wait a minute before requesting another code.' }); return
+    }
+
+    const code = String(randomInt(100000, 1000000))
+    const record = { code, expires: now + CLAIM_OTP_TTL_MS, sentAt: now, attempts: 0 }
+    claimOtpStore.set(key, record)
+    const sent = method === 'sms'
+      ? await sendSmsOtp(String(escort.phone), code, String(escort.name ?? ''), config.smsCredentials)
+      : await sendOtpEmail(String(user.email), code, String(user.display_name ?? user.username ?? ''), 'claim')
+
+    if (!sent) {
+      claimOtpStore.delete(key)
+      res.status(502).json({ message: `We could not send the ${method === 'sms' ? 'SMS' : 'email'} code. Please try again later.` }); return
     }
 
     res.json({
       success: true,
-      message: smsSent
-        ? `Verification code sent via SMS to ${escort.phone.replace(/(\+\d{3})\d+(\d{3})/, '$1****$2')}.`
-        : `Verification code generated. Check server logs (SMS not configured).`,
-      // Always return code in non-production for easy testing
-      ...(process.env.NODE_ENV !== 'production' ? { dev_code: code } : {}),
+      message: method === 'sms'
+        ? `A verification code was sent to ${String(escort.phone).replace(/(\+\d{3})\d+(\d{3})/, '$1****$2')}.`
+        : `A verification code was sent to ${maskEmail(String(user.email))}.`,
     })
   } catch (err: any) {
-    console.error('[claim/send-otp]', err?.message ?? err)
+    console.error(`[claim/send-${method}-otp]`, err?.message ?? err)
     res.status(500).json({ message: 'Failed to send verification code' })
   }
-})
+}
 
-// ── POST /api/escorts/:id/claim/verify-otp ────────────────────────────────────
-router.post('/escorts/:id/claim/verify-otp', requireAuth, async (req: AuthRequest, res) => {
+async function verifyClaimOtp(req: AuthRequest, res: any, method: 'sms' | 'email') {
+  const pool = getPool()
+  if (!pool) { res.status(503).json({ message: 'Database not configured' }); return }
+  const escortId = String(req.params!.id)
+  const userId = Number(req.userId)
+  const code = String(req.body?.code ?? '').trim()
+  if (!/^\d{6}$/.test(code)) { res.status(400).json({ message: 'Enter the six-digit verification code.' }); return }
+
+  const key = claimOtpKey(method, escortId, userId)
+  const stored = claimOtpStore.get(key)
+  if (!stored) { res.status(400).json({ message: 'No code was sent for this profile. Request a new one.' }); return }
+  if (Date.now() > stored.expires) {
+    claimOtpStore.delete(key)
+    res.status(400).json({ message: 'The code expired. Request a new one.' }); return
+  }
+  if (stored.attempts >= CLAIM_OTP_MAX_ATTEMPTS) {
+    claimOtpStore.delete(key)
+    res.status(429).json({ message: 'Too many incorrect attempts. Request a new code.' }); return
+  }
+  if (stored.code !== code && stored.code !== `VERIFIED_${userId}`) {
+    stored.attempts += 1
+    if (stored.attempts >= CLAIM_OTP_MAX_ATTEMPTS) claimOtpStore.delete(key)
+    else claimOtpStore.set(key, stored)
+    res.status(400).json({ message: 'Incorrect code. Check it and try again.' }); return
+  }
+  claimOtpStore.set(key, { ...stored, code: `VERIFIED_${userId}` })
+  res.json({ success: true, message: `${method === 'sms' ? 'Phone' : 'Email'} verified successfully.` })
+}
+
+router.get('/escorts/:id/claim-options', requireAuth, async (_req: AuthRequest, res) => {
+  res.setHeader('Cache-Control', 'private, no-store, max-age=0')
   const pool = getPool()
   if (!pool) { res.status(503).json({ message: 'Database not configured' }); return }
   try {
-    const escortId = req.params!.id
-    const { code } = req.body as { code?: string }
-    if (!code) { res.status(400).json({ message: 'Code is required' }); return }
-
-    const [[escort]] = await pool.query<any[]>(
-      'SELECT id, user_id, phone FROM escorts WHERE id = ? AND is_active = 1',
-      [escortId]
-    )
-    if (!escort) { res.status(404).json({ message: 'Profile not found' }); return }
-    if (!escort.phone) { res.status(400).json({ message: 'No phone on this profile' }); return }
-
-    const stored = claimOtpStore.get(escort.phone)
-    if (!stored || stored.escortId !== escortId) {
-      res.status(400).json({ message: 'No OTP found for this profile. Please request a new code.' }); return
-    }
-    if (Date.now() > stored.expires) {
-      claimOtpStore.delete(escort.phone)
-      res.status(400).json({ message: 'Code expired. Please request a new one.' }); return
-    }
-    if (stored.code !== code.trim()) {
-      res.status(400).json({ message: 'Incorrect code. Please check and try again.' }); return
-    }
-
-    // Mark OTP as verified (set a short-lived verified token in the store)
-    claimOtpStore.set(escort.phone, { ...stored, code: `VERIFIED_${req.userId}` })
-
-    res.json({ success: true, message: 'Phone verified successfully.' })
-  } catch (err: any) {
-    console.error('[claim/verify-otp]', err?.message ?? err)
-    res.status(500).json({ message: 'Verification failed' })
+    const config = await getClaimVerificationConfig(pool)
+    res.json({ methods: config.methods })
+  } catch {
+    res.status(503).json({ message: 'Claim verification settings are unavailable.' })
   }
+})
+
+router.post('/escorts/:id/claim/send-otp', requireAuth, async (req: AuthRequest, res) => {
+  await sendClaimOtp(req, res, 'sms')
+})
+router.post('/escorts/:id/claim/verify-otp', requireAuth, async (req: AuthRequest, res) => {
+  await verifyClaimOtp(req, res, 'sms')
+})
+router.post('/escorts/:id/claim/send-email-otp', requireAuth, async (req: AuthRequest, res) => {
+  await sendClaimOtp(req, res, 'email')
+})
+router.post('/escorts/:id/claim/verify-email-otp', requireAuth, async (req: AuthRequest, res) => {
+  await verifyClaimOtp(req, res, 'email')
 })
 
 // ── POST /api/escorts/:id/claim ───────────────────────────────────────────────
@@ -108,29 +189,49 @@ router.post('/escorts/:id/claim', requireAuth, async (req: AuthRequest, res) => 
   const pool = getPool()
   if (!pool) { res.status(503).json({ message: 'Database not configured' }); return }
   try {
-    const escortId = req.params!.id
-    const { message, otp_verified } = req.body as { message?: string; otp_verified?: boolean }
+    const escortId = String(req.params!.id)
+    const method = String(req.body?.verification_method ?? '') as ClaimMethod
+    const message = typeof req.body?.message === 'string' ? req.body.message.trim().slice(0, 3000) : ''
+    if (!['sms', 'email', 'video'].includes(method)) {
+      res.status(400).json({ message: 'Choose a supported verification method.' }); return
+    }
 
     const [[escort]] = await pool.query<any[]>(
-      'SELECT id, user_id, phone FROM escorts WHERE id = ? AND is_active = 1',
+      'SELECT id, user_id, phone, name FROM escorts WHERE id = ? AND is_active = 1',
       [escortId]
     )
     if (!escort) { res.status(404).json({ message: 'Profile not found' }); return }
     if (escort.user_id) { res.status(409).json({ message: 'This profile has already been claimed' }); return }
 
-    // Check OTP was verified (unless skipped in dev by admin)
-    if (escort.phone) {
-      const stored = claimOtpStore.get(escort.phone)
-      const isVerified = stored?.code === `VERIFIED_${req.userId}`
-      if (!isVerified) {
-        res.status(403).json({ message: 'Phone verification required. Please verify the OTP first.' }); return
+    let verificationVideo: Buffer | null = null
+    let verificationVideoMime: string | null = null
+    const config = await getClaimVerificationConfig(pool)
+    if (!config.methods[method]) {
+      res.status(503).json({ message: `${method === 'sms' ? 'SMS' : method === 'email' ? 'Email' : 'Video'} verification is not configured or the claim schema is not ready.` }); return
+    }
+
+    if (method === 'sms' || method === 'email') {
+      const key = claimOtpKey(method, escortId, Number(req.userId))
+      const stored = claimOtpStore.get(key)
+      if (!stored || stored.code !== `VERIFIED_${req.userId}` || Date.now() > stored.expires) {
+        res.status(403).json({ message: `${method === 'sms' ? 'Phone' : 'Email'} verification is required before submitting this claim.` }); return
       }
-      claimOtpStore.delete(escort.phone)
+    } else {
+      const dataUrl = String(req.body?.verification_video ?? '')
+      const match = dataUrl.match(/^data:(video\/(?:webm|mp4|quicktime));base64,([A-Za-z0-9+/]+={0,2})$/)
+      if (!match) { res.status(400).json({ message: 'Upload a WebM, MP4, or QuickTime video to submit this claim.' }); return }
+      verificationVideoMime = match[1]
+      verificationVideo = Buffer.from(match[2], 'base64')
+      if (!verificationVideo.length || verificationVideo.length > MAX_CLAIM_VIDEO_BYTES) {
+        res.status(413).json({ message: 'The verification video must be no larger than 8 MB.' }); return
+      }
     }
 
     const schemaColumns = await pool.getExistingColumns(['escorts', 'profile_claims'])
-    if (!schemaColumns.has('escorts.merged_into_id') || !schemaColumns.has('profile_claims.merge_into_escort_id')) {
-      res.status(503).json({ message: 'Claim merge schema is not ready. Please try again later.' }); return
+    if (!schemaColumns.has('escorts.merged_into_id') ||
+        !schemaColumns.has('profile_claims.merge_into_escort_id') ||
+        !schemaColumns.has('profile_claims.verification_method')) {
+      res.status(503).json({ message: 'Claim schema is not ready. Please apply the profile claim migration and try again.' }); return
     }
 
     // Existing owners can submit a duplicate claim for review, but the
@@ -160,9 +261,44 @@ router.post('/escorts/:id/claim', requireAuth, async (req: AuthRequest, res) => 
     }
 
     await pool.query(
-      "INSERT INTO profile_claims (escort_id, user_id, merge_into_escort_id, message, status) VALUES (?,?,?,?, 'pending')",
-      [escortId, req.userId, existingProfile?.id ?? null, message || null]
+      `INSERT INTO profile_claims
+        (escort_id, user_id, merge_into_escort_id, message, status, verification_method, verification_video_data, verification_video_mime)
+       VALUES (?,?,?,?, 'pending', ?, ?, ?)`,
+      [escortId, req.userId, existingProfile?.id ?? null, message || null, method, verificationVideo, verificationVideoMime]
     )
+
+    if (method === 'sms' || method === 'email') {
+      claimOtpStore.delete(claimOtpKey(method, escortId, Number(req.userId)))
+    }
+
+    let emailNotifications = { claimantSent: false, adminsSent: false }
+    try {
+      const [[claimant]] = await pool.query<any[]>(
+        'SELECT email, display_name, username FROM users WHERE id = ? LIMIT 1',
+        [req.userId],
+      )
+      const [adminRows] = await pool.query<any[]>(
+        "SELECT email FROM users WHERE role = 'admin' AND is_active = 1 AND email IS NOT NULL AND email <> ''",
+      ).catch(() => [[]] as any)
+      const [[supportRow]] = await pool.query<any[]>(
+        "SELECT value FROM platform_settings WHERE `key` = 'support_email' LIMIT 1",
+      ).catch(() => [[null]])
+      const adminEmails = (adminRows as any[]).map(row => String(row.email))
+      if (supportRow?.value) adminEmails.push(String(supportRow.value))
+      if (claimant?.email) {
+        emailNotifications = await sendProfileClaimSubmittedEmails({
+          claimantEmail: String(claimant.email),
+          claimantName: String(claimant.display_name ?? claimant.username ?? ''),
+          adminEmails,
+          escortName: String(escort.name ?? 'profile'),
+          escortId,
+          verificationMethod: method,
+          mergeTargetName: existingProfile?.name ?? null,
+        })
+      }
+    } catch (notificationError: any) {
+      console.warn('[claim notification]', notificationError?.message ?? notificationError)
+    }
 
     res.json({
       success: true,
@@ -170,6 +306,7 @@ router.post('/escorts/:id/claim', requireAuth, async (req: AuthRequest, res) => 
         ? `Your duplicate listing request is under review. If approved, it will be merged into ${existingProfile.name}.`
         : 'Your claim has been submitted and is under review.',
       mergeTarget: existingProfile ? { id: String(existingProfile.id), name: existingProfile.name } : null,
+      emailNotifications,
     })
   } catch (err: any) {
     console.error('[claim]', err?.message ?? err)
@@ -179,6 +316,7 @@ router.post('/escorts/:id/claim', requireAuth, async (req: AuthRequest, res) => 
 
 // ── GET /api/escorts/:id/claim-status ─────────────────────────────────────────
 router.get('/escorts/:id/claim-status', requireAuth, async (req: AuthRequest, res) => {
+  res.setHeader('Cache-Control', 'private, no-store, max-age=0')
   const pool = getPool()
   if (!pool) { res.status(503).json({ message: 'Database not configured' }); return }
   try {
@@ -212,8 +350,16 @@ router.get('/admin/claims', requireAuth, async (req: AuthRequest, res) => {
   const pool = getPool()
   if (!pool) { res.status(503).json({ message: 'Database not configured' }); return }
   try {
+    const claimColumns = await pool.getExistingColumns(['profile_claims'])
+    const methodExpr = claimColumns.has('profile_claims.verification_method')
+      ? 'pc.verification_method'
+      : "'manual'"
+    const hasVideoExpr = claimColumns.has('profile_claims.verification_video_data')
+      ? '(pc.verification_video_data IS NOT NULL)'
+      : '0'
     const [rows] = await pool.query<any[]>(`
        SELECT pc.id, pc.escort_id, pc.user_id, pc.merge_into_escort_id, pc.message, pc.status, pc.created_at,
+             ${methodExpr} AS verification_method, ${hasVideoExpr} AS has_video,
              e.name AS escort_name, e.city AS escort_city, e.phone AS escort_phone, e.image AS escort_image,
               target.name AS merge_into_name, target.city AS merge_into_city,
              u.display_name AS user_name, u.email AS user_email
@@ -232,6 +378,42 @@ router.get('/admin/claims', requireAuth, async (req: AuthRequest, res) => {
     })))
   } catch (err: any) {
     res.status(500).json({ message: 'Failed to fetch claims', detail: err?.message ?? '' })
+  }
+})
+
+// Verification videos are stored in the claim row, never in the public uploads directory.
+router.get('/admin/claims/:id/video', requireAuth, async (req: AuthRequest, res) => {
+  if (req.userRole !== 'admin') { res.status(403).json({ message: 'Admin access required' }); return }
+  const pool = getPool()
+  if (!pool) { res.status(503).json({ message: 'Database not configured' }); return }
+  try {
+    const columns = await pool.getExistingColumns(['profile_claims'])
+    if (!columns.has('profile_claims.verification_video_data') ||
+        !columns.has('profile_claims.verification_video_mime')) {
+      res.status(503).json({ message: 'Private claim video storage is not ready.' }); return
+    }
+    const [[claim]] = await pool.query<any[]>(
+      'SELECT verification_video_data, verification_video_mime FROM profile_claims WHERE id = ? LIMIT 1',
+      [req.params!.id],
+    )
+    if (!claim?.verification_video_data) { res.status(404).json({ message: 'No verification video is attached to this claim.' }); return }
+    const allowedTypes = new Set(['video/webm', 'video/mp4', 'video/quicktime'])
+    const mime = allowedTypes.has(String(claim.verification_video_mime))
+      ? String(claim.verification_video_mime)
+      : 'application/octet-stream'
+    const extension = mime === 'video/webm' ? 'webm' : mime === 'video/mp4' ? 'mp4' : 'mov'
+    const video = Buffer.isBuffer(claim.verification_video_data)
+      ? claim.verification_video_data
+      : Buffer.from(claim.verification_video_data)
+    res.setHeader('Content-Type', mime)
+    res.setHeader('Content-Length', String(video.length))
+    res.setHeader('Content-Disposition', `inline; filename="claim-verification.${extension}"`)
+    res.setHeader('Cache-Control', 'private, no-store, max-age=0')
+    res.setHeader('X-Content-Type-Options', 'nosniff')
+    res.send(video)
+  } catch (err: any) {
+    console.error('[claim video]', err?.message ?? err)
+    res.status(500).json({ message: 'Could not load the verification video.' })
   }
 })
 
@@ -364,10 +546,34 @@ router.patch('/admin/claims/:id/approve', requireAuth, async (req: AuthRequest, 
       return mergeResult
     })
 
+    let emailSent = false
+    try {
+      const [[claimant]] = await pool.query<any[]>(
+        `SELECT u.email, u.display_name, u.username, e.name AS escort_name
+         FROM profile_claims pc
+         LEFT JOIN users u ON u.id = pc.user_id
+         LEFT JOIN escorts e ON e.id = pc.escort_id
+         WHERE pc.id = ? LIMIT 1`,
+        [req.params!.id],
+      )
+      if (claimant?.email) {
+        emailSent = await sendProfileClaimDecisionEmail({
+          claimantEmail: String(claimant.email),
+          claimantName: String(claimant.display_name ?? claimant.username ?? ''),
+          escortName: String(claimant.escort_name ?? 'profile'),
+          status: 'approved',
+          mergeTargetName: result?.primaryName ?? null,
+        })
+      }
+    } catch (notificationError: any) {
+      console.warn('[claim approval notification]', notificationError?.message ?? notificationError)
+    }
+
     res.json({
       success: true,
       merged: !!result,
       primaryProfile: result ? { id: result.primaryId, name: result.primaryName } : null,
+      emailSent,
     })
   } catch (err: any) {
     const statusCode = Number(err?.statusCode) || 500
@@ -414,7 +620,28 @@ router.patch('/admin/claims/:id/reject', requireAuth, async (req: AuthRequest, r
 
       await query("UPDATE profile_claims SET status = 'rejected' WHERE id = ?", [req.params!.id])
     })
-    res.json({ success: true })
+    let emailSent = false
+    try {
+      const [[claimant]] = await pool.query<any[]>(
+        `SELECT u.email, u.display_name, u.username, e.name AS escort_name
+         FROM profile_claims pc
+         LEFT JOIN users u ON u.id = pc.user_id
+         LEFT JOIN escorts e ON e.id = pc.escort_id
+         WHERE pc.id = ? LIMIT 1`,
+        [req.params!.id],
+      )
+      if (claimant?.email) {
+        emailSent = await sendProfileClaimDecisionEmail({
+          claimantEmail: String(claimant.email),
+          claimantName: String(claimant.display_name ?? claimant.username ?? ''),
+          escortName: String(claimant.escort_name ?? 'profile'),
+          status: 'rejected',
+        })
+      }
+    } catch (notificationError: any) {
+      console.warn('[claim rejection notification]', notificationError?.message ?? notificationError)
+    }
+    res.json({ success: true, emailSent })
   } catch (err: any) {
     const statusCode = Number(err?.statusCode) || 500
     if (statusCode === 500) console.error('[claim rejection]', err?.message ?? err)
