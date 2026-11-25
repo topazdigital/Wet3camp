@@ -442,6 +442,9 @@ CREATE TABLE IF NOT EXISTS `profile_claims` (
   `user_id`    int(10) UNSIGNED NOT NULL,
   `merge_into_escort_id` int(10) UNSIGNED DEFAULT NULL,
   `message`    text             DEFAULT NULL,
+  `verification_method` varchar(20) NOT NULL DEFAULT 'manual',
+  `verification_video_data` mediumblob DEFAULT NULL,
+  `verification_video_mime` varchar(80) DEFAULT NULL,
   `status`     varchar(20)      NOT NULL DEFAULT 'pending',
   `created_at` datetime         NOT NULL DEFAULT current_timestamp(),
   `updated_at` datetime         NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
@@ -453,6 +456,12 @@ CREATE TABLE IF NOT EXISTS `profile_claims` (
 
 ALTER TABLE profile_claims
   ADD COLUMN IF NOT EXISTS `merge_into_escort_id` int(10) UNSIGNED DEFAULT NULL;
+ALTER TABLE profile_claims
+  ADD COLUMN IF NOT EXISTS `verification_method` varchar(20) NOT NULL DEFAULT 'manual';
+ALTER TABLE profile_claims
+  ADD COLUMN IF NOT EXISTS `verification_video_data` mediumblob DEFAULT NULL;
+ALTER TABLE profile_claims
+  ADD COLUMN IF NOT EXISTS `verification_video_mime` varchar(80) DEFAULT NULL;
 
 -- =============================================================================
 -- This file runs automatically on every deploy via deploy-on-server.sh.
