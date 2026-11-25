@@ -1,5 +1,13 @@
 import { Router } from 'express'
+import { randomUUID } from 'node:crypto'
 import { getPool } from '../lib/db.js'
+import { downloadAndStoreImage } from '../lib/image-download.js'
+import {
+  BLOG_IMPORT_SOURCES,
+  MAX_BLOG_ARTICLES_PER_SOURCE,
+  importBlogArticlesFromApprovedSources,
+  type BlogImportSourceResult,
+} from '../lib/blog-source-importer.mjs'
 import OpenAI from 'openai'
 import { requireAuth, type AuthRequest } from '../middlewares/requireAuth.js'
 import { submitToIndexNow, blogPostUrl } from './sitemap.js'
@@ -26,6 +34,109 @@ function getOpenAI(): OpenAI | null {
 
 function slugify(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80)
+}
+
+interface BlogImportJob {
+  jobId: string
+  status: 'running' | 'complete' | 'failed'
+  startedAt: string
+  completedAt?: string
+  imported: number
+  skipped: number
+  sources: Array<BlogImportSourceResult & { imported: number; skipped: number }>
+  error?: string
+}
+
+const blogImportJobs = new Map<string, BlogImportJob>()
+let activeBlogImportJobId: string | null = null
+
+function uniqueImportedSlug(title: string, usedSlugs: Set<string>): string {
+  const base = slugify(title) || 'imported-article'
+  let slug = base
+  let suffix = 2
+  while (usedSlugs.has(slug)) {
+    const suffixText = `-${suffix++}`
+    slug = `${base.slice(0, 80 - suffixText.length)}${suffixText}`
+  }
+  usedSlugs.add(slug)
+  return slug
+}
+
+function serializeBlogImportJob(job: BlogImportJob) {
+  return {
+    jobId: job.jobId,
+    status: job.status,
+    startedAt: job.startedAt,
+    completedAt: job.completedAt,
+    imported: job.imported,
+    skipped: job.skipped,
+    sources: job.sources,
+    error: job.error,
+  }
+}
+
+async function runBlogSourceImport(job: BlogImportJob, sourceId: string) {
+  const pool = getPool()
+  if (!pool) throw new Error('Database unavailable')
+
+  const [existingRows] = await pool.query<any[]>('SELECT slug, source_url FROM blog_posts')
+  const rows = existingRows as any[]
+  const existingSources = new Set(rows.map((row) => String(row.source_url || '').trim()).filter(Boolean))
+  const usedSlugs = new Set(rows.map((row) => String(row.slug || '').trim()).filter(Boolean))
+
+  await importBlogArticlesFromApprovedSources({
+    sourceId,
+    maxPerSource: MAX_BLOG_ARTICLES_PER_SOURCE,
+    excludeSourceUrls: [...existingSources],
+    downloadImage: downloadAndStoreImage,
+    onSourceComplete: async ({ articles, ...sourceResult }) => {
+      let imported = 0
+      let skipped = 0
+      for (const article of articles) {
+        const sourceUrl = String(article.source_url || '').trim()
+        if (!sourceUrl || existingSources.has(sourceUrl)) {
+          skipped++
+          continue
+        }
+
+        existingSources.add(sourceUrl)
+        const slug = uniqueImportedSlug(article.title, usedSlugs)
+        const tags = Array.isArray(article.tags) ? article.tags : []
+        const publishedDate = article.published_at ? new Date(article.published_at) : new Date()
+        const validPublishedDate = Number.isNaN(publishedDate.getTime()) ? new Date() : publishedDate
+        try {
+          await pool.query(
+            `INSERT INTO blog_posts
+               (slug, title, excerpt, content, category, tags, image_url, read_time,
+                seo_title, seo_description, source_url, author, published, published_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`,
+            [
+              slug,
+              article.title,
+              article.excerpt,
+              article.content,
+              article.category || 'Kenya Escorts Guide',
+              JSON.stringify(tags),
+              article.image_url || '',
+              article.read_time,
+              article.seo_title || article.title,
+              article.seo_description || article.excerpt,
+              sourceUrl,
+              article.author || 'Wet3Camp Editorial',
+              validPublishedDate,
+            ]
+          )
+          imported++
+        } catch {
+          skipped++
+        }
+      }
+
+      job.imported += imported
+      job.skipped += skipped
+      job.sources.push({ ...sourceResult, imported, skipped })
+    },
+  })
 }
 
 // ── Rotating Kenya escort blog topics for AI generation ──────────────────────
@@ -363,7 +474,7 @@ router.get('/admin/blog', requireAuth, requireAdmin, async (_req: AuthRequest, r
   if (!pool) { res.json({ posts: [] }); return }
   try {
     const [rows] = await pool.query<any[]>(
-      `SELECT id, slug, title, excerpt, category, tags, image_url, read_time, author,
+      `SELECT id, slug, title, excerpt, category, tags, image_url, source_url, read_time, author,
               published, published_at, updated_at, seo_title, seo_description
        FROM blog_posts ORDER BY COALESCE(updated_at, published_at) DESC, id DESC LIMIT 500`
     )
@@ -539,6 +650,59 @@ router.post('/admin/blog/scrape', requireAuth, requireAdmin, async (req, res) =>
 
   const saved = await saveBlogPost(post)
   res.json({ success: saved, slug: post.slug, title: post.title })
+})
+
+// ── POST /api/admin/blog/import-sources — import drafts from approved sites ──
+router.post('/admin/blog/import-sources', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+  if (!getPool()) { res.status(503).json({ message: 'No DB' }); return }
+  const sourceId = String(req.body?.sourceId || 'all')
+  if (sourceId !== 'all' && !BLOG_IMPORT_SOURCES.some((source) => source.id === sourceId)) {
+    res.status(400).json({ message: 'Unknown approved blog source' }); return
+  }
+  if (activeBlogImportJobId) {
+    const activeJob = blogImportJobs.get(activeBlogImportJobId)
+    if (activeJob?.status === 'running') {
+      res.status(409).json({ message: 'A blog import is already running', jobId: activeJob.jobId }); return
+    }
+  }
+
+  const job: BlogImportJob = {
+    jobId: randomUUID(),
+    status: 'running',
+    startedAt: new Date().toISOString(),
+    imported: 0,
+    skipped: 0,
+    sources: [],
+  }
+  blogImportJobs.set(job.jobId, job)
+  activeBlogImportJobId = job.jobId
+
+  void runBlogSourceImport(job, sourceId)
+    .then(() => { job.status = 'complete' })
+    .catch((error) => {
+      job.status = 'failed'
+      job.error = error instanceof Error ? error.message.slice(0, 200) : 'Blog import failed'
+      console.error('[blog/import-sources]', error)
+    })
+    .finally(() => {
+      job.completedAt = new Date().toISOString()
+      if (activeBlogImportJobId === job.jobId) activeBlogImportJobId = null
+      if (blogImportJobs.size > 20) {
+        const oldestCompleted = [...blogImportJobs.values()]
+          .filter((candidate) => candidate.status !== 'running')
+          .sort((a, b) => a.startedAt.localeCompare(b.startedAt))[0]
+        if (oldestCompleted) blogImportJobs.delete(oldestCompleted.jobId)
+      }
+    })
+
+  res.status(202).json(serializeBlogImportJob(job))
+})
+
+// ── GET /api/admin/blog/import-sources/:jobId — poll an import job ───────────
+router.get('/admin/blog/import-sources/:jobId', requireAuth, requireAdmin, (req: AuthRequest, res) => {
+  const job = blogImportJobs.get(String(req.params.jobId))
+  if (!job) { res.status(404).json({ message: 'Blog import job not found' }); return }
+  res.json(serializeBlogImportJob(job))
 })
 
 // ── POST /api/admin/blog/bulk-generate — generate multiple posts ──────────────
