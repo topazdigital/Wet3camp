@@ -45,15 +45,29 @@ async function createTransportAsync() {
   }), from: `"${FROM_NAME}" <${cfg.user}>` }
 }
 
-async function send(opts: { to: string; subject: string; text: string; html?: string }) {
+async function send(opts: { to: string; subject: string; text: string; html?: string }): Promise<boolean> {
   const t = await createTransportAsync()
-  if (!t) { console.error('[mailer] SMTP not configured — email not sent to', opts.to); return }
-  await t.transport.sendMail({ from: t.from, ...opts }).catch((err: any) => {
+  if (!t) { console.error('[mailer] SMTP not configured — email not sent to', opts.to); return false }
+  try {
+    await t.transport.sendMail({ from: t.from, ...opts })
+    return true
+  } catch (err: any) {
     console.error('[mailer] sendMail failed:', err?.message ?? err)
-  })
+    return false
+  }
 }
 
 // ─── Shared HTML template ─────────────────────────────────────────────────────
+
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, char => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  })[char]!)
+}
 
 function emailWrap(content: string): string {
   return `<!DOCTYPE html>
@@ -325,7 +339,7 @@ export async function sendBookingNotification(opts: {
   if (opts.location) rows.push(['Location', opts.location])
   if (opts.notes)    rows.push(['Notes',    opts.notes])
 
-  const promises: Promise<void>[] = [
+  const promises: Promise<boolean>[] = [
     send({
       to: adminEmail,
       subject: `New Booking — ${opts.escortName} on ${opts.date}`,
@@ -518,6 +532,94 @@ export async function sendPasswordResetEmail(email: string, token: string) {
   })
 }
 
+export async function sendProfileClaimSubmittedEmails(opts: {
+  claimantEmail: string
+  claimantName: string
+  adminEmails: string[]
+  escortName: string
+  escortId: string | number
+  verificationMethod: 'sms' | 'email' | 'video'
+  mergeTargetName?: string | null
+}): Promise<{ claimantSent: boolean; adminsSent: boolean }> {
+  const safeName = escapeHtml(opts.claimantName || 'there')
+  const safeEscort = escapeHtml(opts.escortName || 'the profile')
+  const safeMergeTarget = opts.mergeTargetName ? escapeHtml(opts.mergeTargetName) : null
+  const methodLabel = opts.verificationMethod.toUpperCase()
+  const mergeText = safeMergeTarget ? ` If approved, the listing will be merged into ${safeMergeTarget}.` : ''
+  const [claimantSent, adminsSent] = await Promise.all([
+    send({
+      to: opts.claimantEmail,
+      subject: `Profile claim received — ${opts.escortName}`,
+      text: `Hi ${opts.claimantName || 'there'},\n\nYour claim for ${opts.escortName} was received and is under review.${mergeText}\n\nYou can check its status at ${SITE}/claim/${encodeURIComponent(String(opts.escortId))}.\n\nWet3.camp Team`,
+      html: emailWrap(`
+        ${heading('Profile Claim Received')}
+        ${badge('Under Review', '#FF9800')}
+        <p style="margin:20px 0;font-size:14px;color:#cccccc;line-height:1.7;">
+          Hi <strong style="color:#FFD700;">${safeName}</strong>,<br/><br/>
+          Your claim for <strong style="color:#fff;">${safeEscort}</strong> has been saved and is waiting for admin review.${safeMergeTarget ? ` If approved, it will be merged into <strong style="color:#fff;">${safeMergeTarget}</strong>.` : ''}
+        </p>
+        ${detailsTable([['Verification', methodLabel], ['Status', 'Under review']])}
+        ${btn('Check Claim Status', `${SITE}/claim/${encodeURIComponent(String(opts.escortId))}`)}
+      `),
+    }),
+    opts.adminEmails.length
+      ? send({
+          to: [...new Set(opts.adminEmails)].join(', '),
+          subject: `New profile claim — ${opts.escortName}`,
+          text: `A new ${opts.verificationMethod} profile claim is waiting for review.\n\nProfile: ${opts.escortName}\nClaimant: ${opts.claimantName} <${opts.claimantEmail}>\n${opts.mergeTargetName ? `Merge target: ${opts.mergeTargetName}\n` : ''}Review it in the Wet3Camp admin panel: ${SITE}/admin`,
+          html: emailWrap(`
+            ${heading('New Profile Claim')}
+            ${badge('Action Required', '#FF9800')}
+            <p style="margin:20px 0;font-size:14px;color:#cccccc;">A profile claim is waiting for review in Admin.</p>
+            ${detailsTable([
+              ['Profile', safeEscort],
+              ['Claimant', `${safeName} &lt;${escapeHtml(opts.claimantEmail)}&gt;`],
+              ['Verification', methodLabel],
+              ...(safeMergeTarget ? [['Merge into', safeMergeTarget] as [string, string]] : []),
+            ])}
+            ${btn('Review Claims', `${SITE}/admin`)}
+          `),
+        })
+      : Promise.resolve(false),
+  ])
+  return { claimantSent, adminsSent }
+}
+
+export async function sendProfileClaimDecisionEmail(opts: {
+  claimantEmail: string
+  claimantName: string
+  escortName: string
+  status: 'approved' | 'rejected'
+  mergeTargetName?: string | null
+}): Promise<boolean> {
+  const safeName = escapeHtml(opts.claimantName || 'there')
+  const safeEscort = escapeHtml(opts.escortName || 'the profile')
+  const safeMergeTarget = opts.mergeTargetName ? escapeHtml(opts.mergeTargetName) : null
+  const approved = opts.status === 'approved'
+  const subject = approved
+    ? `Your profile claim was approved — ${opts.escortName}`
+    : `Update on your profile claim — ${opts.escortName}`
+  const text = approved
+    ? `Hi ${opts.claimantName || 'there'},\n\nYour claim for ${opts.escortName} was approved.${opts.mergeTargetName ? ` It has been merged into ${opts.mergeTargetName}.` : ''}\n\nSign in to manage your profile at ${SITE}/my-profile.`
+    : `Hi ${opts.claimantName || 'there'},\n\nYour claim for ${opts.escortName} was not approved. If you think this is a mistake, please contact Wet3.camp support.`
+
+  return send({
+    to: opts.claimantEmail,
+    subject,
+    text,
+    html: emailWrap(`
+      ${heading(approved ? 'Profile Claim Approved' : 'Profile Claim Update')}
+      ${badge(approved ? 'Approved' : 'Not Approved', approved ? '#22c55e' : '#EF4444')}
+      <p style="margin:20px 0;font-size:14px;color:#cccccc;line-height:1.7;">
+        Hi <strong style="color:#FFD700;">${safeName}</strong>,<br/><br/>
+        Your claim for <strong style="color:#fff;">${safeEscort}</strong> ${approved ? 'was approved.' : 'was not approved.'}
+        ${approved && safeMergeTarget ? ` The listing has been merged into <strong style="color:#fff;">${safeMergeTarget}</strong>.` : ''}
+      </p>
+      ${approved ? btn('Manage My Profile', `${SITE}/my-profile`) : '<p style="font-size:12px;color:#888;">If you believe this is a mistake, please contact Wet3.camp support.</p>'}
+    `),
+  })
+}
+
 // ─── Africa's Talking SMS ─────────────────────────────────────────────────────
 
 export async function sendSmsOtp(
@@ -559,23 +661,29 @@ export async function sendOtpEmail(
   email: string,
   otp: string,
   name?: string,
-  purpose: 'registration' | 'telegram' = 'registration',
-) {
+  purpose: 'registration' | 'telegram' | 'claim' = 'registration',
+): Promise<boolean> {
   const isTelegramSignIn = purpose === 'telegram'
+  const isClaim = purpose === 'claim'
   const subject = isTelegramSignIn
     ? 'Your Wet3.camp Telegram sign-in code'
+    : isClaim
+      ? 'Your Wet3.camp profile claim code'
     : 'Your Wet3.camp verification code'
   const instruction = isTelegramSignIn
     ? 'Use this code to link your Telegram account to Wet3.camp and sign in.'
+    : isClaim
+      ? 'Use this code to confirm your email address for your Wet3.camp profile claim.'
     : 'Use this code to verify your identity on Wet3.camp.'
-  await send({
+  const safeName = name ? escapeHtml(name) : ''
+  return send({
     to: email,
     subject,
     text: `Hi${name ? ` ${name}` : ''},\n\n${instruction}\n\nYour verification code is:\n\n${otp}\n\nThis code expires in 10 minutes.\n\nIf you didn't request this, ignore this email.`,
     html: emailWrap(`
       ${heading('Verification Code')}
       <p style="margin:0 0 28px;font-size:14px;color:#cccccc;line-height:1.7;">
-        ${name ? `Hi <strong style="color:#FFD700;">${name}</strong>, ` : ''}${instruction}
+        ${safeName ? `Hi <strong style="color:#FFD700;">${safeName}</strong>, ` : ''}${instruction}
       </p>
       <div style="text-align:center;margin:0 0 28px;">
         <div style="display:inline-block;background:#160000;border:2px solid #8B0000;border-radius:14px;padding:20px 40px;">
