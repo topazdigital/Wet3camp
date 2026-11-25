@@ -48,6 +48,7 @@ CREATE TABLE IF NOT EXISTS escorts (
   phone            VARCHAR(20)      DEFAULT NULL,
   available        SMALLINT         NOT NULL DEFAULT 0,
   verified         SMALLINT         NOT NULL DEFAULT 0,
+  approval_status  VARCHAR(20)      DEFAULT NULL,
   online           SMALLINT         NOT NULL DEFAULT 0,
   map_visible      SMALLINT         NOT NULL DEFAULT 1,
   featured         SMALLINT         NOT NULL DEFAULT 0,
@@ -61,6 +62,7 @@ CREATE TABLE IF NOT EXISTS escorts (
 );
 ALTER TABLE escorts ADD COLUMN IF NOT EXISTS map_visible SMALLINT NOT NULL DEFAULT 1;
 ALTER TABLE escorts ADD COLUMN IF NOT EXISTS merged_into_id INTEGER DEFAULT NULL;
+ALTER TABLE escorts ADD COLUMN IF NOT EXISTS approval_status VARCHAR(20) DEFAULT NULL;
 CREATE INDEX IF NOT EXISTS idx_escorts_user_id ON escorts (user_id);
 CREATE INDEX IF NOT EXISTS idx_escorts_city    ON escorts (city);
 CREATE INDEX IF NOT EXISTS idx_escorts_tier    ON escorts (tier);
