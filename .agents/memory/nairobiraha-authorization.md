@@ -1,6 +1,6 @@
 ---
-name: Escort directory sourcing authorization
-description: User-approved source list and scope for recurring profile imports into Wet3Camp.
+name: Approved content source authorization
+description: User-approved source list and scope for recurring profile and blog imports into Wet3Camp.
 ---
 
 The user confirmed NairobiRaha is theirs and providers permit republication of their profiles on Wet3Camp.
@@ -32,3 +32,9 @@ The user confirms the 147 profiles currently on Wet3Camp production were scraped
 **Why:** The user corrected an assumption about the origin of the existing catalog.
 
 **How to apply:** Treat those 147 as existing NairobiRaha imports when estimating how many new profiles a sync could add.
+
+The user confirmed the currently approved directory sites are theirs and authorized importing their blog articles and images too.
+
+**Why:** The user explicitly said the sites are theirs and requested blogs from the same sources as escort profiles.
+
+**How to apply:** Blog imports may use article titles, bodies, categories, tags, and images from NairobiRaha plus the ten approved directories. Do not add other domains without approval; continue respecting each site's robots rules and bounded request limits.
