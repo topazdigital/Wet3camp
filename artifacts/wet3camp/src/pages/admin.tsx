@@ -3515,11 +3515,15 @@ function AdminDashboard() {
 
 interface AdminBlogPost {
   id: string; title: string; category: string; published: boolean
-  published_at?: string; slug: string
+  published_at?: string; slug: string; source_url?: string | null
 }
 interface AdminBlogForm {
   id?: string; title: string; excerpt: string; content: string
-  category: string; tags: string; imageUrl: string; published: boolean
+  category: string; tags: string; imageUrl: string; published: boolean; sourceUrl?: string
+}
+interface AdminBlogImportSourceResult {
+  id: string; name: string; discovered: number; parsed: number
+  imported: number; skipped: number; error?: string
 }
 
 function BlogMediaToolbar({ onInsert }: { onInsert: (snippet: string) => void }) {
@@ -3579,6 +3583,9 @@ function AdminBlog() {
   const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
   const [loadError, setLoadError] = useState('')
+  const [importing, setImporting] = useState(false)
+  const [importStatus, setImportStatus] = useState('')
+  const [importSources, setImportSources] = useState<AdminBlogImportSourceResult[]>([])
   const contentRef = useRef<HTMLTextAreaElement>(null)
 
   const blank: AdminBlogForm = { title: '', excerpt: '', content: '', category: 'Kenya Escorts Guide', tags: '', imageUrl: '', published: false }
@@ -3589,6 +3596,7 @@ function AdminBlog() {
       setPosts((data.posts ?? []).map((p: any) => ({
         id: String(p.id), title: p.title, category: p.category,
         published: !!p.published, published_at: p.published_at, slug: p.slug,
+        source_url: p.source_url ?? null,
       })))
       setLoadError('')
     } catch (err: any) {
@@ -3637,6 +3645,34 @@ function AdminBlog() {
     } catch { setLoadError('Failed to update publish state.') }
   }
 
+  const importSourceBlogs = async () => {
+    setImporting(true)
+    setImportStatus('Starting import from approved sites…')
+    setImportSources([])
+    setLoadError('')
+    try {
+      let job = await adminFetch('/admin/blog/import-sources', {
+        method: 'POST',
+        body: JSON.stringify({ sourceId: 'all' }),
+      })
+      while (job.status === 'running') {
+        setImportSources(job.sources ?? [])
+        setImportStatus(`Checking approved sites… ${job.imported ?? 0} drafts imported`)
+        await new Promise(resolve => setTimeout(resolve, 2000))
+        job = await adminFetch(`/admin/blog/import-sources/${encodeURIComponent(job.jobId)}`)
+      }
+      setImportSources(job.sources ?? [])
+      await loadPosts()
+      if (job.status === 'failed') throw new Error(job.error || 'The blog import did not finish.')
+      setImportStatus(`Import finished: ${job.imported ?? 0} new drafts, ${job.skipped ?? 0} already imported.`)
+    } catch (err: any) {
+      setLoadError(err?.message || 'Failed to import source blogs.')
+      setImportStatus('')
+    } finally {
+      setImporting(false)
+    }
+  }
+
   const startEdit = async (id: string) => {
     try {
       const post = await adminFetch(`/admin/blog/${id}`)
@@ -3645,6 +3681,7 @@ function AdminBlog() {
         content: post.content ?? '', category: post.category ?? 'Kenya Escorts Guide',
         tags: (Array.isArray(post.tags) ? post.tags : []).join(', '),
         imageUrl: post.image_url ?? '', published: !!post.published,
+        sourceUrl: post.source_url ?? '',
       })
       setCreating(false)
     } catch { setLoadError('Failed to load post for editing.') }
@@ -3675,6 +3712,14 @@ function AdminBlog() {
           <button onClick={() => { setEditing(null); setCreating(false) }} className="text-xs text-text-muted hover:text-text-light">← Back</button>
           <h3 className="text-sm font-black text-text-light">{creating ? 'New Article' : 'Edit Article'}</h3>
         </div>
+        {form.sourceUrl && (
+          <p className="text-[10px] text-text-muted">
+            Imported from{' '}
+            <a href={form.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-[#FFD700] underline break-all">
+              {form.sourceUrl}
+            </a>
+          </p>
+        )}
         {(['title','excerpt','imageUrl'] as const).map(field => (
           <div key={field}>
             <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">{field === 'imageUrl' ? 'Cover Image URL' : field}</label>
@@ -3727,17 +3772,42 @@ function AdminBlog() {
           <h3 className="text-sm font-black text-text-light">Blog Management</h3>
           <p className="text-[10px] text-text-muted mt-0.5">{posts.length} articles total · {posts.filter(p=>p.published).length} published</p>
         </div>
-        <button onClick={() => { setCreating(true); setEditing({ ...blank }) }} className="px-3 py-2 bg-[#8B0000] text-white text-xs font-bold rounded-xl hover:bg-[#a00000] transition-all flex items-center gap-1.5">
-          + New Article
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button onClick={importSourceBlogs} disabled={importing} className="px-3 py-2 bg-dark-bg border border-color text-text-light text-xs font-bold rounded-xl hover:border-[#FFD700]/50 transition-all flex items-center gap-1.5 disabled:opacity-60">
+            <RefreshCw size={12} className={importing ? 'animate-spin' : ''} />
+            {importing ? 'Importing blogs…' : 'Import from approved sites'}
+          </button>
+          <button onClick={() => { setCreating(true); setEditing({ ...blank }) }} className="px-3 py-2 bg-[#8B0000] text-white text-xs font-bold rounded-xl hover:bg-[#a00000] transition-all flex items-center gap-1.5">
+            + New Article
+          </button>
+        </div>
       </div>
       {loadError && <p className="text-[11px] text-[#EF4444]">{loadError}</p>}
+      {importStatus && <p className="text-[10px] text-text-muted" role="status">{importStatus}</p>}
+      {importSources.length > 0 && (
+        <details className="rounded-xl border border-color bg-dark-bg px-3 py-2">
+          <summary className="cursor-pointer text-[10px] font-semibold text-text-muted">View source results</summary>
+          <ul className="mt-2 space-y-1">
+            {importSources.map(source => (
+              <li key={source.id} className="text-[10px] text-text-muted">
+                {source.name}: {source.imported} drafts from {source.parsed} articles found
+                {source.error ? ` · ${source.error}` : ''}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
       <div className="space-y-2">
         {posts.map(post => (
           <div key={post.id} className="flex flex-col gap-2 p-3 bg-card-bg border border-color rounded-xl sm:flex-row sm:items-center sm:gap-3">
             <div className="flex-1 min-w-0">
               <p className="text-xs font-semibold text-text-light truncate">{post.title}</p>
               <p className="text-[10px] text-text-muted mt-0.5">{post.category}{post.published_at ? ` · ${new Date(post.published_at).toLocaleDateString()}` : ''}</p>
+              {post.source_url && (
+                <a href={post.source_url} target="_blank" rel="noopener noreferrer" className="block text-[9px] text-[#B8860B] truncate hover:underline">
+                  Source article
+                </a>
+              )}
             </div>
             <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${post.published ? 'bg-[#28a745]/20 text-[#28a745]' : 'bg-[#6B7280]/20 text-[#6B7280]'}`}>
               {post.published ? 'Published' : 'Draft'}
