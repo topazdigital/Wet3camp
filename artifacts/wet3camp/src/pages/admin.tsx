@@ -2159,6 +2159,34 @@ function ClaimsTab() {
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [feedback, setFeedback] = useState<{ ok: boolean; msg: string } | null>(null)
+  const [videoLoading, setVideoLoading] = useState<string | null>(null)
+  const [selectedVideo, setSelectedVideo] = useState<{ claimId: string; url: string; escortName: string } | null>(null)
+
+  useEffect(() => () => {
+    if (selectedVideo?.url) URL.revokeObjectURL(selectedVideo.url)
+  }, [selectedVideo?.url])
+
+  const openVerificationVideo = async (claim: any) => {
+    const id = String(claim.id)
+    setVideoLoading(id)
+    try {
+      const token = localStorage.getItem('w3c_token')
+      const response = await fetch(`/api/admin/claims/${encodeURIComponent(id)}/video`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
+      if (!response.ok) {
+        const raw = await response.text()
+        let errorMessage = raw
+        try { errorMessage = JSON.parse(raw).message || raw } catch {}
+        throw new Error(errorMessage || `Request failed (${response.status})`)
+      }
+      const url = URL.createObjectURL(await response.blob())
+      setSelectedVideo({ claimId: id, url, escortName: String(claim.escort_name || 'Profile claim') })
+    } catch (error: any) {
+      setFeedback({ ok: false, msg: error?.message || 'Could not load the private verification video.' })
+    }
+    setVideoLoading(null)
+  }
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -2178,13 +2206,16 @@ function ClaimsTab() {
     try {
       const result = await adminFetch(`/admin/claims/${id}/${action}`, { method: 'PATCH' }) ?? {}
       setClaims(prev => prev.map(c => String(c.id) === id ? { ...c, status: action === 'approve' ? 'approved' : 'rejected' } : c))
+      const emailNote = result?.emailSent
+        ? ' Claimant was notified by email.'
+        : ' No email was sent; the claimant can check the claim page for updates.'
       setFeedback({
         ok: true,
         msg: action === 'approve'
           ? result?.merged
-            ? `Claim approved and merged into ${result?.primaryProfile?.name || 'the existing profile'}.`
-            : 'Claim approved — profile linked to user.'
-          : 'Claim rejected.',
+            ? `Claim approved and merged into ${result?.primaryProfile?.name || 'the existing profile'}.${emailNote}`
+            : `Claim approved — profile linked to user.${emailNote}`
+          : `Claim rejected.${emailNote}`,
       })
     } catch (error: any) {
       setFeedback({ ok: false, msg: error?.message || 'Action failed. Please try again.' })
@@ -2244,12 +2275,26 @@ function ClaimsTab() {
                       {c.merge_into_city && <span> ({c.merge_into_city})</span>}
                     </p>
                   )}
+                  <p className="mt-1 text-[10px] text-text-muted">
+                    Verification: <span className="font-semibold text-text-light">{String(c.verification_method || 'manual').toUpperCase()}</span>
+                    {(c.has_video === true || Number(c.has_video) === 1) && <span className="ml-2 text-[#FFD700]">Private video attached</span>}
+                  </p>
                   {c.message && <p className="text-[10px] text-text-muted italic mt-0.5">"{c.message}"</p>}
                   <p className="text-[9px] text-text-muted mt-0.5">{new Date(c.created_at).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
                 </div>
                 <div className="flex w-full justify-end sm:w-auto sm:flex-shrink-0">
-                  {c.status === 'pending' ? (
-                    <div className="flex gap-1.5">
+                  <div className="flex flex-wrap justify-end gap-1.5">
+                    {(c.has_video === true || Number(c.has_video) === 1) && (
+                      <button
+                        onClick={() => openVerificationVideo(c)}
+                        disabled={!!videoLoading}
+                        className="px-2.5 py-1 bg-[#FFD700]/10 text-[#FFD700] text-[9px] font-bold rounded-lg border border-[#FFD700]/20 hover:bg-[#FFD700]/20 disabled:opacity-50"
+                      >
+                        {videoLoading === String(c.id) ? 'Loading…' : 'Review video'}
+                      </button>
+                    )}
+                    {c.status === 'pending' ? (
+                    <>
                       <button
                         onClick={() => handleAction(String(c.id), 'approve')}
                         disabled={!!actionLoading}
@@ -2266,16 +2311,36 @@ function ClaimsTab() {
                         {actionLoading === c.id + '_reject' ? <div className="w-2.5 h-2.5 border border-[#EF4444]/40 border-t-[#EF4444] rounded-full animate-spin"/> : <XCircle size={10}/>}
                         Reject
                       </button>
-                    </div>
-                  ) : (
-                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full capitalize ${c.status === 'approved' ? 'bg-[#28a745]/20 text-[#28a745]' : 'bg-[#EF4444]/20 text-[#EF4444]'}`}>{c.status}</span>
-                  )}
+                    </>
+                    ) : (
+                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full capitalize ${c.status === 'approved' ? 'bg-[#28a745]/20 text-[#28a745]' : 'bg-[#EF4444]/20 text-[#EF4444]'}`}>{c.status}</span>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}
           </div>
         )}
       </div>
+      {selectedVideo && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Private claim verification video"
+          onClick={event => {
+            if (event.target === event.currentTarget) setSelectedVideo(null)
+          }}
+        >
+          <div className="w-full max-w-2xl rounded-2xl border border-color bg-card-bg p-4 shadow-2xl">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h3 className="text-sm font-bold text-text-light">Private verification video — {selectedVideo.escortName}</h3>
+              <button onClick={() => setSelectedVideo(null)} className="rounded-lg border border-color px-3 py-1.5 text-xs text-text-muted hover:text-text-light">Close</button>
+            </div>
+            <video src={selectedVideo.url} controls autoPlay playsInline className="max-h-[70vh] w-full rounded-xl bg-black" />
+          </div>
+        </div>
+      )}
     </div>
   )
 }
