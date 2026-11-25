@@ -309,6 +309,14 @@ async function getRobotsPolicy(source) {
   return pending
 }
 
+export async function getDirectoryRobotsStatus(source) {
+  const policy = await getRobotsPolicy(source)
+  return {
+    allowed: policy.allowed,
+    reason: policy.reason || '',
+  }
+}
+
 export async function directoryPathAllowed(source, url) {
   const normalized = normalizeDirectoryUrl(source, url)
   if (!normalized) return false
@@ -329,6 +337,21 @@ export async function fetchDirectoryPage(source, url, referer, fetchPage) {
   const parsed = new URL(normalized)
   if (!robotsPathAllowed(`${parsed.pathname}${parsed.search}`, policy.rules)) return null
   return fetchPage(normalized, referer || source.baseUrl, { 'User-Agent': BOT_USER_AGENT })
+}
+
+export async function fetchDirectoryResource(source, rawUrl, referer, fetchPage) {
+  const normalized = normalizeDirectoryUrl(source, rawUrl)
+  if (!normalized) return null
+  const requested = new URL(rawUrl, source.baseUrl)
+  const target = new URL(normalized)
+  target.search = requested.search
+  const policy = await getRobotsPolicy(source)
+  if (!policy.allowed) {
+    console.warn(`  [${source.id}] skipped: ${policy.reason}`)
+    return null
+  }
+  if (!robotsPathAllowed(`${target.pathname}${target.search}`, policy.rules)) return null
+  return fetchPage(target.toString(), referer || source.baseUrl, { 'User-Agent': BOT_USER_AGENT })
 }
 
 export async function collectDirectoryListings(source, { fetchPage, sleep, limit = 200 }) {
