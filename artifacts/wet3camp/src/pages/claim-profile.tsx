@@ -23,7 +23,8 @@ async function apiFetch(path: string, opts?: RequestInit) {
 }
 
 type Method = 'sms' | 'email' | 'video'
-type Step = 'choose-method' | 'otp-sent' | 'email-sent' | 'video-record' | 'verified' | 'submitted' | 'status'
+type Step = 'choose-method' | 'otp-sent' | 'email-otp-sent' | 'video-record' | 'verified' | 'submitted' | 'status'
+type ClaimMethods = { sms: boolean; email: boolean; video: boolean }
 
 const CLAIM_ACCOUNT_NOTICE = 'Creating an account won’t create another escort listing. If you already manage a profile, additional claims are reviewed as possible duplicates and approved duplicates are merged into your existing profile.'
 
@@ -40,15 +41,19 @@ export default function ClaimProfile() {
   const [profileLoading, setProfileLoading] = useState(true)
   const [profileError, setProfileError] = useState('')
   const [step, setStep] = useState<Step>('choose-method')
-  const [method, setMethod] = useState<Method>('sms')
+  const [method, setMethod] = useState<Method>('video')
   const [otp, setOtp] = useState('')
-  const [email, setEmail] = useState('')
+  const [emailOtp, setEmailOtp] = useState('')
+  const [emailDestination, setEmailDestination] = useState('')
+  const [claimMethods, setClaimMethods] = useState<ClaimMethods | null>(null)
+  const [methodsError, setMethodsError] = useState('')
   const [message, setMessage] = useState('')
   const [existingStatus, setExistingStatus] = useState<string | null>(null)
   const [mergeTarget, setMergeTarget] = useState<{ id: string; name: string } | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [info, setInfo] = useState('')
+  const [submissionInfo, setSubmissionInfo] = useState('')
   const [videoBlob, setVideoBlob] = useState<Blob | null>(null)
   const [videoUrl, setVideoUrl] = useState<string | null>(null)
   const [recording, setRecording] = useState(false)
@@ -85,6 +90,29 @@ export default function ClaimProfile() {
       })
       .catch(() => {})
   }, [escortId, user])
+
+  useEffect(() => {
+    if (!escortId || !user) return
+    let cancelled = false
+    setClaimMethods(null)
+    setMethodsError('')
+    apiFetch(`/escorts/${escortId}/claim-options`)
+      .then(d => {
+        if (cancelled) return
+        const methods = d.methods as ClaimMethods
+        if (!methods || typeof methods.video !== 'boolean') throw new Error('Invalid verification settings')
+        setClaimMethods(methods)
+        setMethod(methods.email ? 'email' : methods.sms && escort?.phone ? 'sms' : 'video')
+      })
+      .catch(() => {
+        if (!cancelled) setMethodsError('Available verification options could not be loaded. Please retry.')
+      })
+    return () => { cancelled = true }
+  }, [escortId, user, escort?.phone])
+
+  useEffect(() => () => {
+    if (videoUrl) URL.revokeObjectURL(videoUrl)
+  }, [videoUrl])
 
   if (!user) {
     const claimPath = `/claim/${encodeURIComponent(escortId ?? '')}`
@@ -138,7 +166,7 @@ export default function ClaimProfile() {
             <ol className="space-y-3 mb-7">
               {[
                 ['1', 'Sign in or create an account', oauthConfig.providers.google || oauthConfig.providers.telegram ? 'Google or Telegram can create your account automatically the first time.' : 'Use email to sign in or create your account.'],
-                ['2', 'Verify your connection', 'Choose SMS, email, or video verification.'],
+                ['2', 'Verify your connection', 'Choose an available verification option.'],
                 ['3', 'Wait for review', 'Our team reviews your request and lets you know the result.'],
               ].map(([number, title, detail]) => (
                 <li key={number} className="flex gap-3 items-start">
@@ -210,9 +238,9 @@ export default function ClaimProfile() {
   const sendOtp = async () => {
     setLoading(true); setError('')
     try {
-      await apiFetch(`/escorts/${escortId}/claim/send-otp`, { method: 'POST' })
+      const response = await apiFetch(`/escorts/${escortId}/claim/send-otp`, { method: 'POST' })
       setStep('otp-sent')
-      setInfo(`A verification code was sent to the phone number on this profile.`)
+      setInfo(response.message || 'A verification code was sent to the phone number on this profile.')
     } catch (e: any) {
       setError(e.message)
     }
@@ -233,15 +261,29 @@ export default function ClaimProfile() {
   }
 
   // ── Email flow ──────────────────────────────────────────────────────────────
-  const submitEmailClaim = async () => {
-    if (!email.trim()) { setError('Enter your email address'); return }
+  const sendEmailOtp = async () => {
     setLoading(true); setError('')
     try {
-      await apiFetch(`/escorts/${escortId}/claim`, {
+      const response = await apiFetch(`/escorts/${escortId}/claim/send-email-otp`, { method: 'POST' })
+      setEmailDestination(response.message || 'A verification code was sent to your account email.')
+      setEmailOtp('')
+      setStep('email-otp-sent')
+    } catch (e: any) {
+      setError(e.message)
+    }
+    setLoading(false)
+  }
+
+  const verifyEmailOtp = async () => {
+    if (!emailOtp.trim()) { setError('Enter the verification code'); return }
+    setLoading(true); setError('')
+    try {
+      await apiFetch(`/escorts/${escortId}/claim/verify-email-otp`, {
         method: 'POST',
-        body: JSON.stringify({ message: `Email verification claim. Email: ${email}. ${message}`, otp_verified: false }),
+        body: JSON.stringify({ code: emailOtp }),
       })
-      setStep('submitted')
+      setStep('verified')
+      setInfo('')
     } catch (e: any) {
       setError(e.message)
     }
@@ -251,26 +293,29 @@ export default function ClaimProfile() {
   // ── Video flow ──────────────────────────────────────────────────────────────
   const startRecording = async () => {
     setError('')
+    let stream: MediaStream | null = null
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+      const cameraStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+      stream = cameraStream
       if (videoRef.current) {
-        videoRef.current.srcObject = stream
-        videoRef.current.play()
+        videoRef.current.srcObject = cameraStream
+        void videoRef.current.play().catch(() => {})
       }
-      const recorder = new MediaRecorder(stream)
+      const recorder = new MediaRecorder(cameraStream)
       const chunks: Blob[] = []
       recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data) }
       recorder.onstop = () => {
         const blob = new Blob(chunks, { type: 'video/webm' })
         setVideoBlob(blob)
         setVideoUrl(URL.createObjectURL(blob))
-        stream.getTracks().forEach(t => t.stop())
+        cameraStream.getTracks().forEach(t => t.stop())
         if (videoRef.current) videoRef.current.srcObject = null
       }
       recorder.start()
       setMediaRecorder(recorder)
       setRecording(true)
     } catch {
+      stream?.getTracks().forEach(track => track.stop())
       setError('Camera access denied. Please allow camera permissions or upload a video instead.')
     }
   }
@@ -284,18 +329,48 @@ export default function ClaimProfile() {
   const handleVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+    if (!['video/webm', 'video/mp4', 'video/quicktime'].includes(file.type)) {
+      setError('Choose a WebM, MP4, or QuickTime video.')
+      e.target.value = ''
+      return
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      setError('The verification video must be no larger than 8 MB.')
+      e.target.value = ''
+      return
+    }
+    setError('')
     setVideoBlob(file)
     setVideoUrl(URL.createObjectURL(file))
   }
 
+  const blobToDataUrl = (blob: Blob) => new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onerror = () => reject(new Error('Could not read the verification video.'))
+    reader.onload = () => typeof reader.result === 'string'
+      ? resolve(reader.result)
+      : reject(new Error('Could not read the verification video.'))
+    reader.readAsDataURL(blob)
+  })
+
   const submitVideoClaim = async () => {
     if (!videoBlob) { setError('Please record or upload a video first.'); return }
+    if (videoBlob.size > 8 * 1024 * 1024) { setError('The verification video must be no larger than 8 MB.'); return }
     setLoading(true); setError('')
     try {
-      await apiFetch(`/escorts/${escortId}/claim`, {
+      const videoData = await blobToDataUrl(videoBlob)
+      const response = await apiFetch(`/escorts/${escortId}/claim`, {
         method: 'POST',
-        body: JSON.stringify({ message: `Video verification claim submitted. ${message}`, otp_verified: false }),
+        body: JSON.stringify({
+          verification_method: 'video',
+          verification_video: videoData,
+          message,
+        }),
       })
+      setSubmissionInfo(response.emailNotifications?.claimantSent
+        ? 'A confirmation email was sent to your account address.'
+        : 'Your request is saved. No email confirmation was sent, so check this page for updates.')
+      if (response.mergeTarget) setMergeTarget(response.mergeTarget)
       setStep('submitted')
     } catch (e: any) {
       setError(e.message)
@@ -307,7 +382,14 @@ export default function ClaimProfile() {
   const submitClaim = async () => {
     setLoading(true); setError('')
     try {
-      await apiFetch(`/escorts/${escortId}/claim`, { method: 'POST', body: JSON.stringify({ message, otp_verified: true }) })
+      const response = await apiFetch(`/escorts/${escortId}/claim`, {
+        method: 'POST',
+        body: JSON.stringify({ message, verification_method: method }),
+      })
+      setSubmissionInfo(response.emailNotifications?.claimantSent
+        ? 'A confirmation email was sent to your account address.'
+        : 'Your request is saved. No email confirmation was sent, so check this page for updates.')
+      if (response.mergeTarget) setMergeTarget(response.mergeTarget)
       setStep('submitted')
     } catch (e: any) {
       setError(e.message)
@@ -327,8 +409,6 @@ export default function ClaimProfile() {
   }
 
   const hasPhone = !!escort?.phone
-  const hasEmail = !!(escort as any)?.email
-
   return (
     <main className="min-h-screen bg-dark-bg flex flex-col lg:flex-row">
       <Sidebar />
@@ -376,7 +456,7 @@ export default function ClaimProfile() {
               <p className="text-sm text-text-muted mb-6">
                 {existingStatus === 'pending' && (mergeTarget
                   ? `Your duplicate claim is being reviewed. If approved, this listing will be merged into ${mergeTarget.name}.`
-                  : "Your claim is being reviewed by our team. We'll notify you once it's processed.")}
+                  : 'Your claim is being reviewed by our team. Check this page for updates. If email delivery is available, we’ll also send the result to your account address.')}
                 {existingStatus === 'approved' && (mergeTarget
                   ? `Your claim was approved and this listing was merged into ${mergeTarget.name}.`
                   : "Your claim was approved! You can now edit and manage this profile.")}
@@ -417,9 +497,32 @@ export default function ClaimProfile() {
               </div>
 
               <p className="text-[10px] text-text-muted uppercase tracking-widest mb-3">Choose verification method</p>
+              {methodsError && (
+                <div className="mb-4 rounded-xl border border-red-400/20 bg-red-400/10 p-3 text-sm text-red-300" role="alert">
+                  <p>{methodsError}</p>
+                  <button
+                    onClick={() => {
+                      setMethodsError('')
+                      setClaimMethods(null)
+                      apiFetch(`/escorts/${escortId}/claim-options`)
+                        .then(d => {
+                          setClaimMethods(d.methods)
+                          setMethod(d.methods.email ? 'email' : d.methods.sms && hasPhone ? 'sms' : 'video')
+                        })
+                        .catch(() => setMethodsError('Available verification options could not be loaded. Please retry.'))
+                    }}
+                    className="mt-2 text-xs font-bold underline"
+                  >
+                    Retry
+                  </button>
+                </div>
+              )}
+              {!claimMethods && !methodsError && (
+                <p className="mb-4 text-xs text-text-muted" role="status">Loading verification options…</p>
+              )}
               <div className="space-y-3 mb-6">
 
-                {hasPhone && (
+                {claimMethods?.sms && hasPhone && (
                   <button
                     onClick={() => setMethod('sms')}
                     className={`w-full flex items-center gap-4 p-4 rounded-2xl border transition-all text-left ${method === 'sms' ? 'border-[#8B0000] bg-[#8B0000]/10' : 'border-color bg-card-bg hover:border-[#8B0000]/40'}`}
@@ -435,7 +538,7 @@ export default function ClaimProfile() {
                   </button>
                 )}
 
-                <button
+                {claimMethods?.email && <button
                   onClick={() => setMethod('email')}
                   className={`w-full flex items-center gap-4 p-4 rounded-2xl border transition-all text-left ${method === 'email' ? 'border-[#8B0000] bg-[#8B0000]/10' : 'border-color bg-card-bg hover:border-[#8B0000]/40'}`}
                 >
@@ -444,12 +547,12 @@ export default function ClaimProfile() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold text-text-light">Email Verification</p>
-                    <p className="text-xs text-text-muted">{hasEmail ? `Send claim to email on this profile` : 'Submit your email — admin will verify'}</p>
+                    <p className="text-xs text-text-muted">Send a one-time code to your account email</p>
                   </div>
                   {method === 'email' && <CheckCircle2 size={18} className="text-[#8B0000] flex-shrink-0" />}
-                </button>
+                </button>}
 
-                <button
+                {claimMethods?.video && <button
                   onClick={() => setMethod('video')}
                   className={`w-full flex items-center gap-4 p-4 rounded-2xl border transition-all text-left ${method === 'video' ? 'border-[#8B0000] bg-[#8B0000]/10' : 'border-color bg-card-bg hover:border-[#8B0000]/40'}`}
                 >
@@ -458,23 +561,29 @@ export default function ClaimProfile() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold text-text-light">Live Video / Selfie</p>
-                    <p className="text-xs text-text-muted">Record a short selfie video or upload a short clip — admin will verify your face</p>
+                    <p className="text-xs text-text-muted">Record or upload a short selfie video for private admin review</p>
                   </div>
                   {method === 'video' && <CheckCircle2 size={18} className="text-[#8B0000] flex-shrink-0" />}
-                </button>
+                </button>}
               </div>
+              {claimMethods && !claimMethods.email && !claimMethods.video && !(claimMethods.sms && hasPhone) && (
+                <p className="mb-4 rounded-xl border border-amber-400/20 bg-amber-400/10 p-3 text-xs text-amber-200">
+                  No claim verification methods are ready. Please contact support.
+                </p>
+              )}
 
               {error && <p className="text-sm text-red-400 mb-4 p-3 bg-red-400/10 rounded-xl">{error}</p>}
 
               <button
                 onClick={() => {
                   setError('')
-                  if (method === 'sms' && hasPhone) sendOtp()
-                  else if (method === 'email') setStep('email-sent')
-                  else if (method === 'video') setStep('video-record')
+                  if (method === 'sms' && claimMethods?.sms && hasPhone) sendOtp()
+                  else if (method === 'email' && claimMethods?.email) sendEmailOtp()
+                  else if (method === 'video' && claimMethods?.video) setStep('video-record')
                   else setError('Please choose a verification method.')
                 }}
-                disabled={loading}
+                disabled={loading || !claimMethods || !!methodsError ||
+                  (!claimMethods.email && !claimMethods.video && !(claimMethods.sms && hasPhone))}
                 className="w-full py-3.5 bg-[#8B0000] text-white text-sm font-bold rounded-xl hover:bg-[#a00000] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {loading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <ChevronRight size={15} />}
@@ -506,7 +615,7 @@ export default function ClaimProfile() {
 
               <button
                 onClick={verifyOtp}
-                disabled={loading || otp.length < 4}
+                disabled={loading || otp.length !== 6}
                 className="w-full py-3.5 bg-[#8B0000] text-white text-sm font-bold rounded-xl hover:bg-[#a00000] transition-colors disabled:opacity-50 flex items-center justify-center gap-2 mb-3"
               >
                 {loading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <CheckCircle2 size={15} />}
@@ -521,46 +630,39 @@ export default function ClaimProfile() {
             </div>
           )}
 
-          {/* STEP: Email method */}
-          {step === 'email-sent' && (
+          {/* STEP: Email OTP */}
+          {step === 'email-otp-sent' && (
             <div>
               <div className="flex items-center gap-2 mb-4">
                 <Mail size={20} className="text-[#8B0000]" />
-                <h1 className="text-lg font-bold text-text-light">Email Verification</h1>
+                <h1 className="text-lg font-bold text-text-light">Enter Email Code</h1>
               </div>
-              <p className="text-sm text-text-muted mb-5 leading-relaxed">
-                {hasEmail
-                  ? `Enter your email address. If it matches the email on this profile, your claim will be fast-tracked for admin approval.`
-                  : `Enter your email so admin can contact you to verify your identity.`}
+              <p className="text-sm text-text-muted mb-5 leading-relaxed" role="status">
+                {emailDestination || 'A verification code was sent to your account email.'} The code expires in 10 minutes.
               </p>
-
-              <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Your Email Address</label>
               <input
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                placeholder="your@email.com"
-                className="w-full px-4 py-3.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted/40 focus:outline-none focus:border-[#8B0000] transition-all mb-4"
-              />
-
-              <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Note to admin (optional)</label>
-              <textarea
-                value={message}
-                onChange={e => setMessage(e.target.value)}
-                placeholder="e.g. This is my old listing, here's additional info to verify my identity…"
-                rows={3}
-                className="w-full px-4 py-3 bg-dark-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted/40 focus:outline-none focus:border-[#8B0000] transition-all resize-none mb-5"
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={6}
+                value={emailOtp}
+                onChange={e => setEmailOtp(e.target.value.replace(/\D/g, ''))}
+                placeholder="6-digit code"
+                className="w-full px-4 py-3.5 bg-dark-bg border border-color rounded-xl text-center text-2xl font-bold text-text-light tracking-[0.5em] placeholder-text-muted/40 focus:outline-none focus:border-[#8B0000] transition-all mb-4"
               />
 
               {error && <p className="text-sm text-red-400 mb-4 p-3 bg-red-400/10 rounded-xl">{error}</p>}
 
               <button
-                onClick={submitEmailClaim}
-                disabled={loading || !email.trim()}
-                className="w-full py-3.5 bg-[#8B0000] text-white text-sm font-bold rounded-xl hover:bg-[#a00000] transition-colors disabled:opacity-50 flex items-center justify-center gap-2 mb-3"
+                onClick={verifyEmailOtp}
+                disabled={loading || emailOtp.length !== 6}
+                className="w-full py-3.5 bg-[#8B0000] text-white text-sm font-bold rounded-xl hover:bg-[#a00000] transition-colors disabled:opacity-50 flex items-center justify-center gap-2 mb-2"
               >
                 {loading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <ChevronRight size={15} />}
-                Submit Claim via Email
+                Verify Email
+              </button>
+              <button onClick={sendEmailOtp} disabled={loading} className="w-full py-2 text-xs text-text-muted hover:text-text-light transition-colors disabled:opacity-50">
+                Didn't receive a code? Resend
               </button>
               <button onClick={() => setStep('choose-method')} className="w-full py-2 text-xs text-text-muted hover:text-text-light transition-colors">
                 ← Choose different method
@@ -576,14 +678,20 @@ export default function ClaimProfile() {
                 <h1 className="text-lg font-bold text-text-light">Video Verification</h1>
               </div>
               <p className="text-sm text-text-muted mb-5 leading-relaxed">
-                Record a short selfie video (5–15 seconds) holding a piece of paper with today's date and the name on this profile. Admin will review it to confirm your identity.
+                Record a short selfie video (5–15 seconds) holding a piece of paper with today’s date and the name on this profile. The clip is stored privately with your claim and only admins can view it.
               </p>
+
+              <video
+                ref={videoRef}
+                className={`w-full rounded-xl bg-dark-bg border-2 border-[#8B0000]/50 aspect-video object-cover ${recording ? 'block' : 'hidden'}`}
+                muted
+                playsInline
+              />
 
               {!videoUrl ? (
                 <div className="space-y-3 mb-5">
                   {!recording ? (
                     <>
-                      <video ref={videoRef} className="w-full rounded-xl bg-dark-bg border border-color aspect-video object-cover hidden" muted playsInline />
                       <button
                         onClick={startRecording}
                         className="w-full py-4 bg-[#8B0000]/15 border-2 border-dashed border-[#8B0000]/40 hover:border-[#8B0000] rounded-2xl text-[#8B0000] font-bold text-sm transition-all flex items-center justify-center gap-2"
@@ -601,11 +709,10 @@ export default function ClaimProfile() {
                       >
                         <Video size={16} /> Upload a Video
                       </button>
-                      <input ref={fileInputRef} type="file" accept="video/*" className="hidden" onChange={handleVideoUpload} />
+                      <input ref={fileInputRef} type="file" accept="video/webm,video/mp4,video/quicktime" className="hidden" onChange={handleVideoUpload} />
                     </>
                   ) : (
                     <div className="space-y-3">
-                      <video ref={videoRef} className="w-full rounded-xl bg-dark-bg border-2 border-[#8B0000]/50 aspect-video object-cover" muted playsInline />
                       <button
                         onClick={stopRecording}
                         className="w-full py-3.5 bg-[#EF4444] text-white font-bold rounded-xl transition-all animate-pulse flex items-center justify-center gap-2 text-sm"
@@ -661,7 +768,7 @@ export default function ClaimProfile() {
                 <h1 className="text-lg font-bold text-text-light">Identity Verified</h1>
               </div>
               <p className="text-sm text-text-muted mb-6">
-                Your phone number matched the profile. Add an optional note for the admin reviewing your claim.
+                Your {method === 'email' ? 'email address' : 'phone number'} is verified. Add an optional note for the admin reviewing your claim.
               </p>
 
               <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5">Note to admin (optional)</label>
@@ -695,7 +802,7 @@ export default function ClaimProfile() {
                 {mergeTarget
                   ? `Your request is under review. If approved, this listing will be merged into ${mergeTarget.name}; it won’t create a second managed profile.`
                   : 'Your profile claim is under review. Our team typically responds within 24 hours.'}
-                {' '}Check this page for updates.
+                {' '}{submissionInfo}
               </p>
               <button
                 onClick={() => setLocation(`/profile/${mergeTarget?.id ?? escortId}`)}
