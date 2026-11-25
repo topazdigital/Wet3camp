@@ -139,8 +139,8 @@ router.post('/auth/register', async (req, res) => {
             price_incall, price_outcall,
             price_incall_overnight, price_outcall_overnight,
             price_video,
-            available, verified, is_active)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?)`,
+             available, verified, is_active, approval_status)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?,?)`,
         [
           userId, name,
           parseInt(req.body.age ?? '0') || 0,
@@ -155,7 +155,7 @@ router.post('/auth/register', async (req, res) => {
           rateIncallOvernight  ? parseInt(rateIncallOvernight)  : 25000,
           rateOutcallOvernight ? parseInt(rateOutcallOvernight) : 30000,
           rateVideo          ? parseInt(rateVideo)          : 1500,
-          autoActive, autoActive,
+          autoActive, autoActive, requireApproval ? 'pending' : 'approved',
         ]
       )
       escortId = String((escResult as any).insertId)
