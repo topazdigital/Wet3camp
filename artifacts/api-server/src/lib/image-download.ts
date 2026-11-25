@@ -50,6 +50,7 @@ export async function downloadAndStoreImage(
   imageUrl: string,
   prefix = 'img',
   referer?: string,
+  allowedHosts?: string[],
 ): Promise<string | null> {
   if (!imageUrl || !imageUrl.startsWith('http')) return null
 
@@ -71,6 +72,10 @@ export async function downloadAndStoreImage(
     clearTimeout(timeout)
 
     if (!resp.ok) return null
+    if (allowedHosts?.length) {
+      const finalHost = new URL(resp.url).hostname.toLowerCase()
+      if (!allowedHosts.includes(finalHost)) return null
+    }
 
     const ct = resp.headers.get('content-type') ?? 'image/jpeg'
     if (!ct.startsWith('image/')) return null
