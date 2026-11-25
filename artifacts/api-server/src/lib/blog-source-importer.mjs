@@ -78,6 +78,19 @@ function isProfilePage(source, url) {
   return false
 }
 
+export function isExcludedBlogCandidate(source, url) {
+  try {
+    const parsed = new URL(url)
+    if (isProfilePage(source, url)) return true
+    const queryKeys = [...parsed.searchParams.keys()]
+    return queryKeys.some((key) =>
+      /filter|search|sort|location|city|service|category|view|page|order/i.test(key)
+    )
+  } catch {
+    return true
+  }
+}
+
 function isEditorialPath(url) {
   try {
     return /(?:^|\/)(?:blog|blogs|news|stories|articles|guides|updates)(?:\/|$)/i.test(new URL(url).pathname)
@@ -367,7 +380,7 @@ export async function parseBlogArticleHtml(html, pageUrl, source, overrides = {}
 function addCandidate(candidates, source, url, overrides = {}, excludedSourceUrls = new Set()) {
   const normalized = normalizedSourceUrl(source, url)
   if (!normalized || normalized.length > 500 || excludedSourceUrls.has(normalized) ||
-    isProfilePage(source, normalized) || candidates.has(normalized)) return
+    isExcludedBlogCandidate(source, normalized) || candidates.has(normalized)) return
   candidates.set(normalized, { url: normalized, overrides })
 }
 
