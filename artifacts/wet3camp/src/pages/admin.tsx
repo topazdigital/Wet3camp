@@ -123,10 +123,20 @@ async function startAdminViewAs(userId: string | number) {
 interface AdminEscort {
   id: string; name: string; city: string; tier: string
   online: boolean | number; is_active: boolean | number; verified: boolean | number
+  approval_status?: string | null
   featured?: boolean | number; price_hourly?: number; bookings_count?: number
   image?: string; user_id?: string | number | null; user_role?: string | null
   merged_into_id?: string | number | null
   source_site?: string | null; source_url?: string | null
+}
+
+function isPendingAdminEscort(escort: any) {
+  const status = String(escort.approval_status ?? '').toLowerCase()
+  return !escort.merged_into_id &&
+    !Boolean(escort.is_active) &&
+    !Boolean(escort.verified) &&
+    status !== 'rejected' &&
+    status !== 'approved'
 }
 
 const IMPORT_SOURCE_LABELS: Record<string, string> = {
@@ -914,19 +924,28 @@ function PendingApprovals() {
   const [reviewingEscort, setReviewingEscort] = useState<any>(null)
   const [reviewPhotos, setReviewPhotos] = useState<{profile:string|null; gallery:any[]}>({ profile: null, gallery: [] })
   const [reviewLoading, setReviewLoading] = useState(false)
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [actionError, setActionError] = useState('')
 
   useEffect(() => {
     fetchAllAdminEscorts('status=pending')
-      .then((data: any[]) => setEscorts(data.filter(e => !Boolean(e.is_active) && !Boolean(e.verified))))
+      .then((data: any[]) => setEscorts(data.filter(isPendingAdminEscort)))
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [])
 
-  const approve = async (id: string) => {
-    try { await adminFetch(`/admin/escorts/${id}/verify`, { method: 'POST' }); setEscorts(p => p.filter(e => e.id !== id)); if (reviewingEscort?.id === id) setReviewingEscort(null) } catch {}
-  }
-  const reject = async (id: string) => {
-    try { await adminFetch(`/admin/escorts/${id}/reject`, { method: 'POST' }); setEscorts(p => p.filter(e => e.id !== id)); if (reviewingEscort?.id === id) setReviewingEscort(null) } catch {}
+  const handleApprovalAction = async (id: string, action: 'verify' | 'reject') => {
+    setActionLoading(`${id}_${action}`)
+    setActionError('')
+    try {
+      await adminFetch(`/admin/escorts/${id}/${action}`, { method: 'POST' })
+      setEscorts((current) => current.filter((escort) => String(escort.id) !== String(id)))
+      if (String(reviewingEscort?.id) === String(id)) setReviewingEscort(null)
+    } catch (error: any) {
+      setActionError(error?.message || `Could not ${action === 'verify' ? 'approve' : 'reject'} this profile.`)
+    } finally {
+      setActionLoading(null)
+    }
   }
 
   const openReview = async (e: any) => {
@@ -943,20 +962,21 @@ function PendingApprovals() {
     <>
       <div className="bg-card-bg border border-color rounded-2xl p-4">
         <h3 className="text-sm font-bold text-text-light mb-3 flex items-center gap-2"><AlertTriangle size={14} className="text-[#FFD700]"/>Pending Approvals</h3>
+        {actionError && <p role="alert" data-testid="admin-approval-error" className="mb-3 text-xs text-[#EF4444]">{actionError}</p>}
         {loading && <div className="w-4 h-4 border-2 border-text-muted/30 border-t-text-muted rounded-full animate-spin mx-auto my-4"/>}
         {!loading && escorts.length === 0 && <p className="text-xs text-text-muted">No pending approvals.</p>}
         <div className="space-y-2">
           {escorts.slice(0,5).map(e=>(
-            <div key={e.id} className="flex items-center gap-3 p-3 bg-dark-bg rounded-xl border border-color/50">
+            <div key={e.id} data-testid={`row-pending-escort-${e.id}`} className="flex items-center gap-3 p-3 bg-dark-bg rounded-xl border border-color/50">
               {e.image
                 ? <img src={e.image} alt={e.name} className="w-8 h-8 rounded-full object-cover flex-shrink-0"/>
                 : <div className="w-8 h-8 rounded-full bg-[#8B0000]/20 flex items-center justify-center text-xs font-bold text-[#8B0000] flex-shrink-0">{(e.name||'?').charAt(0)}</div>
               }
               <div className="flex-1 min-w-0"><p className="text-xs font-semibold text-text-light truncate">{e.name}</p><p className="text-[10px] text-text-muted">{e.city||'—'} · {e.tier||'Standard'}</p></div>
               <div className="flex gap-1.5 flex-shrink-0">
-                <button onClick={() => openReview(e)} className="px-2.5 py-1 bg-[#2196F3]/20 text-[#2196F3] text-[10px] font-bold rounded-lg border border-[#2196F3]/30 hover:bg-[#2196F3]/30">Photos</button>
-                <button onClick={() => approve(e.id)} className="px-2.5 py-1 bg-[#28a745]/20 text-[#28a745] text-[10px] font-bold rounded-lg border border-[#28a745]/30 hover:bg-[#28a745]/30">Approve</button>
-                <button onClick={() => reject(e.id)}  className="px-2.5 py-1 bg-[#EF4444]/20 text-[#EF4444]  text-[10px] font-bold rounded-lg border border-[#EF4444]/30 hover:bg-[#EF4444]/30">Reject</button>
+                <button data-testid={`button-review-escort-${e.id}`} disabled={reviewLoading || !!actionLoading} onClick={() => openReview(e)} className="px-2.5 py-1 bg-[#2196F3]/20 text-[#2196F3] text-[10px] font-bold rounded-lg border border-[#2196F3]/30 hover:bg-[#2196F3]/30 disabled:opacity-50">Photos</button>
+                <button data-testid={`button-approve-escort-${e.id}`} disabled={!!actionLoading} onClick={() => handleApprovalAction(String(e.id), 'verify')} className="px-2.5 py-1 bg-[#28a745]/20 text-[#28a745] text-[10px] font-bold rounded-lg border border-[#28a745]/30 hover:bg-[#28a745]/30 disabled:opacity-50">{actionLoading === `${e.id}_verify` ? 'Approving…' : 'Approve'}</button>
+                <button data-testid={`button-reject-escort-${e.id}`} disabled={!!actionLoading} onClick={() => handleApprovalAction(String(e.id), 'reject')} className="px-2.5 py-1 bg-[#EF4444]/20 text-[#EF4444] text-[10px] font-bold rounded-lg border border-[#EF4444]/30 hover:bg-[#EF4444]/30 disabled:opacity-50">{actionLoading === `${e.id}_reject` ? 'Rejecting…' : 'Reject'}</button>
               </div>
             </div>
           ))}
@@ -1009,8 +1029,8 @@ function PendingApprovals() {
               )}
             </div>
             <div className="flex gap-3 p-4 border-t border-color">
-              <button onClick={() => reject(reviewingEscort.id)} className="flex-1 py-2.5 bg-[#EF4444]/20 text-[#EF4444] text-sm font-bold rounded-xl border border-[#EF4444]/30 hover:bg-[#EF4444]/30 transition-all">Reject</button>
-              <button onClick={() => approve(reviewingEscort.id)} className="flex-1 py-2.5 bg-[#28a745] text-white text-sm font-bold rounded-xl hover:bg-[#1e7e34] transition-all">Approve</button>
+              <button data-testid={`button-reject-reviewed-escort-${reviewingEscort.id}`} disabled={!!actionLoading} onClick={() => handleApprovalAction(String(reviewingEscort.id), 'reject')} className="flex-1 py-2.5 bg-[#EF4444]/20 text-[#EF4444] text-sm font-bold rounded-xl border border-[#EF4444]/30 hover:bg-[#EF4444]/30 transition-all disabled:opacity-50">{actionLoading === `${reviewingEscort.id}_reject` ? 'Rejecting…' : 'Reject'}</button>
+              <button data-testid={`button-approve-reviewed-escort-${reviewingEscort.id}`} disabled={!!actionLoading} onClick={() => handleApprovalAction(String(reviewingEscort.id), 'verify')} className="flex-1 py-2.5 bg-[#28a745] text-white text-sm font-bold rounded-xl hover:bg-[#1e7e34] transition-all disabled:opacity-50">{actionLoading === `${reviewingEscort.id}_verify` ? 'Approving…' : 'Approve'}</button>
             </div>
           </div>
         </div>
@@ -2667,21 +2687,29 @@ function EscortsTab() {
   }
 
   const handleApprove = async (id: string) => {
+    setActionError('')
     setActionLoading(id + '_approve')
     try {
       await adminFetch(`/admin/escorts/${id}/verify`, { method: 'POST' })
-      setEscorts(prev => prev.map(e => e.id === id ? { ...e, is_active: true, verified: true } : e))
-    } catch {}
-    setActionLoading(null)
+      setEscorts(prev => prev.map(e => e.id === id ? { ...e, is_active: true, verified: true, approval_status: 'approved' } : e))
+    } catch (error: any) {
+      setActionError(error?.message || 'Could not approve this profile.')
+    } finally {
+      setActionLoading(null)
+    }
   }
 
   const handleReject = async (id: string) => {
+    setActionError('')
     setActionLoading(id + '_reject')
     try {
       await adminFetch(`/admin/escorts/${id}/reject`, { method: 'POST' })
-      setEscorts(prev => prev.map(e => e.id === id ? { ...e, is_active: false, verified: false } : e))
-    } catch {}
-    setActionLoading(null)
+      setEscorts(prev => prev.map(e => e.id === id ? { ...e, is_active: false, verified: false, approval_status: 'rejected' } : e))
+    } catch (error: any) {
+      setActionError(error?.message || 'Could not reject this profile.')
+    } finally {
+      setActionLoading(null)
+    }
   }
 
   const handleFeature = async (escort: AdminEscort) => {
@@ -2718,12 +2746,12 @@ function EscortsTab() {
     }
   }
 
-  const pendingCount = escorts.filter(e => !e.merged_into_id && !Boolean(e.is_active) && !Boolean(e.verified)).length
+  const pendingCount = escorts.filter(isPendingAdminEscort).length
   const mergeableCount = escorts.filter(e => Number(e.is_active) === 1 && !e.merged_into_id).length
 
   const filtered = escorts.filter(e => {
     const matchSearch = !search || e.name?.toLowerCase().includes(search.toLowerCase()) || e.city?.toLowerCase().includes(search.toLowerCase())
-    const matchStatus = statusFilter === 'all' || (statusFilter === 'pending' ? (!e.merged_into_id && !Boolean(e.is_active) && !Boolean(e.verified)) : (Boolean(e.is_active) && !e.merged_into_id))
+    const matchStatus = statusFilter === 'all' || (statusFilter === 'pending' ? isPendingAdminEscort(e) : (Boolean(e.is_active) && !e.merged_into_id))
     return matchSearch && matchStatus
   })
 
@@ -2910,7 +2938,7 @@ function EscortsTab() {
                       <div className="flex gap-1.5 flex-wrap">
                         {e.merged_into_id ? (
                           <span className="rounded-lg border border-text-muted/20 bg-dark-bg px-2.5 py-1 text-[9px] font-bold text-text-muted">Archived redirect</span>
-                        ) : !Boolean(e.is_active) && !Boolean(e.verified) ? (
+                        ) : isPendingAdminEscort(e) ? (
                           <>
                             <button
                               onClick={() => handleApprove(e.id)}
@@ -3559,15 +3587,15 @@ function BlogMediaToolbar({ onInsert }: { onInsert: (snippet: string) => void })
 
   return (
     <div className="flex flex-wrap items-center gap-2 mb-1.5">
-      <input ref={imgInputRef} type="file" accept="image/*" className="hidden"
+      <input ref={imgInputRef} type="file" accept="image/*" data-testid="input-blog-image-upload" className="hidden"
         onChange={e => { const f = e.target.files?.[0]; if (f) upload(f, 'image'); e.target.value = '' }} />
-      <input ref={vidInputRef} type="file" accept="video/mp4,video/webm,video/quicktime" className="hidden"
+      <input ref={vidInputRef} type="file" accept="video/mp4,video/webm,video/quicktime" data-testid="input-blog-video-upload" className="hidden"
         onChange={e => { const f = e.target.files?.[0]; if (f) upload(f, 'video'); e.target.value = '' }} />
-      <button type="button" disabled={!!uploading} onClick={() => imgInputRef.current?.click()}
+      <button type="button" data-testid="button-insert-blog-image" disabled={!!uploading} onClick={() => imgInputRef.current?.click()}
         className="px-2.5 py-1.5 bg-dark-bg border border-color text-[10px] text-text-light rounded-lg hover:border-[#8B0000]/50 transition-all disabled:opacity-50 flex items-center gap-1.5">
         <Camera size={11} /> {uploading === 'image' ? 'Uploading…' : 'Insert Image'}
       </button>
-      <button type="button" disabled={!!uploading} onClick={() => vidInputRef.current?.click()}
+      <button type="button" data-testid="button-insert-blog-video" disabled={!!uploading} onClick={() => vidInputRef.current?.click()}
         className="px-2.5 py-1.5 bg-dark-bg border border-color text-[10px] text-text-light rounded-lg hover:border-[#8B0000]/50 transition-all disabled:opacity-50 flex items-center gap-1.5">
         <Radio size={11} /> {uploading === 'video' ? 'Uploading…' : 'Insert Video'}
       </button>
@@ -3584,6 +3612,7 @@ function AdminBlog() {
   const [saving, setSaving] = useState(false)
   const [loadError, setLoadError] = useState('')
   const [importing, setImporting] = useState(false)
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [importStatus, setImportStatus] = useState('')
   const [importSources, setImportSources] = useState<AdminBlogImportSourceResult[]>([])
   const contentRef = useRef<HTMLTextAreaElement>(null)
@@ -3609,6 +3638,7 @@ function AdminBlog() {
   const save = async () => {
     if (!editing) return
     setSaving(true)
+    setLoadError('')
     try {
       const payload = {
         title: editing.title, excerpt: editing.excerpt, content: editing.content,
@@ -3616,7 +3646,7 @@ function AdminBlog() {
         published: editing.published,
       }
       if (editing.id) {
-        await adminFetch(`/admin/blog/${editing.id}`, { method: 'PUT', body: JSON.stringify(payload) })
+        await adminFetch(`/admin/blog/${editing.id}/update`, { method: 'POST', body: JSON.stringify(payload) })
       } else {
         await adminFetch('/admin/blog', { method: 'POST', body: JSON.stringify(payload) })
       }
@@ -3624,7 +3654,7 @@ function AdminBlog() {
       setSaved(true); setTimeout(() => setSaved(false), 2000)
       setEditing(null); setCreating(false)
     } catch (err: any) {
-      setLoadError('Failed to save post.')
+      setLoadError(err?.message ? `Failed to save post: ${err.message}` : 'Failed to save post.')
     } finally {
       setSaving(false)
     }
@@ -3632,17 +3662,29 @@ function AdminBlog() {
 
   const deletePost = async (id: string) => {
     if (!window.confirm('Delete this article? This cannot be undone.')) return
+    setActionLoading(`${id}_delete`)
+    setLoadError('')
     try {
-      await adminFetch(`/admin/blog/${id}`, { method: 'DELETE' })
+      await adminFetch(`/admin/blog/${id}/delete`, { method: 'POST' })
       setPosts(p => p.filter(x => x.id !== id))
-    } catch { setLoadError('Failed to delete post.') }
+    } catch (error: any) {
+      setLoadError(error?.message ? `Failed to delete post: ${error.message}` : 'Failed to delete post.')
+    } finally {
+      setActionLoading(null)
+    }
   }
 
   const togglePublish = async (id: string, currentlyPublished: boolean) => {
+    setActionLoading(`${id}_publish`)
+    setLoadError('')
     try {
-      await adminFetch(`/admin/blog/${id}/publish`, { method: 'PATCH', body: JSON.stringify({ published: !currentlyPublished }) })
-      setPosts(posts.map(p => p.id === id ? { ...p, published: !currentlyPublished } : p))
-    } catch { setLoadError('Failed to update publish state.') }
+      const result = await adminFetch(`/admin/blog/${id}/publish`, { method: 'POST', body: JSON.stringify({ published: !currentlyPublished }) })
+      setPosts(current => current.map(p => p.id === id ? { ...p, published: Boolean(result.published) } : p))
+    } catch (error: any) {
+      setLoadError(error?.message ? `Failed to update publish state: ${error.message}` : 'Failed to update publish state.')
+    } finally {
+      setActionLoading(null)
+    }
   }
 
   const importSourceBlogs = async () => {
@@ -3657,14 +3699,14 @@ function AdminBlog() {
       })
       while (job.status === 'running') {
         setImportSources(job.sources ?? [])
-        setImportStatus(`Checking approved sites… ${job.imported ?? 0} drafts imported`)
+        setImportStatus(`Checking approved sites… ${job.imported ?? 0} articles published`)
         await new Promise(resolve => setTimeout(resolve, 2000))
         job = await adminFetch(`/admin/blog/import-sources/${encodeURIComponent(job.jobId)}`)
       }
       setImportSources(job.sources ?? [])
       await loadPosts()
       if (job.status === 'failed') throw new Error(job.error || 'The blog import did not finish.')
-      setImportStatus(`Import finished: ${job.imported ?? 0} new drafts, ${job.skipped ?? 0} already imported.`)
+      setImportStatus(`Import finished: ${job.imported ?? 0} new articles published, ${job.skipped ?? 0} already imported.`)
     } catch (err: any) {
       setLoadError(err?.message || 'Failed to import source blogs.')
       setImportStatus('')
@@ -3709,7 +3751,7 @@ function AdminBlog() {
     return (
       <div className="max-w-2xl space-y-4">
         <div className="flex items-center gap-3 mb-2">
-          <button onClick={() => { setEditing(null); setCreating(false) }} className="text-xs text-text-muted hover:text-text-light">← Back</button>
+          <button data-testid="button-back-blog-editor" onClick={() => { setEditing(null); setCreating(false) }} className="text-xs text-text-muted hover:text-text-light">← Back</button>
           <h3 className="text-sm font-black text-text-light">{creating ? 'New Article' : 'Edit Article'}</h3>
         </div>
         {form.sourceUrl && (
@@ -3753,10 +3795,10 @@ function AdminBlog() {
         </div>
         {loadError && <p className="text-[11px] text-[#EF4444]">{loadError}</p>}
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-          <button onClick={() => set('published', !form.published)} className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold border transition-all ${form.published ? 'bg-[#28a745]/20 border-[#28a745]/40 text-[#28a745]' : 'bg-dark-bg border-color text-text-muted'}`}>
+          <button data-testid="button-toggle-blog-published" onClick={() => set('published', !form.published)} className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold border transition-all ${form.published ? 'bg-[#28a745]/20 border-[#28a745]/40 text-[#28a745]' : 'bg-dark-bg border-color text-text-muted'}`}>
             {form.published ? '● Published' : '○ Draft'}
           </button>
-          <button onClick={save} disabled={saving} className={`px-5 py-2 rounded-xl text-xs font-bold transition-all disabled:opacity-60 ${saved ? 'bg-[#28a745] text-white' : 'bg-[#8B0000] text-white hover:bg-[#a00000]'}`}>
+          <button data-testid="button-save-blog-article" onClick={save} disabled={saving} className={`px-5 py-2 rounded-xl text-xs font-bold transition-all disabled:opacity-60 ${saved ? 'bg-[#28a745] text-white' : 'bg-[#8B0000] text-white hover:bg-[#a00000]'}`}>
             {saved ? '✓ Saved' : saving ? 'Saving…' : 'Save Article'}
           </button>
           {form.published && <span className="text-[10px] text-text-muted">Publishing instantly pings Bing/Yandex for fast indexing.</span>}
@@ -3773,11 +3815,11 @@ function AdminBlog() {
           <p className="text-[10px] text-text-muted mt-0.5">{posts.length} articles total · {posts.filter(p=>p.published).length} published</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <button onClick={importSourceBlogs} disabled={importing} className="px-3 py-2 bg-dark-bg border border-color text-text-light text-xs font-bold rounded-xl hover:border-[#FFD700]/50 transition-all flex items-center gap-1.5 disabled:opacity-60">
+          <button data-testid="button-import-approved-blogs" onClick={importSourceBlogs} disabled={importing} className="px-3 py-2 bg-dark-bg border border-color text-text-light text-xs font-bold rounded-xl hover:border-[#FFD700]/50 transition-all flex items-center gap-1.5 disabled:opacity-60">
             <RefreshCw size={12} className={importing ? 'animate-spin' : ''} />
             {importing ? 'Importing blogs…' : 'Import from approved sites'}
           </button>
-          <button onClick={() => { setCreating(true); setEditing({ ...blank }) }} className="px-3 py-2 bg-[#8B0000] text-white text-xs font-bold rounded-xl hover:bg-[#a00000] transition-all flex items-center gap-1.5">
+          <button data-testid="button-new-blog-article" onClick={() => { setCreating(true); setEditing({ ...blank }) }} className="px-3 py-2 bg-[#8B0000] text-white text-xs font-bold rounded-xl hover:bg-[#a00000] transition-all flex items-center gap-1.5">
             + New Article
           </button>
         </div>
@@ -3790,7 +3832,7 @@ function AdminBlog() {
           <ul className="mt-2 space-y-1">
             {importSources.map(source => (
               <li key={source.id} className="text-[10px] text-text-muted">
-                {source.name}: {source.imported} drafts from {source.parsed} articles found
+                {source.name}: {source.imported} articles published from {source.parsed} found
                 {source.error ? ` · ${source.error}` : ''}
               </li>
             ))}
@@ -3813,11 +3855,11 @@ function AdminBlog() {
               {post.published ? 'Published' : 'Draft'}
             </span>
             <div className="flex w-full items-center justify-end gap-1.5 flex-wrap sm:w-auto sm:flex-shrink-0">
-              <button onClick={() => togglePublish(post.id, post.published)} className="px-2 py-1 bg-dark-bg border border-color text-[9px] text-text-muted rounded-lg hover:border-[#8B0000]/50 transition-all">
-                {post.published ? 'Unpublish' : 'Publish'}
+              <button data-testid={`button-blog-publish-${post.id}`} disabled={!!actionLoading} onClick={() => togglePublish(post.id, post.published)} className="px-2 py-1 bg-dark-bg border border-color text-[9px] text-text-muted rounded-lg hover:border-[#8B0000]/50 transition-all disabled:opacity-50">
+                {actionLoading === `${post.id}_publish` ? 'Saving…' : post.published ? 'Unpublish' : 'Publish'}
               </button>
-              <button onClick={() => startEdit(post.id)} className="px-2 py-1 bg-[#8B0000]/20 border border-[#8B0000]/30 text-[#8B0000] text-[9px] rounded-lg hover:bg-[#8B0000]/30 transition-all">Edit</button>
-              <button onClick={() => deletePost(post.id)} className="px-2 py-1 bg-[#EF4444]/20 border border-[#EF4444]/30 text-[#EF4444] text-[9px] rounded-lg hover:bg-[#EF4444]/30 transition-all">Delete</button>
+              <button data-testid={`button-blog-edit-${post.id}`} disabled={!!actionLoading} onClick={() => startEdit(post.id)} className="px-2 py-1 bg-[#8B0000]/20 border border-[#8B0000]/30 text-[#8B0000] text-[9px] rounded-lg hover:bg-[#8B0000]/30 transition-all disabled:opacity-50">Edit</button>
+              <button data-testid={`button-blog-delete-${post.id}`} disabled={!!actionLoading} onClick={() => deletePost(post.id)} className="px-2 py-1 bg-[#EF4444]/20 border border-[#EF4444]/30 text-[#EF4444] text-[9px] rounded-lg hover:bg-[#EF4444]/30 transition-all disabled:opacity-50">{actionLoading === `${post.id}_delete` ? 'Deleting…' : 'Delete'}</button>
             </div>
           </div>
         ))}
