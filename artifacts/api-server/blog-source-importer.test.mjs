@@ -1,6 +1,10 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { BLOG_IMPORT_SOURCES, parseBlogArticleHtml } from './src/lib/blog-source-importer.mjs'
+import {
+  BLOG_IMPORT_SOURCES,
+  isExcludedBlogCandidate,
+  parseBlogArticleHtml,
+} from './src/lib/blog-source-importer.mjs'
 
 const source = {
   id: 'raha-ke',
@@ -13,6 +17,19 @@ test('blog discovery uses only NairobiRaha and the ten approved directories', ()
   assert.deepEqual(
     BLOG_IMPORT_SOURCES.map((entry) => entry.id),
     ['nairobiraha', 'rahaescorts', 'raha-ke', 'toplesskenya', 'nairobihot', 'kenyaraha', 'escortamus', 'rahaanairobi', 'mahabakenya', 'lovebiteglobal', 'ladys-one']
+  )
+})
+
+test('blog discovery excludes profile-filter query URLs but accepts real post URLs', () => {
+  const toplessKenya = BLOG_IMPORT_SOURCES.find((entry) => entry.id === 'toplesskenya')
+  assert.ok(toplessKenya)
+  assert.equal(
+    isExcludedBlogCandidate(toplessKenya, 'https://toplesskenya.com/?profile-filter-filter%5Bservices%5D=massage'),
+    true,
+  )
+  assert.equal(
+    isExcludedBlogCandidate(toplessKenya, 'https://toplesskenya.com/sexual-health-guide/'),
+    false,
   )
 })
 
