@@ -6,6 +6,7 @@ import {
   getDirectorySource,
   isSourceSelected,
   isDirectoryProfileUrl,
+  fetchDirectoryResource,
   normalizeDirectoryUrl,
   parseRobotsRules,
   robotsPathAllowed,
@@ -48,6 +49,42 @@ test('directory URLs stay on the approved source host and use HTTPS', () => {
   )
   assert.equal(normalizeDirectoryUrl(source, 'https://example.com/escort/example/'), null)
   assert.equal(normalizeDirectoryUrl(source, 'javascript:alert(1)'), null)
+})
+
+test('directory resource fetch preserves query pages and checks their robots rules', async () => {
+  const originalFetch = globalThis.fetch
+  const source = {
+    id: 'blog-resource-query-test',
+    name: 'Blog query test',
+    baseUrl: 'https://blog-query-test.example',
+    hosts: ['blog-query-test.example', 'www.blog-query-test.example'],
+  }
+  globalThis.fetch = async () => {
+    const response = new Response(
+      'User-agent: *\nAllow: /wp-json/\nDisallow: /wp-json/wp/v2/posts/?page=3\n',
+      { status: 200, headers: { 'content-type': 'text/plain' } },
+    )
+    Object.defineProperty(response, 'url', { value: 'https://blog-query-test.example/robots.txt' })
+    return response
+  }
+  try {
+    const allowed = await fetchDirectoryResource(
+      source,
+      'https://www.blog-query-test.example/wp-json/wp/v2/posts/?per_page=30&page=2',
+      undefined,
+      async (url) => url,
+    )
+    const blocked = await fetchDirectoryResource(
+      source,
+      'https://www.blog-query-test.example/wp-json/wp/v2/posts/?page=3',
+      undefined,
+      async (url) => url,
+    )
+    assert.equal(allowed, 'https://blog-query-test.example/wp-json/wp/v2/posts/?per_page=30&page=2')
+    assert.equal(blocked, null)
+  } finally {
+    globalThis.fetch = originalFetch
+  }
 })
 
 test('profile URL checks reject archives and unrelated locations', () => {
