@@ -351,7 +351,7 @@ router.patch('/admin/claims/:id/approve', requireAuth, async (req: AuthRequest, 
           error.statusCode = 409
           throw error
         }
-        await query('UPDATE escorts SET user_id = ?, verified = 1 WHERE id = ?', [claim.user_id, claim.escort_id])
+        await query("UPDATE escorts SET user_id = ?, verified = 1, approval_status = 'approved' WHERE id = ?", [claim.user_id, claim.escort_id])
       }
 
       await query("UPDATE users SET role = 'escort' WHERE id = ? AND role = 'user'", [claim.user_id])
