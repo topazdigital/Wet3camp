@@ -109,7 +109,7 @@ async function runBlogSourceImport(job: BlogImportJob, sourceId: string) {
             `INSERT INTO blog_posts
                (slug, title, excerpt, content, category, tags, image_url, read_time,
                 seo_title, seo_description, source_url, author, published, published_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`,
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
             [
               slug,
               article.title,
@@ -545,7 +545,7 @@ router.post('/admin/blog', requireAuth, requireAdmin, async (req: AuthRequest, r
 })
 
 // ── PUT /api/admin/blog/:id — update an existing post ──────────────────────────
-router.put('/admin/blog/:id', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+async function updateAdminBlogPost(req: AuthRequest, res: any) {
   const pool = getPool()
   if (!pool) { res.status(503).json({ message: 'No DB' }); return }
   try {
@@ -587,16 +587,23 @@ router.put('/admin/blog/:id', requireAuth, requireAdmin, async (req: AuthRequest
     console.error('[PUT /api/admin/blog/:id]', err?.message)
     res.status(500).json({ message: 'Failed to update post', detail: err?.message })
   }
-})
+}
+
+router.put('/admin/blog/:id', requireAuth, requireAdmin, updateAdminBlogPost)
+router.post('/admin/blog/:id/update', requireAuth, requireAdmin, updateAdminBlogPost)
 
 // ── PATCH /api/admin/blog/:id/publish — toggle publish state quickly ──────────
-router.patch('/admin/blog/:id/publish', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+async function setAdminBlogPublishState(req: AuthRequest, res: any) {
   const pool = getPool()
   if (!pool) { res.status(503).json({ message: 'No DB' }); return }
   try {
     const { id } = req.params
-    const { published } = req.body as { published: boolean }
-    const [rows] = await pool.query<any[]>('SELECT slug, published_at FROM blog_posts WHERE id = ? LIMIT 1', [id])
+    const { published } = req.body as { published?: unknown }
+    if (typeof published !== 'boolean') {
+      res.status(400).json({ message: 'A published boolean is required' })
+      return
+    }
+    const [rows] = await pool.query<any[]>('SELECT slug, published, published_at FROM blog_posts WHERE id = ? LIMIT 1', [id])
     const post = (rows as any[])[0]
     if (!post) { res.status(404).json({ message: 'Post not found' }); return }
 
@@ -605,15 +612,18 @@ router.patch('/admin/blog/:id/publish', requireAuth, requireAdmin, async (req: A
       [published ? 1 : 0, id]
     )
 
-    if (published) submitToIndexNow([blogPostUrl(post.slug)]).catch(() => {})
-    res.json({ success: true })
+    if (published && !post.published) submitToIndexNow([blogPostUrl(post.slug)]).catch(() => {})
+    res.json({ success: true, published })
   } catch (err: any) {
     res.status(500).json({ message: 'Failed to toggle publish state' })
   }
-})
+}
+
+router.patch('/admin/blog/:id/publish', requireAuth, requireAdmin, setAdminBlogPublishState)
+router.post('/admin/blog/:id/publish', requireAuth, requireAdmin, setAdminBlogPublishState)
 
 // ── DELETE /api/admin/blog/:id ──────────────────────────────────────────────────
-router.delete('/admin/blog/:id', requireAuth, requireAdmin, async (req: AuthRequest, res) => {
+async function deleteAdminBlogPost(req: AuthRequest, res: any) {
   const pool = getPool()
   if (!pool) { res.status(503).json({ message: 'No DB' }); return }
   try {
@@ -622,7 +632,10 @@ router.delete('/admin/blog/:id', requireAuth, requireAdmin, async (req: AuthRequ
   } catch (err: any) {
     res.status(500).json({ message: 'Failed to delete post' })
   }
-})
+}
+
+router.delete('/admin/blog/:id', requireAuth, requireAdmin, deleteAdminBlogPost)
+router.post('/admin/blog/:id/delete', requireAuth, requireAdmin, deleteAdminBlogPost)
 
 // ── POST /api/admin/blog/generate — manually trigger AI post generation ───────
 router.post('/admin/blog/generate', requireAuth, requireAdmin, async (req, res) => {
