@@ -478,16 +478,45 @@ router.get('/admin/blog', requireAuth, requireAdmin, async (_req: AuthRequest, r
               published, published_at, updated_at, seo_title, seo_description
        FROM blog_posts ORDER BY COALESCE(updated_at, published_at) DESC, id DESC LIMIT 500`
     )
+    const [draftCountRows] = await pool.query<any[]>(
+      "SELECT COUNT(*) AS draft_count FROM blog_posts WHERE published = 0 AND source_url IS NOT NULL AND source_url <> ''"
+    )
     res.json({
       posts: (rows as any[]).map((r: any) => ({
         ...r,
         tags: typeof r.tags === 'string' ? JSON.parse(r.tags || '[]') : (r.tags ?? []),
         published: !!r.published,
       })),
+      importedDraftCount: Number((draftCountRows as any[])[0]?.draft_count ?? 0),
     })
   } catch (err: any) {
     console.error('[GET /api/admin/blog]', err?.message)
     res.status(500).json({ posts: [], message: 'Failed to load posts' })
+  }
+})
+
+// ── POST /api/admin/blog/publish-imported-drafts — publish legacy imports ─────
+router.post('/admin/blog/publish-imported-drafts', requireAuth, requireAdmin, async (_req: AuthRequest, res) => {
+  const pool = getPool()
+  if (!pool) { res.status(503).json({ message: 'No DB' }); return }
+  try {
+    const [draftRows] = await pool.query<any[]>(
+      "SELECT slug FROM blog_posts WHERE published = 0 AND source_url IS NOT NULL AND source_url <> ''"
+    )
+    const slugs = (draftRows as any[]).map((row) => String(row.slug || '').trim()).filter(Boolean)
+    const [result] = await pool.query<any>(
+      `UPDATE blog_posts
+       SET published = 1, published_at = COALESCE(published_at, NOW()), updated_at = NOW()
+       WHERE published = 0 AND source_url IS NOT NULL AND source_url <> ''`
+    )
+    const published = Number((result as any)?.affectedRows ?? slugs.length)
+    if (published > 0 && slugs.length > 0) {
+      submitToIndexNow(slugs.map(blogPostUrl)).catch(() => {})
+    }
+    res.json({ success: true, published })
+  } catch (err: any) {
+    console.error('[POST /api/admin/blog/publish-imported-drafts]', err?.message)
+    res.status(500).json({ message: 'Failed to publish imported drafts' })
   }
 })
 
