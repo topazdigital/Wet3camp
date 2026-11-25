@@ -9,9 +9,9 @@ import { Clock, Tag, ChevronRight, Search, Rss } from 'lucide-react'
 
 export default function Blog() {
   useSEO({
-    title: 'Escort Blog Kenya — Tips, Guides & News | Wet3Camp',
-    description: 'Read escort guides, safety tips, city-by-city directories and platform news from Wet3 Camp.',
-    keywords: 'escort blog Kenya, Nairobi escort guide, Mombasa escort guide, escort safety tips, Kenya escort news, escort directory blog',
+    title: 'Blog | Wet3Camp',
+    description: 'Read stories, advice and updates from Wet3Camp.',
+    keywords: 'Wet3Camp blog, stories, advice, updates',
     canonicalPath: '/blog',
   })
 
@@ -72,38 +72,32 @@ export default function Blog() {
       <Sidebar />
       <div className="flex-1 min-w-0 mobile-bottom-safe lg:pb-0">
         <Header />
-        <main className="max-w-5xl mx-auto px-4 py-8">
-
-          {/* Header */}
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <Rss size={16} className="text-[#8B0000]" />
-                <span className="text-[10px] text-[#8B0000] font-bold uppercase tracking-widest">Wet3Camp Blog</span>
+        <main className="mx-auto w-full max-w-6xl px-3 py-4 sm:px-4 sm:py-5">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-2">
+              <Rss size={15} className="shrink-0 text-[#8B0000]" />
+              <div>
+                <h1 className="text-xl font-black leading-tight text-text-light">Blog</h1>
+                <p className="text-xs text-text-muted">Stories, advice and updates from Wet3Camp</p>
               </div>
-              <h1 className="text-2xl font-black text-text-light">Escort Guides & News</h1>
-              <p className="text-sm text-text-muted mt-1">Tips, city guides, safety advice and platform news</p>
+            </div>
+            <div className="relative w-full sm:max-w-xs">
+              <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted" />
+              <input
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                placeholder="Search articles…"
+                className="w-full rounded-xl border border-color bg-card-bg py-2 pl-9 pr-4 text-sm text-text-light placeholder:text-text-muted transition-all focus:border-[#8B0000] focus:outline-none"
+              />
             </div>
           </div>
 
-          {/* Search */}
-          <div className="relative mb-5">
-            <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted" />
-            <input
-              value={query}
-              onChange={e => setQuery(e.target.value)}
-              placeholder="Search articles…"
-              className="w-full pl-9 pr-4 py-2.5 bg-card-bg border border-color rounded-xl text-sm text-text-light placeholder-text-muted focus:outline-none focus:border-[#8B0000] transition-all"
-            />
-          </div>
-
-          {/* Category filters */}
-          <div className="flex gap-2 flex-wrap mb-8">
+          <div className="mb-5 flex gap-1.5 overflow-x-auto pb-1">
             {['All', ...categories].map(cat => (
               <button
                 key={cat}
                 onClick={() => setSelected(cat)}
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${selected === cat ? 'bg-[#8B0000] text-white' : 'bg-card-bg border border-color text-text-muted hover:border-[#8B0000]/50 hover:text-text-light'}`}
+                className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-all ${selected === cat ? 'bg-[#8B0000] text-white' : 'border border-color bg-card-bg text-text-muted hover:border-[#8B0000]/50 hover:text-text-light'}`}
               >
                 {cat}
               </button>
@@ -118,21 +112,21 @@ export default function Blog() {
 
           {/* Featured post */}
           {featured && (
-            <Link href={`/blog/${featured.slug}`} className="block mb-8 group">
-              <div className="bg-card-bg border border-color rounded-2xl overflow-hidden hover:border-[#8B0000]/40 transition-all">
-                <div className="h-52 overflow-hidden">
+            <Link href={`/blog/${featured.slug}`} className="group mb-5 block">
+              <div className="overflow-hidden rounded-2xl border border-color bg-card-bg transition-all hover:border-[#8B0000]/40 md:grid md:grid-cols-[0.9fr_1.1fr]">
+                <div className="h-40 overflow-hidden sm:h-52 md:h-full md:min-h-[220px]">
                   {featured.imageUrl
-                    ? <img src={featured.imageUrl} alt={featured.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    ? <img src={featured.imageUrl} alt={featured.title} loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
                     : <div className="flex h-full items-center justify-center bg-dark-bg text-xs font-bold uppercase tracking-widest text-text-muted">{featured.category}</div>}
                 </div>
-                <div className="p-5">
-                  <div className="flex items-center gap-3 mb-3">
-                    <span className="px-2 py-0.5 bg-[#8B0000]/20 text-[#8B0000] text-[10px] font-bold uppercase tracking-wider rounded-full">{featured.category}</span>
+                <div className="p-4 sm:p-5 md:self-center">
+                  <div className="mb-2 flex flex-wrap items-center gap-2">
+                    <span className="max-w-full truncate rounded-full bg-[#8B0000]/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#8B0000]">{featured.category}</span>
                     <span className="text-[10px] text-text-muted flex items-center gap-1"><Clock size={10} />{featured.readTime} min read</span>
                     <span className="text-[10px] text-text-muted">{featured.publishedAt}</span>
                   </div>
-                  <h2 className="text-xl font-black text-text-light mb-2 group-hover:text-[#FFD700] transition-colors leading-tight">{featured.title}</h2>
-                  <p className="text-sm text-text-muted line-clamp-2 mb-4">{featured.excerpt}</p>
+                  <h2 className="mb-2 text-lg font-black leading-tight text-text-light transition-colors group-hover:text-[#FFD700] sm:text-xl">{featured.title}</h2>
+                  <p className="mb-3 line-clamp-2 text-sm text-text-muted">{featured.excerpt}</p>
                   <div className="flex items-center gap-2 text-[#8B0000] text-xs font-bold">
                     Read Article <ChevronRight size={12} />
                   </div>
@@ -143,18 +137,18 @@ export default function Blog() {
 
           {/* Rest of posts */}
           {rest.length > 0 && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-3">
               {rest.map(post => (
                 <Link key={post.id} href={`/blog/${post.slug}`} className="block group">
-                  <div className="bg-card-bg border border-color rounded-2xl overflow-hidden hover:border-[#8B0000]/40 transition-all h-full flex flex-col">
-                    <div className="h-36 overflow-hidden">
+                  <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-color bg-card-bg transition-all hover:border-[#8B0000]/40">
+                    <div className="aspect-[16/8] overflow-hidden">
                       {post.imageUrl
-                        ? <img src={post.imageUrl} alt={post.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                        ? <img src={post.imageUrl} alt={post.title} loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
                         : <div className="flex h-full items-center justify-center bg-dark-bg text-[10px] font-bold uppercase tracking-widest text-text-muted">{post.category}</div>}
                     </div>
-                    <div className="p-4 flex flex-col flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="px-2 py-0.5 bg-[#8B0000]/20 text-[#8B0000] text-[9px] font-bold uppercase tracking-wider rounded-full">{post.category}</span>
+                    <div className="flex flex-1 flex-col p-3.5 sm:p-4">
+                      <div className="mb-2 flex items-center gap-2">
+                        <span className="max-w-[70%] truncate rounded-full bg-[#8B0000]/20 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-[#8B0000]">{post.category}</span>
                         <span className="text-[9px] text-text-muted flex items-center gap-1"><Clock size={9} />{post.readTime} min</span>
                       </div>
                       <h3 className="text-sm font-black text-text-light mb-2 group-hover:text-[#FFD700] transition-colors leading-snug line-clamp-2">{post.title}</h3>
