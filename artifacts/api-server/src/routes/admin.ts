@@ -80,7 +80,9 @@ router.get('/admin/stats', requireAuth, requireAdmin, async (req: AuthRequest, r
     if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
     const [[{ users }]] = await pool.query<any[]>('SELECT COUNT(*) as users FROM users')
     const [[{ escorts }]] = await pool.query<any[]>('SELECT COUNT(*) as escorts FROM escorts')
-    const [[{ pending }]] = await pool.query<any[]>('SELECT COUNT(*) as pending FROM escorts WHERE is_active = 0 AND verified = 0').catch(() => [[{ pending: 0 }]])
+    const [[{ pending }]] = await pool.query<any[]>(
+      "SELECT COUNT(*) as pending FROM escorts WHERE is_active = 0 AND verified = 0 AND COALESCE(approval_status, 'pending') = 'pending'"
+    ).catch(() => [[{ pending: 0 }]])
     const [[{ bookings }]] = await pool.query<any[]>('SELECT COUNT(*) as bookings FROM bookings').catch(() => [[{ bookings: 0 }]])
     const [[{ reviews }]] = await pool.query<any[]>('SELECT COUNT(*) as reviews FROM reviews').catch(() => [[{ reviews: 0 }]])
     const [[{ room_bookings }]] = await pool.query<any[]>('SELECT COUNT(*) as room_bookings FROM room_bookings').catch(() => [[{ room_bookings: 0 }]])
@@ -141,7 +143,7 @@ router.get('/admin/escorts', requireAuth, requireAdmin, async (req: AuthRequest,
       u.role AS user_role
       FROM escorts e
       LEFT JOIN users u ON u.id = e.user_id`
-    if (status === 'pending') sql += ' WHERE e.is_active = 0 AND e.verified = 0'
+    if (status === 'pending') sql += " WHERE e.is_active = 0 AND e.verified = 0 AND COALESCE(e.approval_status, 'pending') = 'pending'"
     else if (status === 'active') sql += ' WHERE e.is_active = 1'
     sql += ` ORDER BY ${escortPhotoPrioritySql()}, e.id DESC LIMIT ? OFFSET ?`
     const [rows] = await pool.query<any[]>(sql, [limit, offset])
@@ -641,7 +643,7 @@ async function approveAdminEscort(req: AuthRequest, res: any) {
       'SELECT e.name, u.email FROM escorts e LEFT JOIN users u ON u.id = e.user_id WHERE e.id = ? LIMIT 1',
       [req.params!.id]
     ).catch(() => [[null]])
-    await pool.query('UPDATE escorts SET verified = 1, is_active = 1 WHERE id = ?', [req.params!.id])
+    await pool.query("UPDATE escorts SET verified = 1, is_active = 1, approval_status = 'approved' WHERE id = ?", [req.params!.id])
     if (escort?.email) sendEscortApprovedEmail(escort.name, escort.email).catch(() => {})
 
     // Telegram notification
@@ -673,7 +675,7 @@ router.post('/admin/escorts/bulk-approve', requireAuth, requireAdmin, async (req
     const pool = getPool()
     if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
     const [result] = await pool.query<any>(
-      'UPDATE escorts SET verified = 1, is_active = 1 WHERE is_active = 0 AND verified = 0'
+      "UPDATE escorts SET verified = 1, is_active = 1, approval_status = 'approved' WHERE is_active = 0 AND verified = 0 AND COALESCE(approval_status, 'pending') = 'pending'"
     )
     const affected = (result as any).affectedRows ?? 0
     res.json({ success: true, approved: affected, message: `${affected} escort${affected !== 1 ? 's' : ''} approved` })
@@ -747,7 +749,7 @@ async function rejectAdminEscort(req: AuthRequest, res: any) {
       'SELECT e.name, u.email FROM escorts e LEFT JOIN users u ON u.id = e.user_id WHERE e.id = ? LIMIT 1',
       [req.params!.id]
     ).catch(() => [[null]])
-    await pool.query('UPDATE escorts SET is_active = 0, verified = 0 WHERE id = ?', [req.params!.id])
+    await pool.query("UPDATE escorts SET is_active = 0, verified = 0, approval_status = 'rejected' WHERE id = ?", [req.params!.id])
     if (escort?.email) sendEscortRejectedEmail(escort.name, escort.email).catch(() => {})
     res.json({ success: true })
   } catch {
