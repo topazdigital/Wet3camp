@@ -374,22 +374,4 @@ router.post('/escorts/:id/report', async (req, res) => {
   }
 })
 
-// ── POST /escorts/:id/claim ───────────────────────────────────────────────────
-router.post('/escorts/:id/claim', async (req, res) => {
-  const pool = getPool()
-  if (!pool) { res.status(503).json({ message: 'No DB' }); return }
-  try {
-    const escortId = req.params.id
-    const userId = (req as any).user?.id ?? null
-    if (!userId) { res.status(401).json({ message: 'Login required' }); return }
-    await pool.query(
-      `INSERT INTO claims (escort_id, user_id, status, message) VALUES (?, ?, 'pending', ?) ON DUPLICATE KEY UPDATE status='pending'`,
-      [escortId, userId, req.body?.message ?? '']
-    ).catch(() => {})
-    res.json({ message: 'Claim submitted successfully' })
-  } catch {
-    res.status(500).json({ message: 'Claim failed' })
-  }
-})
-
 export default router
