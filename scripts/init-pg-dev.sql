@@ -61,6 +61,7 @@ CREATE TABLE IF NOT EXISTS escorts (
   phone            VARCHAR(20)      DEFAULT NULL,
   available        SMALLINT         NOT NULL DEFAULT 0,
   verified         SMALLINT         NOT NULL DEFAULT 0,
+  approval_status  VARCHAR(20)      DEFAULT NULL,
   online           SMALLINT         NOT NULL DEFAULT 0,
   map_visible      SMALLINT         NOT NULL DEFAULT 1,
   featured         SMALLINT         NOT NULL DEFAULT 0,
@@ -80,6 +81,7 @@ CREATE TABLE IF NOT EXISTS escorts (
 CREATE INDEX IF NOT EXISTS idx_escorts_city ON escorts (city);
 CREATE INDEX IF NOT EXISTS idx_escorts_tier ON escorts (tier);
 CREATE INDEX IF NOT EXISTS idx_escorts_user_id ON escorts (user_id);
+ALTER TABLE escorts ADD COLUMN IF NOT EXISTS approval_status VARCHAR(20) DEFAULT NULL;
 
 CREATE TABLE IF NOT EXISTS platform_settings (
   "key"       VARCHAR(100)  NOT NULL PRIMARY KEY,
