@@ -323,6 +323,9 @@ CREATE TABLE IF NOT EXISTS profile_claims (
   updated_at TIMESTAMP    NOT NULL DEFAULT NOW()
 );
 ALTER TABLE profile_claims ADD COLUMN IF NOT EXISTS merge_into_escort_id INTEGER DEFAULT NULL;
+ALTER TABLE profile_claims ADD COLUMN IF NOT EXISTS verification_method VARCHAR(20) NOT NULL DEFAULT 'manual';
+ALTER TABLE profile_claims ADD COLUMN IF NOT EXISTS verification_video_data BYTEA DEFAULT NULL;
+ALTER TABLE profile_claims ADD COLUMN IF NOT EXISTS verification_video_mime VARCHAR(80) DEFAULT NULL;
 CREATE INDEX IF NOT EXISTS idx_profile_claims_escort_id ON profile_claims (escort_id);
 CREATE INDEX IF NOT EXISTS idx_profile_claims_user_id ON profile_claims (user_id);
 CREATE INDEX IF NOT EXISTS idx_profile_claims_status ON profile_claims (status);
