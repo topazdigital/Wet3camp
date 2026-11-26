@@ -179,6 +179,7 @@ export const api = {
       name: string; email: string; password: string; phone?: string
       role?: string; city?: string; area?: string
       bio?: string; whatsapp?: string; telegram?: string
+      telegramPromoOptIn?: boolean
       bodyType?: string; ethnicity?: string; height?: string; hairColor?: string
       rateIncall?: number; rateOutcall?: number
       rateIncallOvernight?: number; rateOutcallOvernight?: number
@@ -305,6 +306,7 @@ export const api = {
     updateEscort: (d: {
       bio?: string; city?: string; area?: string
       whatsapp?: string; telegram?: string
+      telegramPromoOptIn?: boolean
       bodyType?: string; ethnicity?: string; height?: string; hairColor?: string
       rateIncall?: number; rateOutcall?: number
       rateIncallOvernight?: number; rateOutcallOvernight?: number
