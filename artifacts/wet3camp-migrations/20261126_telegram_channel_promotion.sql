@@ -1,4 +1,3 @@
--- Store escort consent and delivery state for approved Telegram channel posts.
 ALTER TABLE escorts
   ADD COLUMN IF NOT EXISTS `telegram_promo_opt_in` tinyint(1) NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS `telegram_promo_status` varchar(16) NOT NULL DEFAULT 'pending',
