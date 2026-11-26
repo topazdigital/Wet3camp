@@ -8,6 +8,7 @@ import {
 import { requireAuth, type AuthRequest } from '../middlewares/requireAuth.js'
 import { setEscortOnline } from '../lib/online-store.js'
 import { sendEscortApprovedEmail, sendEscortRejectedEmail, sendTelegramNotification } from '../lib/mailer.js'
+import { publishApprovedEscortToTelegram } from '../lib/telegram-channel.js'
 import { signToken } from '../lib/jwt.js'
 import { mergeEscortProfiles } from '../lib/escort-merge.js'
 import { downloadAndStoreImage } from '../lib/image-download.js'
@@ -659,7 +660,9 @@ async function approveAdminEscort(req: AuthRequest, res: any) {
       ).catch(() => {})
     }
 
-    res.json({ success: true })
+    const telegramPromotion = await publishApprovedEscortToTelegram(pool, String(req.params!.id))
+      .catch((error: any) => ({ status: 'failed' as const, message: error?.message || 'Telegram posting failed.' }))
+    res.json({ success: true, telegramPromotion })
   } catch {
     res.status(500).json({ message: 'Failed to verify escort' })
   }
@@ -674,11 +677,31 @@ router.post('/admin/escorts/bulk-approve', requireAuth, requireAdmin, async (req
   try {
     const pool = getPool()
     if (!pool) { res.status(503).json({ message: 'Database not configured', code: 'NO_DB' }); return }
+    const [eligibleRows] = await pool.query<any[]>(
+      `SELECT id FROM escorts
+       WHERE is_active = 0 AND verified = 0
+         AND COALESCE(approval_status, 'pending') = 'pending'
+         AND telegram_promo_opt_in = 1`,
+    )
     const [result] = await pool.query<any>(
       "UPDATE escorts SET verified = 1, is_active = 1, approval_status = 'approved' WHERE is_active = 0 AND verified = 0 AND COALESCE(approval_status, 'pending') = 'pending'"
     )
     const affected = (result as any).affectedRows ?? 0
-    res.json({ success: true, approved: affected, message: `${affected} escort${affected !== 1 ? 's' : ''} approved` })
+    const promotions = []
+    for (const row of eligibleRows as any[]) {
+      const promotion = await publishApprovedEscortToTelegram(pool, row.id)
+        .catch((error: any) => ({ status: 'failed' as const, message: error?.message || 'Telegram posting failed.' }))
+      promotions.push(promotion)
+    }
+    const posted = promotions.filter(item => item.status === 'sent').length
+    const failed = promotions.filter(item => item.status === 'failed').length
+    res.json({
+      success: true,
+      approved: affected,
+      telegramPosted: posted,
+      telegramFailed: failed,
+      message: `${affected} escort${affected !== 1 ? 's' : ''} approved`,
+    })
   } catch (err: any) {
     res.status(500).json({ message: 'Failed to bulk approve escorts' })
   }
@@ -1240,13 +1263,17 @@ router.post('/admin/test-connections', requireAuth, requireAdmin, async (_req: A
 
   if (pool) {
     const [rows] = await pool.query<any[]>(
-      "SELECT value FROM platform_settings WHERE `key` = 'telegram_token'"
+      "SELECT `key`, value FROM platform_settings WHERE `key` IN ('telegram_token', 'telegram_channel_id')"
     ).catch(() => [[]] as any)
-    const token = (rows as any[])?.[0]?.value
+    const telegramSettings = Object.fromEntries((rows as any[]).map(row => [row.key, String(row.value ?? '')]))
+    const token = telegramSettings.telegram_token
+    const channelId = telegramSettings.telegram_channel_id
+    let botId: number | undefined
     if (token) {
       try {
         const r = await fetch(`https://api.telegram.org/bot${token}/getMe`)
         const d = await r.json() as any
+        botId = d.ok ? Number(d.result?.id) : undefined
         results.telegram = d.ok
           ? { ok: true, message: `Bot @${d.result.username} connected ✓` }
           : { ok: false, message: `Telegram: ${d.description}` }
@@ -1255,6 +1282,30 @@ router.post('/admin/test-connections', requireAuth, requireAdmin, async (_req: A
       }
     } else {
       results.telegram = { ok: false, message: 'Telegram token not configured' }
+    }
+
+    if (!channelId) {
+      results.telegramChannel = { ok: false, message: 'Public channel destination not configured' }
+    } else if (!token || !botId) {
+      results.telegramChannel = { ok: false, message: 'Connect the Telegram bot before testing the channel' }
+    } else {
+      try {
+        const response = await fetch(`https://api.telegram.org/bot${token}/getChatMember`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chat_id: channelId, user_id: botId }),
+          signal: AbortSignal.timeout(8000),
+        })
+        const member = await response.json() as any
+        const canPost = member.ok &&
+          ['administrator', 'creator'].includes(member.result?.status) &&
+          member.result?.can_post_messages !== false
+        results.telegramChannel = canPost
+          ? { ok: true, message: 'Bot can post to the configured channel ✓' }
+          : { ok: false, message: member.description || 'Make the bot a channel administrator with posting permission' }
+      } catch (e: any) {
+        results.telegramChannel = { ok: false, message: `Telegram channel test failed: ${e?.message ?? e}` }
+      }
     }
   }
 
