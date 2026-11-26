@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Check, CheckCheck, Inbox, LoaderCircle, MessageSquareText, RefreshCw, Send, ShieldCheck } from 'lucide-react'
+import { Check, CheckCheck, LoaderCircle, MessageSquareText, RefreshCw, Send, ShieldCheck } from 'lucide-react'
 import type { SupportChatMessage, SupportConversation } from '@/lib/api'
 
 type StatusFilter = 'all' | 'open' | 'resolved'
@@ -7,6 +7,7 @@ type AdminFetch = (path: string, opts?: RequestInit) => Promise<any>
 type ConversationSummary = Pick<SupportConversation, 'id' | 'userId' | 'customerName' | 'customerEmail' | 'category' | 'status' | 'adminUnreadCount' | 'customerUnreadCount' | 'lastMessageAt' | 'createdAt'> & { lastMessage: string }
 
 type Props = { adminFetch: AdminFetch }
+export const SUPPORT_UNREAD_REFRESH_EVENT = 'wet3camp:support-unread-refresh'
 const ADMIN_PRIMARY_BUTTON =
   'border border-[#FFD700]/45 bg-[#8B0000] text-white transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FFD700] disabled:cursor-not-allowed disabled:opacity-45'
 const ADMIN_SECONDARY_BUTTON =
@@ -72,6 +73,7 @@ export default function AdminSupportInbox({ adminFetch }: Props) {
       if (request !== threadRequest.current) return
       if (!result?.conversation) throw new Error('Invalid conversation')
       setThread(result.conversation)
+      if (!quiet) window.dispatchEvent(new Event(SUPPORT_UNREAD_REFRESH_EVENT))
     } catch (error: any) {
       if (request === threadRequest.current) setThreadError(error?.message || 'Could not load this conversation.')
     } finally {
@@ -169,25 +171,25 @@ export default function AdminSupportInbox({ adminFetch }: Props) {
   }), [conversations])
 
   return (
-    <section className="overflow-hidden rounded-2xl border border-[#333] bg-[#0a0a0a] text-[#e0e0e0] shadow-[0_18px_60px_rgba(0,0,0,.35)]" data-testid="admin-support-inbox" aria-label="Support inbox">
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#333] bg-[#1a1a1a] px-5 py-4 sm:px-6">
+    <section className="overflow-hidden rounded-xl border border-[#333] bg-[#0a0a0a] text-[#e0e0e0] shadow-[0_18px_60px_rgba(0,0,0,.35)] sm:rounded-2xl" data-testid="admin-support-inbox" aria-label="Support inbox">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#333] bg-[#1a1a1a] px-4 py-3 sm:px-6 sm:py-4">
         <div className="flex items-center gap-3">
-          <div className="flex size-10 items-center justify-center rounded-xl border border-[#FFD700]/30 bg-[#FFD700]/10 text-[#FFD700]"><Inbox size={19} /></div>
+          <div className="size-9 shrink-0 overflow-hidden rounded-lg border border-[#FFD700]/30 bg-white sm:size-10 sm:rounded-xl"><img src="/icon-192.png" alt="" className="size-full object-cover" /></div>
           <div>
-            <h2 className="text-base font-semibold tracking-tight text-white">Support inbox</h2>
-            <p className="mt-0.5 text-xs text-[#999]">Direct conversations with Wet3Camp members and guests</p>
+            <h2 className="text-sm font-semibold tracking-tight text-white sm:text-base">Support inbox</h2>
+            <p className="mt-0.5 text-[10px] text-[#999] sm:text-xs">Direct conversations with members and guests</p>
           </div>
         </div>
-        <button type="button" onClick={() => { void refreshList() }} disabled={listLoading} data-testid="button-refresh-support-list" className={`inline-flex min-h-9 items-center gap-2 rounded-lg px-3 text-xs font-semibold ${ADMIN_SECONDARY_BUTTON} disabled:opacity-50`}>
+        <button type="button" onClick={() => { void refreshList() }} disabled={listLoading} data-testid="button-refresh-support-list" className={`inline-flex min-h-8 items-center gap-1.5 rounded-lg px-2.5 text-[11px] font-semibold sm:min-h-9 sm:gap-2 sm:px-3 sm:text-xs ${ADMIN_SECONDARY_BUTTON} disabled:opacity-50`}>
           <RefreshCw size={13} className={listLoading ? 'animate-spin' : ''} /> Refresh
         </button>
       </div>
 
-      <div className="grid min-h-[560px] grid-cols-1 lg:grid-cols-[minmax(270px,340px)_minmax(0,1fr)]">
-        <aside className={`${selectedId ? 'hidden lg:flex' : 'flex'} min-h-[400px] flex-col border-r-0 border-[#333] lg:border-r`} aria-label="Conversation list">
-          <div className="flex gap-1 border-b border-[#333] px-3 py-2.5" role="tablist" aria-label="Filter conversations">
+      <div className="grid min-h-[28rem] grid-cols-1 sm:min-h-[32rem] lg:grid-cols-[minmax(250px,320px)_minmax(0,1fr)]">
+        <aside className={`${selectedId ? 'hidden lg:flex' : 'flex'} min-h-[26rem] flex-col border-r-0 border-[#333] lg:min-h-0 lg:border-r`} aria-label="Conversation list">
+          <div className="flex gap-1 border-b border-[#333] px-2.5 py-2 sm:px-3 sm:py-2.5" role="tablist" aria-label="Filter conversations">
             {(['all', 'open', 'resolved'] as StatusFilter[]).map(item => (
-              <button key={item} type="button" role="tab" aria-selected={filter === item} onClick={() => { setSelectedId(null); setThread(null); setFilter(item) }} data-testid={`filter-support-${item}`} className={`flex-1 rounded-lg px-2 py-2 text-[11px] font-semibold capitalize transition ${filter === item ? 'bg-[#8B0000] text-white' : 'text-[#999] hover:bg-[#1a1a1a] hover:text-[#e0e0e0]'}`}>
+              <button key={item} type="button" role="tab" aria-selected={filter === item} onClick={() => { setSelectedId(null); setThread(null); setFilter(item) }} data-testid={`filter-support-${item}`} className={`flex-1 rounded-lg px-2 py-1.5 text-[10px] font-semibold capitalize transition sm:py-2 sm:text-[11px] ${filter === item ? 'bg-[#8B0000] text-white' : 'text-[#999] hover:bg-[#1a1a1a] hover:text-[#e0e0e0]'}`}>
                 {item} <span className={`ml-1 ${filter === item ? 'text-[#FFD700]' : 'text-[#999]'}`}>{counts[item]}</span>
               </button>
             ))}
@@ -213,7 +215,7 @@ export default function AdminSupportInbox({ adminFetch }: Props) {
               {visibleConversations.map(item => {
                 const active = item.id === selectedId
                 return (
-                  <button key={item.id} type="button" onClick={() => { setSelectedId(item.id); setFeedback('') }} aria-pressed={active} data-testid={`support-conversation-${item.id}`} className={`mb-1 block w-full rounded-xl border p-3 text-left transition ${active ? 'border-[#FFD700]/45 bg-[#8B0000]/15' : 'border-transparent hover:border-[#333] hover:bg-[#1a1a1a]'}`}>
+                  <button key={item.id} type="button" onClick={() => { setSelectedId(item.id); setFeedback('') }} aria-pressed={active} data-testid={`support-conversation-${item.id}`} className={`mb-1 block w-full rounded-xl border p-2.5 text-left transition sm:p-3 ${active ? 'border-[#FFD700]/45 bg-[#8B0000]/15' : 'border-transparent hover:border-[#333] hover:bg-[#1a1a1a]'}`}>
                     <div className="flex items-start justify-between gap-2">
                       <span className="truncate text-[13px] font-semibold text-[#e0e0e0]">{item.customerName || 'Guest'}</span>
                       <span className="shrink-0 pt-0.5 text-[10px] text-[#999]">{relativeTime(item.lastMessageAt)}</span>
@@ -233,7 +235,7 @@ export default function AdminSupportInbox({ adminFetch }: Props) {
           )}
         </aside>
 
-        <main className={`${selectedId ? 'flex' : 'hidden lg:flex'} min-h-[500px] flex-col bg-[#0a0a0a]`}>
+        <main className={`${selectedId ? 'flex' : 'hidden lg:flex'} min-h-[26rem] flex-col bg-[#0a0a0a] lg:min-h-0`}>
           {!selectedId ? (
               <div className="hidden flex-1 flex-col items-center justify-center px-8 text-center lg:flex" data-testid="support-thread-placeholder">
               <div className="mb-4 flex size-14 items-center justify-center rounded-2xl border border-[#FFD700]/25 bg-[#FFD700]/[.06] text-[#FFD700]"><ShieldCheck size={23} strokeWidth={1.7} /></div>
@@ -253,17 +255,17 @@ export default function AdminSupportInbox({ adminFetch }: Props) {
             </div>
           ) : thread ? (
             <>
-              <header className="flex items-start justify-between gap-3 border-b border-[#333] px-4 py-3.5 sm:px-6">
-                <div className="flex min-w-0 items-start gap-3">
+              <header className="flex items-start justify-between gap-2 border-b border-[#333] px-3 py-3 sm:gap-3 sm:px-5 sm:py-3.5">
+                <div className="flex min-w-0 items-start gap-2 sm:gap-3">
                   <button type="button" onClick={() => setSelectedId(null)} aria-label="Back to conversation list" data-testid="button-back-support-list" className={`mt-0.5 rounded-lg p-2 lg:hidden ${ADMIN_SECONDARY_BUTTON}`}><span aria-hidden="true">←</span></button>
-                  <div className="flex size-9 shrink-0 items-center justify-center rounded-full border border-[#FFD700]/35 bg-[#1a1a1a] text-xs font-bold uppercase text-[#FFD700]">{(thread.customerName || 'G').trim().slice(0, 1)}</div>
+                  <div className="flex size-8 shrink-0 items-center justify-center rounded-full border border-[#FFD700]/35 bg-[#1a1a1a] text-[11px] font-bold uppercase text-[#FFD700] sm:size-9 sm:text-xs">{(thread.customerName || 'G').trim().slice(0, 1)}</div>
                   <div className="min-w-0">
                     <h3 className="truncate text-sm font-semibold text-white" data-testid="text-support-customer">{thread.customerName}</h3>
                     <p className="truncate text-[11px] text-[#999]" data-testid="text-support-email">{thread.customerEmail || 'Guest conversation'}{thread.userId ? ' · Member' : ' · Guest'}</p>
                     <p className="mt-1 text-[10px] text-[#999]">{thread.category} · Started {fullDate(thread.createdAt)}</p>
                   </div>
                 </div>
-                <button type="button" onClick={changeStatus} disabled={statusSaving} data-testid="button-support-status" className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg border border-[#FFD700]/45 bg-[#8B0000]/15 px-3 text-[11px] font-semibold text-[#FFD700] transition hover:bg-[#8B0000]/35 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FFD700] disabled:cursor-not-allowed disabled:opacity-50">
+                <button type="button" onClick={changeStatus} disabled={statusSaving} data-testid="button-support-status" className="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-lg border border-[#FFD700]/45 bg-[#8B0000]/15 px-2 text-[10px] font-semibold text-[#FFD700] transition hover:bg-[#8B0000]/35 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FFD700] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-9 sm:gap-1.5 sm:px-3 sm:text-[11px]">
                   {statusSaving ? <LoaderCircle size={13} className="animate-spin" /> : thread.status === 'open' ? <Check size={13} /> : <CheckCheck size={13} />}
                   {thread.status === 'open' ? 'Resolve' : 'Reopen'}
                 </button>
@@ -272,14 +274,14 @@ export default function AdminSupportInbox({ adminFetch }: Props) {
               {feedback && <p className="mx-4 mt-3 rounded-lg border border-[#10B981]/30 bg-[#10B981]/[.10] px-3 py-2 text-xs text-[#86efac]" role="status" data-testid="support-action-feedback">{feedback}</p>}
               {(threadError || listError) && <p className="mx-4 mt-3 rounded-lg border border-[#EF4444]/30 bg-[#8B0000]/15 px-3 py-2 text-xs text-[#ffb4b4]" role="alert" data-testid="support-thread-error">{threadError || listError}</p>}
 
-              <div className="flex-1 space-y-5 overflow-y-auto px-4 py-5 sm:px-6" aria-live="polite" data-testid="admin-support-message-list">
+              <div className="flex-1 space-y-3 overflow-y-auto px-3 py-3 sm:space-y-4 sm:px-5 sm:py-4" aria-live="polite" data-testid="admin-support-message-list">
                 {thread.messages.length === 0 ? (
                   <p className="py-12 text-center text-xs text-[#978a80]" data-testid="support-messages-empty">No messages in this conversation.</p>
                 ) : thread.messages.map((message: SupportChatMessage) => {
                   const isAdmin = message.senderType === 'admin'
                   return (
                     <article key={message.id} data-testid={`admin-support-message-${message.id}`} className={`flex ${isAdmin ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-[min(82%,620px)] rounded-2xl px-4 py-3 ${isAdmin ? 'rounded-br-md border border-[#FFD700]/25 bg-[#8B0000]' : 'rounded-bl-md border border-[#333] bg-[#1a1a1a]'}`}>
+                      <div className={`max-w-[min(86%,620px)] rounded-xl px-3 py-2.5 sm:rounded-2xl sm:px-4 sm:py-3 ${isAdmin ? 'rounded-br-md border border-[#FFD700]/25 bg-[#8B0000]' : 'rounded-bl-md border border-[#333] bg-[#1a1a1a]'}`}>
                         <div className="mb-1.5 flex items-center justify-between gap-5">
                           <p className={`text-[10px] font-semibold ${isAdmin ? 'text-[#FFD700]' : 'text-[#e0e0e0]'}`}>{isAdmin ? message.senderName || 'Support team' : thread.customerName || message.senderName || 'Guest'}</p>
                           <time dateTime={message.createdAt} title={fullDate(message.createdAt)} className="shrink-0 text-[9px] text-[#999]">{relativeTime(message.createdAt)}</time>
@@ -293,11 +295,11 @@ export default function AdminSupportInbox({ adminFetch }: Props) {
               </div>
 
               {thread.status === 'open' ? (
-                <form onSubmit={sendReply} className="border-t border-[#333] bg-[#1a1a1a] p-3.5 sm:px-5 sm:py-4">
+                <form onSubmit={sendReply} className="border-t border-[#333] bg-[#1a1a1a] p-3 sm:px-4 sm:py-3.5">
                   <label className="sr-only" htmlFor="admin-support-reply">Write a reply</label>
                   <div className="flex items-end gap-2 rounded-xl border border-[#333] bg-[#0a0a0a] p-2 focus-within:border-[#FFD700]/60">
-                    <textarea id="admin-support-reply" value={reply} onChange={event => setReply(event.target.value)} maxLength={3000} rows={2} data-testid="input-admin-support-reply" placeholder={`Reply to ${thread.customerName || 'this guest'}…`} className="max-h-36 min-h-11 flex-1 resize-y bg-transparent px-2 py-1.5 text-sm leading-relaxed text-[#e0e0e0] outline-none placeholder:text-[#999]" />
-                    <button type="submit" disabled={!reply.trim() || sending} aria-label="Send reply" data-testid="button-admin-send-reply" className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${ADMIN_PRIMARY_BUTTON}`}>
+                    <textarea id="admin-support-reply" value={reply} onChange={event => setReply(event.target.value)} maxLength={3000} rows={2} data-testid="input-admin-support-reply" placeholder={`Reply to ${thread.customerName || 'this guest'}…`} className="max-h-28 min-h-9 flex-1 resize-y bg-transparent px-1.5 py-1.5 text-xs leading-relaxed text-[#e0e0e0] outline-none placeholder:text-[#999] sm:min-h-10 sm:px-2 sm:text-sm" />
+                    <button type="submit" disabled={!reply.trim() || sending} aria-label="Send reply" data-testid="button-admin-send-reply" className={`flex size-9 shrink-0 items-center justify-center rounded-lg sm:size-10 ${ADMIN_PRIMARY_BUTTON}`}>
                       {sending ? <LoaderCircle size={16} className="animate-spin" /> : <Send size={16} />}
                     </button>
                   </div>
