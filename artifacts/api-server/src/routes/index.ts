@@ -23,6 +23,7 @@ import paymentsRouter      from "./payments.js";
 import referralRouter      from "./referral.js";
 import imageProxyRouter    from "./image-proxy.js";
 import blogRouter          from "./blog.js";
+import supportRouter       from "./support.js";
 
 const router: IRouter = Router();
 
@@ -32,6 +33,7 @@ router.use(paymentsRouter);
 router.use(webrtcRouter);
 router.use(healthRouter);
 router.use(claimsRouter);
+router.use(supportRouter);
 router.use(escortsRouter);
 router.use(authRouter);
 router.use(oauthRouter);
