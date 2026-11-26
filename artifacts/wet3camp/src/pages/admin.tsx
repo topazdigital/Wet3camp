@@ -231,9 +231,9 @@ function PayHeroTestButton() {
   )
 }
 
-function TextSettingField({ label, placeholder, settingKey, hint, type: inputType }: { label: string; placeholder: string; settingKey: string; hint?: string; type?: string }) {
+function TextSettingField({ label, placeholder, settingKey, hint, type: inputType, allowClear = false }: { label: string; placeholder: string; settingKey: string; hint?: string; type?: string; allowClear?: boolean }) {
   const [value, setValue] = useState('')
-  const [saved, setSaved] = useState(false)
+  const [savedLabel, setSavedLabel] = useState('')
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState('')
 
@@ -245,12 +245,25 @@ function TextSettingField({ label, placeholder, settingKey, hint, type: inputTyp
 
   const save = async () => {
     if (!value.trim()) return
-    setSaving(true); setErr('')
+    setSaving(true); setErr(''); setSavedLabel('')
     try {
       await adminFetch('/admin/settings', { method: 'POST', body: JSON.stringify({ key: settingKey, value }) })
-      setSaved(true); setTimeout(() => setSaved(false), 2500)
+      setSavedLabel('Saved'); setTimeout(() => setSavedLabel(''), 2500)
     } catch {
       setErr('Save failed')
+    }
+    setSaving(false)
+  }
+
+  const clear = async () => {
+    if (!allowClear) return
+    setSaving(true); setErr(''); setSavedLabel('')
+    try {
+      await adminFetch('/admin/settings', { method: 'POST', body: JSON.stringify({ key: settingKey, value: '' }) })
+      setValue('')
+      setSavedLabel('Cleared'); setTimeout(() => setSavedLabel(''), 2500)
+    } catch {
+      setErr('Clear failed')
     }
     setSaving(false)
   }
@@ -269,11 +282,20 @@ function TextSettingField({ label, placeholder, settingKey, hint, type: inputTyp
         <button
           onClick={save}
           disabled={saving}
-          className={`px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 ${saved ? 'bg-[#28a745] text-white' : 'bg-[#8B0000] text-white hover:bg-[#a00000]'} disabled:opacity-60`}
+          className={`px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 ${savedLabel ? 'bg-[#28a745] text-white' : 'bg-[#8B0000] text-white hover:bg-[#a00000]'} disabled:opacity-60`}
         >
           {saving ? <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"/> : <Save size={11} />}
-          {saved ? 'Saved' : 'Save'}
+          {savedLabel || 'Save'}
         </button>
+        {allowClear && value.trim() && (
+          <button
+            onClick={clear}
+            disabled={saving}
+            className="px-3 py-2.5 rounded-xl text-xs font-bold text-[#EF4444] border border-[#EF4444]/40 hover:bg-[#EF4444]/10 transition-all disabled:opacity-60"
+          >
+            Clear
+          </button>
+        )}
       </div>
       {hint && <p className="text-[10px] text-text-muted mt-1">{hint}</p>}
       {err  && <p className="text-[10px] text-[#EF4444] mt-1">{err}</p>}
@@ -3633,7 +3655,7 @@ function AdminDashboard() {
                 </div>
                 <div className="space-y-4">
                   <ApiKeyField label="Telegram Bot Token" placeholder="1234567890:XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" icon={Key} settingKey="telegram_token" hint="Create a bot via @BotFather on Telegram" />
-                  <TextSettingField label="Admin Chat ID" placeholder="e.g. -1001234567890" settingKey="telegram_chat_id" hint="Your group chat ID for admin notifications (new registrations, featured requests, etc.)" />
+                  <TextSettingField label="Admin Chat ID" placeholder="e.g. -1001234567890" settingKey="telegram_chat_id" allowClear hint="Optional private group for admin notifications. Do not use your public promotion channel here." />
                   <TextSettingField label="Public Channel ID or @username" placeholder="@wet3camp or -1001234567890" settingKey="telegram_channel_id" hint="Add this bot as a channel administrator with permission to post. New profiles are posted only after admin approval and escort opt-in." />
                 </div>
               </div>
