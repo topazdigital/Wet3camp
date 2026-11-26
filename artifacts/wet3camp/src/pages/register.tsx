@@ -213,6 +213,7 @@ export default function RegisterPage() {
   const [bio, setBio]               = useState('')
   const [whatsapp, setWhatsapp]     = useState('')
   const [telegram, setTelegram]     = useState('')
+  const [telegramPromoOptIn, setTelegramPromoOptIn] = useState(false)
   const [selLangs, setSelLangs]     = useState<string[]>([])
 
   // Services & rates (escort)
@@ -562,7 +563,7 @@ export default function RegisterPage() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({
-            city, area, bio, whatsapp, telegram, phone,
+            city, area, bio, whatsapp, telegram, phone, telegramPromoOptIn,
             bodyType, ethnicity, height, hairColor, gender,
             languages: selLangs, services: selServices,
             rateIncall:          parseInt(rateIncall)          || 3000,
@@ -596,7 +597,7 @@ export default function RegisterPage() {
       }
       if (role === 'escort') {
         Object.assign(payload, {
-          bio, whatsapp, telegram,
+          bio, whatsapp, telegram, telegramPromoOptIn,
           bodyType, ethnicity, height, hairColor, gender,
           languages: selLangs,
           services: selServices,
@@ -1134,6 +1135,19 @@ export default function RegisterPage() {
                     <input value={telegram} onChange={e=>setTelegram(e.target.value.replace(/^@+/,''))} placeholder="your_handle" className={inputCls} style={{paddingLeft:'2.25rem'}}/>
                   </div>
                 </div>
+                <label className="col-span-2 flex cursor-pointer items-start gap-3 rounded-xl border border-color bg-dark-bg/60 p-3">
+                  <input
+                    type="checkbox"
+                    checked={telegramPromoOptIn}
+                    onChange={e => setTelegramPromoOptIn(e.target.checked)}
+                    data-testid="telegram-promotion-opt-in"
+                    className="mt-1 accent-[#229ED9]"
+                  />
+                  <span>
+                    <span className="block text-xs font-semibold text-text-light">Feature my profile on Wet3 Camp’s Telegram channel</span>
+                    <span className="mt-1 block text-[11px] leading-relaxed text-text-muted">Optional. If approved, my public profile name, location and profile link may be posted. I can change this later in Edit Profile.</span>
+                  </span>
+                </label>
               </div>
               <div>
                 <label className={labelCls}>Languages Spoken * <span className="text-[9px]">({selLangs.length} selected)</span></label>
