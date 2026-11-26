@@ -19,8 +19,14 @@ const slugOf = (name: string) =>
   name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 
 function mapEscort(row: any) {
+  const publicRow = { ...row }
+  delete publicRow.telegram_promo_opt_in
+  delete publicRow.telegram_promo_status
+  delete publicRow.telegram_promo_message_id
+  delete publicRow.telegram_promo_sent_at
+  delete publicRow.telegram_promo_error
   return {
-    ...row,
+    ...publicRow,
     id:        String(row.id),
     // Fall back to first gallery image when the main `image` column is NULL
     image:     normalizeEscortImage(row.effective_image, row.image),
