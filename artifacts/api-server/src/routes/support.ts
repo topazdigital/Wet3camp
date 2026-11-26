@@ -356,6 +356,22 @@ router.post('/support/guest/conversations/:id/messages', async (req: AuthRequest
 })
 
 // Admin inbox and replies
+router.get('/support/admin/unread-count', requireAuth, async (req: AuthRequest, res) => {
+  setPrivateNoStore(res)
+  if (req.userRole !== 'admin') { res.status(403).json({ message: 'Admin access required.' }); return }
+  const pool = getPool()
+  if (!pool) { res.status(503).json({ message: 'Database not configured' }); return }
+  try {
+    const [[row]] = await pool.query<any[]>(
+      'SELECT COALESCE(SUM(admin_unread_count), 0) AS unread_count FROM support_conversations',
+    )
+    res.json({ unreadCount: Number(row?.unread_count ?? 0) })
+  } catch (error: any) {
+    console.error('[support/admin-unread-count]', error?.message ?? error)
+    res.status(500).json({ message: 'Could not load the unread support count.' })
+  }
+})
+
 router.get('/support/admin/conversations', requireAuth, async (req: AuthRequest, res) => {
   setPrivateNoStore(res)
   if (req.userRole !== 'admin') { res.status(403).json({ message: 'Admin access required.' }); return }
