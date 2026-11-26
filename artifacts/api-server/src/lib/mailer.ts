@@ -441,6 +441,30 @@ export async function sendNewMessageEmail(opts: {
   })
 }
 
+export async function sendSupportReplyEmail(opts: {
+  toEmail: string
+  toName: string
+  preview: string
+}): Promise<boolean> {
+  const safeName = escapeHtml(opts.toName || 'there')
+  const safePreview = escapeHtml(opts.preview)
+  return send({
+    to: opts.toEmail,
+    subject: 'Wet3Camp Support replied to your message',
+    text: `Hi ${opts.toName || 'there'},\n\nWet3Camp Support replied to your enquiry:\n\n"${opts.preview}"\n\nOpen Wet3Camp and use the support chat to continue the conversation: ${SITE}`,
+    html: emailWrap(`
+      ${heading('Support replied')}
+      <p style="margin:0 0 20px;font-size:14px;color:#cccccc;line-height:1.7;">
+        Hi <strong style="color:#FFD700;">${safeName}</strong>, Wet3Camp Support replied to your enquiry.
+      </p>
+      <div style="background:#160000;border-left:3px solid #8B0000;border-radius:0 10px 10px 0;padding:16px 20px;margin:0 0 24px;">
+        <p style="margin:0;font-size:14px;color:#dddddd;line-height:1.6;">${safePreview}</p>
+      </div>
+      ${btn('Open Support Chat', SITE)}
+    `),
+  })
+}
+
 // ─── Room Bookings ────────────────────────────────────────────────────────────
 
 export async function sendRoomBookingEmail(opts: {
