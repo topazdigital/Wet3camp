@@ -143,13 +143,14 @@ export interface FeedPost {
 
 export const api = {
   escorts: {
-    list: (p?: { city?: string; area?: string; tier?: string; available?: string; featured?: boolean; sort?: string; limit?: number; offset?: number; service?: string; exactLocation?: boolean; claimedOnly?: boolean }) => {
+    list: (p?: { city?: string; area?: string; tier?: string; available?: string; featured?: boolean; paidFeaturedOnly?: boolean; sort?: string; limit?: number; offset?: number; service?: string; exactLocation?: boolean; claimedOnly?: boolean }) => {
       const params = new URLSearchParams()
       if (p?.city)      params.set('city',      p.city)
       if (typeof p?.area === 'string' && (p.area || p.exactLocation)) params.set('area', p.area)
       if (p?.tier)      params.set('tier',      p.tier)
       if (p?.available) params.set('available', p.available)
       if (p?.featured)  params.set('featured',  '1')
+      if (p?.paidFeaturedOnly) params.set('paidFeaturedOnly', '1')
       if (p?.sort)      params.set('sort',      p.sort)
       if (p?.limit)     params.set('limit',     String(p.limit))
       if (p?.offset)    params.set('offset',    String(p.offset))
