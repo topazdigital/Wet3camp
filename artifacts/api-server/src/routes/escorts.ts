@@ -90,7 +90,7 @@ router.get('/escorts/locations', async (_req, res) => {
 router.get('/escorts', async (req, res) => {
   try {
     const {
-      city, area, tier, available, featured, online,
+      city, area, tier, available, featured, paidFeaturedOnly, online,
       limit = '100', offset = '0', sort = 'featured',
       q, service, gender, exactLocation, claimedOnly,
     } = req.query as Record<string, string>
@@ -138,7 +138,23 @@ router.get('/escorts', async (req, res) => {
     if (claimedOnly === '1') conditions.push('e.user_id IS NOT NULL')
     if (tier)      { conditions.push('LOWER(e.tier) = LOWER(?)'); params.push(tier) }
     if (available) { conditions.push('e.available = 1') }
-    if (featured)  { conditions.push('e.featured = 1') }
+    if (paidFeaturedOnly === '1') {
+      const now = Date.now()
+      const dayMs = 24 * 60 * 60 * 1000
+      conditions.push(`e.featured = 1 AND EXISTS (
+        SELECT 1
+        FROM subscriptions s
+        WHERE s.escort_id = e.id
+          AND s.status = 'paid'
+          AND (
+            (LOWER(s.plan) = 'featured_weekly' AND s.updated_at > ?)
+            OR (LOWER(s.plan) = 'featured_monthly' AND s.updated_at > ?)
+          )
+      )`)
+      params.push(new Date(now - 7 * dayMs), new Date(now - 30 * dayMs))
+    } else if (featured) {
+      conditions.push('e.featured = 1')
+    }
     if (online)    { conditions.push('e.online = 1') }
     if (gender)    { conditions.push('LOWER(e.gender) = LOWER(?)'); params.push(gender) }
     if (service)   {
