@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import Header from '@/components/Header'
 import Sidebar from '@/components/Sidebar'
 import AdminPhotoGallery from '@/components/AdminPhotoGallery'
-import AdminSupportInbox from '@/components/AdminSupportInbox'
+import AdminSupportInbox, { SUPPORT_UNREAD_REFRESH_EVENT } from '@/components/AdminSupportInbox'
 import { useAuth } from '@/lib/auth-context'
 import { broadcastAccountDeleted } from '@/lib/api'
 import {
@@ -3120,6 +3120,7 @@ function EscortsTab() {
 
 function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('Overview')
+  const [supportUnreadCount, setSupportUnreadCount] = useState<number | null>(null)
   const [mods, setMods] = useState<Moderator[]>(INIT_MODS)
   const [modsLoading, setModsLoading] = useState(false)
   const [modsError, setModsError] = useState('')
@@ -3129,6 +3130,29 @@ function AdminDashboard() {
   const [addModErr, setAddModErr] = useState('')
   const [featuredReqs, setFeaturedReqs] = useState<FeaturedRequest[]>(INIT_FEATURED)
   const { logout } = useAuth()
+  const supportUnreadLabel = supportUnreadCount !== null && supportUnreadCount > 99 ? '99+' : String(supportUnreadCount ?? 0)
+  const hasUnreadSupportMessages = (supportUnreadCount ?? 0) > 0
+
+  const refreshSupportUnreadCount = useCallback(async () => {
+    try {
+      const result = await adminFetch('/support/admin/unread-count')
+      const count = Number(result?.unreadCount)
+      if (Number.isSafeInteger(count) && count >= 0) setSupportUnreadCount(count)
+    } catch {
+      // Preserve the last known count if the admin API is temporarily unavailable.
+    }
+  }, [])
+
+  useEffect(() => {
+    void refreshSupportUnreadCount()
+    const timer = window.setInterval(() => { void refreshSupportUnreadCount() }, 15000)
+    const refreshFromInbox = () => { void refreshSupportUnreadCount() }
+    window.addEventListener(SUPPORT_UNREAD_REFRESH_EVENT, refreshFromInbox)
+    return () => {
+      window.clearInterval(timer)
+      window.removeEventListener(SUPPORT_UNREAD_REFRESH_EVENT, refreshFromInbox)
+    }
+  }, [refreshSupportUnreadCount])
 
   useEffect(() => {
     if (activeTab !== 'Moderators') return
@@ -3186,6 +3210,19 @@ function AdminDashboard() {
               <p className="text-[10px] text-text-muted">Platform management dashboard</p>
             </div>
           </div>
+          {hasUnreadSupportMessages && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('Support')}
+              aria-label={`Open support inbox, ${supportUnreadCount} unread messages`}
+              data-testid="button-open-unread-support"
+              className="xl:hidden inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-[#FFD700]/40 bg-[#FFD700]/10 px-2 py-1.5 text-[10px] font-semibold text-[#FFD700] hover:bg-[#FFD700]/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FFD700] sm:gap-2 sm:px-3 sm:py-2 sm:text-xs"
+            >
+              <MessageCircle size={14} />
+              <span className="hidden sm:inline">Support</span>
+              <span className="rounded-full bg-[#FFD700] px-1.5 py-0.5 text-[9px] font-bold leading-none text-[#0a0a0a]" aria-live="polite">{supportUnreadLabel}</span>
+            </button>
+          )}
           <button onClick={logout} className="px-3 py-1.5 border border-[#EF4444]/30 text-[#EF4444] text-xs rounded-xl hover:bg-[#EF4444]/10 transition-all">Sign Out</button>
         </div>
 
@@ -3205,14 +3242,23 @@ function AdminDashboard() {
                 onChange={event => setActiveTab(event.target.value)}
                 className="w-full appearance-none rounded-xl border border-color bg-card-bg px-4 py-3 pr-11 text-base font-semibold text-text-light focus:border-[#FFD700] focus:outline-none focus:ring-1 focus:ring-[#FFD700]"
               >
-                {TABS.map(tab => <option key={tab} value={tab}>{tab}</option>)}
+                {TABS.map(tab => (
+                  <option key={tab} value={tab}>
+                    {tab === 'Support' && hasUnreadSupportMessages ? `Support (${supportUnreadLabel} new)` : tab}
+                  </option>
+                ))}
               </select>
               <ChevronDown size={17} aria-hidden="true" className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[#FFD700]" />
             </div>
           </div>
           <div className="hidden xl:flex flex-wrap gap-x-1">
             {TABS.map(tab => (
-              <button key={tab} onClick={() => setActiveTab(tab)} data-testid={`tab-admin-${tab.toLowerCase().replace(/\s+/g, '-')}`} aria-pressed={activeTab === tab} className={`shrink-0 whitespace-nowrap px-3 py-3 text-[11px] font-semibold border-b-2 transition-all ${activeTab===tab?'text-[#FFD700] border-[#FFD700]':'text-text-muted border-transparent hover:text-text-light'}`}>{tab}</button>
+              <button key={tab} onClick={() => setActiveTab(tab)} data-testid={`tab-admin-${tab.toLowerCase().replace(/\s+/g, '-')}`} aria-pressed={activeTab === tab} className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap px-3 py-3 text-[11px] font-semibold border-b-2 transition-all ${activeTab===tab?'text-[#FFD700] border-[#FFD700]':'text-text-muted border-transparent hover:text-text-light'}`}>
+                {tab}
+                {tab === 'Support' && hasUnreadSupportMessages && (
+                  <span className="inline-flex min-w-4 items-center justify-center rounded-full bg-[#FFD700] px-1 py-0.5 text-[9px] font-bold leading-none text-[#0a0a0a]" aria-label={`${supportUnreadCount} unread support messages`} data-testid="support-tab-unread-count">{supportUnreadLabel}</span>
+                )}
+              </button>
             ))}
           </div>
         </div>
