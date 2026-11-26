@@ -58,6 +58,11 @@ CREATE TABLE IF NOT EXISTS escorts (
   price_outcall    INTEGER          NOT NULL DEFAULT 0,
   whatsapp         VARCHAR(20)      DEFAULT NULL,
   telegram         VARCHAR(100)     DEFAULT NULL,
+  telegram_promo_opt_in SMALLINT NOT NULL DEFAULT 0,
+  telegram_promo_status VARCHAR(16) NOT NULL DEFAULT 'pending',
+  telegram_promo_message_id BIGINT DEFAULT NULL,
+  telegram_promo_sent_at TIMESTAMP DEFAULT NULL,
+  telegram_promo_error VARCHAR(500) DEFAULT NULL,
   phone            VARCHAR(20)      DEFAULT NULL,
   available        SMALLINT         NOT NULL DEFAULT 0,
   verified         SMALLINT         NOT NULL DEFAULT 0,
@@ -449,6 +454,11 @@ ALTER TABLE escorts ADD COLUMN IF NOT EXISTS source_site             VARCHAR(100
 ALTER TABLE escorts ADD COLUMN IF NOT EXISTS source_url              VARCHAR(500) DEFAULT NULL;
 ALTER TABLE escorts ADD COLUMN IF NOT EXISTS map_visible             SMALLINT NOT NULL DEFAULT 1;
 ALTER TABLE escorts ADD COLUMN IF NOT EXISTS merged_into_id          INTEGER DEFAULT NULL;
+ALTER TABLE escorts ADD COLUMN IF NOT EXISTS telegram_promo_opt_in SMALLINT NOT NULL DEFAULT 0;
+ALTER TABLE escorts ADD COLUMN IF NOT EXISTS telegram_promo_status VARCHAR(16) NOT NULL DEFAULT 'pending';
+ALTER TABLE escorts ADD COLUMN IF NOT EXISTS telegram_promo_message_id BIGINT DEFAULT NULL;
+ALTER TABLE escorts ADD COLUMN IF NOT EXISTS telegram_promo_sent_at TIMESTAMP DEFAULT NULL;
+ALTER TABLE escorts ADD COLUMN IF NOT EXISTS telegram_promo_error VARCHAR(500) DEFAULT NULL;
 
 CREATE TABLE IF NOT EXISTS events (
   id          SERIAL PRIMARY KEY,
