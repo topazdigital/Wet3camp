@@ -13,6 +13,10 @@ const SUPPORT_CATEGORIES = [
   { value: 'safety', label: 'Safety' },
   { value: 'other', label: 'Other' },
 ]
+const SUPPORT_PRIMARY_BUTTON =
+  'border border-[#FFD700]/45 bg-gradient-to-r from-[#8B0000] to-[#5F0000] text-white shadow-[0_6px_18px_rgba(90,0,0,.28)] transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FFD700] disabled:cursor-not-allowed disabled:opacity-45'
+const SUPPORT_SECONDARY_BUTTON =
+  'border border-[#FFD700]/35 bg-[#8B0000]/15 text-[#FFD700] transition hover:bg-[#8B0000]/40 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FFD700]'
 
 type GuestSession = { conversationId: string; accessToken: string }
 
@@ -166,7 +170,7 @@ export default function SupportChatWidget() {
   const canReply = true
 
   return (
-    <div className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 z-[70] flex flex-col items-end sm:bottom-6 sm:right-6" data-testid="support-widget">
+    <div className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 z-[70] flex flex-col items-end sm:right-6 lg:bottom-6" data-testid="support-widget">
       {open && (
         <section
           className="mb-3 flex h-[min(590px,calc(100dvh-7rem))] w-[min(390px,calc(100vw-2rem))] flex-col overflow-hidden rounded-[1.35rem] border border-[#68453e] bg-[#171313] text-[#f3ece3] shadow-[0_24px_80px_rgba(20,8,6,.48)] animate-in fade-in slide-in-from-bottom-3 duration-200 sm:h-[min(600px,calc(100dvh-6rem))]"
@@ -183,14 +187,14 @@ export default function SupportChatWidget() {
                 </div>
                 <div>
                   <p className="text-[10px] font-semibold uppercase tracking-[.2em] text-[#d8b873]">Wet3Camp support</p>
-                  <h2 className="mt-1 text-base font-semibold tracking-tight">A real person, here to help</h2>
+                  <h2 className="mt-1 text-base font-semibold tracking-tight">How can we help?</h2>
                 </div>
               </div>
-              <button type="button" onClick={() => setOpen(false)} aria-label="Close support chat" data-testid="button-close-support" className="rounded-lg p-2 text-[#d4c4b5] transition hover:bg-white/10 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#d8b873]">
+              <button type="button" onClick={() => setOpen(false)} aria-label="Close support chat" data-testid="button-close-support" className={`rounded-lg p-2 ${SUPPORT_SECONDARY_BUTTON}`}>
                 <X size={17} />
               </button>
             </div>
-            <p className="relative mt-3 pl-[3.25rem] text-xs leading-relaxed text-[#d2c2b6]">Listings, bookings or account questions — send us a note and our team will follow up.</p>
+            <p className="relative mt-3 pl-[3.25rem] text-xs leading-relaxed text-[#d2c2b6]">Send an enquiry about listings, bookings, your account or anything else. Our team will reply here.</p>
           </header>
 
           {loading ? (
@@ -207,7 +211,7 @@ export default function SupportChatWidget() {
                   <p className="mt-0.5 text-[10px] text-[#a99b8e]">{conversation.status === 'open' ? 'Conversation open' : 'Resolved · send a message to reopen'}</p>
                 </div>
                 {conversation.status === 'resolved' && (
-                  <button type="button" onClick={startNewConversation} data-testid="button-new-support-thread" className="shrink-0 rounded-lg border border-[#d8b873]/30 px-3 py-1.5 text-[11px] font-semibold text-[#e2c887] hover:bg-[#d8b873]/10">New message</button>
+                  <button type="button" onClick={startNewConversation} data-testid="button-new-support-thread" className={`shrink-0 rounded-lg px-3 py-1.5 text-[11px] font-semibold ${SUPPORT_SECONDARY_BUTTON}`}>New message</button>
                 )}
               </div>
               <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4" aria-live="polite" data-testid="support-message-list">
@@ -231,7 +235,7 @@ export default function SupportChatWidget() {
                   <label className="sr-only" htmlFor="support-reply">Write a message</label>
                   <div className="flex items-end gap-2 rounded-xl border border-white/10 bg-[#110f0e] p-2 focus-within:border-[#c9a966]/60">
                     <textarea id="support-reply" value={message} onChange={event => setMessage(event.target.value)} maxLength={3000} rows={2} placeholder="Write your message…" data-testid="input-support-reply" className="max-h-28 min-h-10 flex-1 resize-y bg-transparent px-1 py-1.5 text-sm leading-relaxed text-[#f3ece3] outline-none placeholder:text-[#81756b]" />
-                    <button type="submit" disabled={!message.trim() || sending} aria-label="Send message" data-testid="button-send-support" className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-[#8d342d] text-white transition hover:bg-[#a74339] disabled:cursor-not-allowed disabled:opacity-45 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#d8b873]">
+                    <button type="submit" disabled={!message.trim() || sending} aria-label="Send message" data-testid="button-send-support" className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${SUPPORT_PRIMARY_BUTTON}`}>
                       {sending ? <LoaderCircle size={16} className="animate-spin" /> : <Send size={16} />}
                     </button>
                   </div>
@@ -244,8 +248,8 @@ export default function SupportChatWidget() {
           ) : (
             <form onSubmit={submit} className="flex flex-1 flex-col overflow-y-auto p-5">
               <div className="mb-4 rounded-xl border border-[#d8b873]/15 bg-[#d8b873]/[.06] px-3.5 py-3">
-                <p className="text-xs font-medium text-[#ead9b7]">Tell us what you need.</p>
-                <p className="mt-1 text-[11px] leading-relaxed text-[#b9aa9b]">Your message goes directly to the Wet3Camp support team.</p>
+                <p className="text-xs font-medium text-[#ead9b7]">Send us your enquiry.</p>
+                <p className="mt-1 text-[11px] leading-relaxed text-[#b9aa9b]">Our support team will reply in this chat.</p>
               </div>
               {isNewGuest && (
                 <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -269,7 +273,7 @@ export default function SupportChatWidget() {
                 <textarea required value={message} onChange={event => setMessage(event.target.value)} maxLength={3000} rows={4} data-testid="input-support-first-message" className="mt-1.5 min-h-28 w-full resize-y rounded-lg border border-white/10 bg-[#110f0e] px-3 py-2.5 text-sm leading-relaxed text-white outline-none focus:border-[#c9a966]/70" placeholder="Share a few details so we can help…" />
               </label>
               {error && <p role="alert" className="mb-3 rounded-lg border border-[#d88a78]/25 bg-[#672c27]/25 px-3 py-2 text-xs text-[#efb7a8]" data-testid="support-error">{error}</p>}
-              <button type="submit" disabled={!message.trim() || (!isLoggedIn && (!name.trim() || !email.trim())) || sending || !isAuthReady} data-testid="button-start-support" className="flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#8d342d] px-4 text-sm font-semibold text-white transition hover:bg-[#a74339] disabled:cursor-not-allowed disabled:opacity-45">
+              <button type="submit" disabled={!message.trim() || (!isLoggedIn && (!name.trim() || !email.trim())) || sending || !isAuthReady} data-testid="button-start-support" className={`flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold ${SUPPORT_PRIMARY_BUTTON}`}>
                 {sending ? <LoaderCircle size={16} className="animate-spin" /> : <Send size={15} />}
                 {sending ? 'Sending…' : 'Send to support'}
               </button>
@@ -281,7 +285,7 @@ export default function SupportChatWidget() {
           </div>
         </section>
       )}
-      <button type="button" onClick={() => setOpen(value => !value)} aria-expanded={open} aria-label={open ? 'Close support chat' : 'Open Wet3Camp support chat'} data-testid="button-toggle-support" className="group flex items-center gap-2.5 rounded-full border border-[#d3b773]/35 bg-[#782c27] px-4 py-3 text-sm font-semibold text-[#fff7e9] shadow-[0_8px_28px_rgba(60,18,15,.38)] transition duration-200 hover:-translate-y-0.5 hover:bg-[#8d342d] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d8b873]">
+      <button type="button" onClick={() => setOpen(value => !value)} aria-expanded={open} aria-label={open ? 'Close support chat' : 'Open Wet3Camp support chat'} data-testid="button-toggle-support" className={`group flex items-center gap-2.5 rounded-full px-4 py-3 text-sm font-semibold ${SUPPORT_PRIMARY_BUTTON} border-[#FFD700]/50 shadow-[0_8px_28px_rgba(90,0,0,.42)] hover:-translate-y-0.5`}>
         {open ? <X size={18} /> : <MessageCircle size={18} />}
         <span>{open ? 'Close' : 'Talk to support'}</span>
       </button>
