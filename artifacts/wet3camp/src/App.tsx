@@ -8,6 +8,7 @@ import { NotificationsProvider } from "@/lib/notifications-context";
 import { BookingsProvider } from "@/lib/bookings-context"
 import { FavoritesProvider } from "@/lib/favorites-context";
 import BottomNav from "@/components/BottomNav";
+import SupportChatWidget from "@/components/SupportChatWidget";
 import { ImpersonationBanner } from "@/pages/view-as";
 import ScrollRestoration from "@/components/ScrollRestoration";
 
@@ -173,6 +174,7 @@ function App() {
                 <ImpersonationBanner />
                 <ScrollRestoration />
                 <Router />
+                <SupportChatWidget />
                 <BottomNav />
               </SidebarProvider>
             </FollowProvider>
