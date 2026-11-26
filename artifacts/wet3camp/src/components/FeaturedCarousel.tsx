@@ -83,12 +83,12 @@ export default function FeaturedCarousel() {
 
     const loadProfiles = async () => {
       try {
-        const featuredResponse = await api.escorts.list({ featured: true, limit: 20, sort: 'featured' })
+        const featuredResponse = await api.escorts.list({ paidFeaturedOnly: true, limit: 20, sort: 'featured' })
         if (cancelled) return
 
-        const featuredProfiles = featuredResponse.data ?? []
-        if (featuredProfiles.length > 0) {
-          setEscorts(featuredProfiles)
+        const paidFeaturedProfiles = featuredResponse.data ?? []
+        if (paidFeaturedProfiles.length > 0) {
+          setEscorts(paidFeaturedProfiles)
           setIsDiscoveryFallback(false)
           return
         }
