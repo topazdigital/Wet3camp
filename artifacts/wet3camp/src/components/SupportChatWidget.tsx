@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocation } from 'wouter'
-import { Check, ChevronDown, LifeBuoy, LoaderCircle, MessageCircle, Send, X } from 'lucide-react'
+import { Check, ChevronDown, LoaderCircle, MessageCircle, Send, X } from 'lucide-react'
 import { api, type SupportConversation, type SupportChatMessage } from '@/lib/api'
 import { useAuth } from '@/lib/auth-context'
 
@@ -17,6 +17,7 @@ const SUPPORT_PRIMARY_BUTTON =
   'border border-[#FFD700]/45 bg-gradient-to-r from-[#8B0000] to-[#5F0000] text-white shadow-[0_6px_18px_rgba(90,0,0,.28)] transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FFD700] disabled:cursor-not-allowed disabled:opacity-45'
 const SUPPORT_SECONDARY_BUTTON =
   'border border-[#FFD700]/35 bg-[#8B0000]/15 text-[#FFD700] transition hover:bg-[#8B0000]/40 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FFD700]'
+const SUPPORT_BRAND_ICON = '/icon-192.png'
 
 type GuestSession = { conversationId: string; accessToken: string }
 
@@ -182,8 +183,8 @@ export default function SupportChatWidget() {
             <div className="absolute -right-1 -top-6 h-24 w-24 rounded-full border border-[#FFD700]/10" />
             <div className="relative flex items-start justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="flex size-10 items-center justify-center rounded-xl border border-[#FFD700]/30 bg-[#FFD700]/10 text-[#FFD700]">
-                  <LifeBuoy size={19} strokeWidth={1.8} />
+                <div className="size-10 overflow-hidden rounded-xl border border-[#FFD700]/30 bg-white">
+                  <img src={SUPPORT_BRAND_ICON} alt="" className="size-full object-cover" />
                 </div>
                 <div>
                   <p className="text-[10px] font-semibold uppercase tracking-[.2em] text-[#FFD700]">Wet3Camp support</p>
@@ -218,7 +219,14 @@ export default function SupportChatWidget() {
                 {conversation.messages.map((item: SupportChatMessage) => {
                   const mine = item.senderType === 'customer'
                   return (
-                    <article key={item.id} data-testid={`support-message-${item.id}`} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
+                    <article key={item.id} data-testid={`support-message-${item.id}`} className={`flex items-end gap-2 ${mine ? 'justify-end' : 'justify-start'}`}>
+                      {!mine && (
+                        <img
+                          src={SUPPORT_BRAND_ICON}
+                          alt=""
+                          className="size-7 shrink-0 rounded-full border border-[#FFD700]/35 bg-white object-cover"
+                        />
+                      )}
                       <div className={`max-w-[86%] rounded-2xl px-3.5 py-2.5 ${mine ? 'rounded-br-md bg-[#8B0000] text-white' : 'rounded-bl-md border border-[#333] bg-[#1a1a1a] text-[#e0e0e0]'}`}>
                         <p className="mb-1 text-[10px] font-semibold text-[#FFD700]">{mine ? 'You' : item.senderName || 'Wet3Camp team'}</p>
                         <p className="whitespace-pre-wrap break-words text-[13px] leading-relaxed">{item.content}</p>
