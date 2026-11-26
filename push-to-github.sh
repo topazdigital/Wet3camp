@@ -87,8 +87,9 @@ else
       exit "$PUSH_EXIT"
     fi
 
-    if ! node - "$COMPARE_FILE" <<'NODE'
+    if ! node - "$COMPARE_FILE" "$BASE_SHA" "$CURL_AUTH_CONFIG" "$REPO" <<'NODE'
 const fs = require("fs");
+const { execFileSync } = require("child_process");
 let comparison;
 try {
   comparison = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
@@ -99,17 +100,58 @@ try {
 
 const ahead = Number(comparison.ahead_by);
 const behind = Number(comparison.behind_by);
-const commits = comparison.commits;
+const baseSha = process.argv[3];
+const authConfig = process.argv[4];
+const repo = process.argv[5];
 const isExpectedSync = /^chore: (sync|remove) .+ via Replit auto-push$/;
 
-if (!Number.isInteger(ahead) || !Number.isInteger(behind) || behind !== 0 ||
-    !Array.isArray(commits) || commits.length !== ahead ||
-    commits.some((commit) => !isExpectedSync.test((commit.commit?.message || "").split("\n")[0]))) {
+if (!Number.isInteger(ahead) || ahead < 1 || !Number.isInteger(behind) || behind !== 0 ||
+    comparison.status !== "ahead") {
   console.error("❌ GitHub has commits that need manual reconciliation; no API sync was attempted.");
   process.exit(1);
 }
 
-console.log(`   Verified ${ahead} remote commit(s); all are prior Replit file-sync commits.`);
+let checked = 0;
+let foundBase = false;
+const maxPages = Math.ceil(ahead / 100) + 2;
+
+try {
+  for (let page = 1; page <= maxPages; page++) {
+    const response = execFileSync("curl", [
+      "--config", authConfig,
+      "-fsSL",
+      "--max-time", "30",
+      `https://api.github.com/repos/${repo}/commits?sha=main&per_page=100&page=${page}`,
+    ], { encoding: "utf8" });
+    const commits = JSON.parse(response);
+    if (!Array.isArray(commits)) throw new Error("GitHub returned an unreadable commit page");
+
+    for (const commit of commits) {
+      if (commit.sha === baseSha) {
+        foundBase = true;
+        break;
+      }
+      const message = (commit.commit?.message || "").split("\n")[0];
+      if (!isExpectedSync.test(message)) {
+        console.error(`❌ Remote commit ${commit.sha?.slice(0, 12) || "unknown"} is not a verified Replit file-sync commit.`);
+        process.exit(1);
+      }
+      checked++;
+    }
+
+    if (foundBase || commits.length === 0) break;
+  }
+} catch (error) {
+  console.error("❌ Could not verify all remote history safely; no API sync was attempted.");
+  process.exit(1);
+}
+
+if (!foundBase || checked !== ahead) {
+  console.error(`❌ Verified ${checked} of ${ahead} remote commit(s); no API sync was attempted.`);
+  process.exit(1);
+}
+
+console.log(`   Verified all ${checked} remote commit(s); all are prior Replit file-sync commits.`);
 NODE
     then
       exit "$PUSH_EXIT"
