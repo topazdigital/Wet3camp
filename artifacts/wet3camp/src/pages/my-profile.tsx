@@ -46,6 +46,7 @@ export default function MyProfile() {
         setEditLangs(Array.isArray(data.languages) ? data.languages : [])
         setEditWhatsapp(data.whatsapp || '')
         setEditTelegram(data.telegram || '')
+        setEditTelegramPromoOptIn(Number(data.telegram_promo_opt_in) === 1)
         setEditBio(data.bio || '')
         setEditCity(data.city || '')
         setEditArea(data.area || '')
@@ -94,6 +95,7 @@ export default function MyProfile() {
   const [editLangs, setEditLangs] = useState<string[]>([])
   const [editWhatsapp, setEditWhatsapp] = useState('')
   const [editTelegram, setEditTelegram] = useState('')
+  const [editTelegramPromoOptIn, setEditTelegramPromoOptIn] = useState(false)
   const [editBio, setEditBio] = useState('')
   const [editCity, setEditCity] = useState('')
   const [editArea, setEditArea] = useState('')
@@ -318,13 +320,14 @@ export default function MyProfile() {
   const handleSave = async () => {
     setEditSaveError(''); setEditSaving(true)
     try {
-      await api.profile.updateEscort({
+      const result = await api.profile.updateEscort({
         bio:          editBio,
         city:         editCity,
         area:         editArea,
         mapVisible:   editMapVisible,
         whatsapp:     editWhatsapp,
         telegram:     editTelegram,
+        telegramPromoOptIn: editTelegramPromoOptIn,
         bodyType:     editBodyType,
         ethnicity:    editEthnicity,
         hairColor:    editHair,
@@ -336,7 +339,14 @@ export default function MyProfile() {
         rateOutcallOvernight:editOutcallOvernight? parseInt(editOutcallOvernight): undefined,
         rateVideo:           editVideo           ? parseInt(editVideo)           : undefined,
       })
-      setEscortProfile((profile: any) => profile ? { ...profile, map_visible: editMapVisible } : profile)
+      setEscortProfile((profile: any) => profile ? {
+        ...profile,
+        map_visible: editMapVisible,
+        telegram_promo_opt_in: editTelegramPromoOptIn ? 1 : 0,
+      } : profile)
+      if (result.telegramPromotion?.status === 'failed') {
+        setEditSaveError(`Your settings were saved, but Telegram posting failed: ${result.telegramPromotion.message}`)
+      }
       setEditSaved(true); setTimeout(() => setEditSaved(false), 3000)
     } catch (err: any) {
       setEditSaveError(err.message ?? 'Failed to save. Please try again.')
@@ -854,6 +864,19 @@ export default function MyProfile() {
                       <label className="text-[10px] text-text-muted uppercase tracking-widest block mb-1.5 flex items-center gap-1" style={{color:'#229ED9'}}>✈️ Telegram</label>
                       <input value={editTelegram} onChange={e=>setEditTelegram(e.target.value)} className="w-full px-3.5 py-2.5 bg-dark-bg border border-color rounded-xl text-sm text-text-light focus:outline-none focus:border-[#229ED9] transition-all"/>
                     </div>
+                    <label className="col-span-2 flex cursor-pointer items-start gap-3 rounded-xl border border-color bg-dark-bg/60 p-3">
+                      <input
+                        type="checkbox"
+                        checked={editTelegramPromoOptIn}
+                        onChange={e => setEditTelegramPromoOptIn(e.target.checked)}
+                        data-testid="profile-telegram-promotion-opt-in"
+                        className="mt-1 accent-[#229ED9]"
+                      />
+                      <span>
+                        <span className="block text-xs font-semibold text-text-light">Allow my approved profile to be posted on Wet3 Camp’s Telegram channel</span>
+                        <span className="mt-1 block text-[11px] leading-relaxed text-text-muted">Only your public name, location and profile link are shared. Turning this off prevents future automatic posts.</span>
+                      </span>
+                    </label>
                   </div>
 
                   {/* Languages */}
