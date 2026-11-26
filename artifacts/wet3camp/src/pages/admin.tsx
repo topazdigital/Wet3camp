@@ -927,6 +927,7 @@ function PendingApprovals() {
   const [reviewLoading, setReviewLoading] = useState(false)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [actionError, setActionError] = useState('')
+  const [actionNotice, setActionNotice] = useState('')
 
   useEffect(() => {
     fetchAllAdminEscorts('status=pending')
@@ -938,8 +939,17 @@ function PendingApprovals() {
   const handleApprovalAction = async (id: string, action: 'verify' | 'reject') => {
     setActionLoading(`${id}_${action}`)
     setActionError('')
+    setActionNotice('')
     try {
-      await adminFetch(`/admin/escorts/${id}/${action}`, { method: 'POST' })
+      const result = await adminFetch(`/admin/escorts/${id}/${action}`, { method: 'POST' })
+      if (action === 'verify' && result.telegramPromotion) {
+        const promotion = result.telegramPromotion
+        setActionNotice(promotion.status === 'sent'
+          ? 'Approved and posted to the Telegram channel.'
+          : promotion.status === 'failed'
+            ? `Approved, but the Telegram post failed: ${promotion.message}`
+            : `Approved. ${promotion.message}`)
+      }
       setEscorts((current) => current.filter((escort) => String(escort.id) !== String(id)))
       if (String(reviewingEscort?.id) === String(id)) setReviewingEscort(null)
     } catch (error: any) {
@@ -964,6 +974,7 @@ function PendingApprovals() {
       <div className="bg-card-bg border border-color rounded-2xl p-4">
         <h3 className="text-sm font-bold text-text-light mb-3 flex items-center gap-2"><AlertTriangle size={14} className="text-[#FFD700]"/>Pending Approvals</h3>
         {actionError && <p role="alert" data-testid="admin-approval-error" className="mb-3 text-xs text-[#EF4444]">{actionError}</p>}
+        {actionNotice && <p role="status" data-testid="admin-telegram-promotion-status" className="mb-3 text-xs text-text-muted">{actionNotice}</p>}
         {loading && <div className="w-4 h-4 border-2 border-text-muted/30 border-t-text-muted rounded-full animate-spin mx-auto my-4"/>}
         {!loading && escorts.length === 0 && <p className="text-xs text-text-muted">No pending approvals.</p>}
         <div className="space-y-2">
@@ -2681,6 +2692,7 @@ function EscortsTab() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [actionError, setActionError] = useState('')
+  const [approvalNotice, setApprovalNotice] = useState('')
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all'|'pending'|'active'>('all')
   const [actionLoading, setActionLoading] = useState<string|null>(null)
@@ -2698,7 +2710,10 @@ function EscortsTab() {
     setBulkApproveLoading(true); setBulkApproveMsg('')
     try {
       const data = await adminFetch('/admin/escorts/bulk-approve', { method: 'POST' })
-      setBulkApproveMsg(`✓ ${data.message}`)
+      const promotionSummary = data.telegramPosted !== undefined
+        ? ` Telegram posts: ${data.telegramPosted} sent, ${data.telegramFailed} failed.`
+        : ''
+      setBulkApproveMsg(`✓ ${data.message}.${promotionSummary}`)
       load()
     } catch {
       setBulkApproveMsg('Failed to bulk approve.')
@@ -2754,9 +2769,18 @@ function EscortsTab() {
 
   const handleApprove = async (id: string) => {
     setActionError('')
+    setApprovalNotice('')
     setActionLoading(id + '_approve')
     try {
-      await adminFetch(`/admin/escorts/${id}/verify`, { method: 'POST' })
+      const result = await adminFetch(`/admin/escorts/${id}/verify`, { method: 'POST' })
+      const promotion = result.telegramPromotion
+      if (promotion) {
+        setApprovalNotice(promotion.status === 'sent'
+          ? 'Approved and posted to the Telegram channel.'
+          : promotion.status === 'failed'
+            ? `Approved, but the Telegram post failed: ${promotion.message}`
+            : `Approved. ${promotion.message}`)
+      }
       setEscorts(prev => prev.map(e => e.id === id ? { ...e, is_active: true, verified: true, approval_status: 'approved' } : e))
     } catch (error: any) {
       setActionError(error?.message || 'Could not approve this profile.')
@@ -2826,6 +2850,7 @@ function EscortsTab() {
   return (
     <div className="space-y-4">
       {actionError && <div role="alert" data-testid="admin-escort-action-error" className="p-3 bg-[#EF4444]/10 border border-[#EF4444]/20 rounded-xl text-xs text-[#EF4444]">{actionError}</div>}
+      {approvalNotice && <div role="status" data-testid="admin-telegram-promotion-status" className="p-3 bg-[#229ED9]/10 border border-[#229ED9]/20 rounded-xl text-xs text-text-light">{approvalNotice}</div>}
       {mergeMsg && <div role="status" className="p-3 bg-[#28a745]/10 border border-[#28a745]/20 rounded-xl text-xs text-[#28a745]">{mergeMsg}</div>}
       <BulkOnlinePanel escorts={escorts} onBulkToggle={handleBulkToggle} />
       <div className="flex flex-col items-start gap-2.5 p-3.5 bg-[#EF4444]/10 border border-[#EF4444]/30 rounded-2xl sm:flex-row sm:items-center sm:gap-3">
@@ -3609,6 +3634,7 @@ function AdminDashboard() {
                 <div className="space-y-4">
                   <ApiKeyField label="Telegram Bot Token" placeholder="1234567890:XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" icon={Key} settingKey="telegram_token" hint="Create a bot via @BotFather on Telegram" />
                   <TextSettingField label="Admin Chat ID" placeholder="e.g. -1001234567890" settingKey="telegram_chat_id" hint="Your group chat ID for admin notifications (new registrations, featured requests, etc.)" />
+                  <TextSettingField label="Public Channel ID or @username" placeholder="@wet3camp or -1001234567890" settingKey="telegram_channel_id" hint="Add this bot as a channel administrator with permission to post. New profiles are posted only after admin approval and escort opt-in." />
                 </div>
               </div>
 
