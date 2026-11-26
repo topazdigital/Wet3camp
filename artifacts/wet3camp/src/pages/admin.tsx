@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import Header from '@/components/Header'
 import Sidebar from '@/components/Sidebar'
 import AdminPhotoGallery from '@/components/AdminPhotoGallery'
+import AdminSupportInbox from '@/components/AdminSupportInbox'
 import { useAuth } from '@/lib/auth-context'
 import { broadcastAccountDeleted } from '@/lib/api'
 import {
@@ -172,7 +173,7 @@ function getAdminEscortSource(sourceSite?: string | null, sourceUrl?: string | n
   return { label, href: safeUrl?.href ?? null }
 }
 
-const TABS = ['Overview','Escorts','Gallery','Claims','Clients','Bookings','Revenue','Moderators','Featured','Blog','API Keys','Settings','Reports']
+const TABS = ['Overview','Escorts','Gallery','Claims','Support','Clients','Bookings','Revenue','Moderators','Featured','Blog','API Keys','Settings','Reports']
 
 interface Moderator { id: number; name: string; email: string; role: string; level: 1|2|3; status: 'active'|'inactive'; createdAt: string }
 
@@ -3270,6 +3271,9 @@ function AdminDashboard() {
 
           {/* ── CLAIMS ── */}
           {activeTab === 'Claims' && <ClaimsTab />}
+
+          {/* ── SUPPORT ── */}
+          {activeTab === 'Support' && <AdminSupportInbox adminFetch={adminFetch} />}
 
           {/* ── CLIENTS ── */}
           {activeTab === 'Clients' && <ClientsTab />}
