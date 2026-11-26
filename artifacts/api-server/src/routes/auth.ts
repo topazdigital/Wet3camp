@@ -4,6 +4,7 @@ import { hashPassword, verifyPassword } from '../lib/crypto.js'
 import { signToken } from '../lib/jwt.js'
 import { requireAuth, type AuthRequest } from '../middlewares/requireAuth.js'
 import { sendWelcomeEmail, sendEscortWelcomeEmail, sendPasswordResetEmail } from '../lib/mailer.js'
+import { publishApprovedEscortToTelegram } from '../lib/telegram-channel.js'
 
 const router = Router()
 
@@ -77,6 +78,7 @@ router.post('/auth/register', async (req, res) => {
       role: rawRole,
       city, area, bio, whatsapp, telegram,
       bodyType, ethnicity, height, hairColor, gender,
+      telegramPromoOptIn,
       rateIncall, rateOutcall,
       rateIncallOvernight, rateOutcallOvernight,
       rateVideo,
@@ -134,19 +136,19 @@ router.post('/auth/register', async (req, res) => {
 
       const [escResult] = await pool.query<any>(
         `INSERT INTO escorts
-           (user_id, name, age, city, area, bio, tier, whatsapp, telegram,
+           (user_id, name, age, city, area, bio, tier, whatsapp, telegram, telegram_promo_opt_in,
             height, body_type, ethnicity, hair_color, gender,
             price_incall, price_outcall,
             price_incall_overnight, price_outcall_overnight,
             price_video,
              available, verified, is_active, approval_status)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?,?)`,
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?,?)`,
         [
           userId, name,
           parseInt(req.body.age ?? '0') || 0,
           city   ?? null, area    ?? null,
           bio    ?? null, 'standard',
-          whatsapp ?? null, telegram ?? null,
+          whatsapp ?? null, telegram ?? null, telegramPromoOptIn === true ? 1 : 0,
           height ?? null,  bodyType ?? null,
           ethnicity ?? null, hairColor ?? null,
           gender ?? 'Female',
@@ -170,6 +172,11 @@ router.post('/auth/register', async (req, res) => {
         for (const svc of services) {
           await pool.query('INSERT IGNORE INTO escort_services (escort_id, name, available) VALUES (?,?,1)', [escortId, svc])
         }
+      }
+
+      if (autoActive && telegramPromoOptIn === true) {
+        void publishApprovedEscortToTelegram(pool, escortId)
+          .catch((error: any) => console.error('[register] Telegram profile post failed:', error?.message ?? error))
       }
     }
 
@@ -539,6 +546,7 @@ router.post('/auth/setup-escort', requireAuth, async (req: AuthRequest, res) => 
     const {
       name, city, area, bio, whatsapp, telegram, phone,
       bodyType, ethnicity, height, hairColor, gender,
+      telegramPromoOptIn,
       rateIncall, rateOutcall,
       rateIncallOvernight, rateOutcallOvernight,
       rateVideo,
@@ -579,7 +587,7 @@ router.post('/auth/setup-escort', requireAuth, async (req: AuthRequest, res) => 
     if (existing) {
       escortId = String(existing.id)
       await pool.query(
-        `UPDATE escorts SET name=?, city=?, area=?, bio=?, whatsapp=?, telegram=?,
+        `UPDATE escorts SET name=?, city=?, area=?, bio=?, whatsapp=?, telegram=?, telegram_promo_opt_in=?,
          height=?, body_type=?, ethnicity=?, hair_color=?, gender=?,
          price_incall=?, price_outcall=?,
          price_incall_overnight=?, price_outcall_overnight=?,
@@ -587,7 +595,7 @@ router.post('/auth/setup-escort', requireAuth, async (req: AuthRequest, res) => 
          is_active=?, verified=? WHERE id=?`,
         [
           displayName, city ?? null, area ?? null, bio ?? null,
-          whatsapp ?? null, telegram ?? null,
+          whatsapp ?? null, telegram ?? null, telegramPromoOptIn === true ? 1 : 0,
           height ?? null, bodyType ?? null, ethnicity ?? null, hairColor ?? null, gender ?? 'Female',
           parseInt(rateIncall) || 3000, parseInt(rateOutcall) || 5000,
           parseInt(rateIncallOvernight) || 20000, parseInt(rateOutcallOvernight) || 25000,
@@ -599,17 +607,17 @@ router.post('/auth/setup-escort', requireAuth, async (req: AuthRequest, res) => 
     } else {
       const [escResult] = await pool.query<any>(
         `INSERT INTO escorts
-           (user_id, name, city, area, bio, tier, whatsapp, telegram,
+           (user_id, name, city, area, bio, tier, whatsapp, telegram, telegram_promo_opt_in,
             height, body_type, ethnicity, hair_color, gender,
             price_incall, price_outcall,
             price_incall_overnight, price_outcall_overnight,
             price_video,
             available, verified, is_active)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?)`,
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?)`,
         [
           req.userId, displayName,
           city ?? null, area ?? null, bio ?? null, 'standard',
-          whatsapp ?? null, telegram ?? null,
+          whatsapp ?? null, telegram ?? null, telegramPromoOptIn === true ? 1 : 0,
           height ?? null, bodyType ?? null, ethnicity ?? null, hairColor ?? null, gender ?? 'Female',
           parseInt(rateIncall) || 3000, parseInt(rateOutcall) || 5000,
           parseInt(rateIncallOvernight) || 20000, parseInt(rateOutcallOvernight) || 25000,
@@ -634,6 +642,11 @@ router.post('/auth/setup-escort', requireAuth, async (req: AuthRequest, res) => 
       for (const svc of services) {
         await pool.query('INSERT IGNORE INTO escort_services (escort_id, name, available) VALUES (?,?,1)', [escortId, svc])
       }
+    }
+
+    if (autoActive && telegramPromoOptIn === true) {
+      void publishApprovedEscortToTelegram(pool, escortId)
+        .catch((error: any) => console.error('[setup-escort] Telegram profile post failed:', error?.message ?? error))
     }
 
     const token = await signToken({ id: req.userId!, role: 'escort', email: user?.email ?? '' })
