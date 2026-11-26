@@ -517,3 +517,33 @@ CREATE TABLE IF NOT EXISTS blog_posts (
 );
 CREATE INDEX IF NOT EXISTS idx_blog_published ON blog_posts (published, published_at);
 CREATE INDEX IF NOT EXISTS idx_blog_category  ON blog_posts (category);
+
+CREATE TABLE IF NOT EXISTS support_conversations (
+  id                    SERIAL PRIMARY KEY,
+  user_id               INTEGER,
+  guest_name            VARCHAR(120),
+  guest_email           VARCHAR(254),
+  guest_token_hash      CHAR(64),
+  category              VARCHAR(40) NOT NULL DEFAULT 'general',
+  status                VARCHAR(20) NOT NULL DEFAULT 'open',
+  admin_unread_count    INTEGER NOT NULL DEFAULT 0,
+  customer_unread_count INTEGER NOT NULL DEFAULT 0,
+  last_message_at       TIMESTAMP NOT NULL DEFAULT NOW(),
+  created_at            TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at            TIMESTAMP NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_support_conversations_user_status ON support_conversations (user_id, status, last_message_at);
+CREATE INDEX IF NOT EXISTS idx_support_conversations_status_last ON support_conversations (status, last_message_at);
+CREATE INDEX IF NOT EXISTS idx_support_conversations_guest_hash ON support_conversations (guest_token_hash);
+
+CREATE TABLE IF NOT EXISTS support_messages (
+  id              SERIAL PRIMARY KEY,
+  conversation_id INTEGER NOT NULL,
+  sender_type     VARCHAR(12) NOT NULL,
+  sender_user_id  INTEGER,
+  content         TEXT NOT NULL,
+  read_at         TIMESTAMP,
+  created_at      TIMESTAMP NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_support_messages_conversation_created ON support_messages (conversation_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_support_messages_unread ON support_messages (conversation_id, sender_type, read_at);
