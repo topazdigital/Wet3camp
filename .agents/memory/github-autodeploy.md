@@ -30,6 +30,13 @@ The GitHub Contents API fallback creates one remote commit per changed file but 
 
 **How to apply:** Run `bash push-to-github.sh` from a fresh Replit Shell. It builds, commits, tries Git push, and safely falls back to the Contents API when its paginated history check passes. The API helper uses a temporary private curl config for the PAT; never put the token in a remote URL or command argument. API pushes do not deploy production or advance local `origin/main`.
 
+## Direct push proxy failure at an unchanged base
+If direct Git push fails because the Replit GitHub proxy is unavailable and GitHub's `main` still exactly matches local `origin/main`, `push-to-github.sh` may reject API fallback because its comparison expects at least one remote-only sync commit. After confirming `git ls-remote` still matches `origin/main`, `bash scripts/auto-push.sh main` can safely sync the local commit.
+
+**Why:** The push script's history guard handles prior API-generated remote commits but does not currently accept the safe case where remote and local base are identical.
+
+**How to apply:** Verify exact remote/base SHA equality before using the API sync fallback; never force-push or proceed if the remote has moved.
+
 ## Credentials
 - `DEPLOY_SSH_KEY` — required in GitHub repo Secrets only when manually running the GitHub Actions deployment
 - `DEPLOY_SSH_PASSPHRASE` — optional, also in GitHub repo Secrets if key has passphrase
