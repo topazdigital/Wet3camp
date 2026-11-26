@@ -6,6 +6,7 @@ import { getMergedEscortIds } from '../lib/escort-merge.js'
 import { requireAuth, type AuthRequest } from '../middlewares/requireAuth.js'
 import { setEscortOnline } from '../lib/online-store.js'
 import { isDefaultEscortImage, normalizeEscortImage } from '../lib/escort-image.js'
+import { publishApprovedEscortToTelegram } from '../lib/telegram-channel.js'
 
 function hashPassword(p: string) { return createHash('sha256').update(p).digest('hex') }
 
@@ -145,6 +146,7 @@ router.patch('/profile/escort', requireAuth, async (req: AuthRequest, res) => {
       rateVideo,
       available, languages, services,
       mapVisible,
+      telegramPromoOptIn,
     } = req.body as Record<string, any>
 
     const [[escort]] = await pool.query<any[]>('SELECT id, approval_status FROM escorts WHERE user_id = ?', [req.userId])
@@ -173,6 +175,10 @@ router.patch('/profile/escort', requireAuth, async (req: AuthRequest, res) => {
       updates.push('map_visible = ?')
       params.push(mapVisible ? 1 : 0)
     }
+    if (typeof telegramPromoOptIn === 'boolean') {
+      updates.push('telegram_promo_opt_in = ?')
+      params.push(telegramPromoOptIn ? 1 : 0)
+    }
     if (escort.approval_status === 'rejected' && updates.length > 0) {
       updates.push("approval_status = 'pending'")
     }
@@ -199,11 +205,16 @@ router.patch('/profile/escort', requireAuth, async (req: AuthRequest, res) => {
     if (available !== undefined) setEscortOnline(escortId, !!available)
 
     const [[row]] = await pool.query<any[]>('SELECT * FROM escorts WHERE id = ?', [escortId])
+    const telegramPromotion = telegramPromoOptIn === true
+      ? await publishApprovedEscortToTelegram(pool, escortId)
+          .catch((error: any) => ({ status: 'failed' as const, message: error?.message || 'Telegram posting failed.' }))
+      : undefined
     res.json({
       ...row,
       id: String(row.id),
       available: !!row.available,
       map_visible: Number(row.map_visible) === 1,
+      telegramPromotion,
     })
   } catch {
     res.status(500).json({ message: 'Failed to update escort profile' })
