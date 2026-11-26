@@ -97,6 +97,29 @@ export interface ApiUser {
   hasEscortProfile?: boolean
 }
 
+export interface SupportChatMessage {
+  id: string
+  senderType: 'customer' | 'admin'
+  senderName: string
+  content: string
+  createdAt: string
+  readAt: string | null
+}
+
+export interface SupportConversation {
+  id: string
+  userId: string | null
+  customerName: string
+  customerEmail: string
+  category: string
+  status: 'open' | 'resolved'
+  adminUnreadCount: number
+  customerUnreadCount: number
+  lastMessageAt: string
+  createdAt: string
+  messages: SupportChatMessage[]
+}
+
 export interface FeedPostMedia {
   type: 'image' | 'video'
   url: string
@@ -189,6 +212,38 @@ export const api = {
     list:  ()                                       => req<any[]>('/messages'),
     send:  (escortId: number, content: string)      => req('/messages', { method: 'POST', body: JSON.stringify({ escortId, content }) }),
     markRead: (escortId: number)                    => req('/messages/read', { method: 'POST', body: JSON.stringify({ escortId }) }),
+  },
+
+  support: {
+    current: () =>
+      req<{ conversation: SupportConversation | null }>('/support/conversations/current'),
+    create: (data: { category: string; content: string }) =>
+      req<{ conversation: SupportConversation }>('/support/conversations', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    get: (id: string) =>
+      req<{ conversation: SupportConversation }>(`/support/conversations/${encodeURIComponent(id)}`),
+    send: (id: string, content: string) =>
+      req<{ conversation: SupportConversation }>(`/support/conversations/${encodeURIComponent(id)}/messages`, {
+        method: 'POST',
+        body: JSON.stringify({ content }),
+      }),
+    startGuest: (data: { name: string; email: string; category: string; content: string }) =>
+      req<{ conversation: SupportConversation; accessToken: string }>('/support/guest/conversations', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    getGuest: (id: string, token: string) =>
+      req<{ conversation: SupportConversation }>(`/support/guest/conversations/${encodeURIComponent(id)}`, {
+        headers: { 'X-Support-Guest-Token': token },
+      }),
+    sendGuest: (id: string, token: string, content: string) =>
+      req<{ conversation: SupportConversation }>(`/support/guest/conversations/${encodeURIComponent(id)}/messages`, {
+        method: 'POST',
+        headers: { 'X-Support-Guest-Token': token },
+        body: JSON.stringify({ content }),
+      }),
   },
 
   notifications: {
