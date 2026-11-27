@@ -60,6 +60,22 @@
   --sidebar-ring: 0 100% 27.3%;
 }
 
+:root.installed-pwa-shell {
+  --app-safe-area-top: max(env(safe-area-inset-top, 0px), 40px);
+  --app-safe-area-bottom: max(env(safe-area-inset-bottom, 0px), 56px);
+}
+
+@media
+  (max-width: 1023px) and (display-mode: standalone),
+  (max-width: 1023px) and (display-mode: window-controls-overlay),
+  (max-width: 1023px) and (display-mode: minimal-ui),
+  (max-width: 1023px) and (display-mode: fullscreen) {
+  :root {
+    --app-safe-area-top: max(env(safe-area-inset-top, 0px), 40px);
+    --app-safe-area-bottom: max(env(safe-area-inset-bottom, 0px), 56px);
+  }
+}
+
 @theme inline {
   --font-sans: 'Geist', 'Inter', sans-serif;
   --font-mono: 'Geist Mono', monospace;
@@ -138,11 +154,6 @@
     top: 0;
   }
 
-  :root.installed-pwa-shell {
-    --app-safe-area-top: max(env(safe-area-inset-top, 0px), 40px);
-    --app-safe-area-bottom: max(env(safe-area-inset-bottom, 0px), 56px);
-  }
-
   @media (max-width: 1023px) {
     :root.installed-pwa-shell #root {
       padding-top: var(--app-safe-area-top);
@@ -152,9 +163,6 @@
       top: var(--app-safe-area-top);
     }
 
-    :root.installed-pwa-shell .mobile-bottom-nav {
-      padding-bottom: var(--app-safe-area-bottom);
-    }
   }
 
   /* Registration actions stay visible above the app-wide mobile tab bar. */
@@ -188,11 +196,6 @@
     (max-width: 1023px) and (display-mode: window-controls-overlay),
     (max-width: 1023px) and (display-mode: minimal-ui),
     (max-width: 1023px) and (display-mode: fullscreen) {
-    :root {
-      --app-safe-area-top: max(env(safe-area-inset-top, 0px), 40px);
-      --app-safe-area-bottom: max(env(safe-area-inset-bottom, 0px), 56px);
-    }
-
     #root {
       padding-top: var(--app-safe-area-top);
     }
