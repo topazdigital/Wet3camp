@@ -61,8 +61,8 @@
 }
 
 :root.installed-pwa-shell {
-  --app-safe-area-top: max(env(safe-area-inset-top, 0px), 40px);
-  --app-safe-area-bottom: max(env(safe-area-inset-bottom, 0px), 56px);
+  --app-safe-area-top: env(safe-area-inset-top, 0px);
+  --app-safe-area-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 @media
@@ -71,8 +71,8 @@
   (max-width: 1023px) and (display-mode: minimal-ui),
   (max-width: 1023px) and (display-mode: fullscreen) {
   :root {
-    --app-safe-area-top: max(env(safe-area-inset-top, 0px), 40px);
-    --app-safe-area-bottom: max(env(safe-area-inset-bottom, 0px), 56px);
+    --app-safe-area-top: env(safe-area-inset-top, 0px);
+    --app-safe-area-bottom: env(safe-area-inset-bottom, 0px);
   }
 }
 
@@ -148,6 +148,11 @@
   /* Keep installed mobile navigation clear of Android/iOS system controls. */
   .mobile-bottom-nav {
     padding-bottom: var(--app-safe-area-bottom);
+  }
+
+  /* Keep floating controls above the mobile tab bar, including device insets. */
+  .mobile-floating-action {
+    bottom: calc(4.5rem + var(--app-safe-area-bottom));
   }
 
   .app-site-header {
