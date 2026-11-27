@@ -22,6 +22,8 @@
   --no-color: #EF4444;
   --market-bg: #1e1e2e;
   --market-border: #2d2d44;
+  --app-safe-area-top: env(safe-area-inset-top, 0px);
+  --app-safe-area-bottom: env(safe-area-inset-bottom, 0px);
 
   --background: 0 0% 4%;
   --foreground: 0 0% 88%;
@@ -124,16 +126,21 @@
 @layer components {
   /* The fixed mobile tab bar must not cover the last interactive content. */
   .mobile-bottom-safe {
-    padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));
+    padding-bottom: calc(4.5rem + var(--app-safe-area-bottom));
+  }
+
+  /* Keep installed mobile navigation clear of Android/iOS system controls. */
+  .mobile-bottom-nav {
+    padding-bottom: var(--app-safe-area-bottom);
   }
 
   /* Registration actions stay visible above the app-wide mobile tab bar. */
   .registration-step-nav {
     position: sticky;
-    bottom: calc(4.25rem + env(safe-area-inset-bottom));
+    bottom: calc(4.25rem + var(--app-safe-area-bottom));
     z-index: 20;
     margin-inline: -1rem;
-    padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom));
+    padding: 0.75rem 1rem calc(0.75rem + var(--app-safe-area-bottom));
     border-top: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
     background: color-mix(in srgb, var(--dark-bg) 94%, transparent);
     -webkit-backdrop-filter: blur(12px);
@@ -150,6 +157,21 @@
       background: transparent;
       -webkit-backdrop-filter: none;
       backdrop-filter: none;
+    }
+  }
+
+  @media (display-mode: standalone) and (max-width: 1023px) {
+    :root {
+      --app-safe-area-top: max(env(safe-area-inset-top, 0px), 24px);
+      --app-safe-area-bottom: max(env(safe-area-inset-bottom, 0px), 24px);
+    }
+
+    #root {
+      padding-top: var(--app-safe-area-top);
+    }
+
+    .app-site-header {
+      top: var(--app-safe-area-top);
     }
   }
 
