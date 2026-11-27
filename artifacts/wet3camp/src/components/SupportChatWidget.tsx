@@ -171,7 +171,7 @@ export default function SupportChatWidget() {
   const canReply = true
 
   return (
-    <div className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-3 z-[70] flex flex-col items-end sm:right-6 lg:bottom-6" data-testid="support-widget">
+    <div className="mobile-floating-action fixed right-3 z-[70] flex flex-col items-end sm:right-6 lg:bottom-6" data-testid="support-widget">
       {open && (
         <section
           className="mb-2 flex h-[min(34rem,calc(100dvh-7rem))] w-[min(22rem,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-2xl border border-[#333] bg-[#0a0a0a] text-[#e0e0e0] shadow-[0_24px_80px_rgba(0,0,0,.65)] animate-in fade-in slide-in-from-bottom-3 duration-200 sm:mb-3 sm:rounded-[1.35rem] sm:h-[min(34rem,calc(100dvh-6.5rem))]"
