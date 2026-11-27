@@ -53,7 +53,22 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-icon.png" />
     <link rel="manifest" href="/manifest.json" />
     <script>
-      if (new URLSearchParams(window.location.search).get("app_shell") === "installed") {
+      const installedDisplayModes = [
+        "standalone",
+        "window-controls-overlay",
+        "minimal-ui",
+        "fullscreen",
+      ];
+      const isInstalledDisplayMode =
+        typeof window.matchMedia === "function" &&
+        installedDisplayModes.some((mode) =>
+          window.matchMedia(`(display-mode: ${mode})`).matches,
+        );
+      const isIosStandalone = window.navigator.standalone === true;
+      const hasInstalledLaunchMarker =
+        new URLSearchParams(window.location.search).get("app_shell") === "installed";
+
+      if (hasInstalledLaunchMarker || isInstalledDisplayMode || isIosStandalone) {
         document.documentElement.classList.add("installed-pwa-shell");
       }
     </script>
