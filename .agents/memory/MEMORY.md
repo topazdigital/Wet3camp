@@ -37,3 +37,4 @@
 - [Approved content source authorization](nairobiraha-authorization.md) — The user owns the approved sites and permits profile and blog imports; do not add other sources
 - [NairobiRaha scraper deployment](nairobiraha-scraper-deployment.md) — Keep the cron's DB env path separate from the scraper source checkout so it runs current code
 - [Profile maps and live site](profile-map-privacy.md) — wet3.camp is live; keep public map locations approximate and treat Replit edits as unpublished until requested
+- [Safe-area CSS cascade](safe-area-css-cascade.md) — Keep installed-PWA inset overrides outside lower-priority Tailwind layers when base variables are unlayered
