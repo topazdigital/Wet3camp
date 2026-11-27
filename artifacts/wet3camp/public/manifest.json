@@ -2,7 +2,7 @@
   "name": "Wet3 Camp — Kenya's Premier Escort Directory",
   "short_name": "Wet3 Camp",
   "description": "Kenya's premium escort directory and booking platform. Find verified escorts in Nairobi, Mombasa and beyond.",
-  "start_url": "/",
+  "start_url": "/?app_shell=installed",
   "id": "/",
   "display": "standalone",
   "display_override": ["window-controls-overlay", "standalone", "browser"],
