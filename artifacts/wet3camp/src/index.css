@@ -160,10 +160,13 @@
     }
   }
 
-  @media (display-mode: standalone) and (max-width: 1023px) {
+  @media
+    (max-width: 1023px) and (display-mode: standalone),
+    (max-width: 1023px) and (display-mode: window-controls-overlay),
+    (max-width: 1023px) and (display-mode: minimal-ui) {
     :root {
-      --app-safe-area-top: max(env(safe-area-inset-top, 0px), 24px);
-      --app-safe-area-bottom: max(env(safe-area-inset-bottom, 0px), 24px);
+      --app-safe-area-top: max(env(safe-area-inset-top, 0px), 40px);
+      --app-safe-area-bottom: max(env(safe-area-inset-bottom, 0px), 56px);
     }
 
     #root {
