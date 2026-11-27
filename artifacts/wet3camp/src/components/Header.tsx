@@ -164,7 +164,7 @@ export default function Header() {
   }
 
   return (
-    <header className={`sticky top-0 z-40 w-full transition-all duration-300 ${scrolled ? 'bg-card-bg/95 backdrop-blur-md shadow-lg shadow-black/30 border-b border-color' : 'bg-card-bg border-b border-color'}`}>
+    <header className={`app-site-header sticky top-0 z-40 w-full transition-all duration-300 ${scrolled ? 'bg-card-bg/95 backdrop-blur-md shadow-lg shadow-black/30 border-b border-color' : 'bg-card-bg border-b border-color'}`}>
       <div className="w-full px-3 sm:px-5 h-14 flex items-center gap-2">
         {/* Logo (mobile) */}
         <Link href="/" aria-label="Wet3 Camp home" className="flex lg:hidden items-center flex-shrink-0 group">
