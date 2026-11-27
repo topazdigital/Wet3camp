@@ -12,7 +12,12 @@ const router = Router()
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
 type OAuthSignupRole = 'client' | 'escort'
-type OAuthStateOptions = { linkUserId?: number; codeVerifier?: string; nonce?: string }
+type OAuthStateOptions = {
+  linkUserId?: number
+  codeVerifier?: string
+  nonce?: string
+  providerState?: string
+}
 
 const TELEGRAM_PENDING_COOKIE = 'w3c_telegram_pending'
 const telegramOtpStore = new Map<string, {
@@ -81,6 +86,7 @@ async function createOAuthState(
     signupRole: signupRole ?? null,
     linkUserId: options.linkUserId ?? null,
     codeVerifier: options.codeVerifier ?? null,
+    ...(options.providerState ? { providerState: options.providerState } : {}),
   }, '10m')
 }
 
@@ -112,11 +118,16 @@ async function readOAuthState(
     sameSite: provider === 'apple' ? 'none' : 'lax',
     path: '/api/auth',
   })
-  if (!cookieState || typeof value !== 'string' || value !== cookieState) {
+  if (!cookieState || typeof value !== 'string' || !value) {
     throw new Error('OAuth state did not match this browser session')
   }
-  if (typeof value !== 'string' || !value) throw new Error('Missing OAuth state')
-  const payload = await verifyToken(value)
+  const payload = await verifyToken(cookieState)
+  const expectedState = provider === 'telegram' && typeof payload.providerState === 'string'
+    ? payload.providerState
+    : cookieState
+  if (value !== expectedState) {
+    throw new Error('OAuth state did not match this browser session')
+  }
   if (payload.purpose !== 'oauth-state' || typeof payload.nonce !== 'string') {
     throw new Error('Invalid OAuth state')
   }
@@ -800,8 +811,13 @@ router.get('/auth/telegram', async (req, res) => {
     }
     const nonce = randomUUID()
     const codeVerifier = randomBytes(32).toString('base64url')
-    const state = await createOAuthState(returnTo, signupRole, { nonce, codeVerifier })
-    setOAuthStateCookie(res, state, origin, 'telegram')
+    const state = randomBytes(16).toString('base64url')
+    const cookieState = await createOAuthState(returnTo, signupRole, {
+      nonce,
+      codeVerifier,
+      providerState: state,
+    })
+    setOAuthStateCookie(res, cookieState, origin, 'telegram')
     res.redirect(telegramAuthorizationUrl(origin, cfg.telegram_client_id, state, nonce, codeVerifier))
   } catch (err: any) {
     console.error('[oauth/telegram]', err?.message ?? err)
@@ -852,12 +868,14 @@ router.post('/auth/telegram/link/start', requireAuth, async (req: AuthRequest, r
       ?? (req.userRole === 'escort' ? '/my-profile' : req.userRole === 'admin' ? '/admin' : '/account')
     const nonce = randomUUID()
     const codeVerifier = randomBytes(32).toString('base64url')
-    const state = await createOAuthState(returnTo, undefined, {
+    const state = randomBytes(16).toString('base64url')
+    const cookieState = await createOAuthState(returnTo, undefined, {
       nonce,
       codeVerifier,
       linkUserId: req.userId,
+      providerState: state,
     })
-    setOAuthStateCookie(res, state, origin, 'telegram')
+    setOAuthStateCookie(res, cookieState, origin, 'telegram')
     res.setHeader('Cache-Control', 'no-store')
     res.json({
       authorizationUrl: telegramAuthorizationUrl(origin, cfg.telegram_client_id, state, nonce, codeVerifier),
