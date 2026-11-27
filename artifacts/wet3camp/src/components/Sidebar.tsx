@@ -204,7 +204,7 @@ export default function Sidebar() {
       {isMobile && !isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-24 left-4 w-11 h-11 rounded-full bg-[#8B0000] text-white z-50 hover:bg-[#a00000] transition-all shadow-lg shadow-[#8B0000]/40 flex items-center justify-center"
+          className="mobile-floating-action fixed left-4 w-11 h-11 rounded-full bg-[#8B0000] text-white z-50 hover:bg-[#a00000] transition-all shadow-lg shadow-[#8B0000]/40 flex items-center justify-center"
         >
           <Menu size={20} />
         </button>
