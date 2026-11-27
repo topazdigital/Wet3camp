@@ -134,6 +134,10 @@
     padding-bottom: var(--app-safe-area-bottom);
   }
 
+  .app-site-header {
+    top: 0;
+  }
+
   /* Registration actions stay visible above the app-wide mobile tab bar. */
   .registration-step-nav {
     position: sticky;
@@ -163,7 +167,8 @@
   @media
     (max-width: 1023px) and (display-mode: standalone),
     (max-width: 1023px) and (display-mode: window-controls-overlay),
-    (max-width: 1023px) and (display-mode: minimal-ui) {
+    (max-width: 1023px) and (display-mode: minimal-ui),
+    (max-width: 1023px) and (display-mode: fullscreen) {
     :root {
       --app-safe-area-top: max(env(safe-area-inset-top, 0px), 40px);
       --app-safe-area-bottom: max(env(safe-area-inset-bottom, 0px), 56px);
