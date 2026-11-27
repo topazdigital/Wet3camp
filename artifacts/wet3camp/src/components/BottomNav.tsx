@@ -25,8 +25,7 @@ export default function BottomNav() {
 
   return (
     <nav
-      className="lg:hidden fixed bottom-0 left-0 right-0 z-30 border-t border-color bg-card-bg/95 backdrop-blur-md"
-      style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+      className="mobile-bottom-nav lg:hidden fixed bottom-0 left-0 right-0 z-30 border-t border-color bg-card-bg/95 backdrop-blur-md"
     >
       <div className="flex items-end justify-around px-1 pb-1 pt-1">
         {tabs.map(tab => {
