@@ -52,6 +52,11 @@
     <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-icon.png" />
     <link rel="manifest" href="/manifest.json" />
+    <script>
+      if (new URLSearchParams(window.location.search).get("app_shell") === "installed") {
+        document.documentElement.classList.add("installed-pwa-shell");
+      }
+    </script>
 
     <!-- Preconnect for performance -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
