@@ -133,7 +133,7 @@ function Router() {
         <Route path="/forgot-password" component={ForgotPassword} />
         <Route path="/reset-password" component={ResetPassword} />
         <Route path="/messages">{() => <ProtectedRoute component={Messages} />}</Route>
-        <Route path="/lounge">{() => <ProtectedRoute component={Lounge} clientOnly />}</Route>
+        <Route path="/lounge" component={Lounge} />
         <Route path="/booking">{() => <Redirect to="/" />}</Route>
         <Route path="/bookings">{() => <Redirect to="/" />}</Route>
         <Route path="/my-profile">{() => <ProtectedRoute component={MyProfile} escortOnly />}</Route>
