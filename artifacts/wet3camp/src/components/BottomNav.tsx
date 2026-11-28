@@ -12,7 +12,7 @@ const BASE_TABS = [
 
 export default function BottomNav() {
   const [location] = useLocation()
-  const { isLoggedIn, isEscort, isClient, isAuthReady } = useAuth()
+  const { isLoggedIn, isEscort } = useAuth()
   const isActive = (href: string) => href === '/' ? location === '/' : location.startsWith(href)
 
   // Role-based last tab
@@ -22,8 +22,7 @@ export default function BottomNav() {
       : { href: '/account',    icon: User,        label: 'Account',  isSpecial: false }
     : { href: '/register',   icon: Sparkles,    label: 'Join',     isSpecial: true  }
 
-  const canSeeLounge = isClient || (!isLoggedIn && isAuthReady)
-  const tabs = [...BASE_TABS.filter(tab => tab.href !== '/lounge' || canSeeLounge), lastTab]
+  const tabs = [...BASE_TABS, lastTab]
 
   return (
     <nav
