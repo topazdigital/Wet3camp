@@ -33,6 +33,7 @@ const Login           = lazy(() => import("@/pages/login"))
 const ForgotPassword  = lazy(() => import("@/pages/forgot-password"))
 const ResetPassword   = lazy(() => import("@/pages/reset-password"))
 const Messages        = lazy(() => import("@/pages/messages"))
+const Lounge          = lazy(() => import("@/pages/lounge"))
 const Profile         = lazy(() => import("@/pages/profile"))
 const MyProfile       = lazy(() => import("@/pages/my-profile"))
 const Register        = lazy(() => import("@/pages/register"))
@@ -126,6 +127,7 @@ function Router() {
         <Route path="/forgot-password" component={ForgotPassword} />
         <Route path="/reset-password" component={ResetPassword} />
         <Route path="/messages">{() => <ProtectedRoute component={Messages} />}</Route>
+        <Route path="/lounge">{() => <ProtectedRoute component={Lounge} clientOnly />}</Route>
         <Route path="/booking">{() => <Redirect to="/" />}</Route>
         <Route path="/bookings">{() => <Redirect to="/" />}</Route>
         <Route path="/my-profile">{() => <ProtectedRoute component={MyProfile} escortOnly />}</Route>
