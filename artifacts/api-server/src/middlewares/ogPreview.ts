@@ -1051,7 +1051,7 @@ export async function ogPreviewMiddleware(req: Request, res: Response, next: Nex
 
   const pathKey = path.endsWith('/') && path !== '/' ? path.slice(0, -1) : path
 
-  const privateRoute = ['/admin', '/my-profile', '/messages', '/bookings', '/booking',
+  const privateRoute = ['/admin', '/my-profile', '/messages', '/lounge', '/bookings', '/booking',
     '/account', '/auth', '/pending-approval', '/featured-upgrade', '/claim'].some(
       route => pathKey === route || pathKey.startsWith(`${route}/`),
     )
