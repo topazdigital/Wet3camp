@@ -82,7 +82,7 @@ export default function InfiniteEscortGrid({
   sort?: 'featured' | 'newest'
 }) {
   const { isFollowing, toggleFollow } = useFollow()
-  const { user } = useAuth()
+  const { user, isLoggedIn } = useAuth()
   const { isFavorite, toggleFavorite } = useFavorites()
   const { isOnline } = useOnlineStatus()
 
@@ -169,7 +169,11 @@ export default function InfiniteEscortGrid({
 
   const handleFollow = (e: React.MouseEvent, id: string) => {
     e.preventDefault(); e.stopPropagation()
-    toggleFollow(id)
+    if (!isLoggedIn) {
+      window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname)}`
+      return
+    }
+    void toggleFollow(id)
   }
 
   // Show skeleton while loading
