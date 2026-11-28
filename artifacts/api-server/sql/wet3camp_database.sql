@@ -267,6 +267,23 @@ CREATE TABLE IF NOT EXISTS `followers` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
+-- TABLE: user_follows
+-- ============================================================
+CREATE TABLE IF NOT EXISTS `user_follows` (
+  `id`         INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id`    INT UNSIGNED NOT NULL,
+  `escort_id`  INT UNSIGNED NOT NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_user_follows_user_escort` (`user_id`, `escort_id`),
+  INDEX `idx_user_follows_user_id` (`user_id`),
+  INDEX `idx_user_follows_escort_id` (`escort_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT IGNORE INTO `user_follows` (`user_id`, `escort_id`, `created_at`)
+SELECT `user_id`, `escort_id`, `created_at` FROM `followers`;
+
+-- ============================================================
 -- TABLE: notifications
 -- ============================================================
 CREATE TABLE IF NOT EXISTS `notifications` (
