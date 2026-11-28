@@ -6,7 +6,6 @@ import { api } from '@/lib/api'
 import { getSlug } from '@/data/escorts'
 import { Eye, Calendar, Star, Edit3, Camera, CheckCircle2, XCircle, MapPin, DollarSign, Users, Heart, MessageCircle, BarChart2, Zap, Crown, Smartphone, Instagram, Loader2, AlertCircle, UserCheck, Globe, Radio, RefreshCw, X, ChevronDown } from 'lucide-react'
 import { Link } from 'wouter'
-import { useFollow } from '@/lib/follow-context'
 import { useSEO } from '@/lib/useSEO'
 import { formatKes, usePublicPricing } from '@/lib/pricing'
 import EscortAnalyticsPanel from '@/components/EscortAnalyticsPanel'
@@ -84,8 +83,6 @@ export default function MyProfile() {
   const [igPosts, setIgPosts] = useState<{ id: string; img: string; selected: boolean }[]>([])
   const [igImported, setIgImported] = useState(false)
   const [igError, setIgError] = useState('')
-
-  const { followerCount } = useFollow()
 
   // Edit Profile controlled state (all populated from API on load)
   const [editDob, setEditDob] = useState('')
@@ -567,7 +564,7 @@ export default function MyProfile() {
                 </div>
                 <div className="bg-card-bg border border-color rounded-2xl p-4">
                   <div className="flex items-center gap-2 mb-2"><Users size={14} className="text-[#2196F3]"/><span className="text-xs font-bold text-text-light">Followers</span></div>
-                  <p className="text-2xl font-black text-text-light">{followersData ? Number(followersData.total).toLocaleString() : followerCount(escortProfile?.id || '').toLocaleString()}</p>
+                  <p className="text-2xl font-black text-text-light">{followersData ? Number(followersData.total).toLocaleString() : '—'}</p>
                   {followersData?.thisWeek > 0 && <p className="text-[10px] text-[#28a745] mt-0.5">+{followersData.thisWeek} this week</p>}
                 </div>
               </div>
