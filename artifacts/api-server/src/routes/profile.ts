@@ -317,31 +317,43 @@ router.get('/profile/escort/followers', requireAuth, async (req: AuthRequest, re
     const associatedIds = await getMergedEscortIds(query, escortId)
     const placeholders = associatedIds.map(() => '?').join(', ')
 
+    const allFollowerRows = `SELECT user_id, created_at FROM user_follows WHERE escort_id IN (${placeholders})
+       UNION ALL
+       SELECT user_id, created_at FROM followers WHERE escort_id IN (${placeholders})`
+    const allFollowerParams = [...associatedIds, ...associatedIds]
+
     const [[{ total }]] = await pool.query<any[]>(
-      `SELECT COUNT(DISTINCT user_id) AS total FROM followers WHERE escort_id IN (${placeholders})`,
-      associatedIds,
+      `SELECT COUNT(DISTINCT user_id) AS total FROM (${allFollowerRows}) all_follows`,
+      allFollowerParams,
     )
 
     const sevenDaysAgo = new Date(); sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
     const [[{ thisWeek }]] = await pool.query<any[]>(
-      `SELECT COUNT(DISTINCT user_id) AS thisWeek
-       FROM followers WHERE escort_id IN (${placeholders}) AND created_at >= ?`,
-      [...associatedIds, sevenDaysAgo],
-    ).catch(() => [[{ thisWeek: 0 }]])
+      `SELECT COUNT(DISTINCT user_id) AS thisWeek FROM (
+         SELECT user_id FROM user_follows WHERE escort_id IN (${placeholders}) AND created_at >= ?
+         UNION
+         SELECT user_id FROM followers WHERE escort_id IN (${placeholders}) AND created_at >= ?
+       ) recent_follows`,
+      [...associatedIds, sevenDaysAgo, ...associatedIds, sevenDaysAgo],
+    )
 
     const [recent] = await pool.query<any[]>(
-      `SELECT f.user_id, u.display_name AS name, u.username, u.avatar, f.created_at
-       FROM followers f
-       JOIN users u ON u.id = f.user_id
-       WHERE f.escort_id IN (${placeholders})
-       ORDER BY f.created_at DESC LIMIT 100`,
-      associatedIds,
+      `SELECT latest.user_id, u.display_name AS name, u.username, u.avatar, latest.created_at
+       FROM (
+         SELECT user_id, MAX(created_at) AS created_at
+         FROM (${allFollowerRows}) all_follows
+         GROUP BY user_id
+       ) latest
+       JOIN users u ON u.id = latest.user_id
+       ORDER BY latest.created_at DESC LIMIT 100`,
+      allFollowerParams,
     )
 
     const uniqueRecent = new Map<string, any>()
     for (const follower of recent as any[]) {
       if (!uniqueRecent.has(String(follower.user_id))) uniqueRecent.set(String(follower.user_id), follower)
     }
+    res.setHeader('Cache-Control', 'private, no-store')
     res.json({
       total:    Number(total ?? 0),
       thisWeek: Number(thisWeek ?? 0),
