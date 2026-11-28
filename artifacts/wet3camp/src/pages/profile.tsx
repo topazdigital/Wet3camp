@@ -40,7 +40,7 @@ export default function ProfilePage() {
   const [, params]    = useRoute('/profile/:slug')
   const [location]    = useLocation()
   const { isLoggedIn, user } = useAuth()
-  const { isFollowing, toggleFollow, followerCount } = useFollow()
+  const { isFollowing, toggleFollow } = useFollow()
 
   const atSlug = location.match(/^\/@([^/?#]+)/)?.[1]
   const slug = params?.slug ?? atSlug
@@ -381,7 +381,7 @@ export default function ProfilePage() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mb-3 py-3 border-t border-b border-color/50">
-                  <div className="text-center"><p className="text-sm font-black text-text-light">{followerCount(escort.id).toLocaleString()}</p><p className="text-[9px] text-text-muted">Followers</p></div>
+                  <div className="text-center"><p className="text-sm font-black text-text-light">{Number(escort.follower_count ?? 0).toLocaleString()}</p><p className="text-[9px] text-text-muted">Followers</p></div>
                   <div className="text-center"><p className="text-sm font-black text-text-light">{escort.reviews}</p><p className="text-[9px] text-text-muted">Reviews</p></div>
                   <div className="text-center"><p className="text-sm font-black text-text-light">{escort.rating}★</p><p className="text-[9px] text-text-muted">Rating</p></div>
                   <div className="text-center" data-testid="public-profile-views">
@@ -393,7 +393,7 @@ export default function ProfilePage() {
                   </div>
                   {!isOwnProfile && (
                     <div className="ml-auto">
-                      <button onClick={() => { if (!isLoggedIn) { window.location.href = `/login?redirect=/profile/${escort.id}`; return }; toggleFollow(escort.id) }} className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all border ${following ? 'bg-card-bg border-color text-text-muted hover:border-[#EF4444] hover:text-[#EF4444]' : 'bg-[#8B0000] border-[#8B0000] text-white hover:bg-[#a00000]'}`}>
+                      <button onClick={() => { if (!isLoggedIn) { window.location.href = `/login?redirect=/profile/${escort.id}`; return }; void toggleFollow(escort.id) }} className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all border ${following ? 'bg-card-bg border-color text-text-muted hover:border-[#EF4444] hover:text-[#EF4444]' : 'bg-[#8B0000] border-[#8B0000] text-white hover:bg-[#a00000]'}`}>
                         {following ? <><UserCheck size={12} /> Following</> : <><UserPlus size={12} /> Follow</>}
                       </button>
                     </div>
@@ -695,7 +695,7 @@ export default function ProfilePage() {
 
                 <div className="grid grid-cols-2 gap-2">
                   {[
-                    [followerCount(escort.id).toLocaleString(), 'Followers'],
+                    [Number(escort.follower_count ?? 0).toLocaleString(), 'Followers'],
                     [escort.rating + '★', 'Rating'],
                     [escort.reviews, 'Reviews'],
                     [escort.available ? 'Now' : 'Later', 'Availability'],
