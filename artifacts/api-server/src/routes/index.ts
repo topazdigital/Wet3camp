@@ -26,6 +26,7 @@ import blogRouter          from "./blog.js";
 import supportRouter       from "./support.js";
 import followsRouter       from "./follows.js";
 import loungeRouter        from "./lounge.js";
+import loungePrivateRouter from "./lounge-private.js";
 
 const router: IRouter = Router();
 
@@ -38,6 +39,7 @@ router.use(claimsRouter);
 router.use(supportRouter);
 router.use(followsRouter);
 router.use(loungeRouter);
+router.use(loungePrivateRouter);
 router.use(escortsRouter);
 router.use(authRouter);
 router.use(oauthRouter);
