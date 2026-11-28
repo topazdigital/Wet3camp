@@ -1,10 +1,12 @@
-import { Home, Radio, Newspaper, Star, ShoppingBag, Megaphone, Calendar, Video, Hotel, Plane, MessageSquare, Heart, Ban, MessageCircle, HelpCircle, Mail, Shield, Smartphone, X, Menu, BookOpen, Gift, UserPlus } from 'lucide-react'
+import { Home, Radio, Newspaper, Star, ShoppingBag, Megaphone, Calendar, Video, Hotel, Plane, MessageSquare, Heart, Ban, MessageCircle, HelpCircle, Mail, Shield, Smartphone, X, Menu, BookOpen, Gift, UserPlus, type LucideIcon } from 'lucide-react'
 import { Link, useLocation } from 'wouter'
 import { useState, useEffect } from 'react'
 import { useSidebar } from '@/lib/sidebar-context'
 import { useAuth } from '@/lib/auth-context'
 
-const NAV_SECTIONS = [
+type SidebarItem = { icon: LucideIcon; label: string; href: string; badge?: string; badgeColor?: string; highlight?: boolean }
+
+const NAV_SECTIONS: { title: string; items: SidebarItem[] }[] = [
   {
     title: 'Main',
     items: [
@@ -31,6 +33,7 @@ const NAV_SECTIONS = [
     title: 'Community',
     items: [
       { icon: Star,          label: 'Reviews',         href: '/reviews' },
+      { icon: MessageCircle, label: 'The Lounge',     href: '/lounge' },
       { icon: BookOpen,      label: 'Blog',            href: '/blog' },
       { icon: Ban,           label: 'Blacklisted',     href: '/blacklist' },
       { icon: MessageCircle, label: 'Testimonials',    href: '/testimonials' },
@@ -53,7 +56,7 @@ export default function Sidebar() {
   const [localIsOpen, setLocalIsOpen] = useState(true)
   const [localIsMobile, setLocalIsMobile] = useState(false)
   const [location] = useLocation()
-  const { isAdmin, isLoggedIn, isEscort, isPendingEscort } = useAuth()
+  const { isAdmin, isLoggedIn, isEscort, isClient, isPendingEscort } = useAuth()
   const sidebarCta = isEscort
     ? isPendingEscort
       ? { href: '/pending-approval', title: 'Profile under review', description: 'Check the status of your submission.', label: 'View Review Status' }
@@ -141,7 +144,7 @@ export default function Sidebar() {
                     {isOpen && <span className="text-sm truncate flex-1 font-medium">Admin Panel</span>}
                   </Link>
                 )}
-                {section.items.map(item => {
+                {section.items.filter(item => item.href !== '/lounge' || isClient).map(item => {
                   const Icon = item.icon
                   const active = isActive(item.href)
                   return (
