@@ -575,3 +575,26 @@ CREATE TABLE IF NOT EXISTS lounge_presence (
   last_seen  TIMESTAMP NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_lounge_presence_last_seen ON lounge_presence (last_seen);
+
+CREATE TABLE IF NOT EXISTS lounge_conversations (
+  id             SERIAL PRIMARY KEY,
+  member_one_id  INTEGER   NOT NULL,
+  member_two_id  INTEGER   NOT NULL,
+  created_at     TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at     TIMESTAMP NOT NULL DEFAULT NOW(),
+  CONSTRAINT uq_lounge_conversations_pair UNIQUE (member_one_id, member_two_id)
+);
+CREATE INDEX IF NOT EXISTS idx_lounge_conversations_one_updated ON lounge_conversations (member_one_id, updated_at);
+CREATE INDEX IF NOT EXISTS idx_lounge_conversations_two_updated ON lounge_conversations (member_two_id, updated_at);
+
+CREATE TABLE IF NOT EXISTS lounge_direct_messages (
+  id              SERIAL PRIMARY KEY,
+  conversation_id INTEGER   NOT NULL,
+  sender_id       INTEGER   NOT NULL,
+  body            VARCHAR(800) NOT NULL,
+  created_at      TIMESTAMP NOT NULL DEFAULT NOW(),
+  read_at         TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_lounge_direct_messages_conversation ON lounge_direct_messages (conversation_id, id);
+CREATE INDEX IF NOT EXISTS idx_lounge_direct_messages_sender_created ON lounge_direct_messages (sender_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_lounge_direct_messages_unread ON lounge_direct_messages (conversation_id, sender_id, read_at);
