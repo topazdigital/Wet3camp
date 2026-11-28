@@ -11,6 +11,7 @@ import BottomNav from "@/components/BottomNav";
 import SupportChatWidget from "@/components/SupportChatWidget";
 import { ImpersonationBanner } from "@/pages/view-as";
 import ScrollRestoration from "@/components/ScrollRestoration";
+import { Toaster } from "sonner";
 
 // ── Lazy-load every page — each becomes its own JS chunk loaded on demand ─────
 const NotFound        = lazy(() => import("@/pages/not-found"))
@@ -175,6 +176,7 @@ function App() {
                 <ScrollRestoration />
                 <Router />
                 <SupportChatWidget />
+                <Toaster theme="dark" richColors position="top-center" />
                 <BottomNav />
               </SidebarProvider>
             </FollowProvider>
