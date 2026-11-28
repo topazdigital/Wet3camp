@@ -24,6 +24,7 @@ import referralRouter      from "./referral.js";
 import imageProxyRouter    from "./image-proxy.js";
 import blogRouter          from "./blog.js";
 import supportRouter       from "./support.js";
+import followsRouter       from "./follows.js";
 
 const router: IRouter = Router();
 
@@ -34,6 +35,7 @@ router.use(webrtcRouter);
 router.use(healthRouter);
 router.use(claimsRouter);
 router.use(supportRouter);
+router.use(followsRouter);
 router.use(escortsRouter);
 router.use(authRouter);
 router.use(oauthRouter);
