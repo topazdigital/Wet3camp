@@ -557,3 +557,21 @@ CREATE TABLE IF NOT EXISTS support_messages (
 );
 CREATE INDEX IF NOT EXISTS idx_support_messages_conversation_created ON support_messages (conversation_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_support_messages_unread ON support_messages (conversation_id, sender_type, read_at);
+
+CREATE TABLE IF NOT EXISTS lounge_messages (
+  id         SERIAL PRIMARY KEY,
+  user_id    INTEGER     NOT NULL,
+  category   VARCHAR(20) NOT NULL DEFAULT 'general',
+  body       VARCHAR(800) NOT NULL,
+  created_at TIMESTAMP   NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_lounge_messages_created ON lounge_messages (created_at, id);
+CREATE INDEX IF NOT EXISTS idx_lounge_messages_category_created ON lounge_messages (category, created_at, id);
+CREATE INDEX IF NOT EXISTS idx_lounge_messages_user_created ON lounge_messages (user_id, created_at);
+
+CREATE TABLE IF NOT EXISTS lounge_presence (
+  id         SERIAL PRIMARY KEY,
+  user_id    INTEGER   NOT NULL UNIQUE,
+  last_seen  TIMESTAMP NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_lounge_presence_last_seen ON lounge_presence (last_seen);
