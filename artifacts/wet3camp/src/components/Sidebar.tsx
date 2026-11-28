@@ -56,7 +56,8 @@ export default function Sidebar() {
   const [localIsOpen, setLocalIsOpen] = useState(true)
   const [localIsMobile, setLocalIsMobile] = useState(false)
   const [location] = useLocation()
-  const { isAdmin, isLoggedIn, isEscort, isClient, isPendingEscort } = useAuth()
+  const { isAdmin, isLoggedIn, isEscort, isClient, isAuthReady, isPendingEscort } = useAuth()
+  const canSeeLounge = isClient || (!isLoggedIn && isAuthReady)
   const sidebarCta = isEscort
     ? isPendingEscort
       ? { href: '/pending-approval', title: 'Profile under review', description: 'Check the status of your submission.', label: 'View Review Status' }
@@ -144,7 +145,7 @@ export default function Sidebar() {
                     {isOpen && <span className="text-sm truncate flex-1 font-medium">Admin Panel</span>}
                   </Link>
                 )}
-                {section.items.filter(item => item.href !== '/lounge' || isClient).map(item => {
+                {section.items.filter(item => item.href !== '/lounge' || canSeeLounge).map(item => {
                   const Icon = item.icon
                   const active = isActive(item.href)
                   return (
