@@ -287,6 +287,14 @@ export const api = {
     list:   ()            => req<string[]>('/favorites'),
     toggle: (id: string)  => req<{ saved: boolean }>(`/favorites/${id}`, { method: 'POST' }),
   },
+  follows: {
+    list: () => req<string[]>('/follows'),
+    set: (escortId: string, following: boolean) =>
+      req<{ following: boolean; followerCount: number }>(`/follows/${encodeURIComponent(escortId)}`, {
+        method: 'POST',
+        body: JSON.stringify({ following }),
+      }),
+  },
 
   feed: {
     posts: () => req<FeedPost[]>('/feeds/posts'),
