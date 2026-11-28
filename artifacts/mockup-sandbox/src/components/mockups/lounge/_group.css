@@ -1,0 +1,93 @@
+:root {
+  --primary-color: #8B0000;
+  --secondary-color: #FFD700;
+  --dark-bg: #0a0a0a;
+  --card-bg: #1a1a1a;
+  --text-light: #e0e0e0;
+  --text-muted: #999;
+  --border-color: #333;
+  --available-green: #28a745;
+  --available-orange: #FF9800;
+  --elite-color: #8B0000;
+  --vip-color: #B8860B;
+  --premium-color: #FFD700;
+  --free-color: #6c757d;
+  --video-color: #E91E63;
+  --yes-color: #10B981;
+  --no-color: #EF4444;
+  --market-bg: #1e1e2e;
+  --market-border: #2d2d44;
+  --app-safe-area-top: env(safe-area-inset-top, 0px);
+  --app-safe-area-bottom: env(safe-area-inset-bottom, 0px);
+
+  --background: 0 0% 4%;
+  --foreground: 0 0% 88%;
+  --card: 0 0% 10%;
+  --card-foreground: 0 0% 88%;
+  --popover: 0 0% 10%;
+  --popover-foreground: 0 0% 88%;
+  --primary: 0 100% 27.3%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 51 100% 50%;
+  --secondary-foreground: 0 0% 4%;
+  --muted: 0 0% 14.9%;
+  --muted-foreground: 0 0% 60%;
+  --accent: 0 0% 14.9%;
+  --accent-foreground: 0 0% 98%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 0 0% 20%;
+  --input: 0 0% 20%;
+  --ring: 0 100% 27.3%;
+  --chart-1: 12 76% 61%;
+  --chart-2: 173 58% 39%;
+  --chart-3: 197 37% 24%;
+  --chart-4: 43 74% 66%;
+  --chart-5: 27 87% 67%;
+  --radius: 0.5rem;
+  --sidebar: 0 0% 10%;
+  --sidebar-foreground: 0 0% 88%;
+  --sidebar-primary: 0 100% 27.3%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 0 0% 14.9%;
+  --sidebar-accent-foreground: 0 0% 98%;
+  --sidebar-border: 0 0% 20%;
+  --sidebar-ring: 0 100% 27.3%;
+}
+
+@layer components {
+  /* ── Theme colours ── */
+  .bg-dark-bg        { background-color: var(--dark-bg); }
+  .bg-card-bg        { background-color: var(--card-bg); }
+  .bg-market-bg      { background-color: var(--market-bg); }
+  .text-light        { color: var(--text-light); }
+  .text-muted        { color: var(--text-muted); }
+  .border-color      { border-color: var(--border-color); }
+  .bg-primary-color  { background-color: var(--primary-color); }
+  .text-primary-color{ color: var(--primary-color); }
+  .bg-secondary-color{ background-color: var(--secondary-color); }
+  .text-secondary-color{ color: var(--secondary-color); }
+  .bg-elite-color    { background-color: var(--elite-color); }
+  .text-elite-color  { color: var(--elite-color); }
+  .bg-vip-color      { background-color: var(--vip-color); }
+  .text-vip-color    { color: var(--vip-color); }
+  .bg-premium-color  { background-color: var(--premium-color); }
+  .text-premium-color{ color: var(--premium-color); }
+  .bg-available-green{ background-color: var(--available-green); }
+  .text-available-green{ color: var(--available-green); }
+  .bg-available-orange{ background-color: var(--available-orange); }
+  .text-available-orange{ color: var(--available-orange); }
+  .bg-yes-color      { background-color: var(--yes-color); }
+  .text-yes-color    { color: var(--yes-color); }
+  .bg-no-color       { background-color: var(--no-color); }
+  .text-no-color     { color: var(--no-color); }
+  .bg-video-color    { background-color: var(--video-color); }
+  .text-video-color  { color: var(--video-color); }
+  .border-market-border{ border-color: var(--market-border); }
+  .bg-free-color     { background-color: var(--free-color); }
+  .text-free-color   { color: var(--free-color); }
+  .text-text-light   { color: var(--text-light); }
+  .text-text-muted   { color: var(--text-muted); }
+}
+
+body { background: var(--dark-bg); color: var(--text-light); font-family: Inter, sans-serif; }
