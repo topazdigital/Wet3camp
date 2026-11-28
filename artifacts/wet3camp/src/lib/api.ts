@@ -145,11 +145,27 @@ export type LoungeCategory = 'looking' | 'general'
 
 export interface LoungeMessage {
   id: string
-  userId: string
+  isOwn: boolean
   category: LoungeCategory
   body: string
   authorName: string
   authorAvatar: string | null
+  createdAt: string
+}
+
+export interface LoungeConversation {
+  id: string
+  otherName: string
+  otherAvatar: string | null
+  lastMessage: string
+  lastMessageAt: string | null
+  unreadCount: number
+}
+
+export interface LoungeDirectMessage {
+  id: string
+  isOwn: boolean
+  body: string
   createdAt: string
 }
 
@@ -339,6 +355,20 @@ export const api = {
       }),
     remove: (id: string) =>
       req<{ success: boolean }>(`/lounge/messages/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+    openConversation: (messageId: string) =>
+      req<{ id: string }>('/lounge/conversations', {
+        method: 'POST',
+        body: JSON.stringify({ messageId }),
+      }),
+    conversations: () =>
+      req<LoungeConversation[]>('/lounge/conversations'),
+    conversationMessages: (conversationId: string) =>
+      req<LoungeDirectMessage[]>(`/lounge/conversations/${encodeURIComponent(conversationId)}/messages`),
+    sendPrivate: (conversationId: string, body: string) =>
+      req<LoungeDirectMessage>(`/lounge/conversations/${encodeURIComponent(conversationId)}/messages`, {
+        method: 'POST',
+        body: JSON.stringify({ body }),
+      }),
   },
 
   profile: {
