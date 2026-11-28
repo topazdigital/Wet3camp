@@ -141,6 +141,25 @@ export interface FeedPost {
   online?: boolean
 }
 
+export type LoungeCategory = 'looking' | 'general'
+
+export interface LoungeMessage {
+  id: string
+  userId: string
+  category: LoungeCategory
+  body: string
+  authorName: string
+  authorAvatar: string | null
+  createdAt: string
+}
+
+export interface LoungeMember {
+  id: string
+  name: string
+  avatar: string | null
+  lastSeen: string
+}
+
 export const api = {
   escorts: {
     list: (p?: { city?: string; area?: string; tier?: string; available?: string; featured?: boolean; paidFeaturedOnly?: boolean; sort?: string; limit?: number; offset?: number; service?: string; exactLocation?: boolean; claimedOnly?: boolean }) => {
@@ -304,6 +323,22 @@ export const api = {
       req<{ success: boolean }>(`/feeds/posts/${encodeURIComponent(id)}`, { method: 'DELETE' }),
     reportPost: (id: string, data: { reason: string; details?: string }) =>
       req<{ success: boolean }>(`/feeds/posts/${encodeURIComponent(id)}/report`, { method: 'POST', body: JSON.stringify(data) }),
+  },
+
+  lounge: {
+    list: (category?: LoungeCategory) =>
+      req<LoungeMessage[]>(`/lounge/messages${category ? `?category=${encodeURIComponent(category)}` : ''}`),
+    online: () =>
+      req<{ count: number; members: LoungeMember[] }>('/lounge/online'),
+    heartbeat: () =>
+      req<{ ok: boolean }>('/lounge/presence', { method: 'POST' }),
+    send: (category: LoungeCategory, body: string) =>
+      req<LoungeMessage>('/lounge/messages', {
+        method: 'POST',
+        body: JSON.stringify({ category, body }),
+      }),
+    remove: (id: string) =>
+      req<{ success: boolean }>(`/lounge/messages/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   },
 
   profile: {
