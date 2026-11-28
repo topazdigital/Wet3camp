@@ -1,17 +1,18 @@
-import { Home, Radio, Newspaper, MessageCircle, User, UserCircle2, Sparkles } from 'lucide-react'
+import { Home, Radio, Newspaper, MessageCircle, UsersRound, User, UserCircle2, Sparkles } from 'lucide-react'
 import { Link, useLocation } from 'wouter'
 import { useAuth } from '@/lib/auth-context'
 
 const BASE_TABS = [
   { href: '/',         icon: Home,          label: 'Home'  },
   { href: '/feeds',    icon: Newspaper,     label: 'Feeds' },
+  { href: '/lounge',   icon: UsersRound,    label: 'Lounge' },
   { href: '/live',     icon: Radio,         label: 'Live', isLive: true },
   { href: '/messages', icon: MessageCircle, label: 'Inbox' },
 ]
 
 export default function BottomNav() {
   const [location] = useLocation()
-  const { isLoggedIn, isEscort } = useAuth()
+  const { isLoggedIn, isEscort, isClient } = useAuth()
   const isActive = (href: string) => href === '/' ? location === '/' : location.startsWith(href)
 
   // Role-based last tab
@@ -21,7 +22,7 @@ export default function BottomNav() {
       : { href: '/account',    icon: User,        label: 'Account',  isSpecial: false }
     : { href: '/register',   icon: Sparkles,    label: 'Join',     isSpecial: true  }
 
-  const tabs = [...BASE_TABS, lastTab]
+  const tabs = [...BASE_TABS.filter(tab => tab.href !== '/lounge' || isClient), lastTab]
 
   return (
     <nav
