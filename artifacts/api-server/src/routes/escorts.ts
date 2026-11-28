@@ -191,14 +191,36 @@ router.get('/escorts', async (req, res) => {
       [...params, lim, off]
     )
 
+    const escortIds = (rows as any[]).map(row => String(row.id))
+    const followerCountByEscort = new Map<string, number>()
+    if (escortIds.length > 0) {
+      const placeholders = escortIds.map(() => '?').join(', ')
+      const [followerRows] = await pool.query<any[]>(
+        `SELECT escort_id, COUNT(DISTINCT user_id) AS total
+         FROM (
+           SELECT escort_id, user_id FROM user_follows WHERE escort_id IN (${placeholders})
+           UNION
+           SELECT escort_id, user_id FROM followers WHERE escort_id IN (${placeholders})
+         ) all_follows
+         GROUP BY escort_id`,
+        [...escortIds, ...escortIds],
+      )
+      for (const follower of followerRows as any[]) {
+        followerCountByEscort.set(String(follower.escort_id), Number(follower.total ?? 0))
+      }
+    }
+
     const [[{ total }]]       = await pool.query<any[]>(`SELECT COUNT(*) AS total FROM escorts e WHERE ${where}`, params)
     const [[{ verified }]]    = await pool.query<any[]>(`SELECT COUNT(*) AS verified FROM escorts e WHERE e.is_active=1 AND e.verified=1`)
     const [[{ online_count }]]= await pool.query<any[]>(`SELECT COUNT(*) AS online_count FROM escorts e WHERE e.is_active=1 AND e.online=1`)
     const [[{ cities }]]      = await pool.query<any[]>(`SELECT COUNT(DISTINCT city) AS cities FROM escorts WHERE is_active=1`)
 
-    res.setHeader('Cache-Control', 'public, max-age=300, stale-while-revalidate=3600')
+    res.setHeader('Cache-Control', 'public, max-age=30, stale-while-revalidate=60')
     res.json({
-      data:  rows.map(mapEscort),
+      data:  (rows as any[]).map(row => mapEscort({
+        ...row,
+        follower_count: followerCountByEscort.get(String(row.id)) ?? 0,
+      })),
       total: Number(total ?? 0),
       meta: {
         total:    Number(total ?? 0),
@@ -322,9 +344,13 @@ router.get('/escorts/:id', async (req, res) => {
     const [languages] = await pool.query<any[]>('SELECT DISTINCT language FROM escort_languages WHERE escort_id = ?', [escortId])
 
     const [[followerRow]] = await pool.query<any[]>(
-      `SELECT COUNT(DISTINCT user_id) AS cnt FROM user_follows WHERE escort_id IN (${associatedPlaceholders})`,
-      associatedIds,
-    ).catch(() => [[{ cnt: 0 }]])
+      `SELECT COUNT(DISTINCT user_id) AS cnt FROM (
+         SELECT user_id, escort_id FROM user_follows WHERE escort_id IN (${associatedPlaceholders})
+         UNION
+         SELECT user_id, escort_id FROM followers WHERE escort_id IN (${associatedPlaceholders})
+       ) all_follows`,
+      [...associatedIds, ...associatedIds],
+    )
 
     const [[reviewRow]] = await pool.query<any[]>(
       `SELECT COUNT(*) AS cnt, AVG(rating) AS avg FROM reviews WHERE escort_id IN (${associatedPlaceholders}) AND is_visible = 1`,
@@ -339,7 +365,7 @@ router.get('/escorts/:id', async (req, res) => {
       associatedIds,
     ).catch(() => [[]])
 
-    res.setHeader('Cache-Control', 'public, max-age=120, stale-while-revalidate=600')
+    res.setHeader('Cache-Control', 'no-store')
     res.json({
       ...mapEscort({
         ...row,
