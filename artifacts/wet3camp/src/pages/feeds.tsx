@@ -46,7 +46,15 @@ function FollowBtn({ escortId, escortUserId, small = false }: { escortId: string
   if (isOwn) return null
   return (
     <button
-      onClick={e => { e.preventDefault(); e.stopPropagation(); if (isLoggedIn) toggleFollow(escortId) }}
+      onClick={e => {
+        e.preventDefault()
+        e.stopPropagation()
+        if (!isLoggedIn) {
+          window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname)}`
+          return
+        }
+        void toggleFollow(escortId)
+      }}
       className={`font-bold transition-all rounded-full border whitespace-nowrap ${
         small ? 'px-3 py-1 text-[10px]' : 'px-4 py-1.5 text-xs'
       } ${
@@ -331,7 +339,6 @@ export default function FeedsPage() {
   })
   const [feedItems, setFeedItems] = useState<Array<{ kind: 'profile'; escort: any; sortTime: number } | { kind: 'post'; post: FeedPost; sortTime: number }>>([])
   const [loading, setLoading] = useState(true)
-  const { followerCount } = useFollow()
   const { escorts: apiEscorts } = useAllEscorts()
   const { user, isLoggedIn, isEscort, isAuthReady, isPendingEscort } = useAuth()
   const [canPost, setCanPost] = useState(false)
@@ -493,7 +500,7 @@ export default function FeedsPage() {
                         </Link>
                         <div className="flex-1 min-w-0">
                           <Link href={`/@${getSlug(e.name)}`} className="font-bold text-text-light text-xs hover:underline block truncate">{e.name}</Link>
-                          <p className="text-[10px] text-text-muted truncate">{e.city} · {followerCount(e.id).toLocaleString()} followers</p>
+                          <p className="text-[10px] text-text-muted truncate">{e.city} · {Number(e.follower_count ?? 0).toLocaleString()} followers</p>
                         </div>
                         <FollowBtn escortId={String(e.id)} small />
                       </div>
