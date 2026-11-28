@@ -85,9 +85,15 @@ function PageLoader() {
 }
 
 function ProtectedRoute({ component: Component, adminOnly = false, escortOnly = false, clientOnly = false }: { component: React.ComponentType; adminOnly?: boolean; escortOnly?: boolean; clientOnly?: boolean }) {
+  const [location] = useLocation()
   const { isLoggedIn, isAdmin, isEscort, isClient, isPendingEscort, isAuthReady } = useAuth();
   if (!isAuthReady) return <PageLoader />;
-  if (!isLoggedIn) return <Redirect to="/login" />;
+  if (!isLoggedIn) {
+    const loginPath = clientOnly && location === '/lounge'
+      ? `/login?redirect=${encodeURIComponent(location)}`
+      : '/login'
+    return <Redirect to={loginPath} />;
+  }
   if (adminOnly && !isAdmin) return <Redirect to="/" />;
   if (isPendingEscort) return <Redirect to="/pending-approval" />;
   if (escortOnly && !isEscort) return <Redirect to={isAdmin ? "/admin" : "/account"} />;
