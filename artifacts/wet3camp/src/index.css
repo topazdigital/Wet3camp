@@ -63,7 +63,7 @@
 :root.installed-pwa-shell {
   /* Android standalone can overlay the status bar while reporting a zero inset. */
   --app-safe-area-top: max(env(safe-area-inset-top, 0px), 30px);
-  --app-safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --app-safe-area-bottom: max(env(safe-area-inset-bottom, 0px), 56px);
 }
 
 @media
@@ -73,7 +73,7 @@
   (max-width: 1023px) and (display-mode: fullscreen) {
   :root {
     --app-safe-area-top: max(env(safe-area-inset-top, 0px), 30px);
-    --app-safe-area-bottom: env(safe-area-inset-bottom, 0px);
+    --app-safe-area-bottom: max(env(safe-area-inset-bottom, 0px), 56px);
   }
 }
 
@@ -161,12 +161,9 @@
   }
 
   @media (max-width: 1023px) {
-    :root.installed-pwa-shell #root {
-      padding-top: var(--app-safe-area-top);
-    }
-
     :root.installed-pwa-shell .app-site-header {
-      top: var(--app-safe-area-top);
+      top: 0;
+      padding-top: var(--app-safe-area-top);
     }
 
   }
@@ -202,12 +199,9 @@
     (max-width: 1023px) and (display-mode: window-controls-overlay),
     (max-width: 1023px) and (display-mode: minimal-ui),
     (max-width: 1023px) and (display-mode: fullscreen) {
-    #root {
-      padding-top: var(--app-safe-area-top);
-    }
-
     .app-site-header {
-      top: var(--app-safe-area-top);
+      top: 0;
+      padding-top: var(--app-safe-area-top);
     }
   }
 
