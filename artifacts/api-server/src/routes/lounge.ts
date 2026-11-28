@@ -1,18 +1,11 @@
 import { Router } from 'express'
 import { getPool } from '../lib/db.js'
+import { verifyToken } from '../lib/jwt.js'
 import { requireAuth, type AuthRequest } from '../middlewares/requireAuth.js'
 
 const router = Router()
 const CATEGORIES = ['looking', 'general'] as const
 type LoungeCategory = typeof CATEGORIES[number]
-
-function isMember(req: AuthRequest, res: any): boolean {
-  if (req.userRole !== 'user') {
-    res.status(403).json({ message: 'The Lounge is for client accounts' })
-    return false
-  }
-  return true
-}
 
 function asIsoDate(value: unknown): string {
   const date = value instanceof Date ? value : new Date(String(value))
@@ -20,10 +13,22 @@ function asIsoDate(value: unknown): string {
   return date.toISOString()
 }
 
-function toMessage(row: any) {
+async function viewerIdFromToken(req: AuthRequest): Promise<number | null> {
+  const header = req.headers.authorization
+  if (!header?.startsWith('Bearer ')) return null
+  try {
+    const payload = await verifyToken(header.slice(7))
+    const id = Number(payload.id)
+    return Number.isSafeInteger(id) && id > 0 ? id : null
+  } catch {
+    return null
+  }
+}
+
+function toMessage(row: any, viewerId: number | null = null) {
   return {
     id: String(row.id),
-    userId: String(row.user_id),
+    isOwn: viewerId != null && Number(row.user_id) === viewerId,
     category: row.category as LoungeCategory,
     body: String(row.body),
     authorName: String(row.author_name || row.username || 'Member'),
@@ -39,8 +44,7 @@ const MESSAGE_SELECT = `
     JOIN users u ON u.id = m.user_id
    WHERE u.is_active = 1`
 
-router.get('/lounge/messages', requireAuth, async (req: AuthRequest, res) => {
-  if (!isMember(req, res)) return
+router.get('/lounge/messages', async (req: AuthRequest, res) => {
   const category = req.query.category == null ? '' : String(req.query.category)
   if (category && !CATEGORIES.includes(category as LoungeCategory)) {
     res.status(400).json({ message: 'Invalid Lounge category' })
@@ -59,8 +63,9 @@ router.get('/lounge/messages', requireAuth, async (req: AuthRequest, res) => {
        LIMIT 100`,
       category ? [category] : [],
     )
-    res.setHeader('Cache-Control', 'private, no-store')
-    res.json((rows as any[]).map(toMessage))
+    const viewerId = await viewerIdFromToken(req)
+    res.setHeader('Cache-Control', 'no-store')
+    res.json((rows as any[]).map(row => toMessage(row, viewerId)))
   } catch (error) {
     console.error('[lounge] messages fetch failed:', error)
     res.status(500).json({ message: 'Could not load Lounge messages' })
@@ -68,7 +73,6 @@ router.get('/lounge/messages', requireAuth, async (req: AuthRequest, res) => {
 })
 
 router.post('/lounge/messages', requireAuth, async (req: AuthRequest, res) => {
-  if (!isMember(req, res)) return
   const { category, body } = req.body as { category?: unknown; body?: unknown }
   if (typeof category !== 'string' || !CATEGORIES.includes(category as LoungeCategory)) {
     res.status(400).json({ message: 'Choose a valid Lounge category' })
@@ -116,7 +120,7 @@ router.post('/lounge/messages', requireAuth, async (req: AuthRequest, res) => {
     }
 
     res.setHeader('Cache-Control', 'private, no-store')
-    res.status(201).json(toMessage(row))
+    res.status(201).json(toMessage(row, req.userId ?? null))
   } catch (error) {
     console.error('[lounge] message create failed:', error)
     res.status(500).json({ message: 'Could not send Lounge message' })
@@ -124,7 +128,6 @@ router.post('/lounge/messages', requireAuth, async (req: AuthRequest, res) => {
 })
 
 router.delete('/lounge/messages/:id', requireAuth, async (req: AuthRequest, res) => {
-  if (!isMember(req, res)) return
   const id = String(req.params.id ?? '')
   if (!/^[1-9]\d*$/.test(id) || !Number.isSafeInteger(Number(id))) {
     res.status(400).json({ message: 'Invalid message ID' })
@@ -155,7 +158,6 @@ router.delete('/lounge/messages/:id', requireAuth, async (req: AuthRequest, res)
 })
 
 router.post('/lounge/presence', requireAuth, async (req: AuthRequest, res) => {
-  if (!isMember(req, res)) return
   try {
     const pool = getPool()
     if (!pool) {
@@ -177,7 +179,6 @@ router.post('/lounge/presence', requireAuth, async (req: AuthRequest, res) => {
 })
 
 router.get('/lounge/online', requireAuth, async (req: AuthRequest, res) => {
-  if (!isMember(req, res)) return
   try {
     const pool = getPool()
     if (!pool) {
@@ -189,7 +190,7 @@ router.get('/lounge/online', requireAuth, async (req: AuthRequest, res) => {
       `SELECT COUNT(*) AS total
          FROM lounge_presence p
          JOIN users u ON u.id = p.user_id
-        WHERE p.last_seen >= ? AND u.is_active = 1 AND u.role = 'user'`,
+        WHERE p.last_seen >= ? AND u.is_active = 1`,
       [cutoff],
     )
     const [rows] = await pool.query<any[]>(
@@ -197,7 +198,7 @@ router.get('/lounge/online', requireAuth, async (req: AuthRequest, res) => {
               u.avatar, p.last_seen
          FROM lounge_presence p
          JOIN users u ON u.id = p.user_id
-        WHERE p.last_seen >= ? AND u.is_active = 1 AND u.role = 'user'
+        WHERE p.last_seen >= ? AND u.is_active = 1
         ORDER BY p.last_seen DESC
         LIMIT 16`,
       [cutoff],
